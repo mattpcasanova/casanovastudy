@@ -19,7 +19,7 @@ export class ClaudeService {
       const prompt = this.buildPrompt(request)
       
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
         temperature: 0.7,
         messages: [
@@ -56,7 +56,13 @@ export class ClaudeService {
 
     return `You are an expert educational content creator specializing in creating study guides for ${gradeLevel} students.
 
-TASK: Create a comprehensive study guide based on the provided course materials.
+TASK: Create a study guide based EXCLUSIVELY on the provided course materials below.
+
+CRITICAL REQUIREMENTS:
+- ONLY use information from the provided course materials
+- Do NOT add external knowledge, examples, or concepts not present in the materials
+- Focus on extracting and organizing the key points from the uploaded content
+- Make the content clear and easy to understand
 
 SUBJECT: ${subject}
 GRADE LEVEL: ${gradeLevel}
@@ -64,22 +70,31 @@ FORMAT: ${format}
 ${topicFocus ? `TOPIC FOCUS: ${topicFocus}` : ''}
 ${difficultyLevel ? `DIFFICULTY LEVEL: ${difficultyLevel}` : ''}
 
+${additionalInstructions ? `STYLE REQUIREMENTS: ${additionalInstructions}` : ''}
+
 ${formatInstructions}
 
 ${difficultyInstructions}
 
-COURSE MATERIALS:
+COURSE MATERIALS TO ANALYZE:
 ${content}
 
-${additionalInstructions ? `ADDITIONAL INSTRUCTIONS: ${additionalInstructions}` : ''}
+SPECIAL INSTRUCTIONS FOR POWERPOINT PDFs:
+If the content appears to be from PowerPoint presentations and contains some garbled or encoded text, please:
+1. Focus on the readable, clear text portions
+2. Extract key concepts, definitions, and important points from the readable content
+3. If you can identify slide breaks or sections, organize the content accordingly
+4. Create a study guide that captures the educational value from the readable portions
+5. If some content is unclear due to encoding issues, focus on the clear, educational content that is present
 
-Please create a well-structured, comprehensive study guide that:
-1. Covers all key concepts from the materials
+Create a well-structured study guide that:
+1. Extracts and organizes key concepts from the provided materials only
 2. Is appropriate for ${gradeLevel} students
-3. Follows the ${format} format
+3. Follows the ${format} format exactly
 4. Is clear, concise, and easy to understand
-5. Includes practical examples where relevant
-6. Organizes information logically
+5. Uses only examples and information from the provided materials
+6. Organizes information logically based on the source content
+7. Focuses on the readable, educational content while acknowledging any limitations in the source material
 
 Make sure the study guide is ready for students to use immediately for studying and review.`
   }
