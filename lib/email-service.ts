@@ -1,0 +1,171 @@
+import nodemailer from 'nodemailer'
+import { EmailRequest } from '@/types'
+
+export class EmailService {
+  private transporter: nodemailer.Transporter
+
+  constructor() {
+    // For development, we'll use a test account
+    // In production, you'd configure with your actual SMTP settings
+    this.transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    })
+  }
+
+  async sendStudyGuide(request: EmailRequest): Promise<boolean> {
+    try {
+      const mailOptions = {
+        from: `"CasanovaStudy" <${process.env.SMTP_USER || 'noreply@casanovastudy.com'}>`,
+        to: request.to,
+        subject: request.subject,
+        html: this.generateEmailHTML(request),
+        attachments: [
+          {
+            filename: 'study-guide.pdf',
+            path: request.pdfUrl,
+            contentType: 'application/pdf'
+          }
+        ]
+      }
+
+      const info = await this.transporter.sendMail(mailOptions)
+      console.log('Email sent:', info.messageId)
+      return true
+    } catch (error) {
+      console.error('Email sending error:', error)
+      return false
+    }
+  }
+
+  private generateEmailHTML(request: EmailRequest): string {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Study Guide is Ready!</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            color: #4facfe;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .features {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .feature {
+            margin: 10px 0;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">CasanovaStudy</div>
+            <h1 class="title">Your Study Guide is Ready! 📚</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello!</p>
+            <p>Great news! Your AI-generated study guide has been created and is ready for download. We've processed your course materials and created a comprehensive study guide tailored to your specifications.</p>
+            
+            <div class="features">
+                <h3>What's included in your study guide:</h3>
+                <div class="feature">✅ Comprehensive content based on your uploaded materials</div>
+                <div class="feature">✅ Formatted for easy studying and review</div>
+                <div class="feature">✅ Ready-to-print PDF format</div>
+                <div class="feature">✅ Organized for maximum learning efficiency</div>
+            </div>
+            
+            <p>Click the button below to download your study guide:</p>
+            
+            <div style="text-align: center;">
+                <a href="${request.pdfUrl}" class="button">Download Study Guide</a>
+            </div>
+            
+            <p><strong>Pro tip:</strong> Save this email for future reference. You can always access your study guide through this link.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Generated by CasanovaStudy - AI Study Guide Generator</p>
+            <p>Need help? Contact us at support@casanovastudy.com</p>
+            <p>This email was sent because you requested a study guide. If you didn't request this, please ignore this email.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  async verifyConnection(): Promise<boolean> {
+    try {
+      await this.transporter.verify()
+      return true
+    } catch (error) {
+      console.error('Email service verification failed:', error)
+      return false
+    }
+  }
+}

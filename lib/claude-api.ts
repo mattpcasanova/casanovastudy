@@ -1,0 +1,108 @@
+import Anthropic from '@anthropic-ai/sdk'
+import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
+
+export class ClaudeService {
+  private anthropic: Anthropic
+
+  constructor() {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is required')
+    }
+
+    this.anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+  }
+
+  async generateStudyGuide(request: ClaudeApiRequest): Promise<ClaudeApiResponse> {
+    try {
+      const prompt = this.buildPrompt(request)
+      
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4000,
+        temperature: 0.7,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type from Claude API')
+      }
+
+      return {
+        content: content.text,
+        usage: {
+          input_tokens: response.usage.input_tokens,
+          output_tokens: response.usage.output_tokens
+        }
+      }
+    } catch (error) {
+      console.error('Claude API error:', error)
+      throw new Error(`Failed to generate study guide: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  private buildPrompt(request: ClaudeApiRequest): string {
+    const { content, subject, gradeLevel, format, topicFocus, difficultyLevel, additionalInstructions } = request
+
+    const formatInstructions = this.getFormatInstructions(format)
+    const difficultyInstructions = this.getDifficultyInstructions(difficultyLevel)
+
+    return `You are an expert educational content creator specializing in creating study guides for ${gradeLevel} students.
+
+TASK: Create a comprehensive study guide based on the provided course materials.
+
+SUBJECT: ${subject}
+GRADE LEVEL: ${gradeLevel}
+FORMAT: ${format}
+${topicFocus ? `TOPIC FOCUS: ${topicFocus}` : ''}
+${difficultyLevel ? `DIFFICULTY LEVEL: ${difficultyLevel}` : ''}
+
+${formatInstructions}
+
+${difficultyInstructions}
+
+COURSE MATERIALS:
+${content}
+
+${additionalInstructions ? `ADDITIONAL INSTRUCTIONS: ${additionalInstructions}` : ''}
+
+Please create a well-structured, comprehensive study guide that:
+1. Covers all key concepts from the materials
+2. Is appropriate for ${gradeLevel} students
+3. Follows the ${format} format
+4. Is clear, concise, and easy to understand
+5. Includes practical examples where relevant
+6. Organizes information logically
+
+Make sure the study guide is ready for students to use immediately for studying and review.`
+  }
+
+  private getFormatInstructions(format: StudyGuideFormat): string {
+    const instructions = {
+      'outline': 'Create a detailed hierarchical outline with main topics, subtopics, and key points. Use clear numbering and indentation.',
+      'flashcards': 'Create question-answer pairs suitable for flashcards. Include both factual questions and conceptual questions. Format as "Q: [question] A: [answer]"',
+      'quiz': 'Create a comprehensive quiz with multiple choice, true/false, and short answer questions. Include an answer key at the end.',
+      'summary': 'Create a comprehensive summary that captures all key concepts, main ideas, and important details in a flowing narrative format.',
+      'concept-map': 'Create a structured concept map showing relationships between ideas. Use clear headings and show how concepts connect to each other.'
+    }
+    return instructions[format] || instructions.summary
+  }
+
+  private getDifficultyInstructions(difficultyLevel?: string): string {
+    if (!difficultyLevel) return ''
+
+    const instructions = {
+      'beginner': 'Use simple language and basic concepts. Focus on fundamental understanding and provide clear explanations.',
+      'intermediate': 'Use moderate complexity with some advanced concepts. Balance foundational knowledge with deeper understanding.',
+      'advanced': 'Use sophisticated language and complex concepts. Focus on deep understanding, critical thinking, and application.'
+    }
+    return instructions[difficultyLevel as keyof typeof instructions] || ''
+  }
+}

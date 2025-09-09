@@ -5,24 +5,62 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Download, Mail, FileText, CheckCircle, Sparkles, Share2 } from "lucide-react"
-import type { StudyGuideData } from "@/app/page"
+import { StudyGuideData, StudyGuideResponse } from "@/types"
 import { useState } from "react"
 
 interface ResultsPageProps {
   studyGuideData: StudyGuideData | null
+  studyGuideResponse: StudyGuideResponse | null
   onBack: () => void
   onCreateAnother: () => void
 }
 
-export default function ResultsPage({ studyGuideData, onBack, onCreateAnother }: ResultsPageProps) {
+export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack, onCreateAnother }: ResultsPageProps) {
   const [email, setEmail] = useState("")
   const [emailSent, setEmailSent] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
 
-  const handleSendEmail = () => {
-    // Placeholder for email functionality
-    console.log("Sending study guide to:", email)
-    setEmailSent(true)
-    setTimeout(() => setEmailSent(false), 3000)
+  const handleDownloadPDF = () => {
+    if (studyGuideResponse?.pdfUrl) {
+      const link = document.createElement('a')
+      link.href = studyGuideResponse.pdfUrl
+      link.download = `${studyGuideResponse.title}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    if (!email || !studyGuideResponse) return
+
+    setIsSendingEmail(true)
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: `Your ${studyGuideResponse.title} is ready!`,
+          studyGuideId: studyGuideResponse.id,
+          pdfUrl: `${window.location.origin}${studyGuideResponse.pdfUrl}`
+        })
+      })
+
+      if (response.ok) {
+        setEmailSent(true)
+        setTimeout(() => setEmailSent(false), 3000)
+      } else {
+        alert('Failed to send email. Please try again.')
+      }
+    } catch (error) {
+      console.error('Email error:', error)
+      alert('Failed to send email. Please try again.')
+    } finally {
+      setIsSendingEmail(false)
+    }
   }
 
   return (
@@ -74,38 +112,75 @@ export default function ResultsPage({ studyGuideData, onBack, onCreateAnother }:
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-gradient-to-br from-muted/50 to-muted/80 rounded-xl p-12 min-h-[400px] flex items-center justify-center border-2 border-dashed border-border/50">
-                <div className="text-center space-y-6">
-                  <div className="relative">
-                    <FileText className="h-20 w-20 mx-auto text-primary animate-pulse" />
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
-                      <Sparkles className="h-3 w-3 text-accent-foreground" />
+              <div className="bg-gradient-to-br from-muted/50 to-muted/80 rounded-xl p-8 min-h-[400px] border-2 border-dashed border-border/50">
+                {studyGuideResponse ? (
+                  <div className="space-y-4">
+                    <div className="text-center mb-6">
+                      <div className="relative inline-block">
+                        <FileText className="h-16 w-16 mx-auto text-primary" />
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
+                          <Sparkles className="h-3 w-3 text-accent-foreground" />
+                        </div>
+                      </div>
+                      <h3 className="text-2xl font-bold text-foreground mt-4">
+                        {studyGuideResponse.title}
+                      </h3>
+                      <div className="flex items-center justify-center gap-4 text-muted-foreground mt-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          <span>Subject: {studyGuideResponse.subject}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-accent rounded-full"></div>
+                          <span>Grade: {studyGuideResponse.gradeLevel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-background/80 rounded-lg p-6 max-h-96 overflow-y-auto">
+                      <div 
+                        className="prose prose-sm max-w-none text-foreground"
+                        dangerouslySetInnerHTML={{ 
+                          __html: studyGuideResponse.content
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        }}
+                      />
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <h3 className="text-2xl font-bold text-foreground">
-                      {studyGuideData?.format.charAt(0).toUpperCase() + studyGuideData?.format.slice(1)} Study Guide
-                    </h3>
-                    <div className="flex items-center justify-center gap-4 text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        <span>Subject: {studyGuideData?.subject}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-accent rounded-full"></div>
-                        <span>Grade: {studyGuideData?.gradeLevel}</span>
+                ) : (
+                  <div className="text-center space-y-6">
+                    <div className="relative">
+                      <FileText className="h-20 w-20 mx-auto text-primary animate-pulse" />
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 text-accent-foreground" />
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground bg-background/50 px-4 py-2 rounded-full inline-block">
-                      Generated from {studyGuideData?.files.length} file(s)
-                    </p>
+                    <div className="space-y-3">
+                      <h3 className="text-2xl font-bold text-foreground">
+                        {studyGuideData?.format.charAt(0).toUpperCase() + studyGuideData?.format.slice(1)} Study Guide
+                      </h3>
+                      <div className="flex items-center justify-center gap-4 text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          <span>Subject: {studyGuideData?.subject}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-accent rounded-full"></div>
+                          <span>Grade: {studyGuideData?.gradeLevel}</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground bg-background/50 px-4 py-2 rounded-full inline-block">
+                        Generated from {studyGuideData?.files.length} file(s)
+                      </p>
+                    </div>
+                    <div className="bg-background/50 rounded-lg p-4 max-w-md mx-auto">
+                      <p className="text-muted-foreground text-sm">
+                        Your AI-generated study guide will appear here once the backend processing is complete
+                      </p>
+                    </div>
                   </div>
-                  <div className="bg-background/50 rounded-lg p-4 max-w-md mx-auto">
-                    <p className="text-muted-foreground text-sm">
-                      Your AI-generated study guide will appear here once the backend processing is complete
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -120,11 +195,13 @@ export default function ResultsPage({ studyGuideData, onBack, onCreateAnother }:
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button
-                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
+                  onClick={handleDownloadPDF}
+                  disabled={!studyGuideResponse?.pdfUrl}
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download PDF
+                  {studyGuideResponse?.pdfUrl ? 'Download PDF' : 'Generating PDF...'}
                 </Button>
 
                 <Button
@@ -163,8 +240,8 @@ export default function ResultsPage({ studyGuideData, onBack, onCreateAnother }:
 
                 <Button
                   onClick={handleSendEmail}
-                  disabled={!email}
-                  className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl ${
+                  disabled={!email || !studyGuideResponse?.pdfUrl || isSendingEmail}
+                  className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                     emailSent
                       ? "bg-green-500 hover:bg-green-600 text-white"
                       : "bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-accent-foreground"
@@ -175,6 +252,11 @@ export default function ResultsPage({ studyGuideData, onBack, onCreateAnother }:
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Email Sent!
+                    </>
+                  ) : isSendingEmail ? (
+                    <>
+                      <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-accent-foreground border-t-transparent" />
+                      Sending...
                     </>
                   ) : (
                     <>
