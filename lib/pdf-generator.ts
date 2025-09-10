@@ -821,6 +821,7 @@ figcaption {
       formatted = this.formatFlashcards(formatted)
     } else if (format === 'quiz') {
       formatted = this.formatQuiz(formatted)
+    }
 
     return formatted
   }
