@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "CasanovaStudy - AI Study Guide Generator",
   description: "Transform your course materials into personalized study guides with AI",
   generator: "v0.app",
+  icons: {
+    icon: "/images/casanova-study-icon.png",
+    shortcut: "/images/casanova-study-icon.png",
+    apple: "/images/casanova-study-icon.png",
+  },
 }
 
 export default function RootLayout({
