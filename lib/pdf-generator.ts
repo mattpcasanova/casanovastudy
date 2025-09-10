@@ -495,30 +495,6 @@ code, kbd {
   margin-bottom: var(--space-8);
 }
 
-/* Concept Map (simple responsive grid) */
-.concept-map {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-10);
-  margin: var(--space-12) 0;
-}
-.concept-node {
-  border: 0.75pt solid var(--ink-200);
-  border-radius: var(--radius-md);
-  padding: var(--space-10);
-  text-align: center;
-  break-inside: avoid;
-}
-.concept-node .title { font-weight: 700; margin-bottom: 4pt; }
-.concept-node .meta { font-size: 10pt; color: var(--ink-500); }
-
-/* Connectors (ASCII-friendly, prints cleanly) */
-.connector {
-  text-align: center;
-  font-size: 10pt;
-  color: var(--ink-500);
-  margin: -6pt 0;
-}
 
 /* ---------- Figures & Captions ---------- */
 figure img {
@@ -551,7 +527,6 @@ figcaption {
 
 /* ---------- Responsive tweaks for screen preview ---------- */
 @media screen and (max-width: 1024px) {
-  .concept-map { grid-template-columns: repeat(2, 1fr); }
   .cards { grid-template-columns: 1fr; }
 }
 
@@ -569,7 +544,6 @@ figcaption {
 .connection,
 .summary,
 .cards,
-.concept-map,
 .priority { break-inside: avoid; }
 
 /* ---------- Enhanced Header Structure ---------- */
@@ -772,29 +746,6 @@ figcaption {
   color: #555;
 }
 
-.concept-map {
-  background: #f8f9fa;
-  border: 2px solid var(--brand-600);
-  border-radius: 10px;
-  padding: 20px;
-  margin: 20px 0;
-}
-
-.concept {
-  background: var(--brand-600);
-  color: white;
-  padding: 8px 15px;
-  border-radius: 20px;
-  display: inline-block;
-  margin: 5px;
-  font-weight: bold;
-}
-
-.concept-connection {
-  color: #666;
-  font-style: italic;
-  margin: 10px 0;
-}
 
 .page-break {
   page-break-before: always;
@@ -870,9 +821,6 @@ figcaption {
       formatted = this.formatFlashcards(formatted)
     } else if (format === 'quiz') {
       formatted = this.formatQuiz(formatted)
-    } else if (format === 'concept-map') {
-      formatted = this.formatConceptMap(formatted)
-    }
 
     return formatted
   }
@@ -900,12 +848,4 @@ figcaption {
       })
   }
 
-  private static formatConceptMap(content: string): string {
-    return `
-      <div class="concept-map">
-        <h3>Concept Map</h3>
-        ${content}
-      </div>
-    `
-  }
 }

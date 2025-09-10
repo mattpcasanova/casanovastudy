@@ -164,7 +164,6 @@ Make sure the study guide is ready for students to use immediately for studying 
       'flashcards': 'Create question-answer pairs suitable for flashcards. Include both factual questions and conceptual questions. Format as "Q: [question] A: [answer]". Prioritize exam-critical concepts and include active recall elements.',
       'quiz': 'Create a comprehensive quiz with multiple choice, true/false, and short answer questions. Include an answer key at the end. Focus on learning objectives and exam-critical concepts. Include questions that test both knowledge and application.',
       'summary': 'Create a comprehensive summary that captures all key concepts, main ideas, and important details in a flowing narrative format. Start with Learning Objectives, use priority system (🔴 Essential, 🟡 Important, 🟢 Supporting), and include active learning elements throughout.',
-      'concept-map': 'Create a structured concept map showing relationships between ideas. Use clear headings and show how concepts connect to each other. Start with Learning Objectives, use visual cues and symbols, and highlight exam-critical relationships.'
     }
     return instructions[format] || instructions.summary
   }

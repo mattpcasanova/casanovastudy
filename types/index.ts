@@ -3,7 +3,7 @@ export interface StudyGuideData {
   studyGuideName: string
   subject: string
   gradeLevel: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'concept-map'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary'
   topicFocus?: string
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
@@ -83,7 +83,7 @@ export interface ClaudeApiResponse {
   }
 }
 
-export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'concept-map'
+export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary'
 export type GradeLevel = '9th' | '10th' | '11th' | '12th' | 'college'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 export type FileType = 'pdf' | 'pptx' | 'docx' | 'txt'

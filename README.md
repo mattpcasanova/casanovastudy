@@ -6,7 +6,7 @@ A Next.js application that converts course materials (PDF/DOCX/TXT) into persona
 
 - **File Upload**: Support for DOCX, TXT files (PDF temporarily disabled)
 - **Smart Generation**: Intelligent study guide creation with Claude API
-- **Multiple Formats**: Outline, flashcards, quiz, summary, concept-map
+- **Multiple Formats**: Outline, flashcards, quiz, summary
 - **PDF Generation**: Beautiful, styled PDF output with Puppeteer
 - **Email Delivery**: Send study guides via email
 - **Responsive UI**: Modern interface with shadcn/ui components

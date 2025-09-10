@@ -22,7 +22,6 @@ import {
   CreditCard,
   HelpCircle,
   ScrollText,
-  Network,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -414,7 +413,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
 
                 <div className="space-y-4">
                   <Label className="text-foreground font-medium">Study Guide Format *</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div
                       className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
                         format === "outline" ? "border-primary bg-primary/5 shadow-md" : "border-border"
@@ -475,20 +474,6 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                       </div>
                     </div>
 
-                    <div
-                      className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
-                        format === "concept-map" ? "border-primary bg-primary/5 shadow-md" : "border-border"
-                      }`}
-                      onClick={() => setFormat("concept-map")}
-                    >
-                      <div className="flex items-center space-x-3 p-4 h-full">
-                        <Network className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm flex items-center gap-2">Concept Map</div>
-                          <div className="text-xs text-muted-foreground">Visual relationship diagram</div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                   {errors.format && (
                     <p className="text-sm text-destructive animate-in slide-in-from-top-1 duration-200">
