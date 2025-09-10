@@ -2,15 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FileProcessor } from '@/lib/file-processing'
 import { ApiResponse, FileUploadResponse } from '@/types'
 
-// Configure API route for larger file uploads
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<FileUploadResponse>>> {
   try {
     const formData = await request.formData()

@@ -3,12 +3,12 @@ import mammoth from 'mammoth'
 import { ProcessedFile, FileType } from '@/types'
 
 export class FileProcessor {
-  private static readonly MAX_FILE_SIZE = 4.5 * 1024 * 1024 // 4.5MB (Vercel limit)
+  private static readonly MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB (local development)
   private static readonly ALLOWED_TYPES = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain']
 
   static validateFile(file: File): { valid: boolean; error?: string } {
     if (file.size > this.MAX_FILE_SIZE) {
-      return { valid: false, error: 'File size must be less than 4.5MB' }
+      return { valid: false, error: 'File size must be less than 20MB' }
     }
 
     if (!this.ALLOWED_TYPES.includes(file.type)) {
