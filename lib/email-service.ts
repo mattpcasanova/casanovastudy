@@ -87,8 +87,18 @@ export class EmailService {
                   <tr>
                     <td valign="middle" align="left" style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:24px;color:#ffffff;font-weight:bold;">
                       <!-- Logo/Brand -->
-                      <!-- Replace with an <img> if you have a hosted logo -->
-                      <span style="display:inline-block;vertical-align:middle;">CasanovaStudy</span>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td valign="middle" style="padding-right:8px;">
+                            <div style="width:32px;height:32px;background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.1);">
+                              CS
+                            </div>
+                          </td>
+                          <td valign="middle">
+                            <span style="display:inline-block;vertical-align:middle;">CasanovaStudy</span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                     <td valign="middle" align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;color:#eaf6ff;">
                       Study made clearer

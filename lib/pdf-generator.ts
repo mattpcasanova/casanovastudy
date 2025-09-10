@@ -572,25 +572,87 @@ figcaption {
 .concept-map,
 .priority { break-inside: avoid; }
 
-/* ---------- Legacy compatibility for existing content ---------- */
+/* ---------- Enhanced Header Structure ---------- */
 .header {
-  text-align: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
+  margin-bottom: 50px;
+  padding: 30px 20px 30px 20px;
   border-bottom: 3px solid var(--brand-600);
+  page-break-after: avoid;
+  background: #ffffff;
+  position: relative;
+  z-index: 10;
+}
+
+.header-top {
+  margin-bottom: 25px;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.logo {
+  height: 40px;
+  width: auto;
+  max-width: 40px;
+  display: block;
+}
+
+.logo-placeholder {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.brand-text {
+  text-align: left;
+}
+
+.brand-name {
+  color: var(--brand-600);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.brand-tagline {
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.header-content {
+  text-align: center;
+  margin-bottom: 25px;
 }
 
 .header h1 {
   color: var(--brand-600);
   font-size: 28px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .header .subtitle {
   color: #666;
   font-size: 16px;
-  margin-bottom: 15px;
+  margin-bottom: 0;
 }
 
 .header .meta {
@@ -600,6 +662,9 @@ figcaption {
   font-size: 14px;
   color: #888;
   flex-wrap: wrap;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
 }
 
 .meta-item {
@@ -608,10 +673,14 @@ figcaption {
   gap: 5px;
 }
 
+/* Ensure content starts after header */
 .content {
   max-width: 100%;
   margin: 0 auto;
-  padding: 0 10px;
+  padding: 20px 10px 0 10px;
+  clear: both;
+  position: relative;
+  z-index: 1;
 }
 
 .content p {
@@ -748,8 +817,19 @@ figcaption {
 </head>
 <body>
     <div class="header">
-        <h1>${studyGuide.title}</h1>
-        <div class="subtitle">AI-Generated Study Guide</div>
+        <div class="header-top">
+            <div class="logo-section">
+                <div class="logo-placeholder">CS</div>
+                <div class="brand-text">
+                    <div class="brand-name">CasanovaStudy</div>
+                    <div class="brand-tagline">AI Study Guide Generator</div>
+                </div>
+            </div>
+        </div>
+        <div class="header-content">
+            <h1>${studyGuide.title}</h1>
+            <div class="subtitle">AI-Generated Study Guide</div>
+        </div>
         <div class="meta">
             <div class="meta-item">
                 <strong>Subject:</strong> ${studyGuide.subject}
