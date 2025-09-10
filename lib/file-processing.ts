@@ -227,6 +227,11 @@ Note: Please work with available content and provide general study guidance for 
 
   private static isEducationalContent(text: string): boolean {
     const educationalKeywords = [
+      // Learning objectives and goals
+      'learning objectives', 'learning intentions', 'learning goals', 'learning outcomes',
+      'by the end', 'students will', 'understand', 'know', 'be able to',
+      
+      // Core educational concepts
       'definition', 'concept', 'formula', 'equation', 'theory', 'principle',
       'density', 'pressure', 'volume', 'mass', 'force', 'area', 'height',
       'calculate', 'solve', 'example', 'problem', 'solution', 'answer',
@@ -234,7 +239,15 @@ Note: Please work with available content and provide general study guidance for 
       'properties', 'characteristics', 'features', 'types', 'kinds',
       'measurement', 'units', 'conversion', 'factor', 'ratio', 'proportion',
       'graph', 'chart', 'diagram', 'figure', 'illustration', 'example',
-      'experiment', 'observation', 'hypothesis', 'conclusion', 'result'
+      'experiment', 'observation', 'hypothesis', 'conclusion', 'result',
+      
+      // Key terms and definitions
+      'key terms', 'vocabulary', 'glossary', 'terminology',
+      'important', 'essential', 'critical', 'fundamental',
+      
+      // Exam-related content
+      'exam', 'test', 'assessment', 'evaluation', 'quiz', 'question',
+      'practice', 'review', 'study', 'prepare', 'memorize'
     ]
     
     const lowerText = text.toLowerCase()
@@ -289,9 +302,17 @@ Note: Please work with available content and provide general study guidance for 
     let score = 0
     const lowerSentence = sentence.toLowerCase()
     
+    // Highest priority: Learning objectives and exam content
+    if (lowerSentence.includes('learning objectives') || lowerSentence.includes('learning intentions')) score += 25
+    if (lowerSentence.includes('by the end') || lowerSentence.includes('students will')) score += 20
+    if (lowerSentence.includes('understand') || lowerSentence.includes('know') || lowerSentence.includes('be able to')) score += 15
+    if (lowerSentence.includes('exam') || lowerSentence.includes('test') || lowerSentence.includes('assessment')) score += 12
+    
     // High-value educational content
     if (lowerSentence.includes('definition') || lowerSentence.includes('define')) score += 10
     if (lowerSentence.includes('formula') || lowerSentence.includes('equation')) score += 10
+    if (lowerSentence.includes('key terms') || lowerSentence.includes('vocabulary')) score += 12
+    if (lowerSentence.includes('important') || lowerSentence.includes('essential') || lowerSentence.includes('critical')) score += 8
     if (lowerSentence.includes('example') || lowerSentence.includes('for instance')) score += 8
     if (lowerSentence.includes('calculate') || lowerSentence.includes('solve')) score += 8
     if (lowerSentence.includes('density') || lowerSentence.includes('pressure')) score += 15
@@ -303,6 +324,8 @@ Note: Please work with available content and provide general study guidance for 
     if (lowerSentence.includes('types') || lowerSentence.includes('kinds')) score += 5
     if (lowerSentence.includes('measurement') || lowerSentence.includes('units')) score += 5
     if (lowerSentence.includes('experiment') || lowerSentence.includes('observation')) score += 6
+    if (lowerSentence.includes('compare') || lowerSentence.includes('contrast')) score += 6
+    if (lowerSentence.includes('relationship') || lowerSentence.includes('connection')) score += 5
     
     // Penalize low-value content
     if (lowerSentence.includes('click') || lowerSentence.includes('press')) score -= 5

@@ -76,15 +76,16 @@ export class ClaudeService {
     const formatInstructions = this.getFormatInstructions(format)
     const difficultyInstructions = this.getDifficultyInstructions(difficultyLevel)
 
-      return `You are an expert educational content creator specializing in creating study guides for ${gradeLevel} students.
+      return `You are an expert educational content creator specializing in creating exam-focused study guides for ${gradeLevel} students.
 
-TASK: Create a study guide based on the extracted content from the uploaded materials. Work with whatever text was successfully extracted, even if incomplete.
+TASK: Create a study guide that prioritizes learning objectives and exam preparation. Work with whatever text was successfully extracted, even if incomplete.
 
-APPROACH:
-- Use the provided course materials as your primary source
-- When content is limited or incomplete, work with what's available and supplement with general study guidance
-- Focus on extracting and organizing the key points from the uploaded content
-- Make the content clear and easy to understand
+CRITICAL REQUIREMENTS:
+1. START WITH LEARNING OBJECTIVES: Extract and organize content around specific learning objectives from the source material
+2. PRIORITIZE EXAM CONTENT: Focus on concepts that will definitely or likely be tested
+3. ADD ACTIVE LEARNING: Include Quick Check questions, Key Term boxes, and Connection Points
+4. CREATE CLEAR HIERARCHY: Essential → Important → Supporting information
+5. OPTIMIZE FOR RETENTION: Use active recall and visual learning cues
 
 SUBJECT: ${subject}
 GRADE LEVEL: ${gradeLevel}
@@ -101,35 +102,69 @@ ${difficultyInstructions}
 COURSE MATERIALS TO ANALYZE:
 ${content}
 
+STUDY GUIDE STRUCTURE REQUIREMENTS:
+
+1. LEARNING OBJECTIVES SECTION (Start Here)
+   - Extract specific learning objectives from source material
+   - If "Learning Intentions" or similar sections exist, prioritize these
+   - Organize content around these objectives
+
+2. CONTENT PRIORITIZATION SYSTEM
+   - 🔴 ESSENTIAL: Concepts that will definitely be on exam (formulas, key definitions, core processes)
+   - 🟡 IMPORTANT: Details likely to be tested (examples, applications, relationships)
+   - 🟢 SUPPORTING: Helpful context but not exam-critical (background info, extended examples)
+
+3. ACTIVE LEARNING ELEMENTS (Include Throughout)
+   - Quick Check Questions: "What is the formula for...?" "Explain the difference between..."
+   - Key Term Boxes: Highlight definitions with clear, concise explanations
+   - Connection Points: "This relates to..." "Remember that..." "Compare with..."
+   - Visual Cues: Use symbols, arrows, and formatting to show relationships
+
+4. EXAM OPTIMIZATION
+   - Focus on concepts students need to recall, not just understand
+   - Include common exam question patterns
+   - Highlight frequently tested relationships and formulas
+   - Create comparison tables for contrasting concepts
+   - Use process flowcharts for sequential concepts
+
 SPECIAL INSTRUCTIONS FOR POWERPOINT PDFs:
 If the content appears to be from PowerPoint presentations and contains some garbled or encoded text, please:
 1. Focus on the readable, clear text portions
 2. Extract key concepts, definitions, and important points from the readable content
 3. If you can identify slide breaks or sections, organize the content accordingly
-4. Create a study guide that captures the educational value from the readable portions
-5. If some content is unclear due to encoding issues, focus on the clear, educational content that is present
+4. Look specifically for learning objectives, bullet points, and key terms
+5. Create a study guide that captures the educational value from the readable portions
 6. When content is limited, provide general study guidance for the subject area
 
-Create a well-structured study guide that:
-1. Extracts and organizes key concepts from the provided materials
-2. Is appropriate for ${gradeLevel} students
-3. Follows the ${format} format exactly
-4. Is clear, concise, and easy to understand
-5. Uses examples and information from the provided materials when available
-6. Organizes information logically based on the source content
-7. Focuses on the readable, educational content while acknowledging any limitations in the source material
-8. Provides additional study guidance when specific content is insufficient
+FORMATTING GUIDELINES:
+- Use clear headings and subheadings
+- Include visual separators between sections
+- Use bullet points and numbered lists for clarity
+- Highlight key terms in bold or with callout boxes
+- Create tables for comparisons
+- Use arrows and symbols to show relationships
+- Include space for student notes
+
+Create a study guide that:
+1. Starts with clear learning objectives from the source material
+2. Organizes content by priority (Essential → Important → Supporting)
+3. Includes active learning elements throughout
+4. Is optimized for exam preparation and retention
+5. Uses visual cues and clear formatting
+6. Focuses on what students need to know for exams
+7. Is appropriate for ${gradeLevel} students
+8. Follows the ${format} format exactly
 
 Make sure the study guide is ready for students to use immediately for studying and review.`
   }
 
   private getFormatInstructions(format: StudyGuideFormat): string {
     const instructions = {
-      'outline': 'Create a detailed hierarchical outline with main topics, subtopics, and key points. Use clear numbering and indentation.',
-      'flashcards': 'Create question-answer pairs suitable for flashcards. Include both factual questions and conceptual questions. Format as "Q: [question] A: [answer]"',
-      'quiz': 'Create a comprehensive quiz with multiple choice, true/false, and short answer questions. Include an answer key at the end.',
-      'summary': 'Create a comprehensive summary that captures all key concepts, main ideas, and important details in a flowing narrative format.',
-      'concept-map': 'Create a structured concept map showing relationships between ideas. Use clear headings and show how concepts connect to each other.'
+      'outline': 'Create a detailed hierarchical outline with main topics, subtopics, and key points. Use clear numbering and indentation. Start with Learning Objectives, then organize by priority (Essential → Important → Supporting). Include Quick Check questions and Key Term boxes throughout.',
+      'flashcards': 'Create question-answer pairs suitable for flashcards. Include both factual questions and conceptual questions. Format as "Q: [question] A: [answer]". Prioritize exam-critical concepts and include active recall elements.',
+      'quiz': 'Create a comprehensive quiz with multiple choice, true/false, and short answer questions. Include an answer key at the end. Focus on learning objectives and exam-critical concepts. Include questions that test both knowledge and application.',
+      'summary': 'Create a comprehensive summary that captures all key concepts, main ideas, and important details in a flowing narrative format. Start with Learning Objectives, use priority system (🔴 Essential, 🟡 Important, 🟢 Supporting), and include active learning elements throughout.',
+      'concept-map': 'Create a structured concept map showing relationships between ideas. Use clear headings and show how concepts connect to each other. Start with Learning Objectives, use visual cues and symbols, and highlight exam-critical relationships.'
     }
     return instructions[format] || instructions.summary
   }
