@@ -1,5 +1,6 @@
 export interface StudyGuideData {
   files: File[]
+  studyGuideName: string
   subject: string
   gradeLevel: string
   format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'concept-map'
@@ -18,6 +19,7 @@ export interface ProcessedFile {
 
 export interface StudyGuideRequest {
   files: ProcessedFile[]
+  studyGuideName: string
   subject: string
   gradeLevel: string
   format: string

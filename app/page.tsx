@@ -37,6 +37,7 @@ export default function Home() {
       // Step 2: Generate study guide
       const studyGuideRequest = {
         files: uploadResult.data.files,
+        studyGuideName: data.studyGuideName,
         subject: data.subject,
         gradeLevel: data.gradeLevel,
         format: data.format,
@@ -44,6 +45,14 @@ export default function Home() {
         difficultyLevel: data.difficultyLevel,
         additionalInstructions: data.additionalInstructions
       }
+
+      console.log('Study Guide Request:', {
+        studyGuideName: studyGuideRequest.studyGuideName,
+        subject: studyGuideRequest.subject,
+        gradeLevel: studyGuideRequest.gradeLevel,
+        format: studyGuideRequest.format,
+        fileCount: studyGuideRequest.files.length
+      })
 
       const generateResponse = await fetch('/api/generate-study-guide', {
         method: 'POST',
@@ -54,7 +63,9 @@ export default function Home() {
       })
 
       if (!generateResponse.ok) {
-        throw new Error('Failed to generate study guide')
+        const errorData = await generateResponse.json()
+        console.error('API Error:', errorData)
+        throw new Error(errorData.error || 'Failed to generate study guide')
       }
 
       const generateResult = await generateResponse.json()

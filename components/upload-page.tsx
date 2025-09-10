@@ -35,6 +35,7 @@ interface UploadPageProps {
 
 export default function UploadPage({ onGenerateStudyGuide, isGenerating }: UploadPageProps) {
   const [files, setFiles] = useState<File[]>([])
+  const [studyGuideName, setStudyGuideName] = useState("")
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [format, setFormat] = useState("")
@@ -47,7 +48,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
   const { toast } = useToast()
 
   const validateFile = (file: File): string | null => {
-    const maxSize = 10 * 1024 * 1024 // 10MB
+    const maxSize = 20 * 1024 * 1024 // 20MB
     const allowedTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -142,6 +143,10 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
       newErrors.files = "Please upload at least one file"
     }
 
+    if (!studyGuideName.trim()) {
+      newErrors.studyGuideName = "Please enter a name for your study guide"
+    }
+
     if (!subject) {
       newErrors.subject = "Please select a subject"
     }
@@ -158,12 +163,13 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
     return Object.keys(newErrors).length === 0
   }
 
-  const isFormValid = files.length > 0 && subject && gradeLevel && format
+  const isFormValid = files.length > 0 && studyGuideName.trim() && subject && gradeLevel && format
 
   const handleSubmit = () => {
     if (validateForm() && !isGenerating) {
       onGenerateStudyGuide({
         files,
+        studyGuideName,
         subject,
         gradeLevel,
         format,
@@ -266,7 +272,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                   </label>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports PDF, PowerPoint, and Word documents (max 10MB each)
+                  Supports PDF, PowerPoint, and Word documents (max 20MB each)
                 </p>
               </div>
 
@@ -331,6 +337,26 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-1 h-6 bg-primary rounded-full"></div>
                   <h3 className="text-lg font-semibold text-foreground">Required Information</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="studyGuideName" className="text-foreground font-medium">
+                    Study Guide Name *
+                  </Label>
+                  <Input
+                    id="studyGuideName"
+                    type="text"
+                    placeholder="e.g., Density and Pressure Review, Biology Chapter 5, etc."
+                    value={studyGuideName}
+                    onChange={(e) => setStudyGuideName(e.target.value)}
+                    disabled={isGenerating}
+                    className={`transition-all duration-200 border-2 ${errors.studyGuideName ? "border-destructive" : "border-border hover:border-primary/70 focus:border-primary"}`}
+                  />
+                  {errors.studyGuideName && (
+                    <p className="text-sm text-destructive animate-in slide-in-from-top-1 duration-200">
+                      {errors.studyGuideName}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">

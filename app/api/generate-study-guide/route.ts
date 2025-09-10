@@ -10,18 +10,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
   try {
     const body: StudyGuideRequest = await request.json()
     
+    console.log('API Request received:', {
+      studyGuideName: body.studyGuideName,
+      subject: body.subject,
+      gradeLevel: body.gradeLevel,
+      format: body.format,
+      fileCount: body.files?.length || 0
+    })
+    
     // Validate request
     if (!body.files || body.files.length === 0) {
+      console.log('Validation failed: No files provided')
       return NextResponse.json({
         success: false,
         error: 'No files provided'
       }, { status: 400 })
     }
 
-    if (!body.subject || !body.gradeLevel || !body.format) {
+    if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
+      console.log('Validation failed: Missing required fields', {
+        studyGuideName: !!body.studyGuideName,
+        subject: !!body.subject,
+        gradeLevel: !!body.gradeLevel,
+        format: !!body.format
+      })
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields: subject, gradeLevel, format'
+        error: 'Missing required fields: studyGuideName, subject, gradeLevel, format'
       }, { status: 400 })
     }
 
@@ -63,7 +78,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const studyGuideId = `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const studyGuide: StudyGuideResponse = {
       id: studyGuideId,
-      title: `${body.subject} Study Guide - ${body.format}`,
+      title: body.studyGuideName,
       content: claudeResponse.content,
       format: body.format,
       generatedAt: new Date(),
