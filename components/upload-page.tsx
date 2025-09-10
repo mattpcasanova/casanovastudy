@@ -96,6 +96,12 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
     const invalidFiles: string[] = []
 
     newFiles.forEach((file) => {
+      // Check Vercel's 4.5MB limit for live deployment
+      if (file.size > 4.5 * 1024 * 1024) {
+        invalidFiles.push(`${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 4.5MB for live deployment. Please compress or split the file.`)
+        return
+      }
+      
       const error = validateFile(file)
       if (error) {
         invalidFiles.push(`${file.name}: ${error}`)
@@ -271,7 +277,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                   </label>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports PDF, PowerPoint, and Word documents (max 20MB each)
+                  Supports PDF, PowerPoint, and Word documents (max 4.5MB each)
                 </p>
               </div>
 
