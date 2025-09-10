@@ -76,6 +76,12 @@ export class FileProcessor {
       
       // Method 1: Enhanced custom extraction
       const customText = this.extractTextFromPDFBuffer(buffer)
+      console.log('Custom extraction result:', {
+        length: customText?.length || 0,
+        preview: customText?.substring(0, 200) + '...',
+        hasContent: customText && customText.trim().length > 100
+      })
+      
       if (customText && customText.trim().length > 100) {
         console.log('Custom extraction successful, length:', customText.length)
         return this.summarizeText(customText.trim())
@@ -148,33 +154,12 @@ export class FileProcessor {
         return this.summarizeText(customText.trim())
       }
       
-      // If nothing worked, provide a helpful response
-      const fileSize = Math.round(buffer.length / 1024)
-      return `PDF Document Analysis
-
-File Size: ${fileSize} KB
-Status: PDF file received and processed
-
-Content Analysis:
-This appears to be a PowerPoint presentation converted to PDF format. The text content could not be automatically extracted using standard methods.
-
-To create your study guide, please try one of these methods:
-
-1. Convert to DOCX format:
-   - Use an online converter like SmallPDF.com or ILovePDF.com
-   - Upload the converted DOCX file instead
-
-2. Copy and paste the text:
-   - Open the PDF in a PDF viewer
-   - Select all text (Ctrl/Cmd + A)
-   - Copy the text (Ctrl/Cmd + C)
-   - Create a text file and paste the content
-   - Upload the text file
-
-3. Use the original PowerPoint file:
-   - If you have the original .pptx file, upload that instead
-
-The PDF file has been successfully received and the system is working correctly. The above methods will ensure optimal text extraction for study guide generation.`
+          // If nothing worked, return minimal content for Claude to work with
+          const fileSize = Math.round(buffer.length / 1024)
+          return `PDF Document: ${fileSize} KB
+Content: PowerPoint presentation converted to PDF
+Status: Limited text extraction available
+Note: Please work with available content and provide general study guidance for the subject area.`
       
     } catch (error) {
       console.error('PDF extraction error:', error)
@@ -185,44 +170,148 @@ The PDF file has been successfully received and the system is working correctly.
   private static summarizeText(text: string): string {
     try {
       // If text is already short enough, return as is
-      if (text.length < 50000) {
+      if (text.length < 15000) {
         return text
       }
       
       console.log('Text too long, summarizing. Original length:', text.length)
       
-      // Split text into sentences
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10)
+      // Clean and filter the text more aggressively
+      let cleanedText = this.cleanAndFilterText(text)
       
-      // Remove duplicates and very short sentences
-      const uniqueSentences = [...new Set(sentences)]
-        .filter(s => s.trim().length > 20)
-        .map(s => s.trim())
-      
-      // If we still have too many sentences, take a sample
-      let selectedSentences = uniqueSentences
-      if (uniqueSentences.length > 200) {
-        // Take every nth sentence to get a representative sample
-        const step = Math.ceil(uniqueSentences.length / 200)
-        selectedSentences = uniqueSentences.filter((_, index) => index % step === 0)
+      // If still too long, apply intelligent summarization
+      if (cleanedText.length > 15000) {
+        cleanedText = this.intelligentSummarization(cleanedText)
       }
       
-      // Take the first 150 sentences or until we're under 50k characters
-      let result = ''
-      for (const sentence of selectedSentences) {
-        if (result.length + sentence.length > 50000) {
-          break
-        }
-        result += sentence + '. '
-      }
-      
-      console.log('Summarized text length:', result.length)
-      return result.trim()
+      console.log('Summarized text length:', cleanedText.length)
+      return cleanedText.trim()
     } catch (error) {
       console.error('Text summarization error:', error)
       // If summarization fails, return a truncated version
-      return text.substring(0, 50000) + '... [Content truncated due to length]'
+      return text.substring(0, 15000) + '... [Content truncated due to length]'
     }
+  }
+
+  private static cleanAndFilterText(text: string): string {
+    // Remove common PDF artifacts and unnecessary content
+    let cleaned = text
+      .replace(/Page \d+/gi, '') // Remove page numbers
+      .replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, '') // Remove dates
+      .replace(/\b\d{1,2}:\d{2}\b/g, '') // Remove times
+      .replace(/https?:\/\/[^\s]+/g, '') // Remove URLs
+      .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '') // Remove emails
+      .replace(/\b\d{3}-\d{3}-\d{4}\b/g, '') // Remove phone numbers
+      .replace(/\b[A-Z]{2,}\s+\d+\b/g, '') // Remove codes like "ABC 123"
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/\n\s*\n/g, '\n') // Replace multiple newlines with single newline
+      .trim()
+
+    // Split into lines and filter out non-educational content
+    const lines = cleaned.split('\n')
+    const filteredLines = lines.filter(line => {
+      const trimmed = line.trim()
+      if (trimmed.length < 10) return false
+      
+      // Keep educational content
+      if (this.isEducationalContent(trimmed)) return true
+      
+      // Remove navigation, UI elements, and metadata
+      if (this.isNonEducationalContent(trimmed)) return false
+      
+      return true
+    })
+
+    return filteredLines.join('\n')
+  }
+
+  private static isEducationalContent(text: string): boolean {
+    const educationalKeywords = [
+      'definition', 'concept', 'formula', 'equation', 'theory', 'principle',
+      'density', 'pressure', 'volume', 'mass', 'force', 'area', 'height',
+      'calculate', 'solve', 'example', 'problem', 'solution', 'answer',
+      'explain', 'describe', 'analyze', 'compare', 'contrast', 'identify',
+      'properties', 'characteristics', 'features', 'types', 'kinds',
+      'measurement', 'units', 'conversion', 'factor', 'ratio', 'proportion',
+      'graph', 'chart', 'diagram', 'figure', 'illustration', 'example',
+      'experiment', 'observation', 'hypothesis', 'conclusion', 'result'
+    ]
+    
+    const lowerText = text.toLowerCase()
+    return educationalKeywords.some(keyword => lowerText.includes(keyword))
+  }
+
+  private static isNonEducationalContent(text: string): boolean {
+    const nonEducationalPatterns = [
+      /^[A-Z\s]+$/, // All caps (likely headers/navigation)
+      /^(Home|Menu|Back|Next|Previous|Close|Open|Save|Print|Download)/i,
+      /^(Page|Slide|Chapter|Section)\s*\d+/i,
+      /^(Copyright|©|All rights reserved)/i,
+      /^(Created|Modified|Updated|Last updated)/i,
+      /^(File|Edit|View|Insert|Format|Tools|Help)/i,
+      /^(Click|Press|Select|Choose|Enter|Type)/i,
+      /^(Navigation|Menu|Toolbar|Sidebar|Footer|Header)/i,
+      /^[^\w\s]*$/, // Only symbols/punctuation
+      /^\d+$/, // Only numbers
+      /^(The|A|An|This|That|These|Those)\s*$/, // Single articles
+      /^(and|or|but|so|yet|for|nor)\s*$/i, // Single conjunctions
+    ]
+    
+    return nonEducationalPatterns.some(pattern => pattern.test(text))
+  }
+
+  private static intelligentSummarization(text: string): string {
+    // Split into sentences
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 15)
+    
+    // Score sentences by educational value
+    const scoredSentences = sentences.map(sentence => ({
+      text: sentence.trim(),
+      score: this.scoreSentence(sentence)
+    }))
+    
+    // Sort by score (highest first)
+    scoredSentences.sort((a, b) => b.score - a.score)
+    
+    // Take top sentences until we reach target length
+    let result = ''
+    const targetLength = 12000
+    
+    for (const { text } of scoredSentences) {
+      if (result.length + text.length > targetLength) break
+      result += text + '. '
+    }
+    
+    return result.trim()
+  }
+
+  private static scoreSentence(sentence: string): number {
+    let score = 0
+    const lowerSentence = sentence.toLowerCase()
+    
+    // High-value educational content
+    if (lowerSentence.includes('definition') || lowerSentence.includes('define')) score += 10
+    if (lowerSentence.includes('formula') || lowerSentence.includes('equation')) score += 10
+    if (lowerSentence.includes('example') || lowerSentence.includes('for instance')) score += 8
+    if (lowerSentence.includes('calculate') || lowerSentence.includes('solve')) score += 8
+    if (lowerSentence.includes('density') || lowerSentence.includes('pressure')) score += 15
+    if (lowerSentence.includes('volume') || lowerSentence.includes('mass')) score += 8
+    if (lowerSentence.includes('force') || lowerSentence.includes('area')) score += 8
+    
+    // Medium-value content
+    if (lowerSentence.includes('properties') || lowerSentence.includes('characteristics')) score += 5
+    if (lowerSentence.includes('types') || lowerSentence.includes('kinds')) score += 5
+    if (lowerSentence.includes('measurement') || lowerSentence.includes('units')) score += 5
+    if (lowerSentence.includes('experiment') || lowerSentence.includes('observation')) score += 6
+    
+    // Penalize low-value content
+    if (lowerSentence.includes('click') || lowerSentence.includes('press')) score -= 5
+    if (lowerSentence.includes('page') || lowerSentence.includes('slide')) score -= 3
+    if (lowerSentence.includes('menu') || lowerSentence.includes('navigation')) score -= 5
+    if (lowerSentence.length < 20) score -= 3 // Very short sentences
+    if (lowerSentence.length > 200) score -= 2 // Very long sentences
+    
+    return Math.max(0, score)
   }
 
   private static extractTextFromPDFBuffer(buffer: Buffer): string {
@@ -247,8 +336,8 @@ The PDF file has been successfully received and the system is working correctly.
               .replace(/\\t/g, '\t')
               .replace(/\\(.)/g, '$1') // Unescape other characters
             
-            // Filter out encoded/garbled text
-            if (this.isReadableText(extractedText)) {
+            // Filter out encoded/garbled text and prioritize educational content
+            if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText)) {
               textObjects.push(extractedText.trim())
             }
           }
@@ -269,8 +358,8 @@ The PDF file has been successfully received and the system is working correctly.
               .replace(/\\t/g, '\t')
               .replace(/\\(.)/g, '$1')
             
-            // Filter out encoded/garbled text
-            if (this.isReadableText(extractedText)) {
+            // Filter out encoded/garbled text and prioritize educational content
+            if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText)) {
               textObjects.push(extractedText.trim())
             }
           }
@@ -278,15 +367,15 @@ The PDF file has been successfully received and the system is working correctly.
       }
       
       // Pattern 3: Look for readable text patterns (for PowerPoint PDFs) - enhanced
-      const readableText = pdfString.match(/[A-Za-z][A-Za-z0-9\s.,!?;:'"()-]{10,}/g) || []
+      const readableText = pdfString.match(/[A-Za-z][A-Za-z0-9\s.,!?;:'"()-]{15,}/g) || []
       for (const text of readableText) {
-        if (this.isReadableText(text) && text.trim().length > 10) {
+        if (this.isReadableText(text) && this.isEducationalContent(text) && text.trim().length > 15) {
           textObjects.push(text.trim())
         }
       }
       
       // Pattern 4: Look for text in parentheses - improved filtering
-      const parenMatches = pdfString.match(/\(([^)]{3,})\)/g) || []
+      const parenMatches = pdfString.match(/\(([^)]{5,})\)/g) || []
       for (const match of parenMatches) {
         const text = match.match(/\(([^)]+)\)/)
         if (text && text[1]) {
@@ -296,14 +385,14 @@ The PDF file has been successfully received and the system is working correctly.
             .replace(/\\t/g, '\t')
             .replace(/\\(.)/g, '$1')
           
-          if (this.isReadableText(extractedText) && extractedText.trim().length > 2) {
+          if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText) && extractedText.trim().length > 5) {
             textObjects.push(extractedText.trim())
           }
         }
       }
       
       // Pattern 5: Look for text in square brackets - improved filtering
-      const bracketMatches = pdfString.match(/\[([^\]]{3,})\]/g) || []
+      const bracketMatches = pdfString.match(/\[([^\]]{5,})\]/g) || []
       for (const match of bracketMatches) {
         const text = match.match(/\[([^\]]+)\]/)
         if (text && text[1]) {
@@ -313,7 +402,7 @@ The PDF file has been successfully received and the system is working correctly.
             .replace(/\\t/g, '\t')
             .replace(/\\(.)/g, '$1')
           
-          if (this.isReadableText(extractedText) && extractedText.trim().length > 2) {
+          if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText) && extractedText.trim().length > 5) {
             textObjects.push(extractedText.trim())
           }
         }

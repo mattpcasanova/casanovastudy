@@ -18,6 +18,17 @@ export class ClaudeService {
     try {
       const prompt = this.buildPrompt(request)
       
+      // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
+      const estimatedInputTokens = Math.ceil(prompt.length / 4)
+      
+      console.log('📊 Token Usage Analysis:', {
+        promptLength: prompt.length,
+        estimatedInputTokens,
+        maxOutputTokens: 4000,
+        totalEstimatedTokens: estimatedInputTokens + 4000,
+        contentPreview: prompt.substring(0, 200) + '...'
+      })
+      
       const response = await this.anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
@@ -35,12 +46,23 @@ export class ClaudeService {
         throw new Error('Unexpected response type from Claude API')
       }
 
+      // Log actual token usage
+      const actualUsage = {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens
+      }
+      
+      console.log('✅ Actual Token Usage:', {
+        inputTokens: actualUsage.input_tokens,
+        outputTokens: actualUsage.output_tokens,
+        totalTokens: actualUsage.total_tokens,
+        costEstimate: `~$${(actualUsage.total_tokens * 0.000015).toFixed(4)}` // Rough cost estimate
+      })
+
       return {
         content: content.text,
-        usage: {
-          input_tokens: response.usage.input_tokens,
-          output_tokens: response.usage.output_tokens
-        }
+        usage: actualUsage
       }
     } catch (error) {
       console.error('Claude API error:', error)
@@ -54,13 +76,13 @@ export class ClaudeService {
     const formatInstructions = this.getFormatInstructions(format)
     const difficultyInstructions = this.getDifficultyInstructions(difficultyLevel)
 
-    return `You are an expert educational content creator specializing in creating study guides for ${gradeLevel} students.
+      return `You are an expert educational content creator specializing in creating study guides for ${gradeLevel} students.
 
-TASK: Create a study guide based EXCLUSIVELY on the provided course materials below.
+TASK: Create a study guide based on the extracted content from the uploaded materials. Work with whatever text was successfully extracted, even if incomplete.
 
-CRITICAL REQUIREMENTS:
-- ONLY use information from the provided course materials
-- Do NOT add external knowledge, examples, or concepts not present in the materials
+APPROACH:
+- Use the provided course materials as your primary source
+- When content is limited or incomplete, work with what's available and supplement with general study guidance
 - Focus on extracting and organizing the key points from the uploaded content
 - Make the content clear and easy to understand
 
@@ -86,15 +108,17 @@ If the content appears to be from PowerPoint presentations and contains some gar
 3. If you can identify slide breaks or sections, organize the content accordingly
 4. Create a study guide that captures the educational value from the readable portions
 5. If some content is unclear due to encoding issues, focus on the clear, educational content that is present
+6. When content is limited, provide general study guidance for the subject area
 
 Create a well-structured study guide that:
-1. Extracts and organizes key concepts from the provided materials only
+1. Extracts and organizes key concepts from the provided materials
 2. Is appropriate for ${gradeLevel} students
 3. Follows the ${format} format exactly
 4. Is clear, concise, and easy to understand
-5. Uses only examples and information from the provided materials
+5. Uses examples and information from the provided materials when available
 6. Organizes information logically based on the source content
 7. Focuses on the readable, educational content while acknowledging any limitations in the source material
+8. Provides additional study guidance when specific content is insufficient
 
 Make sure the study guide is ready for students to use immediately for studying and review.`
   }

@@ -134,6 +134,15 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                           <div className="w-2 h-2 bg-accent rounded-full"></div>
                           <span>Grade: {studyGuideResponse.gradeLevel}</span>
                         </div>
+                        {studyGuideResponse.tokenUsage && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm text-muted-foreground">
+                              Tokens: {studyGuideResponse.tokenUsage.total_tokens.toLocaleString()} 
+                              (${(studyGuideResponse.tokenUsage.total_tokens * 0.000015).toFixed(4)})
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="bg-background/80 rounded-lg p-6 max-h-96 overflow-y-auto">

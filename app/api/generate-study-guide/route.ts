@@ -30,10 +30,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       .map(file => `--- ${file.name} ---\n${file.content}`)
       .join('\n\n')
 
+    // Check if content extraction was limited
+    const totalContentLength = combinedContent.length
+    const hasLimitedContent = totalContentLength < 100 || body.files.some(file => file.content.length < 50)
+    
+    console.log('Content extraction stats:', {
+      totalLength: totalContentLength,
+      fileCount: body.files.length,
+      hasLimitedContent,
+      fileLengths: body.files.map(f => ({ name: f.name, length: f.content.length }))
+    })
+
+    // Add fallback note if content is limited
+    let finalContent = combinedContent
+    if (hasLimitedContent) {
+      finalContent += `\n\nNote: Text extraction from PDF was limited. Please create a study guide based on available content and include general study tips for ${body.subject} topics when specific content is insufficient.`
+    }
+
     // Generate study guide using Claude
     const claudeService = new ClaudeService()
     const claudeResponse = await claudeService.generateStudyGuide({
-      content: combinedContent,
+      content: finalContent,
       subject: body.subject,
       gradeLevel: body.gradeLevel,
       format: body.format,
@@ -52,7 +69,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       generatedAt: new Date(),
       fileCount: body.files.length,
       subject: body.subject,
-      gradeLevel: body.gradeLevel
+      gradeLevel: body.gradeLevel,
+      tokenUsage: claudeResponse.usage
     }
 
     // Generate PDF
