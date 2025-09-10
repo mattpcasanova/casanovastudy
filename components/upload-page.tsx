@@ -203,7 +203,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
 
           <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 mx-auto max-w-4xl">
             <p className="text-xl text-center text-white text-pretty leading-relaxed">
-              Transform your course materials into personalized study guides with AI-powered learning assistance
+              Transform your course materials into personalized study guides with smart learning assistance
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">AI-Powered</span>
+                <span className="font-medium">Smart</span>
               </div>
             </div>
           </div>

@@ -1,11 +1,11 @@
-# CasanovaStudy - AI Study Guide Generator
+# CasanovaStudy - Study Guide Generator
 
-A Next.js application that converts course materials (PDF/DOCX/TXT) into AI-generated study guides using Claude API. Students can upload files, configure preferences, and get downloadable PDF study guides.
+A Next.js application that converts course materials (PDF/DOCX/TXT) into personalized study guides. Students can upload files, configure preferences, and get downloadable PDF study guides.
 
 ## 🚀 Features
 
 - **File Upload**: Support for DOCX, TXT files (PDF temporarily disabled)
-- **AI Generation**: Claude API integration for intelligent study guide creation
+- **Smart Generation**: Intelligent study guide creation with Claude API
 - **Multiple Formats**: Outline, flashcards, quiz, summary, concept-map
 - **PDF Generation**: Beautiful, styled PDF output with Puppeteer
 - **Email Delivery**: Send study guides via email
@@ -99,7 +99,7 @@ Upload and process files for study guide generation.
 **Response**: Processed file data
 
 ### POST /api/generate-study-guide
-Generate AI study guide from processed files.
+Generate study guide from processed files.
 
 **Request**: Study guide configuration
 **Response**: Generated study guide with PDF URL
@@ -122,7 +122,7 @@ Send study guide via email.
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `ANTHROPIC_API_KEY` | Claude API key for AI generation | Yes |
+| `ANTHROPIC_API_KEY` | Claude API key for study guide generation | Yes |
 | `SMTP_HOST` | SMTP server hostname | No |
 | `SMTP_PORT` | SMTP server port | No |
 | `SMTP_USER` | SMTP username | No |

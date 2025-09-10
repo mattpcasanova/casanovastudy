@@ -13,8 +13,8 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "CasanovaStudy - AI Study Guide Generator",
-  description: "Transform your course materials into personalized study guides with AI",
+  title: "CasanovaStudy - Study Guide Generator",
+  description: "Transform your course materials into personalized study guides",
   generator: "v0.app",
   icons: {
     icon: "/images/casanova-study-icon.png",

@@ -185,7 +185,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                     </div>
                     <div className="bg-background/50 rounded-lg p-4 max-w-md mx-auto">
                       <p className="text-muted-foreground text-sm">
-                        Your AI-generated study guide will appear here once the backend processing is complete
+                        Your generated study guide will appear here once the backend processing is complete
                       </p>
                     </div>
                   </div>

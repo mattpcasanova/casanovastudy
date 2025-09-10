@@ -12,7 +12,7 @@ export class PDFGenerator {
     },
     printBackground: true,
     displayHeaderFooter: true,
-    headerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%; color: #666;">CasanovaStudy - AI Study Guide Generator</div>',
+    headerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%; color: #666;">CasanovaStudy - Study Guide Generator</div>',
     footerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%; color: #666;">Generated on <span class="date"></span> | Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>'
   }
 
@@ -822,13 +822,13 @@ figcaption {
                 <div class="logo-placeholder">CS</div>
                 <div class="brand-text">
                     <div class="brand-name">CasanovaStudy</div>
-                    <div class="brand-tagline">AI Study Guide Generator</div>
+                    <div class="brand-tagline">Study Guide Generator</div>
                 </div>
             </div>
         </div>
         <div class="header-content">
             <h1>${studyGuide.title}</h1>
-            <div class="subtitle">AI-Generated Study Guide</div>
+            <div class="subtitle">Generated Study Guide</div>
         </div>
         <div class="meta">
             <div class="meta-item">
