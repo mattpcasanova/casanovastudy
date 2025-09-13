@@ -45,11 +45,10 @@ export class EmailService {
   }
 
   private generateEmailHTML(request: EmailRequest): string {
-    const fileName = 'study-guide.html'
-    const fileSize = 'HTML Document'
+    const fileName = 'study-guide.pdf'
+    const fileSize = 'PDF Document'
     const currentYear = new Date().getFullYear()
-    // For now, just provide a simple message since we can't easily embed the HTML
-    const ctaUrl = '#'
+    const ctaUrl = request.pdfDataUrl
     
     return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -109,7 +108,7 @@ export class EmailService {
                   ${request.subject}
                 </div>
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#64748b;margin-top:4px;">
-                  Your study guide is ready to view in your browser.
+                  Your study guide is ready to view and download.
                 </div>
               </td>
             </tr>
@@ -124,7 +123,7 @@ export class EmailService {
                   </tr>
                   <tr>
                     <td width="25%" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#475569;padding:6px 0;">Format</td>
-                    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#0f172a;padding:6px 0;"><strong>HTML Document</strong></td>
+                    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#0f172a;padding:6px 0;"><strong>PDF Document</strong></td>
                   </tr>
                   <tr>
                     <td width="25%" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#475569;padding:6px 0;">Generated</td>
@@ -148,7 +147,7 @@ export class EmailService {
                             <span style="display:inline-block;color:#64748b;">&nbsp;•&nbsp;${fileSize}</span>
                           </td>
                           <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
-                            HTML
+                            PDF
                           </td>
                         </tr>
                       </table>
@@ -170,9 +169,10 @@ export class EmailService {
                 </v:roundrect>
                 <![endif]-->
                 <!--[if !mso]><!-- -->
-                <div style="background-color:#00f2fe;border-radius:6px;color:#0b2b3b;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;line-height:44px;text-align:center;text-decoration:none;width:260px;padding:0 20px;">
-                  Study Guide Generated Successfully
-                </div>
+                <a href="${ctaUrl}" target="_blank"
+                   style="background-color:#00f2fe;border-radius:6px;color:#0b2b3b;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;line-height:44px;text-align:center;text-decoration:none;width:260px;">
+                  View / Download Study Guide
+                </a>
                 <!--<![endif]-->
               </td>
             </tr>
@@ -181,7 +181,8 @@ export class EmailService {
             <tr>
               <td align="left" style="padding:0 24px 16px 24px;">
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
-                  Your study guide has been generated and is ready to view. Please return to the CasanovaStudy website to access your study guide.
+                  Having trouble with the button? Copy and paste this link into your browser:<br>
+                  <span style="color:#0f172a;word-break:break-all;">${ctaUrl}</span>
                 </div>
               </td>
             </tr>

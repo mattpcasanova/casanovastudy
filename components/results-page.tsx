@@ -20,33 +20,22 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   const [emailSent, setEmailSent] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
-  const handleViewHTML = () => {
-    if (studyGuideResponse?.htmlContent) {
-      // Create a new window with the HTML content
-      const newWindow = window.open('', '_blank')
-      if (newWindow) {
-        newWindow.document.write(studyGuideResponse.htmlContent)
-        newWindow.document.close()
-      }
+  const handleViewPDF = () => {
+    if (studyGuideResponse?.pdfDataUrl) {
+      // Open PDF in new window
+      window.open(studyGuideResponse.pdfDataUrl, '_blank')
     }
   }
 
   const handleDownloadPDF = () => {
-    if (studyGuideResponse?.htmlContent) {
-      // Create a blob with the HTML content
-      const blob = new Blob([studyGuideResponse.htmlContent], { type: 'text/html' })
-      const url = URL.createObjectURL(blob)
-      
-      // Create a temporary link to download the HTML file
+    if (studyGuideResponse?.pdfDataUrl) {
+      // Create a temporary link to download the PDF
       const link = document.createElement('a')
-      link.href = url
-      link.download = `${studyGuideResponse.title}.html`
+      link.href = studyGuideResponse.pdfDataUrl
+      link.download = `${studyGuideResponse.title}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
-      // Clean up the URL
-      URL.revokeObjectURL(url)
     }
   }
 
@@ -64,7 +53,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           to: email,
           subject: `Your ${studyGuideResponse.title} is ready!`,
           studyGuideId: studyGuideResponse.id,
-          htmlContent: studyGuideResponse.htmlContent
+          pdfDataUrl: studyGuideResponse.pdfDataUrl
         })
       })
 
@@ -223,24 +212,24 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button
-                  onClick={handleViewHTML}
-                  disabled={!studyGuideResponse?.htmlContent}
+                  onClick={handleViewPDF}
+                  disabled={!studyGuideResponse?.pdfDataUrl}
                   className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  {studyGuideResponse?.htmlContent ? 'View Study Guide' : 'Generating...'}
+                  {studyGuideResponse?.pdfDataUrl ? 'View PDF' : 'Generating...'}
                 </Button>
 
                 <Button
                   onClick={handleDownloadPDF}
-                  disabled={!studyGuideResponse?.htmlContent}
+                  disabled={!studyGuideResponse?.pdfDataUrl}
                   variant="outline"
                   className="w-full border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download HTML
+                  Download PDF
                 </Button>
 
                 <Button
@@ -279,7 +268,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
                 <Button
                   onClick={handleSendEmail}
-                  disabled={!email || !studyGuideResponse?.htmlContent || isSendingEmail}
+                  disabled={!email || !studyGuideResponse?.pdfDataUrl || isSendingEmail}
                   className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                     emailSent
                       ? "bg-green-500 hover:bg-green-600 text-white"

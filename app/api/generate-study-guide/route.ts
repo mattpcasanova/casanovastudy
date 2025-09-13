@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { PDFGenerator } from '@/lib/pdf-generator'
+import { PDFGeneratorV2 } from '@/lib/pdf-generator-v2'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { writeFile, mkdir } from 'fs/promises'
@@ -107,18 +107,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       tokenUsage: claudeResponse.usage
     }
 
-    // Generate HTML (instead of PDF for now)
-    const htmlContent = PDFGenerator.generateHTML(studyGuide)
+    // Generate PDF using the new generator
+    const pdfBuffer = await PDFGeneratorV2.generatePDF(studyGuide)
 
-    // Add HTML content directly to response (no file system needed)
-    const studyGuideWithHtml = {
+    // Convert PDF buffer to base64 for transmission
+    const pdfBase64 = pdfBuffer.toString('base64')
+    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
+
+    // Add PDF data to response
+    const studyGuideWithPdf = {
       ...studyGuide,
-      htmlContent: htmlContent
+      pdfDataUrl: pdfDataUrl
     }
 
     return NextResponse.json({
       success: true,
-      data: studyGuideWithHtml,
+      data: studyGuideWithPdf,
       message: 'Study guide generated successfully'
     })
 
