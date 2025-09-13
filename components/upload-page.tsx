@@ -59,7 +59,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
     }
 
     if (file.size > maxSize) {
-      return "File size too large. Please upload files smaller than 10MB."
+      return "File size too large. Please upload files smaller than 20MB (PDFs over 10MB will be compressed)."
     }
 
     return null
@@ -276,6 +276,10 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Supports PDF, PowerPoint, and Word documents (max 20MB each)
+                  <br />
+                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                    PDFs over 10MB will be automatically compressed (typically 60-80% size reduction)
+                  </span>
                 </p>
               </div>
 

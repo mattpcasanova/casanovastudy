@@ -5,6 +5,7 @@ import UploadPage from "@/components/upload-page"
 import ResultsPage from "@/components/results-page"
 import { Toaster } from "@/components/ui/toaster"
 import { StudyGuideData, StudyGuideResponse, ProcessedFile } from "@/types"
+import { ClientCompression } from "@/lib/client-compression"
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<"upload" | "results">("upload")
@@ -16,9 +17,17 @@ export default function Home() {
     setIsGenerating(true)
 
     try {
-      // Step 1: Upload files to Cloudinary
-      const cloudinaryUploads = await Promise.all(
+      // Step 1: Compress files if needed (client-side)
+      console.log('Compressing files if needed...');
+      const compressedFiles = await Promise.all(
         data.files.map(async (file) => {
+          return await ClientCompression.compressIfNeeded(file);
+        })
+      );
+
+      // Step 2: Upload compressed files to Cloudinary
+      const cloudinaryUploads = await Promise.all(
+        compressedFiles.map(async (file) => {
           const formData = new FormData()
           formData.append('file', file)
           formData.append('folder', 'casanovastudy')
@@ -38,7 +47,7 @@ export default function Home() {
 
       console.log('Cloudinary uploads completed:', cloudinaryUploads)
 
-      // Step 2: Generate study guide using Cloudinary URLs
+      // Step 3: Generate study guide using Cloudinary URLs
       const studyGuideRequest = {
         cloudinaryFiles: cloudinaryUploads.map(upload => ({
           url: upload.url,

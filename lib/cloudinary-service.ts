@@ -31,7 +31,8 @@ export class CloudinaryService {
       });
       
       const compressedBuffer = Buffer.from(pdfBytes);
-      console.log(`PDF compressed: ${buffer.length} -> ${compressedBuffer.length} bytes`);
+      const compressionRatio = ((buffer.length - compressedBuffer.length) / buffer.length * 100).toFixed(1);
+      console.log(`PDF compressed: ${(buffer.length / 1024 / 1024).toFixed(1)}MB -> ${(compressedBuffer.length / 1024 / 1024).toFixed(1)}MB (${compressionRatio}% reduction)`);
       
       return compressedBuffer;
     } catch (error) {
