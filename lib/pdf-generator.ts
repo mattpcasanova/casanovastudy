@@ -20,20 +20,45 @@ export class PDFGenerator {
     let browser: puppeteer.Browser | null = null
 
     try {
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-      })
+      // Try different Chrome paths for Vercel
+      const possiblePaths = [
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/opt/chrome/chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium'
+      ].filter(Boolean)
+
+      let lastError: Error | null = null
+
+      for (const executablePath of possiblePaths) {
+        try {
+          browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--no-first-run',
+              '--no-zygote',
+              '--single-process',
+              '--disable-gpu'
+            ],
+            executablePath: executablePath
+          })
+          console.log(`Successfully launched browser with: ${executablePath}`)
+          break
+        } catch (error) {
+          lastError = error as Error
+          console.log(`Failed to launch with ${executablePath}:`, error)
+          continue
+        }
+      }
+
+      if (!browser) {
+        throw new Error(`Could not launch browser. Last error: ${lastError?.message}`)
+      }
 
       const page = await browser.newPage()
       
