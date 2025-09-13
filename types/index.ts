@@ -56,7 +56,7 @@ export interface EmailRequest {
   to: string
   subject: string
   studyGuideId: string
-  pdfUrl: string
+  htmlUrl: string
 }
 
 export interface ApiResponse<T = any> {

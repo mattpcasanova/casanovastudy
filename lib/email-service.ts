@@ -32,14 +32,7 @@ export class EmailService {
         from: `"CasanovaStudy" <mattpcasanova@gmail.com>`,
         to: request.to,
         subject: request.subject,
-        html: this.generateEmailHTML(request),
-        attachments: [
-          {
-            filename: 'study-guide.pdf',
-            path: request.pdfUrl,
-            contentType: 'application/pdf'
-          }
-        ]
+        html: this.generateEmailHTML(request)
       }
 
       const info = await this.transporter.sendMail(mailOptions)
@@ -52,10 +45,10 @@ export class EmailService {
   }
 
   private generateEmailHTML(request: EmailRequest): string {
-    const fileName = 'study-guide.pdf'
-    const fileSize = 'PDF Document'
+    const fileName = 'study-guide.html'
+    const fileSize = 'HTML Document'
     const currentYear = new Date().getFullYear()
-    const ctaUrl = request.pdfUrl
+    const ctaUrl = request.htmlUrl
     
     return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -130,7 +123,7 @@ export class EmailService {
                   </tr>
                   <tr>
                     <td width="25%" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#475569;padding:6px 0;">Format</td>
-                    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#0f172a;padding:6px 0;"><strong>PDF Document</strong></td>
+                    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#0f172a;padding:6px 0;"><strong>HTML Document</strong></td>
                   </tr>
                   <tr>
                     <td width="25%" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#475569;padding:6px 0;">Generated</td>
@@ -154,7 +147,7 @@ export class EmailService {
                             <span style="display:inline-block;color:#64748b;">&nbsp;•&nbsp;${fileSize}</span>
                           </td>
                           <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
-                            PDF
+                            HTML
                           </td>
                         </tr>
                       </table>

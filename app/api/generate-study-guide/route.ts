@@ -107,8 +107,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       tokenUsage: claudeResponse.usage
     }
 
-    // Generate PDF
-    const pdfBuffer = await PDFGenerator.generatePDF(studyGuide)
+    // Generate HTML (instead of PDF for now)
+    const htmlContent = PDFGenerator.generateHTML(studyGuide)
     
     // Ensure output directory exists
     const outputDir = join(process.cwd(), 'public', 'study-guides')
@@ -116,19 +116,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       await mkdir(outputDir, { recursive: true })
     }
 
-    // Save PDF to file
-    const pdfPath = join(outputDir, `${studyGuideId}.pdf`)
-    await writeFile(pdfPath, pdfBuffer)
+    // Save HTML to file
+    const htmlPath = join(outputDir, `${studyGuideId}.html`)
+    await writeFile(htmlPath, htmlContent)
 
-    // Add PDF URL to response
-    const studyGuideWithPdf = {
+    // Add HTML URL to response
+    const studyGuideWithHtml = {
       ...studyGuide,
-      pdfUrl: `/study-guides/${studyGuideId}.pdf`
+      htmlUrl: `/study-guides/${studyGuideId}.html`
     }
 
     return NextResponse.json({
       success: true,
-      data: studyGuideWithPdf,
+      data: studyGuideWithHtml,
       message: 'Study guide generated successfully'
     })
 

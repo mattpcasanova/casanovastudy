@@ -20,14 +20,9 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   const [emailSent, setEmailSent] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
-  const handleDownloadPDF = () => {
-    if (studyGuideResponse?.pdfUrl) {
-      const link = document.createElement('a')
-      link.href = studyGuideResponse.pdfUrl
-      link.download = `${studyGuideResponse.title}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+  const handleViewHTML = () => {
+    if (studyGuideResponse?.htmlUrl) {
+      window.open(studyGuideResponse.htmlUrl, '_blank')
     }
   }
 
@@ -45,7 +40,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           to: email,
           subject: `Your ${studyGuideResponse.title} is ready!`,
           studyGuideId: studyGuideResponse.id,
-          pdfUrl: `${window.location.origin}${studyGuideResponse.pdfUrl}`
+          htmlUrl: `${window.location.origin}${studyGuideResponse.htmlUrl}`
         })
       })
 
@@ -204,13 +199,13 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button
-                  onClick={handleDownloadPDF}
-                  disabled={!studyGuideResponse?.pdfUrl}
+                  onClick={handleViewHTML}
+                  disabled={!studyGuideResponse?.htmlUrl}
                   className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  {studyGuideResponse?.pdfUrl ? 'Download PDF' : 'Generating PDF...'}
+                  <FileText className="h-4 w-4 mr-2" />
+                  {studyGuideResponse?.htmlUrl ? 'View Study Guide' : 'Generating...'}
                 </Button>
 
                 <Button
@@ -249,7 +244,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
                 <Button
                   onClick={handleSendEmail}
-                  disabled={!email || !studyGuideResponse?.pdfUrl || isSendingEmail}
+                  disabled={!email || !studyGuideResponse?.htmlUrl || isSendingEmail}
                   className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                     emailSent
                       ? "bg-green-500 hover:bg-green-600 text-white"
