@@ -101,7 +101,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       content: claudeResponse.content,
       format: body.format,
       generatedAt: new Date(),
-      fileCount: body.files.length,
+      fileCount: body.cloudinaryFiles?.length || body.files?.length || 0,
       subject: body.subject,
       gradeLevel: body.gradeLevel,
       tokenUsage: claudeResponse.usage
