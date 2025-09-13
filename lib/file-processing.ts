@@ -516,13 +516,29 @@ Note: Please work with available content and provide general study guidance for 
       console.log('URL status check:', { url, filename });
       
       // Download file from Cloudinary
-      const response = await fetch(url);
+      // Try the original URL first
+      let response = await fetch(url);
       console.log('Fetch response:', { 
         status: response.status, 
         statusText: response.statusText,
         ok: response.ok,
         headers: Object.fromEntries(response.headers.entries())
       });
+      
+      // If unauthorized, try with different URL format
+      if (!response.ok && response.status === 401) {
+        console.log('Trying alternative URL format...');
+        // Try removing the version parameter
+        const alternativeUrl = url.replace(/\/v\d+\//, '/');
+        console.log('Alternative URL:', alternativeUrl);
+        
+        response = await fetch(alternativeUrl);
+        console.log('Alternative fetch response:', { 
+          status: response.status, 
+          statusText: response.statusText,
+          ok: response.ok
+        });
+      }
       
       if (!response.ok) {
         throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);

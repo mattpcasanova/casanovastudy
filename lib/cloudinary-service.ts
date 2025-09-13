@@ -28,12 +28,14 @@ export class CloudinaryService {
         `data:application/octet-stream;base64,${buffer.toString('base64')}`,
         {
           public_id: `${folder}/${filename.replace(/\.[^/.]+$/, '')}`,
-          resource_type: 'auto', // Automatically detect file type
+          resource_type: 'raw', // Use 'raw' for all file types
           folder: folder,
           use_filename: true,
           unique_filename: true,
-          access_mode: 'public', // Make files publicly accessible
-          type: 'upload', // Ensure it's an upload type
+          access_mode: 'public',
+          type: 'upload',
+          overwrite: false,
+          invalidate: true,
         }
       );
 
