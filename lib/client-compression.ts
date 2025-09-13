@@ -14,7 +14,7 @@ export class ClientCompression {
       formData.append('file', compressedFile);
       formData.append('upload_preset', 'casanovastudy');
       formData.append('folder', folder);
-      formData.append('access_mode', 'public'); // Ensure public access
+      formData.append('public_id', `${folder}/${compressedFile.name.replace(/\.[^/.]+$/, '')}`); // Set public ID
       formData.append('resource_type', 'raw'); // Use raw for all file types
       
       // Upload directly to Cloudinary
