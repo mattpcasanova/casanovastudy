@@ -60,10 +60,10 @@ export class FileProcessor {
 
       return {
         name: file.name,
-        type: file.type,
-        size: file.size,
+        type: fileType,
         content: content.trim(),
-        extractedAt: new Date()
+        originalSize: file.size,
+        processedSize: content.trim().length
       }
     } catch (error) {
       throw new Error(`Failed to process file ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -94,8 +94,8 @@ export class FileProcessor {
         // Try with different options
         const options = [
           { max: 0 },
-          { max: 0, version: 'v1.10.100' },
-          { max: 0, version: 'v1.10.100', useSystemFonts: true },
+          { max: 0, version: 'v1.10.100' as any },
+          { max: 0, version: 'v1.10.100' as any, useSystemFonts: true },
           {} // Default options
         ]
         
@@ -107,12 +107,12 @@ export class FileProcessor {
               return this.summarizeText(data.text.trim())
             }
           } catch (optionError) {
-            console.log('PDF-parse option failed:', option, optionError.message)
+            console.log('PDF-parse option failed:', option, optionError instanceof Error ? optionError.message : String(optionError))
             continue
           }
         }
       } catch (pdfParseError) {
-        console.log('PDF-parse completely failed:', pdfParseError.message)
+        console.log('PDF-parse completely failed:', pdfParseError instanceof Error ? pdfParseError.message : String(pdfParseError))
       }
       
       // Method 3: Try with temporary file approach
@@ -145,7 +145,7 @@ export class FileProcessor {
           }
         }
       } catch (tempFileError) {
-        console.log('Temporary file approach failed:', tempFileError.message)
+        console.log('Temporary file approach failed:', tempFileError instanceof Error ? tempFileError.message : String(tempFileError))
       }
       
       // Method 4: Return whatever we got from custom extraction
@@ -505,5 +505,80 @@ Note: Please work with available content and provide general study guidance for 
     }
 
     return results
+  }
+
+  /**
+   * Process a file from a Cloudinary URL
+   */
+  static async processFileFromUrl(url: string, filename: string): Promise<ProcessedFile> {
+    try {
+      console.log('Processing file from Cloudinary URL:', url);
+      
+      // Download file from Cloudinary
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Determine file type from URL or filename
+      const fileType = this.getFileTypeFromUrl(url, filename);
+      let content = '';
+
+      switch (fileType) {
+        case 'pdf':
+          content = await this.extractFromPDF(buffer);
+          break;
+        case 'docx':
+          content = await this.extractFromDOCX(buffer);
+          break;
+        case 'pptx':
+          content = await this.extractFromPPTX(buffer);
+          break;
+        case 'txt':
+          content = buffer.toString('utf-8');
+          break;
+        default:
+          throw new Error(`Unsupported file type: ${fileType}`);
+      }
+
+      // Summarize content if too long
+      const summarizedContent = this.summarizeText(content);
+
+      return {
+        name: filename,
+        type: fileType,
+        content: summarizedContent,
+        originalSize: buffer.length,
+        processedSize: summarizedContent.length
+      };
+
+    } catch (error) {
+      console.error('Error processing file from URL:', error);
+      throw new Error(`Failed to process file from URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get file type from URL or filename
+   */
+  private static getFileTypeFromUrl(url: string, filename: string): FileType {
+    // Try to get type from URL first
+    if (url.includes('.pdf')) return 'pdf';
+    if (url.includes('.docx')) return 'docx';
+    if (url.includes('.pptx')) return 'pptx';
+    if (url.includes('.txt')) return 'txt';
+
+    // Fallback to filename
+    const extension = filename.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'pdf';
+      case 'docx': return 'docx';
+      case 'pptx': return 'pptx';
+      case 'txt': return 'txt';
+      default: return 'txt';
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { PDFGenerator } from '@/lib/pdf-generator'
+import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
@@ -15,11 +16,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       subject: body.subject,
       gradeLevel: body.gradeLevel,
       format: body.format,
-      fileCount: body.files?.length || 0
+      fileCount: body.files?.length || body.cloudinaryFiles?.length || 0
     })
     
-    // Validate request
-    if (!body.files || body.files.length === 0) {
+    // Validate request - check for either files or cloudinaryFiles
+    if ((!body.files || body.files.length === 0) && (!body.cloudinaryFiles || body.cloudinaryFiles.length === 0)) {
       console.log('Validation failed: No files provided')
       return NextResponse.json({
         success: false,
@@ -40,20 +41,35 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       }, { status: 400 })
     }
 
+    // Process files - either from direct upload or Cloudinary
+    let processedFiles;
+    if (body.cloudinaryFiles && body.cloudinaryFiles.length > 0) {
+      // Process files from Cloudinary URLs
+      console.log('Processing files from Cloudinary URLs...');
+      processedFiles = await Promise.all(
+        body.cloudinaryFiles.map(async (cloudinaryFile) => {
+          return await FileProcessor.processFileFromUrl(cloudinaryFile.url, cloudinaryFile.filename);
+        })
+      );
+    } else {
+      // Use existing files (fallback for direct upload)
+      processedFiles = body.files!;
+    }
+
     // Combine all file content
-    const combinedContent = body.files
+    const combinedContent = processedFiles
       .map(file => `--- ${file.name} ---\n${file.content}`)
       .join('\n\n')
 
     // Check if content extraction was limited
     const totalContentLength = combinedContent.length
-    const hasLimitedContent = totalContentLength < 100 || body.files.some(file => file.content.length < 50)
+    const hasLimitedContent = totalContentLength < 100 || processedFiles.some(file => file.content.length < 50)
     
     console.log('Content extraction stats:', {
       totalLength: totalContentLength,
-      fileCount: body.files.length,
+      fileCount: processedFiles.length,
       hasLimitedContent,
-      fileLengths: body.files.map(f => ({ name: f.name, length: f.content.length }))
+      fileLengths: processedFiles.map(f => ({ name: f.name, length: f.content.length }))
     })
 
     // Add fallback note if content is limited

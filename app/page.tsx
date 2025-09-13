@@ -16,27 +16,36 @@ export default function Home() {
     setIsGenerating(true)
 
     try {
-      // Step 1: Upload and process files
-      const formData = new FormData()
-      data.files.forEach(file => formData.append('files', file))
+      // Step 1: Upload files to Cloudinary
+      const cloudinaryUploads = await Promise.all(
+        data.files.map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('folder', 'casanovastudy')
 
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
+          const response = await fetch('/api/upload-to-cloudinary', {
+            method: 'POST',
+            body: formData
+          })
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload files')
-      }
+          if (!response.ok) {
+            throw new Error(`Failed to upload ${file.name}`)
+          }
 
-      const uploadResult = await uploadResponse.json()
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Upload failed')
-      }
+          return await response.json()
+        })
+      )
 
-      // Step 2: Generate study guide
+      console.log('Cloudinary uploads completed:', cloudinaryUploads)
+
+      // Step 2: Generate study guide using Cloudinary URLs
       const studyGuideRequest = {
-        files: uploadResult.data.files,
+        cloudinaryFiles: cloudinaryUploads.map(upload => ({
+          url: upload.url,
+          filename: upload.filename,
+          size: upload.size,
+          format: upload.format
+        })),
         studyGuideName: data.studyGuideName,
         subject: data.subject,
         gradeLevel: data.gradeLevel,

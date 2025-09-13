@@ -12,13 +12,21 @@ export interface StudyGuideData {
 export interface ProcessedFile {
   name: string
   type: string
-  size: number
   content: string
-  extractedAt: Date
+  originalSize: number
+  processedSize: number
+}
+
+export interface CloudinaryFile {
+  url: string
+  filename: string
+  size: number
+  format: string
 }
 
 export interface StudyGuideRequest {
-  files: ProcessedFile[]
+  files?: ProcessedFile[]
+  cloudinaryFiles?: CloudinaryFile[]
   studyGuideName: string
   subject: string
   gradeLevel: string
