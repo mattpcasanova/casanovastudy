@@ -1,282 +1,614 @@
-import { StudyGuideResponse } from '@/types'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import type { StudyGuideResponse } from "@/types"
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 
 export class PDFGeneratorV2 {
   static async generatePDF(studyGuide: StudyGuideResponse): Promise<Buffer> {
     try {
-      // Create a new PDF document
       const pdfDoc = await PDFDocument.create()
       
-      // Add fonts
+      // Embed fonts
       const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
       const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-      
-      // Add a page
-      let page = pdfDoc.addPage([595.28, 841.89]) // A4 size
+      const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+
+      // Professional color palette
+      const colors = {
+        primary: rgb(0.29, 0.67, 0.99), // #4facfe
+        secondary: rgb(0, 0.95, 0.99), // #00f2fe
+        accent: rgb(0.2, 0.6, 0.9),
+        darkText: rgb(0.15, 0.15, 0.15),
+        mediumText: rgb(0.4, 0.4, 0.4),
+        lightText: rgb(0.6, 0.6, 0.6),
+        background: rgb(0.97, 0.99, 1.0),
+        cardBg: rgb(0.98, 0.99, 1.0),
+        white: rgb(1, 1, 1),
+        success: rgb(0.13, 0.59, 0.26),
+        warning: rgb(0.8, 0.3, 0.1),
+        border: rgb(0.85, 0.85, 0.85),
+        quiz: {
+          a: rgb(0.2, 0.7, 0.3),
+          b: rgb(0.3, 0.5, 0.9),
+          c: rgb(0.9, 0.5, 0.2),
+          d: rgb(0.7, 0.2, 0.6)
+        }
+      }
+
+      let page = pdfDoc.addPage([595.28, 841.89])
       const { width, height } = page.getSize()
-      
-      // Set up margins and layout
-      const margin = 45
-      const contentWidth = width - (margin * 2)
+      const margin = 50
+      const contentWidth = width - margin * 2
       let yPosition = height - margin
-      
-      // Helper function to add text with word wrapping
-      const addText = (text: string, fontSize: number, isBold: boolean = false, color: any = rgb(0, 0, 0), x: number = margin) => {
-        // Clean the text to remove any problematic characters
-        const cleanText = text
-          .replace(/[^\x20-\x7E\s]/g, '') // Keep only printable ASCII characters and whitespace
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim()
-        
-        if (!cleanText) return // Skip empty text
-        
-        const font = isBold ? helveticaBold : helvetica
-        const maxWidth = contentWidth - (x - margin)
-        
-        // Simple word wrapping
-        const words = cleanText.split(' ')
-        let line = ''
-        const lines = []
-        
-        for (const word of words) {
-          const testLine = line + word + ' '
-          const textWidth = font.widthOfTextAtSize(testLine, fontSize)
-          
-          if (textWidth > maxWidth && line !== '') {
-            lines.push(line)
-            line = word + ' '
-          } else {
-            line = testLine
-          }
-        }
-        lines.push(line)
-        
-        // Draw lines
-        for (const lineText of lines) {
-          if (yPosition < margin) {
-            // Add new page if needed
-            const newPage = pdfDoc.addPage([595.28, 841.89])
-            yPosition = height - margin
-            page = newPage
-          }
-          
-          page.drawText(lineText, {
-            x: x,
-            y: yPosition,
-            size: fontSize,
-            font: font,
-            color: color,
-          })
-          yPosition -= fontSize + 2
-        }
+
+      // Create format-specific generator
+      const generator = new FormatGenerator(
+        pdfDoc, page, width, height, margin, contentWidth, colors,
+        helvetica, helveticaBold, helveticaOblique
+      )
+
+      // Create header
+      generator.createHeader(studyGuide)
+      yPosition = height - 180
+
+      // Generate content based on format
+      switch (studyGuide.format.toLowerCase()) {
+        case 'outline':
+          await generator.generateOutline(studyGuide.content, yPosition)
+          break
+        case 'flashcards':
+          await generator.generateFlashcards(studyGuide.content, yPosition)
+          break
+        case 'quiz':
+          await generator.generateQuiz(studyGuide.content, yPosition)
+          break
+        case 'summary':
+          await generator.generateSummary(studyGuide.content, yPosition)
+          break
+        default:
+          await generator.generateSummary(studyGuide.content, yPosition)
       }
-      
-      // Helper function to draw rectangles
-      const drawRect = (x: number, y: number, width: number, height: number, color: any, strokeColor?: any) => {
-        if (strokeColor) {
-          page.drawRectangle({
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-            borderColor: strokeColor,
-            borderWidth: 1,
-          })
-        } else {
-          page.drawRectangle({
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-            color: color,
-          })
-        }
-      }
-      
-      // Draw page border
-      drawRect(margin, margin, contentWidth, height - (margin * 2), undefined, rgb(0.85, 0.85, 0.85))
-      
-      // Draw header with gradient effect
-      const headerHeight = 140
-      const headerY = height - headerHeight
-      
-      // Header background
-      drawRect(margin, headerY, contentWidth, headerHeight, rgb(0.31, 0.67, 0.99))
-      
-      // Header overlay
-      drawRect(margin, headerY, contentWidth, 70, rgb(1, 1, 1, 0.05))
-      
-      // Brand mark
-      const brandText = 'CasanovaStudy'
-      const brandWidth = helveticaBold.widthOfTextAtSize(brandText, 10)
-      page.drawRectangle({
-        x: width - margin - brandWidth - 20,
-        y: headerY + headerHeight - 35,
-        width: brandWidth + 10,
-        height: 20,
-        color: rgb(1, 1, 1, 0.2),
+
+      // Add footers
+      const pages = pdfDoc.getPages()
+      pages.forEach((currentPage, index) => {
+        generator.addFooter(currentPage, index + 1, pages.length, studyGuide.generatedAt)
       })
-      addText(brandText, 10, true, rgb(1, 1, 1), width - margin - brandWidth - 15)
-      
-      // Title
-      yPosition = headerY + 80
-      addText(studyGuide.title, 24, true, rgb(1, 1, 1))
-      
-      // Subtitle
-      yPosition -= 5
-      addText('AI-Generated Study Guide', 14, false, rgb(1, 1, 1, 0.9))
-      
-      // Metadata strip
-      const metadataY = headerY + 20
-      const metadataItems = [
-        `Subject: ${studyGuide.subject}`,
-        `Grade Level: ${studyGuide.gradeLevel}`,
-        `Format: ${studyGuide.format}`,
-        `Generated: ${studyGuide.generatedAt.toLocaleDateString()}`
-      ]
-      
-      const boxWidth = contentWidth / 4
-      for (let i = 0; i < metadataItems.length; i++) {
-        const boxX = margin + (i * boxWidth)
-        drawRect(boxX, metadataY, boxWidth - 5, 20, rgb(1, 1, 1, 0.15))
-        addText(metadataItems[i], 9, false, rgb(1, 1, 1), boxX + 5)
-      }
-      
-      // Content area
-      yPosition = headerY - 20
-      
-      // Main section header
-      const mainSectionText = `${studyGuide.subject} Study Guide: ${studyGuide.title}`
-      const mainSectionHeight = 30
-      drawRect(margin, yPosition - mainSectionHeight, contentWidth, mainSectionHeight, rgb(0.31, 0.67, 0.99))
-      drawRect(margin, yPosition - mainSectionHeight, contentWidth, 15, rgb(1, 1, 1, 0.1))
-      addText(mainSectionText, 18, true, rgb(1, 1, 1), margin + 10)
-      yPosition -= mainSectionHeight + 15
-      
-      // Sub section
-      const subSectionText = 'Comprehensive Summary for Exam Preparation'
-      const subSectionHeight = 25
-      drawRect(margin, yPosition - subSectionHeight, contentWidth, subSectionHeight, rgb(0.97, 0.98, 1))
-      page.drawRectangle({
-        x: margin,
-        y: yPosition - subSectionHeight,
-        width: contentWidth,
-        height: subSectionHeight,
-        borderColor: rgb(0.31, 0.67, 0.99),
-        borderWidth: 2,
-      })
-      addText(subSectionText, 15, true, rgb(0.31, 0.67, 0.99), margin + 12)
-      yPosition -= subSectionHeight + 15
-      
-      // Process content
-      const content = this.formatContentForPDF(studyGuide.content, studyGuide.format)
-      const sections = content.split('\n\n')
-      
-      for (const section of sections) {
-        if (section.trim()) {
-          // Check if it's a header
-          if (section.startsWith('# ')) {
-            const headerText = section.replace('# ', '')
-            addText(headerText, 18, true, rgb(0.2, 0.4, 0.8))
-            yPosition -= 10
-          } else if (section.startsWith('## ')) {
-            const headerText = section.replace('## ', '')
-            addText(headerText, 15, true, rgb(0.31, 0.67, 0.99))
-            yPosition -= 10
-          } else if (section.startsWith('### ')) {
-            const headerText = section.replace('### ', '')
-            addText(headerText, 13, true, rgb(0.2, 0.6, 0.9))
-            yPosition -= 10
-          } else if (section.includes('**Q:') && section.includes('**A:')) {
-            // Format flashcards with enhanced styling
-            const qaPairs = this.extractQA(section)
-            for (const qa of qaPairs) {
-              const cardHeight = 40
-              const cardY = yPosition - cardHeight
-              
-              // Card shadow
-              drawRect(margin + 2, cardY - 2, contentWidth - 2, cardHeight, rgb(0, 0, 0, 0.1))
-              
-              // Card background
-              drawRect(margin, cardY, contentWidth, cardHeight, rgb(0.98, 0.99, 1))
-              page.drawRectangle({
-                x: margin,
-                y: cardY,
-                width: contentWidth,
-                height: cardHeight,
-                borderColor: rgb(0.31, 0.67, 0.99),
-                borderWidth: 1,
-              })
-              
-              // Question header
-              const questionHeight = 20
-              drawRect(margin, cardY + cardHeight - questionHeight, contentWidth, questionHeight, rgb(0.8, 0.3, 0))
-              addText(`Q: ${qa.question}`, 11, true, rgb(1, 1, 1), margin + 12)
-              
-              // Answer
-              addText(`A: ${qa.answer}`, 11, false, rgb(0.13, 0.45, 0.15), margin + 12)
-              
-              yPosition -= cardHeight + 15
-            }
-          } else {
-            // Regular text
-            addText(section, 11, false, rgb(0.15, 0.15, 0.15))
-            yPosition -= 10
-          }
-        }
-      }
-      
-      // Footer
-      const footerY = margin + 30
-      page.drawLine({
-        start: { x: margin, y: footerY },
-        end: { x: width - margin, y: footerY },
-        thickness: 0.5,
-        color: rgb(0.85, 0.85, 0.85),
-      })
-      
-      addText('CasanovaStudy - AI Study Guide Generator', 8, false, rgb(0.6, 0.6, 0.6), margin)
-      addText(`Generated on ${studyGuide.generatedAt.toLocaleDateString()} | Page 1 of 1`, 8, false, rgb(0.6, 0.6, 0.6), width - margin - 200)
-      
-      // Generate PDF bytes
+
       const pdfBytes = await pdfDoc.save()
       return Buffer.from(pdfBytes)
-      
+
     } catch (error) {
-      console.error('PDF generation error:', error)
-      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error("PDF generation error:", error)
+      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
-  
-  private static formatContentForPDF(content: string, format: string): string {
-    // Clean up the content for PDF generation
-    let formatted = content
-      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove markdown bold
-      .replace(/\*(.*?)\*/g, '$1') // Remove markdown italic
-      .replace(/`(.*?)`/g, '$1') // Remove markdown code
-      .replace(/\n\n+/g, '\n\n') // Clean up multiple newlines
-      // Remove emojis and special characters that can't be encoded in WinAnsi
-      .replace(/[\u{1F300}-\u{1F5FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
-      // Remove other problematic characters
-      .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII characters
-      // Clean up any remaining problematic characters
-      .replace(/[^\x20-\x7E\s]/g, '') // Keep only printable ASCII characters and whitespace
-    
-    return formatted
+}
+
+class FormatGenerator {
+  private pdfDoc: any
+  private page: any
+  private width: number
+  private height: number
+  private margin: number
+  private contentWidth: number
+  private colors: any
+  private helvetica: any
+  private helveticaBold: any
+  private helveticaOblique: any
+  private yPosition: number
+
+  constructor(pdfDoc: any, page: any, width: number, height: number, margin: number, 
+              contentWidth: number, colors: any, helvetica: any, helveticaBold: any, helveticaOblique: any) {
+    this.pdfDoc = pdfDoc
+    this.page = page
+    this.width = width
+    this.height = height
+    this.margin = margin
+    this.contentWidth = contentWidth
+    this.colors = colors
+    this.helvetica = helvetica
+    this.helveticaBold = helveticaBold
+    this.helveticaOblique = helveticaOblique
+    this.yPosition = height - 180
   }
-  
-  private static extractQA(text: string): Array<{question: string, answer: string}> {
-    const qaPairs = []
+
+  private addNewPageIfNeeded(requiredSpace: number = 80): boolean {
+    if (this.yPosition < this.margin + requiredSpace) {
+      this.page = this.pdfDoc.addPage([595.28, 841.89])
+      this.yPosition = this.height - this.margin
+      this.addPageBorder()
+      return true
+    }
+    return false
+  }
+
+  private addPageBorder() {
+    this.page.drawRectangle({
+      x: this.margin - 5,
+      y: this.margin - 5,
+      width: this.contentWidth + 10,
+      height: this.height - this.margin * 2 + 10,
+      borderColor: this.colors.border,
+      borderWidth: 0.5,
+    })
+  }
+
+  createHeader(studyGuide: StudyGuideResponse) {
+    // Gradient header
+    this.page.drawRectangle({
+      x: 0,
+      y: this.height - 140,
+      width: this.width,
+      height: 140,
+      color: this.colors.primary,
+    })
+
+    // Brand mark
+    this.page.drawRectangle({
+      x: this.width - 120,
+      y: this.height - 35,
+      width: 100,
+      height: 20,
+      color: this.colors.white,
+    })
+
+    this.page.drawText("CasanovaStudy", {
+      x: this.width - 110,
+      y: this.height - 28,
+      size: 10,
+      font: this.helveticaBold,
+      color: this.colors.primary,
+    })
+
+    // Title
+    this.page.drawText(studyGuide.title, {
+      x: this.margin,
+      y: this.height - 50,
+      size: 24,
+      font: this.helveticaBold,
+      color: this.colors.white,
+    })
+
+    // Format-specific subtitle
+    const formatNames = {
+      outline: "Structured Study Outline",
+      flashcards: "Interactive Flashcards",
+      quiz: "Practice Quiz",
+      summary: "Comprehensive Summary"
+    }
+
+    this.page.drawText(formatNames[studyGuide.format.toLowerCase() as keyof typeof formatNames] || "Study Guide", {
+      x: this.margin,
+      y: this.height - 75,
+      size: 14,
+      font: this.helvetica,
+      color: this.colors.white,
+    })
+
+    // Metadata
+    const metadata = [
+      `Subject: ${studyGuide.subject}`,
+      `Grade: ${studyGuide.gradeLevel}`,
+      `Format: ${studyGuide.format}`,
+      `Generated: ${studyGuide.generatedAt.toLocaleDateString()}`
+    ]
+
+    metadata.forEach((item, index) => {
+      this.page.drawText(item, {
+        x: this.margin + (index * 120),
+        y: this.height - 110,
+        size: 9,
+        font: this.helvetica,
+        color: this.colors.white,
+      })
+    })
+  }
+
+  async generateOutline(content: string, startY: number) {
+    this.yPosition = startY
+    const sections = this.parseContent(content)
+    
+    for (const section of sections) {
+      this.addNewPageIfNeeded(60)
+      
+      if (section.level === 1) {
+        // Main section
+        this.page.drawRectangle({
+          x: this.margin - 10,
+          y: this.yPosition - 30,
+          width: this.contentWidth + 20,
+          height: 35,
+          color: this.colors.primary,
+        })
+        
+        this.addText(section.title, 16, this.helveticaBold, this.colors.white, 0)
+        this.yPosition -= 20
+        
+      } else if (section.level === 2) {
+        // Sub-section
+        this.page.drawRectangle({
+          x: this.margin + 10,
+          y: this.yPosition - 25,
+          width: this.contentWidth - 20,
+          height: 28,
+          color: this.colors.background,
+          borderColor: this.colors.accent,
+          borderWidth: 2,
+        })
+        
+        this.addText(section.title, 13, this.helveticaBold, this.colors.accent, 20)
+        this.yPosition -= 15
+        
+      } else if (section.level === 3) {
+        // Sub-sub-section with bullet
+        this.page.drawCircle({
+          x: this.margin + 35,
+          y: this.yPosition - 6,
+          size: 3,
+          color: this.colors.accent,
+        })
+        
+        this.addText(section.title, 11, this.helveticaBold, this.colors.darkText, 50)
+        this.yPosition -= 10
+        
+      } else {
+        // Regular content
+        this.addText(section.title, 10, this.helvetica, this.colors.darkText, section.level * 20)
+        this.yPosition -= 8
+      }
+    }
+  }
+
+  async generateFlashcards(content: string, startY: number) {
+    this.yPosition = startY
+    const cards = this.extractFlashcards(content)
+    
+    cards.forEach((card, index) => {
+      this.addNewPageIfNeeded(120)
+      
+      // Card number
+      this.page.drawCircle({
+        x: this.margin + 20,
+        y: this.yPosition - 20,
+        size: 15,
+        color: this.colors.primary,
+      })
+      
+      this.page.drawText((index + 1).toString(), {
+        x: this.margin + 16,
+        y: this.yPosition - 26,
+        size: 12,
+        font: this.helveticaBold,
+        color: this.colors.white,
+      })
+      
+      // Question card
+      this.page.drawRectangle({
+        x: this.margin + 40,
+        y: this.yPosition - 50,
+        width: this.contentWidth - 40,
+        height: 45,
+        color: this.colors.cardBg,
+        borderColor: this.colors.warning,
+        borderWidth: 2,
+      })
+      
+      this.page.drawRectangle({
+        x: this.margin + 40,
+        y: this.yPosition - 22,
+        width: this.contentWidth - 40,
+        height: 22,
+        color: this.colors.warning,
+      })
+      
+      this.page.drawText("QUESTION", {
+        x: this.margin + 50,
+        y: this.yPosition - 16,
+        size: 10,
+        font: this.helveticaBold,
+        color: this.colors.white,
+      })
+      
+      this.addTextWrapped(card.question, this.margin + 50, this.yPosition - 40, 
+                         this.contentWidth - 60, 11, this.helvetica, this.colors.darkText)
+      
+      this.yPosition -= 60
+      
+      // Answer card
+      this.page.drawRectangle({
+        x: this.margin + 40,
+        y: this.yPosition - 50,
+        width: this.contentWidth - 40,
+        height: 45,
+        color: this.colors.cardBg,
+        borderColor: this.colors.success,
+        borderWidth: 2,
+      })
+      
+      this.page.drawRectangle({
+        x: this.margin + 40,
+        y: this.yPosition - 22,
+        width: this.contentWidth - 40,
+        height: 22,
+        color: this.colors.success,
+      })
+      
+      this.page.drawText("ANSWER", {
+        x: this.margin + 50,
+        y: this.yPosition - 16,
+        size: 10,
+        font: this.helveticaBold,
+        color: this.colors.white,
+      })
+      
+      this.addTextWrapped(card.answer, this.margin + 50, this.yPosition - 40, 
+                         this.contentWidth - 60, 11, this.helvetica, this.colors.darkText)
+      
+      this.yPosition -= 80
+    })
+  }
+
+  async generateQuiz(content: string, startY: number) {
+    this.yPosition = startY
+    const questions = this.extractQuizQuestions(content)
+    
+    questions.forEach((q, index) => {
+      this.addNewPageIfNeeded(150)
+      
+      // Question header
+      this.page.drawRectangle({
+        x: this.margin,
+        y: this.yPosition - 25,
+        width: this.contentWidth,
+        height: 25,
+        color: this.colors.primary,
+      })
+      
+      this.page.drawText(`Question ${index + 1}`, {
+        x: this.margin + 15,
+        y: this.yPosition - 18,
+        size: 12,
+        font: this.helveticaBold,
+        color: this.colors.white,
+      })
+      
+      this.yPosition -= 35
+      
+      // Question text
+      this.addTextWrapped(q.question, this.margin + 10, this.yPosition, 
+                         this.contentWidth - 20, 11, this.helvetica, this.colors.darkText)
+      
+      this.yPosition -= 20
+      
+      // Answer choices
+      const choiceColors = [this.colors.quiz.a, this.colors.quiz.b, this.colors.quiz.c, this.colors.quiz.d]
+      const choiceLabels = ['A', 'B', 'C', 'D']
+      
+      q.choices.forEach((choice: string, choiceIndex: number) => {
+        this.addNewPageIfNeeded(30)
+        
+        // Choice bubble
+        this.page.drawCircle({
+          x: this.margin + 20,
+          y: this.yPosition - 10,
+          size: 8,
+          color: choiceColors[choiceIndex],
+        })
+        
+        this.page.drawText(choiceLabels[choiceIndex], {
+          x: this.margin + 16,
+          y: this.yPosition - 14,
+          size: 10,
+          font: this.helveticaBold,
+          color: this.colors.white,
+        })
+        
+        this.addTextWrapped(choice, this.margin + 40, this.yPosition - 5, 
+                           this.contentWidth - 50, 10, this.helvetica, this.colors.darkText)
+        
+        this.yPosition -= 25
+      })
+      
+      this.yPosition -= 15
+    })
+  }
+
+  async generateSummary(content: string, startY: number) {
+    this.yPosition = startY
+    const sections = this.parseContent(content)
+    
+    for (const section of sections) {
+      this.addNewPageIfNeeded(40)
+      
+      if (section.level === 1) {
+        // Major heading with background
+        this.page.drawRectangle({
+          x: this.margin - 5,
+          y: this.yPosition - 25,
+          width: this.contentWidth + 10,
+          height: 25,
+          color: this.colors.accent,
+        })
+        
+        this.addText(section.title, 14, this.helveticaBold, this.colors.white, 5)
+        this.yPosition -= 15
+        
+      } else if (section.level === 2) {
+        // Sub-heading
+        this.addText(section.title, 12, this.helveticaBold, this.colors.primary, 0)
+        
+        // Underline
+        const titleWidth = this.helveticaBold.widthOfTextAtSize(section.title, 12)
+        this.page.drawLine({
+          start: { x: this.margin, y: this.yPosition + 5 },
+          end: { x: this.margin + titleWidth, y: this.yPosition + 5 },
+          thickness: 1,
+          color: this.colors.primary,
+        })
+        
+        this.yPosition -= 12
+        
+      } else {
+        // Body text with proper paragraph spacing
+        this.addTextWrapped(section.title, this.margin, this.yPosition, 
+                           this.contentWidth, 10, this.helvetica, this.colors.darkText)
+        this.yPosition -= 12
+      }
+    }
+  }
+
+  private addText(text: string, fontSize: number, font: any, color: any, indent: number) {
+    const cleanText = this.cleanText(text)
+    if (!cleanText) return
+    
+    this.page.drawText(cleanText, {
+      x: this.margin + indent,
+      y: this.yPosition,
+      size: fontSize,
+      font: font,
+      color: color,
+    })
+    
+    this.yPosition -= fontSize * 1.3
+  }
+
+  private addTextWrapped(text: string, x: number, y: number, maxWidth: number, 
+                        fontSize: number, font: any, color: any) {
+    const cleanText = this.cleanText(text)
+    if (!cleanText) return
+    
+    const words = cleanText.split(' ')
+    let line = ''
+    let currentY = y
+    
+    for (const word of words) {
+      const testLine = line + word + ' '
+      const textWidth = font.widthOfTextAtSize(testLine, fontSize)
+      
+      if (textWidth > maxWidth && line !== '') {
+        this.page.drawText(line.trim(), {
+          x: x,
+          y: currentY,
+          size: fontSize,
+          font: font,
+          color: color,
+        })
+        currentY -= fontSize * 1.3
+        line = word + ' '
+      } else {
+        line = testLine
+      }
+    }
+    
+    if (line.trim()) {
+      this.page.drawText(line.trim(), {
+        x: x,
+        y: currentY,
+        size: fontSize,
+        font: font,
+        color: color,
+      })
+    }
+  }
+
+  private parseContent(content: string) {
+    const lines = content.split('\n').filter(line => line.trim())
+    const sections = []
+    
+    for (const line of lines) {
+      if (line.startsWith('# ')) {
+        sections.push({ title: line.replace('# ', ''), level: 1 })
+      } else if (line.startsWith('## ')) {
+        sections.push({ title: line.replace('## ', ''), level: 2 })
+      } else if (line.startsWith('### ')) {
+        sections.push({ title: line.replace('### ', ''), level: 3 })
+      } else if (line.startsWith('- ')) {
+        sections.push({ title: line.replace('- ', ''), level: 4 })
+      } else if (line.trim()) {
+        sections.push({ title: line, level: 0 })
+      }
+    }
+    
+    return sections
+  }
+
+  private extractFlashcards(content: string) {
+    const cards = []
     const qaRegex = /\*\*Q:\s*(.*?)\*\*\s*\*\*A:\s*(.*?)(?=\*\*Q:|$)/gs
     let match
     
-    while ((match = qaRegex.exec(text)) !== null) {
-      qaPairs.push({
+    while ((match = qaRegex.exec(content)) !== null) {
+      cards.push({
         question: match[1].trim(),
         answer: match[2].trim()
       })
     }
     
-    return qaPairs
+    // If no Q&A format found, create cards from headings and content
+    if (cards.length === 0) {
+      const sections = this.parseContent(content)
+      for (let i = 0; i < sections.length - 1; i += 2) {
+        if (sections[i] && sections[i + 1]) {
+          cards.push({
+            question: sections[i].title,
+            answer: sections[i + 1].title
+          })
+        }
+      }
+    }
+    
+    return cards
+  }
+
+  private extractQuizQuestions(content: string) {
+    // For now, create sample questions based on content
+    const sections = this.parseContent(content).filter(s => s.level <= 2)
+    const questions: Array<{question: string, choices: string[], correctAnswer: number}> = []
+    
+    sections.slice(0, 5).forEach((section, index) => {
+      questions.push({
+        question: `What is the main concept of: ${section.title}?`,
+        choices: [
+          `Option A for ${section.title}`,
+          `Option B for ${section.title}`,
+          `Option C for ${section.title}`,
+          `Option D for ${section.title}`
+        ],
+        correctAnswer: 0
+      })
+    })
+    
+    return questions
+  }
+
+  private cleanText(text: string): string {
+    return text
+      .replace(/[^\x20-\x7E\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  addFooter(page: any, pageNum: number, totalPages: number, generatedAt: Date) {
+    page.drawLine({
+      start: { x: this.margin, y: 35 },
+      end: { x: this.width - this.margin, y: 35 },
+      thickness: 0.5,
+      color: this.colors.border,
+    })
+
+    page.drawText("CasanovaStudy - AI Study Guide Generator", {
+      x: this.margin,
+      y: 22,
+      size: 8,
+      font: this.helvetica,
+      color: this.colors.lightText,
+    })
+
+    page.drawText(`Generated on ${generatedAt.toLocaleDateString()} | Page ${pageNum} of ${totalPages}`, {
+      x: this.width - 180,
+      y: 22,
+      size: 8,
+      font: this.helvetica,
+      color: this.colors.lightText,
+    })
   }
 }
