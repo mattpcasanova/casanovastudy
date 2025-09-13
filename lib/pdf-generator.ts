@@ -1,5 +1,4 @@
-import puppeteer from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
+import { chromium } from 'playwright'
 import { StudyGuideResponse } from '@/types'
 
 export class PDFGenerator {
@@ -18,21 +17,21 @@ export class PDFGenerator {
   }
 
   static async generatePDF(studyGuide: StudyGuideResponse): Promise<Buffer> {
-    let browser: puppeteer.Browser | null = null
+    let browser: any = null
 
     try {
-      // Use Vercel-compatible Chromium
-      const executablePath = process.env.NODE_ENV === 'production' 
-        ? await chromium.executablePath()
-        : process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
+      console.log('Launching Playwright browser...')
 
-      console.log(`Launching browser with executable path: ${executablePath}`)
-
-      browser = await puppeteer.launch({
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath,
-        headless: chromium.headless,
+      browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--disable-gpu'
+        ]
       })
 
       const page = await browser.newPage()
@@ -40,10 +39,22 @@ export class PDFGenerator {
       // Generate HTML content
       const html = this.generateHTML(studyGuide)
       
-      await page.setContent(html, { waitUntil: 'networkidle0' })
+      await page.setContent(html, { waitUntil: 'networkidle' })
       
       // Generate PDF
-      const pdfBuffer = await page.pdf(this.PDF_OPTIONS)
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm'
+        },
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%; color: #666;">CasanovaStudy - Study Guide Generator</div>',
+        footerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%; color: #666;">Generated on <span class="date"></span> | Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>'
+      })
       
       return pdfBuffer
     } catch (error) {
