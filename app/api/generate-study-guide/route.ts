@@ -45,14 +45,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     let processedFiles;
     if (body.cloudinaryFiles && body.cloudinaryFiles.length > 0) {
       // Process files from Cloudinary URLs
-      console.log('Processing files from Cloudinary URLs...');
+      console.log('Processing files from Cloudinary URLs...', body.cloudinaryFiles);
       processedFiles = await Promise.all(
         body.cloudinaryFiles.map(async (cloudinaryFile) => {
+          console.log('Processing Cloudinary file:', cloudinaryFile.filename);
           return await FileProcessor.processFileFromUrl(cloudinaryFile.url, cloudinaryFile.filename);
         })
       );
+      console.log('Processed files from Cloudinary:', processedFiles);
     } else {
       // Use existing files (fallback for direct upload)
+      console.log('Using direct upload files:', body.files);
       processedFiles = body.files!;
     }
 

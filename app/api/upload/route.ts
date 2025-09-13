@@ -17,7 +17,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Process files
     const processedFiles = await FileProcessor.processMultipleFiles(files)
     
-    const totalSize = processedFiles.reduce((sum, file) => sum + file.size, 0)
+    const totalSize = processedFiles.reduce((sum, file) => sum + file.originalSize, 0)
 
     return NextResponse.json({
       success: true,
