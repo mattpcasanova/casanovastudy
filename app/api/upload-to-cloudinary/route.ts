@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudinaryService } from '@/lib/cloudinary-service';
-import { validateFile } from '@/lib/file-processing';
+import { FileProcessor } from '@/lib/file-processing';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file
-    const validation = validateFile(file);
-    if (!validation.isValid) {
+    const validation = FileProcessor.validateFile(file);
+    if (!validation.valid) {
       return NextResponse.json(
         { error: validation.error },
         { status: 400 }
