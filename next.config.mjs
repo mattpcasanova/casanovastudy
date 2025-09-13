@@ -11,7 +11,7 @@ const nextConfig = {
   },
   // Increase body size limit for file uploads
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer']
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium']
   }
 }
 

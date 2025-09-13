@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import { StudyGuideResponse } from '@/types'
 
 export class PDFGenerator {
@@ -20,45 +21,19 @@ export class PDFGenerator {
     let browser: puppeteer.Browser | null = null
 
     try {
-      // Try different Chrome paths for Vercel
-      const possiblePaths = [
-        process.env.PUPPETEER_EXECUTABLE_PATH,
-        '/opt/chrome/chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium'
-      ].filter(Boolean)
+      // Use Vercel-compatible Chromium
+      const executablePath = process.env.NODE_ENV === 'production' 
+        ? await chromium.executablePath()
+        : process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
 
-      let lastError: Error | null = null
+      console.log(`Launching browser with executable path: ${executablePath}`)
 
-      for (const executablePath of possiblePaths) {
-        try {
-          browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-accelerated-2d-canvas',
-              '--no-first-run',
-              '--no-zygote',
-              '--single-process',
-              '--disable-gpu'
-            ],
-            executablePath: executablePath
-          })
-          console.log(`Successfully launched browser with: ${executablePath}`)
-          break
-        } catch (error) {
-          lastError = error as Error
-          console.log(`Failed to launch with ${executablePath}:`, error)
-          continue
-        }
-      }
-
-      if (!browser) {
-        throw new Error(`Could not launch browser. Last error: ${lastError?.message}`)
-      }
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath,
+        headless: chromium.headless,
+      })
 
       const page = await browser.newPage()
       
