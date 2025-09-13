@@ -15,12 +15,13 @@ export class PDFGeneratorV2 {
       let page = pdfDoc.addPage([595.28, 841.89]) // A4 size
       const { width, height } = page.getSize()
       
-      // Set up margins
-      const margin = 50
+      // Set up margins and layout
+      const margin = 45
+      const contentWidth = width - (margin * 2)
       let yPosition = height - margin
       
       // Helper function to add text with word wrapping
-      const addText = (text: string, fontSize: number, isBold: boolean = false, color: any = rgb(0, 0, 0)) => {
+      const addText = (text: string, fontSize: number, isBold: boolean = false, color: any = rgb(0, 0, 0), x: number = margin) => {
         // Clean the text to remove any problematic characters
         const cleanText = text
           .replace(/[^\x20-\x7E\s]/g, '') // Keep only printable ASCII characters and whitespace
@@ -30,7 +31,7 @@ export class PDFGeneratorV2 {
         if (!cleanText) return // Skip empty text
         
         const font = isBold ? helveticaBold : helvetica
-        const maxWidth = width - (margin * 2)
+        const maxWidth = contentWidth - (x - margin)
         
         // Simple word wrapping
         const words = cleanText.split(' ')
@@ -60,7 +61,7 @@ export class PDFGeneratorV2 {
           }
           
           page.drawText(lineText, {
-            x: margin,
+            x: x,
             y: yPosition,
             size: fontSize,
             font: font,
@@ -70,22 +71,104 @@ export class PDFGeneratorV2 {
         }
       }
       
-      // Add title
-      addText(studyGuide.title, 24, true, rgb(0.2, 0.4, 0.8))
-      yPosition -= 20
+      // Helper function to draw rectangles
+      const drawRect = (x: number, y: number, width: number, height: number, color: any, strokeColor?: any) => {
+        if (strokeColor) {
+          page.drawRectangle({
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            borderColor: strokeColor,
+            borderWidth: 1,
+          })
+        } else {
+          page.drawRectangle({
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            color: color,
+          })
+        }
+      }
       
-      // Add subtitle
-      addText('Study Guide', 16, false, rgb(0.4, 0.4, 0.4))
-      yPosition -= 30
+      // Draw page border
+      drawRect(margin, margin, contentWidth, height - (margin * 2), undefined, rgb(0.85, 0.85, 0.85))
       
-      // Add metadata
-      addText(`Subject: ${studyGuide.subject}`, 12, true)
-      addText(`Grade Level: ${studyGuide.gradeLevel}`, 12, true)
-      addText(`Format: ${studyGuide.format}`, 12, true)
-      addText(`Generated: ${studyGuide.generatedAt.toLocaleDateString()}`, 12, true)
-      yPosition -= 30
+      // Draw header with gradient effect
+      const headerHeight = 140
+      const headerY = height - headerHeight
       
-      // Add content with better formatting
+      // Header background
+      drawRect(margin, headerY, contentWidth, headerHeight, rgb(0.31, 0.67, 0.99))
+      
+      // Header overlay
+      drawRect(margin, headerY, contentWidth, 70, rgb(1, 1, 1, 0.05))
+      
+      // Brand mark
+      const brandText = 'CasanovaStudy'
+      const brandWidth = helveticaBold.widthOfTextAtSize(brandText, 10)
+      page.drawRectangle({
+        x: width - margin - brandWidth - 20,
+        y: headerY + headerHeight - 35,
+        width: brandWidth + 10,
+        height: 20,
+        color: rgb(1, 1, 1, 0.2),
+      })
+      addText(brandText, 10, true, rgb(1, 1, 1), width - margin - brandWidth - 15)
+      
+      // Title
+      yPosition = headerY + 80
+      addText(studyGuide.title, 24, true, rgb(1, 1, 1))
+      
+      // Subtitle
+      yPosition -= 5
+      addText('AI-Generated Study Guide', 14, false, rgb(1, 1, 1, 0.9))
+      
+      // Metadata strip
+      const metadataY = headerY + 20
+      const metadataItems = [
+        `Subject: ${studyGuide.subject}`,
+        `Grade Level: ${studyGuide.gradeLevel}`,
+        `Format: ${studyGuide.format}`,
+        `Generated: ${studyGuide.generatedAt.toLocaleDateString()}`
+      ]
+      
+      const boxWidth = contentWidth / 4
+      for (let i = 0; i < metadataItems.length; i++) {
+        const boxX = margin + (i * boxWidth)
+        drawRect(boxX, metadataY, boxWidth - 5, 20, rgb(1, 1, 1, 0.15))
+        addText(metadataItems[i], 9, false, rgb(1, 1, 1), boxX + 5)
+      }
+      
+      // Content area
+      yPosition = headerY - 20
+      
+      // Main section header
+      const mainSectionText = `${studyGuide.subject} Study Guide: ${studyGuide.title}`
+      const mainSectionHeight = 30
+      drawRect(margin, yPosition - mainSectionHeight, contentWidth, mainSectionHeight, rgb(0.31, 0.67, 0.99))
+      drawRect(margin, yPosition - mainSectionHeight, contentWidth, 15, rgb(1, 1, 1, 0.1))
+      addText(mainSectionText, 18, true, rgb(1, 1, 1), margin + 10)
+      yPosition -= mainSectionHeight + 15
+      
+      // Sub section
+      const subSectionText = 'Comprehensive Summary for Exam Preparation'
+      const subSectionHeight = 25
+      drawRect(margin, yPosition - subSectionHeight, contentWidth, subSectionHeight, rgb(0.97, 0.98, 1))
+      page.drawRectangle({
+        x: margin,
+        y: yPosition - subSectionHeight,
+        width: contentWidth,
+        height: subSectionHeight,
+        borderColor: rgb(0.31, 0.67, 0.99),
+        borderWidth: 2,
+      })
+      addText(subSectionText, 15, true, rgb(0.31, 0.67, 0.99), margin + 12)
+      yPosition -= subSectionHeight + 15
+      
+      // Process content
       const content = this.formatContentForPDF(studyGuide.content, studyGuide.format)
       const sections = content.split('\n\n')
       
@@ -93,29 +176,67 @@ export class PDFGeneratorV2 {
         if (section.trim()) {
           // Check if it's a header
           if (section.startsWith('# ')) {
-            addText(section.replace('# ', ''), 18, true, rgb(0.2, 0.4, 0.8))
+            const headerText = section.replace('# ', '')
+            addText(headerText, 18, true, rgb(0.2, 0.4, 0.8))
             yPosition -= 10
           } else if (section.startsWith('## ')) {
-            addText(section.replace('## ', ''), 16, true, rgb(0.3, 0.5, 0.9))
+            const headerText = section.replace('## ', '')
+            addText(headerText, 15, true, rgb(0.31, 0.67, 0.99))
             yPosition -= 10
           } else if (section.startsWith('### ')) {
-            addText(section.replace('### ', ''), 14, true, rgb(0.4, 0.6, 1.0))
+            const headerText = section.replace('### ', '')
+            addText(headerText, 13, true, rgb(0.2, 0.6, 0.9))
             yPosition -= 10
           } else if (section.includes('**Q:') && section.includes('**A:')) {
-            // Format flashcards
+            // Format flashcards with enhanced styling
             const qaPairs = this.extractQA(section)
             for (const qa of qaPairs) {
-              addText(`Q: ${qa.question}`, 12, true, rgb(0.8, 0.2, 0.2))
-              addText(`A: ${qa.answer}`, 12, false, rgb(0.2, 0.6, 0.2))
-              yPosition -= 15
+              const cardHeight = 40
+              const cardY = yPosition - cardHeight
+              
+              // Card shadow
+              drawRect(margin + 2, cardY - 2, contentWidth - 2, cardHeight, rgb(0, 0, 0, 0.1))
+              
+              // Card background
+              drawRect(margin, cardY, contentWidth, cardHeight, rgb(0.98, 0.99, 1))
+              page.drawRectangle({
+                x: margin,
+                y: cardY,
+                width: contentWidth,
+                height: cardHeight,
+                borderColor: rgb(0.31, 0.67, 0.99),
+                borderWidth: 1,
+              })
+              
+              // Question header
+              const questionHeight = 20
+              drawRect(margin, cardY + cardHeight - questionHeight, contentWidth, questionHeight, rgb(0.8, 0.3, 0))
+              addText(`Q: ${qa.question}`, 11, true, rgb(1, 1, 1), margin + 12)
+              
+              // Answer
+              addText(`A: ${qa.answer}`, 11, false, rgb(0.13, 0.45, 0.15), margin + 12)
+              
+              yPosition -= cardHeight + 15
             }
           } else {
             // Regular text
-            addText(section, 12, false)
+            addText(section, 11, false, rgb(0.15, 0.15, 0.15))
             yPosition -= 10
           }
         }
       }
+      
+      // Footer
+      const footerY = margin + 30
+      page.drawLine({
+        start: { x: margin, y: footerY },
+        end: { x: width - margin, y: footerY },
+        thickness: 0.5,
+        color: rgb(0.85, 0.85, 0.85),
+      })
+      
+      addText('CasanovaStudy - AI Study Guide Generator', 8, false, rgb(0.6, 0.6, 0.6), margin)
+      addText(`Generated on ${studyGuide.generatedAt.toLocaleDateString()} | Page 1 of 1`, 8, false, rgb(0.6, 0.6, 0.6), width - margin - 200)
       
       // Generate PDF bytes
       const pdfBytes = await pdfDoc.save()

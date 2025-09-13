@@ -20,12 +20,6 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   const [emailSent, setEmailSent] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
-  const handleViewPDF = () => {
-    if (studyGuideResponse?.pdfDataUrl) {
-      // Open PDF in new window
-      window.open(studyGuideResponse.pdfDataUrl, '_blank')
-    }
-  }
 
   const handleDownloadPDF = () => {
     if (studyGuideResponse?.pdfDataUrl) {
@@ -212,24 +206,13 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button
-                  onClick={handleViewPDF}
+                  onClick={handleDownloadPDF}
                   disabled={!studyGuideResponse?.pdfDataUrl}
                   className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {studyGuideResponse?.pdfDataUrl ? 'View PDF' : 'Generating...'}
-                </Button>
-
-                <Button
-                  onClick={handleDownloadPDF}
-                  disabled={!studyGuideResponse?.pdfDataUrl}
-                  variant="outline"
-                  className="w-full border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  size="lg"
-                >
                   <Download className="h-4 w-4 mr-2" />
-                  Download PDF
+                  {studyGuideResponse?.pdfDataUrl ? 'Download PDF' : 'Generating...'}
                 </Button>
 
                 <Button
