@@ -60,7 +60,7 @@ export default function Home() {
         subject: studyGuideRequest.subject,
         gradeLevel: studyGuideRequest.gradeLevel,
         format: studyGuideRequest.format,
-        fileCount: studyGuideRequest.files.length
+        fileCount: studyGuideRequest.cloudinaryFiles?.length || studyGuideRequest.files?.length || 0
       })
 
       const generateResponse = await fetch('/api/generate-study-guide', {
