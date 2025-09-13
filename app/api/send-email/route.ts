@@ -7,10 +7,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const body: EmailRequest = await request.json()
     
     // Validate request
-    if (!body.to || !body.subject || !body.studyGuideId || !body.pdfUrl) {
+    if (!body.to || !body.subject || !body.studyGuideId || !body.htmlContent) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields: to, subject, studyGuideId, pdfUrl'
+        error: 'Missing required fields: to, subject, studyGuideId, htmlContent'
       }, { status: 400 })
     }
 

@@ -31,6 +31,25 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
     }
   }
 
+  const handleDownloadPDF = () => {
+    if (studyGuideResponse?.htmlContent) {
+      // Create a blob with the HTML content
+      const blob = new Blob([studyGuideResponse.htmlContent], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      
+      // Create a temporary link to download the HTML file
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${studyGuideResponse.title}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up the URL
+      URL.revokeObjectURL(url)
+    }
+  }
+
   const handleSendEmail = async () => {
     if (!email || !studyGuideResponse) return
 
@@ -211,6 +230,17 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   {studyGuideResponse?.htmlContent ? 'View Study Guide' : 'Generating...'}
+                </Button>
+
+                <Button
+                  onClick={handleDownloadPDF}
+                  disabled={!studyGuideResponse?.htmlContent}
+                  variant="outline"
+                  className="w-full border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  size="lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download HTML
                 </Button>
 
                 <Button

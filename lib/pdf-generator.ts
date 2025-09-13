@@ -258,15 +258,28 @@ export class PDFGenerator {
   }
 
   private static formatContent(content: string, format: string): string {
-    // Basic formatting - in a real app, you'd want more sophisticated parsing
+    // Enhanced formatting for better PDF appearance
     let formatted = content
+      // Handle headers
+      .replace(/^# (.*$)/gm, '<h1 class="section-title">$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2 class="section-title">$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3 class="section-title">$1</h3>')
+      // Handle bold text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Handle italic text
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Handle code
+      .replace(/`(.*?)`/g, '<code>$1</code>')
+      // Handle lists
+      .replace(/^[\s]*[-*+]\s+(.*$)/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+      // Handle numbered lists
+      .replace(/^[\s]*\d+\.\s+(.*$)/gm, '<li>$1</li>')
+      // Handle line breaks
       .replace(/\n\n/g, '</p><p>')
       .replace(/\n/g, '<br>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code>$1</code>')
 
-    // Add paragraph tags
+    // Wrap in paragraph tags
     formatted = `<p>${formatted}</p>`
 
     // Format based on study guide type
@@ -281,11 +294,19 @@ export class PDFGenerator {
 
   private static formatFlashcards(content: string): string {
     return content
+      .replace(/\*\*Q:\s*(.*?)\*\*\s*\*\*A:\s*(.*?)(?=\*\*Q:|$)/gs, (match, question, answer) => {
+        return `
+          <div class="flashcard">
+            <div class="flashcard-question"><strong>Q:</strong> ${question.trim()}</div>
+            <div class="flashcard-answer"><strong>A:</strong> ${answer.trim()}</div>
+          </div>
+        `
+      })
       .replace(/Q:\s*(.*?)\s*A:\s*(.*?)(?=Q:|$)/gs, (match, question, answer) => {
         return `
           <div class="flashcard">
-            <div class="flashcard-question">Q: ${question.trim()}</div>
-            <div class="flashcard-answer">A: ${answer.trim()}</div>
+            <div class="flashcard-question"><strong>Q:</strong> ${question.trim()}</div>
+            <div class="flashcard-answer"><strong>A:</strong> ${answer.trim()}</div>
           </div>
         `
       })
