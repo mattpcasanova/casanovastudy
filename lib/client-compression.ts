@@ -12,8 +12,10 @@ export class ClientCompression {
       // Create form data for Cloudinary
       const formData = new FormData();
       formData.append('file', compressedFile);
-      formData.append('upload_preset', 'casanovastudy'); // You'll need to create this
+      formData.append('upload_preset', 'casanovastudy');
       formData.append('folder', folder);
+      formData.append('access_mode', 'public'); // Ensure public access
+      formData.append('resource_type', 'raw'); // Use raw for all file types
       
       // Upload directly to Cloudinary
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -36,6 +38,7 @@ export class ClientCompression {
       
       const result = await response.json();
       console.log('Direct Cloudinary upload successful:', result);
+      console.log('Generated URL:', result.secure_url);
       
       return {
         url: result.secure_url,
