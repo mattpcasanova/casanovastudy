@@ -513,11 +513,19 @@ Note: Please work with available content and provide general study guidance for 
   static async processFileFromUrl(url: string, filename: string): Promise<ProcessedFile> {
     try {
       console.log('Processing file from Cloudinary URL:', url);
+      console.log('URL status check:', { url, filename });
       
       // Download file from Cloudinary
       const response = await fetch(url);
+      console.log('Fetch response:', { 
+        status: response.status, 
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
-        throw new Error(`Failed to download file: ${response.statusText}`);
+        throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
       }
 
       const arrayBuffer = await response.arrayBuffer();

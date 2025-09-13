@@ -32,6 +32,8 @@ export class CloudinaryService {
           folder: folder,
           use_filename: true,
           unique_filename: true,
+          access_mode: 'public', // Make files publicly accessible
+          type: 'upload', // Ensure it's an upload type
         }
       );
 
