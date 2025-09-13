@@ -10,9 +10,7 @@ const nextConfig = {
     unoptimized: true,
   },
   // Increase body size limit for file uploads
-  experimental: {
-    serverComponentsExternalPackages: []
-  }
+  serverExternalPackages: []
 }
 
 export default nextConfig

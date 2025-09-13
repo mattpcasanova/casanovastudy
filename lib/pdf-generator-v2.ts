@@ -12,7 +12,7 @@ export class PDFGeneratorV2 {
       const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
       
       // Add a page
-      const page = pdfDoc.addPage([595.28, 841.89]) // A4 size
+      let page = pdfDoc.addPage([595.28, 841.89]) // A4 size
       const { width, height } = page.getSize()
       
       // Set up margins
