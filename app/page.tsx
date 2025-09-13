@@ -17,37 +17,17 @@ export default function Home() {
     setIsGenerating(true)
 
     try {
-      // Step 1: Compress files if needed (client-side)
-      console.log('Compressing files if needed...');
-      const compressedFiles = await Promise.all(
-        data.files.map(async (file) => {
-          return await ClientCompression.compressIfNeeded(file);
-        })
-      );
-
-      // Step 2: Upload compressed files to Cloudinary
+      // Step 1: Upload files directly to Cloudinary (bypassing Vercel)
+      console.log('Uploading files directly to Cloudinary...');
       const cloudinaryUploads = await Promise.all(
-        compressedFiles.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('folder', 'casanovastudy')
-
-          const response = await fetch('/api/upload-to-cloudinary', {
-            method: 'POST',
-            body: formData
-          })
-
-          if (!response.ok) {
-            throw new Error(`Failed to upload ${file.name}`)
-          }
-
-          return await response.json()
+        data.files.map(async (file) => {
+          return await ClientCompression.uploadToCloudinary(file);
         })
       )
 
       console.log('Cloudinary uploads completed:', cloudinaryUploads)
 
-      // Step 3: Generate study guide using Cloudinary URLs
+      // Step 2: Generate study guide using Cloudinary URLs
       const studyGuideRequest = {
         cloudinaryFiles: cloudinaryUploads.map(upload => ({
           url: upload.url,

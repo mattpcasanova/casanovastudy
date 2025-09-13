@@ -2,6 +2,44 @@ import { PDFDocument } from 'pdf-lib';
 
 export class ClientCompression {
   /**
+   * Upload file directly to Cloudinary (bypassing Vercel)
+   */
+  static async uploadToCloudinary(file: File, folder: string = 'casanovastudy'): Promise<any> {
+    try {
+      // Compress if needed
+      const compressedFile = await this.compressIfNeeded(file);
+      
+      // Create form data for Cloudinary
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('upload_preset', 'casanovastudy'); // You'll need to create this
+      formData.append('folder', folder);
+      
+      // Upload directly to Cloudinary
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/raw/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Cloudinary upload failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Direct Cloudinary upload successful:', result);
+      
+      return {
+        url: result.secure_url,
+        filename: file.name,
+        size: result.bytes,
+        format: result.format
+      };
+    } catch (error) {
+      console.error('Direct Cloudinary upload error:', error);
+      throw error;
+    }
+  }
+  /**
    * Compress a PDF file on the client side
    */
   static async compressPDF(file: File): Promise<File> {
