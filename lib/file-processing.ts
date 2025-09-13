@@ -15,6 +15,11 @@ export class FileProcessor {
       return { valid: false, error: 'File type not supported. Please upload PDF, DOCX, PPTX, or TXT files.' }
     }
 
+    // Warn about Cloudinary 10MB limit for PDFs
+    if (file.type === 'application/pdf' && file.size > 10 * 1024 * 1024) {
+      console.warn(`PDF file ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Will be compressed to fit Cloudinary's 10MB limit.`);
+    }
+
     return { valid: true }
   }
 

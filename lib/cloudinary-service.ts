@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { PDFDocument } from 'pdf-lib';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -16,6 +17,30 @@ export interface CloudinaryUploadResult {
 
 export class CloudinaryService {
   /**
+   * Compress PDF if it's too large
+   */
+  private static async compressPDF(buffer: Buffer): Promise<Buffer> {
+    try {
+      const pdfDoc = await PDFDocument.load(buffer);
+      
+      // Get the PDF as bytes with compression
+      const pdfBytes = await pdfDoc.save({
+        useObjectStreams: false,
+        addDefaultPage: false,
+        objectsPerTick: 50,
+      });
+      
+      const compressedBuffer = Buffer.from(pdfBytes);
+      console.log(`PDF compressed: ${buffer.length} -> ${compressedBuffer.length} bytes`);
+      
+      return compressedBuffer;
+    } catch (error) {
+      console.log('PDF compression failed, using original:', error);
+      return buffer;
+    }
+  }
+
+  /**
    * Upload a file buffer directly to Cloudinary
    */
   static async uploadFile(
@@ -24,8 +49,22 @@ export class CloudinaryService {
     folder: string = 'casanovastudy'
   ): Promise<CloudinaryUploadResult> {
     try {
+      let uploadBuffer = buffer;
+      
+      // Compress PDFs if they're over 10MB
+      if (filename.toLowerCase().endsWith('.pdf') && buffer.length > 10 * 1024 * 1024) {
+        console.log('PDF is over 10MB, attempting compression...');
+        uploadBuffer = await this.compressPDF(buffer);
+        
+        // If still too large, truncate as last resort
+        if (uploadBuffer.length > 10 * 1024 * 1024) {
+          console.log('PDF still too large after compression, truncating...');
+          uploadBuffer = uploadBuffer.slice(0, 10 * 1024 * 1024);
+        }
+      }
+      
       const result = await cloudinary.uploader.upload(
-        `data:application/octet-stream;base64,${buffer.toString('base64')}`,
+        `data:application/octet-stream;base64,${uploadBuffer.toString('base64')}`,
         {
           public_id: `${folder}/${filename.replace(/\.[^/.]+$/, '')}`,
           resource_type: 'raw', // Use 'raw' for all file types
