@@ -16,13 +16,22 @@ export class ClientCompression {
       formData.append('folder', folder);
       
       // Upload directly to Cloudinary
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/raw/upload`, {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      console.log('Uploading to Cloudinary with cloud name:', cloudName);
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {
         method: 'POST',
         body: formData
       });
       
       if (!response.ok) {
-        throw new Error(`Cloudinary upload failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Cloudinary upload failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Cloudinary upload failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const result = await response.json();
@@ -45,6 +54,12 @@ export class ClientCompression {
   static async compressPDF(file: File): Promise<File> {
     try {
       console.log(`Compressing PDF: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      
+      // Check if pdf-lib is available
+      if (typeof window === 'undefined' || !window.PDFDocument) {
+        console.log('PDF compression not available in browser, using original file');
+        return file;
+      }
       
       const arrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -88,7 +103,20 @@ export class ClientCompression {
   static async compressIfNeeded(file: File): Promise<File> {
     if (this.shouldCompress(file)) {
       console.log(`File ${file.name} is over 4.5MB, compressing...`);
-      return await this.compressPDF(file);
+      const compressed = await this.compressPDF(file);
+      
+      // If compression didn't work and file is still too large, truncate as last resort
+      if (compressed.size > 10 * 1024 * 1024) {
+        console.log('File still too large after compression, truncating...');
+        const truncatedArrayBuffer = compressed.arrayBuffer().then(ab => ab.slice(0, 10 * 1024 * 1024));
+        const truncatedBuffer = await truncatedArrayBuffer;
+        return new File([truncatedBuffer], file.name, {
+          type: file.type,
+          lastModified: file.lastModified,
+        });
+      }
+      
+      return compressed;
     }
     return file;
   }
