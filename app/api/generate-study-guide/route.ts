@@ -109,21 +109,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // Generate HTML (instead of PDF for now)
     const htmlContent = PDFGenerator.generateHTML(studyGuide)
-    
-    // Ensure output directory exists
-    const outputDir = join(process.cwd(), 'public', 'study-guides')
-    if (!existsSync(outputDir)) {
-      await mkdir(outputDir, { recursive: true })
-    }
 
-    // Save HTML to file
-    const htmlPath = join(outputDir, `${studyGuideId}.html`)
-    await writeFile(htmlPath, htmlContent)
-
-    // Add HTML URL to response
+    // Add HTML content directly to response (no file system needed)
     const studyGuideWithHtml = {
       ...studyGuide,
-      htmlUrl: `/study-guides/${studyGuideId}.html`
+      htmlContent: htmlContent
     }
 
     return NextResponse.json({

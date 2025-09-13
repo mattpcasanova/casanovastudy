@@ -21,8 +21,13 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
   const handleViewHTML = () => {
-    if (studyGuideResponse?.htmlUrl) {
-      window.open(studyGuideResponse.htmlUrl, '_blank')
+    if (studyGuideResponse?.htmlContent) {
+      // Create a new window with the HTML content
+      const newWindow = window.open('', '_blank')
+      if (newWindow) {
+        newWindow.document.write(studyGuideResponse.htmlContent)
+        newWindow.document.close()
+      }
     }
   }
 
@@ -40,7 +45,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           to: email,
           subject: `Your ${studyGuideResponse.title} is ready!`,
           studyGuideId: studyGuideResponse.id,
-          htmlUrl: `${window.location.origin}${studyGuideResponse.htmlUrl}`
+          htmlContent: studyGuideResponse.htmlContent
         })
       })
 
@@ -200,12 +205,12 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
               <CardContent className="space-y-4">
                 <Button
                   onClick={handleViewHTML}
-                  disabled={!studyGuideResponse?.htmlUrl}
+                  disabled={!studyGuideResponse?.htmlContent}
                   className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  {studyGuideResponse?.htmlUrl ? 'View Study Guide' : 'Generating...'}
+                  {studyGuideResponse?.htmlContent ? 'View Study Guide' : 'Generating...'}
                 </Button>
 
                 <Button
@@ -244,7 +249,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
                 <Button
                   onClick={handleSendEmail}
-                  disabled={!email || !studyGuideResponse?.htmlUrl || isSendingEmail}
+                  disabled={!email || !studyGuideResponse?.htmlContent || isSendingEmail}
                   className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                     emailSent
                       ? "bg-green-500 hover:bg-green-600 text-white"

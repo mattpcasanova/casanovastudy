@@ -45,6 +45,7 @@ export interface StudyGuideResponse {
   fileCount: number
   subject: string
   gradeLevel: string
+  htmlContent?: string
   tokenUsage?: {
     input_tokens: number
     output_tokens: number
@@ -56,7 +57,7 @@ export interface EmailRequest {
   to: string
   subject: string
   studyGuideId: string
-  htmlUrl: string
+  htmlContent: string
 }
 
 export interface ApiResponse<T = any> {

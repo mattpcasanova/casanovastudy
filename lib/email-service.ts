@@ -48,7 +48,8 @@ export class EmailService {
     const fileName = 'study-guide.html'
     const fileSize = 'HTML Document'
     const currentYear = new Date().getFullYear()
-    const ctaUrl = request.htmlUrl
+    // For now, just provide a simple message since we can't easily embed the HTML
+    const ctaUrl = '#'
     
     return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -108,7 +109,7 @@ export class EmailService {
                   ${request.subject}
                 </div>
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#64748b;margin-top:4px;">
-                  Your study guide is ready to view and download.
+                  Your study guide is ready to view in your browser.
                 </div>
               </td>
             </tr>
@@ -169,10 +170,9 @@ export class EmailService {
                 </v:roundrect>
                 <![endif]-->
                 <!--[if !mso]><!-- -->
-                <a href="${ctaUrl}" target="_blank"
-                   style="background-color:#00f2fe;border-radius:6px;color:#0b2b3b;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;line-height:44px;text-align:center;text-decoration:none;width:260px;">
-                  View / Download Study Guide
-                </a>
+                <div style="background-color:#00f2fe;border-radius:6px;color:#0b2b3b;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;line-height:44px;text-align:center;text-decoration:none;width:260px;padding:0 20px;">
+                  Study Guide Generated Successfully
+                </div>
                 <!--<![endif]-->
               </td>
             </tr>
@@ -181,8 +181,7 @@ export class EmailService {
             <tr>
               <td align="left" style="padding:0 24px 16px 24px;">
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
-                  Having trouble with the button? Copy and paste this link into your browser:<br>
-                  <span style="color:#0f172a;word-break:break-all;">${ctaUrl}</span>
+                  Your study guide has been generated and is ready to view. Please return to the CasanovaStudy website to access your study guide.
                 </div>
               </td>
             </tr>
