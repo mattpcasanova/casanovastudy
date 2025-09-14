@@ -682,6 +682,12 @@ class FormatGenerator {
         sections.push({ title: line.replace('### ', ''), level: 3 })
       } else if (line.startsWith('- ')) {
         sections.push({ title: line.replace('- ', ''), level: 4 })
+      } else if (line.match(/^\d+\./)) {
+        // Handle numbered questions
+        sections.push({ title: line, level: 5 })
+      } else if (line.match(/^[a-d]\)/)) {
+        // Handle answer choices
+        sections.push({ title: line, level: 6 })
       } else if (line.trim()) {
         sections.push({ title: line, level: 0 })
       }
@@ -719,22 +725,91 @@ class FormatGenerator {
   }
 
   private extractQuizQuestions(content: string) {
-    // For now, create sample questions based on content
-    const sections = this.parseContent(content).filter(s => s.level <= 2)
     const questions: Array<{question: string, choices: string[], correctAnswer: number}> = []
     
-    sections.slice(0, 5).forEach((section, index) => {
+    // Split content into lines for better parsing
+    const lines = content.split('\n').map(line => line.trim()).filter(line => line)
+    
+    let currentQuestion = ''
+    let currentChoices: string[] = []
+    let questionNumber = 0
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      
+      // Check if this is a numbered question (1., 2., etc.)
+      const questionMatch = line.match(/^(\d+)\.\s*(.*)/)
+      if (questionMatch) {
+        // Save previous question if we have one
+        if (currentQuestion && currentChoices.length >= 2) {
+          questions.push({
+            question: currentQuestion,
+            choices: currentChoices,
+            correctAnswer: 0
+          })
+        }
+        
+        // Start new question
+        questionNumber = parseInt(questionMatch[1])
+        currentQuestion = questionMatch[2].trim()
+        currentChoices = []
+        continue
+      }
+      
+      // Check if this is an answer choice (a), b), c), d))
+      const choiceMatch = line.match(/^([a-d])\)\s*(.*)/)
+      if (choiceMatch && currentQuestion) {
+        currentChoices.push(choiceMatch[2].trim())
+        continue
+      }
+      
+      // Check if this is a Q: format question
+      if (line.startsWith('**Q:') && line.includes('**A:')) {
+        const qaMatch = line.match(/\*\*Q:\s*(.*?)\*\*\s*\*\*A:\s*(.*)/)
+        if (qaMatch) {
+          const question = qaMatch[1].trim()
+          const answer = qaMatch[2].trim()
+          
+          questions.push({
+            question: question,
+            choices: [
+              answer,
+              "Incorrect option 1",
+              "Incorrect option 2", 
+              "Incorrect option 3"
+            ],
+            correctAnswer: 0
+          })
+        }
+        continue
+      }
+    }
+    
+    // Don't forget the last question
+    if (currentQuestion && currentChoices.length >= 2) {
       questions.push({
-        question: `What is the main concept of: ${section.title}?`,
-        choices: [
-          `Option A for ${section.title}`,
-          `Option B for ${section.title}`,
-          `Option C for ${section.title}`,
-          `Option D for ${section.title}`
-        ],
+        question: currentQuestion,
+        choices: currentChoices,
         correctAnswer: 0
       })
-    })
+    }
+    
+    // If still no questions found, create from content sections
+    if (questions.length === 0) {
+      const sections = this.parseContent(content).filter(s => s.level <= 2)
+      sections.slice(0, 5).forEach((section, index) => {
+        questions.push({
+          question: `What is the main concept of: ${section.title}?`,
+          choices: [
+            `Option A for ${section.title}`,
+            `Option B for ${section.title}`,
+            `Option C for ${section.title}`,
+            `Option D for ${section.title}`
+          ],
+          correctAnswer: 0
+        })
+      })
+    }
     
     return questions
   }
