@@ -208,52 +208,87 @@ class FormatGenerator {
     const sections = this.parseContent(content)
     
     for (const section of sections) {
-      this.addNewPageIfNeeded(60)
+      this.addNewPageIfNeeded(80)
       
       if (section.level === 1) {
-        // Main section
+        // Main section with proper text containment
+        const boxHeight = 40
+        const boxY = this.yPosition - boxHeight
+        
         this.page.drawRectangle({
           x: this.margin - 10,
-          y: this.yPosition - 30,
+          y: boxY,
           width: this.contentWidth + 20,
-          height: 35,
+          height: boxHeight,
           color: this.colors.primary,
         })
         
-        this.addText(section.title, 16, this.helveticaBold, this.colors.white, 0)
-        this.yPosition -= 20
+        // Center text in box
+        const textWidth = this.helveticaBold.widthOfTextAtSize(section.title, 16)
+        const textX = this.margin + (this.contentWidth - textWidth) / 2
+        const textY = boxY + (boxHeight - 16) / 2 + 12
+        
+        this.page.drawText(section.title, {
+          x: textX,
+          y: textY,
+          size: 16,
+          font: this.helveticaBold,
+          color: this.colors.white,
+        })
+        
+        this.yPosition = boxY - 20
         
       } else if (section.level === 2) {
-        // Sub-section
+        // Sub-section with proper text containment
+        const boxHeight = 35
+        const boxY = this.yPosition - boxHeight
+        
         this.page.drawRectangle({
           x: this.margin + 10,
-          y: this.yPosition - 25,
+          y: boxY,
           width: this.contentWidth - 20,
-          height: 28,
+          height: boxHeight,
           color: this.colors.background,
           borderColor: this.colors.accent,
           borderWidth: 2,
         })
         
-        this.addText(section.title, 13, this.helveticaBold, this.colors.accent, 20)
-        this.yPosition -= 15
+        // Center text in box
+        const textWidth = this.helveticaBold.widthOfTextAtSize(section.title, 13)
+        const textX = this.margin + 10 + (this.contentWidth - 20 - textWidth) / 2
+        const textY = boxY + (boxHeight - 13) / 2 + 10
+        
+        this.page.drawText(section.title, {
+          x: textX,
+          y: textY,
+          size: 13,
+          font: this.helveticaBold,
+          color: this.colors.accent,
+        })
+        
+        this.yPosition = boxY - 15
         
       } else if (section.level === 3) {
-        // Sub-sub-section with bullet
+        // Sub-sub-section with centered bullet
+        const bulletSize = 4
+        const bulletX = this.margin + 30
+        const bulletY = this.yPosition - 8
+        
         this.page.drawCircle({
-          x: this.margin + 35,
-          y: this.yPosition - 6,
-          size: 3,
+          x: bulletX,
+          y: bulletY,
+          size: bulletSize,
           color: this.colors.accent,
         })
         
         this.addText(section.title, 11, this.helveticaBold, this.colors.darkText, 50)
-        this.yPosition -= 10
+        this.yPosition -= 15
         
       } else {
-        // Regular content
-        this.addText(section.title, 10, this.helvetica, this.colors.darkText, section.level * 20)
-        this.yPosition -= 8
+        // Regular content with proper indentation
+        const indent = Math.min(section.level * 25, 100)
+        this.addText(section.title, 10, this.helvetica, this.colors.darkText, indent)
+        this.yPosition -= 12
       }
     }
   }
@@ -263,87 +298,129 @@ class FormatGenerator {
     const cards = this.extractFlashcards(content)
     
     cards.forEach((card, index) => {
-      this.addNewPageIfNeeded(120)
+      this.addNewPageIfNeeded(140)
       
-      // Card number
+      // Card number with better positioning
+      const cardNumberSize = 20
+      const cardNumberX = this.margin + 15
+      const cardNumberY = this.yPosition - 15
+      
       this.page.drawCircle({
-        x: this.margin + 20,
-        y: this.yPosition - 20,
-        size: 15,
+        x: cardNumberX,
+        y: cardNumberY,
+        size: cardNumberSize,
         color: this.colors.primary,
       })
       
       this.page.drawText((index + 1).toString(), {
-        x: this.margin + 16,
-        y: this.yPosition - 26,
+        x: cardNumberX - 6,
+        y: cardNumberY - 7,
         size: 12,
         font: this.helveticaBold,
         color: this.colors.white,
       })
       
-      // Question card
+      // Question card with proper text containment
+      const cardWidth = this.contentWidth - 50
+      const cardHeight = 60
+      const cardX = this.margin + 45
+      const cardY = this.yPosition - cardHeight
+      
+      // Card shadow
       this.page.drawRectangle({
-        x: this.margin + 40,
-        y: this.yPosition - 50,
-        width: this.contentWidth - 40,
-        height: 45,
+        x: cardX + 2,
+        y: cardY - 2,
+        width: cardWidth,
+        height: cardHeight,
+        color: rgb(0.1, 0.1, 0.1),
+      })
+      
+      // Card background
+      this.page.drawRectangle({
+        x: cardX,
+        y: cardY,
+        width: cardWidth,
+        height: cardHeight,
         color: this.colors.cardBg,
         borderColor: this.colors.warning,
         borderWidth: 2,
       })
       
+      // Question header
+      const headerHeight = 25
       this.page.drawRectangle({
-        x: this.margin + 40,
-        y: this.yPosition - 22,
-        width: this.contentWidth - 40,
-        height: 22,
+        x: cardX,
+        y: cardY + cardHeight - headerHeight,
+        width: cardWidth,
+        height: headerHeight,
         color: this.colors.warning,
       })
       
-      this.page.drawText("QUESTION", {
-        x: this.margin + 50,
-        y: this.yPosition - 16,
+      // Center "QUESTION" text
+      const questionText = "QUESTION"
+      const questionTextWidth = this.helveticaBold.widthOfTextAtSize(questionText, 10)
+      this.page.drawText(questionText, {
+        x: cardX + (cardWidth - questionTextWidth) / 2,
+        y: cardY + cardHeight - headerHeight + 8,
         size: 10,
         font: this.helveticaBold,
         color: this.colors.white,
       })
       
-      this.addTextWrapped(card.question, this.margin + 50, this.yPosition - 40, 
-                         this.contentWidth - 60, 11, this.helvetica, this.colors.darkText)
+      // Question content
+      this.addTextWrapped(card.question, cardX + 10, cardY + cardHeight - headerHeight - 10, 
+                         cardWidth - 20, 11, this.helvetica, this.colors.darkText)
       
-      this.yPosition -= 60
+      this.yPosition = cardY - 20
       
-      // Answer card
+      // Answer card with proper text containment
+      const answerCardY = this.yPosition - cardHeight
+      
+      // Card shadow
       this.page.drawRectangle({
-        x: this.margin + 40,
-        y: this.yPosition - 50,
-        width: this.contentWidth - 40,
-        height: 45,
+        x: cardX + 2,
+        y: answerCardY - 2,
+        width: cardWidth,
+        height: cardHeight,
+        color: rgb(0.1, 0.1, 0.1),
+      })
+      
+      // Card background
+      this.page.drawRectangle({
+        x: cardX,
+        y: answerCardY,
+        width: cardWidth,
+        height: cardHeight,
         color: this.colors.cardBg,
         borderColor: this.colors.success,
         borderWidth: 2,
       })
       
+      // Answer header
       this.page.drawRectangle({
-        x: this.margin + 40,
-        y: this.yPosition - 22,
-        width: this.contentWidth - 40,
-        height: 22,
+        x: cardX,
+        y: answerCardY + cardHeight - headerHeight,
+        width: cardWidth,
+        height: headerHeight,
         color: this.colors.success,
       })
       
-      this.page.drawText("ANSWER", {
-        x: this.margin + 50,
-        y: this.yPosition - 16,
+      // Center "ANSWER" text
+      const answerText = "ANSWER"
+      const answerTextWidth = this.helveticaBold.widthOfTextAtSize(answerText, 10)
+      this.page.drawText(answerText, {
+        x: cardX + (cardWidth - answerTextWidth) / 2,
+        y: answerCardY + cardHeight - headerHeight + 8,
         size: 10,
         font: this.helveticaBold,
         color: this.colors.white,
       })
       
-      this.addTextWrapped(card.answer, this.margin + 50, this.yPosition - 40, 
-                         this.contentWidth - 60, 11, this.helvetica, this.colors.darkText)
+      // Answer content
+      this.addTextWrapped(card.answer, cardX + 10, answerCardY + cardHeight - headerHeight - 10, 
+                         cardWidth - 20, 11, this.helvetica, this.colors.darkText)
       
-      this.yPosition -= 80
+      this.yPosition = answerCardY - 30
     })
   }
 
@@ -352,63 +429,91 @@ class FormatGenerator {
     const questions = this.extractQuizQuestions(content)
     
     questions.forEach((q, index) => {
-      this.addNewPageIfNeeded(150)
+      this.addNewPageIfNeeded(180)
       
-      // Question header
+      // Question header with proper text containment
+      const headerHeight = 35
+      const headerY = this.yPosition - headerHeight
+      
       this.page.drawRectangle({
         x: this.margin,
-        y: this.yPosition - 25,
+        y: headerY,
         width: this.contentWidth,
-        height: 25,
+        height: headerHeight,
         color: this.colors.primary,
       })
       
-      this.page.drawText(`Question ${index + 1}`, {
-        x: this.margin + 15,
-        y: this.yPosition - 18,
-        size: 12,
+      // Center question number
+      const questionText = `Question ${index + 1}`
+      const questionTextWidth = this.helveticaBold.widthOfTextAtSize(questionText, 14)
+      this.page.drawText(questionText, {
+        x: this.margin + (this.contentWidth - questionTextWidth) / 2,
+        y: headerY + (headerHeight - 14) / 2 + 10,
+        size: 14,
         font: this.helveticaBold,
         color: this.colors.white,
       })
       
-      this.yPosition -= 35
+      this.yPosition = headerY - 20
       
-      // Question text
-      this.addTextWrapped(q.question, this.margin + 10, this.yPosition, 
-                         this.contentWidth - 20, 11, this.helvetica, this.colors.darkText)
+      // Question text with proper spacing
+      this.addTextWrapped(q.question, this.margin + 15, this.yPosition, 
+                         this.contentWidth - 30, 12, this.helvetica, this.colors.darkText)
       
-      this.yPosition -= 20
+      this.yPosition -= 30
       
-      // Answer choices
+      // Answer choices with better layout
       const choiceColors = [this.colors.quiz.a, this.colors.quiz.b, this.colors.quiz.c, this.colors.quiz.d]
       const choiceLabels = ['A', 'B', 'C', 'D']
       
       q.choices.forEach((choice: string, choiceIndex: number) => {
-        this.addNewPageIfNeeded(30)
+        this.addNewPageIfNeeded(40)
+        
+        // Choice container
+        const choiceHeight = 30
+        const choiceY = this.yPosition - choiceHeight
+        const choiceX = this.margin + 20
+        const choiceWidth = this.contentWidth - 40
+        
+        // Choice background
+        this.page.drawRectangle({
+          x: choiceX,
+          y: choiceY,
+          width: choiceWidth,
+          height: choiceHeight,
+          color: this.colors.background,
+          borderColor: choiceColors[choiceIndex],
+          borderWidth: 1,
+        })
         
         // Choice bubble
+        const bubbleSize = 12
+        const bubbleX = choiceX + 15
+        const bubbleY = choiceY + (choiceHeight - bubbleSize) / 2
+        
         this.page.drawCircle({
-          x: this.margin + 20,
-          y: this.yPosition - 10,
-          size: 8,
+          x: bubbleX,
+          y: bubbleY,
+          size: bubbleSize,
           color: choiceColors[choiceIndex],
         })
         
         this.page.drawText(choiceLabels[choiceIndex], {
-          x: this.margin + 16,
-          y: this.yPosition - 14,
+          x: bubbleX - 4,
+          y: bubbleY - 4,
           size: 10,
           font: this.helveticaBold,
           color: this.colors.white,
         })
         
-        this.addTextWrapped(choice, this.margin + 40, this.yPosition - 5, 
-                           this.contentWidth - 50, 10, this.helvetica, this.colors.darkText)
+        // Choice text
+        this.addTextWrapped(choice, choiceX + 40, choiceY + (choiceHeight - 10) / 2, 
+                           choiceWidth - 50, 10, this.helvetica, this.colors.darkText)
         
-        this.yPosition -= 25
+        this.yPosition = choiceY - 15
       })
       
-      this.yPosition -= 15
+      this.yPosition -= 25
     })
   }
 
@@ -417,41 +522,72 @@ class FormatGenerator {
     const sections = this.parseContent(content)
     
     for (const section of sections) {
-      this.addNewPageIfNeeded(40)
+      this.addNewPageIfNeeded(60)
       
       if (section.level === 1) {
-        // Major heading with background
+        // Major heading with proper text containment
+        const boxHeight = 35
+        const boxY = this.yPosition - boxHeight
+        
         this.page.drawRectangle({
           x: this.margin - 5,
-          y: this.yPosition - 25,
+          y: boxY,
           width: this.contentWidth + 10,
-          height: 25,
+          height: boxHeight,
           color: this.colors.accent,
         })
         
-        this.addText(section.title, 14, this.helveticaBold, this.colors.white, 5)
-        this.yPosition -= 15
+        // Center text in box
+        const textWidth = this.helveticaBold.widthOfTextAtSize(section.title, 14)
+        const textX = this.margin + (this.contentWidth - textWidth) / 2
+        const textY = boxY + (boxHeight - 14) / 2 + 10
+        
+        this.page.drawText(section.title, {
+          x: textX,
+          y: textY,
+          size: 14,
+          font: this.helveticaBold,
+          color: this.colors.white,
+        })
+        
+        this.yPosition = boxY - 20
         
       } else if (section.level === 2) {
-        // Sub-heading
+        // Sub-heading with underline
         this.addText(section.title, 12, this.helveticaBold, this.colors.primary, 0)
         
         // Underline
         const titleWidth = this.helveticaBold.widthOfTextAtSize(section.title, 12)
         this.page.drawLine({
-          start: { x: this.margin, y: this.yPosition + 5 },
-          end: { x: this.margin + titleWidth, y: this.yPosition + 5 },
-          thickness: 1,
+          start: { x: this.margin, y: this.yPosition + 8 },
+          end: { x: this.margin + titleWidth, y: this.yPosition + 8 },
+          thickness: 1.5,
           color: this.colors.primary,
         })
         
-        this.yPosition -= 12
+        this.yPosition -= 20
+        
+      } else if (section.level === 3) {
+        // Sub-sub-heading with bullet
+        const bulletSize = 3
+        const bulletX = this.margin + 15
+        const bulletY = this.yPosition - 6
+        
+        this.page.drawCircle({
+          x: bulletX,
+          y: bulletY,
+          size: bulletSize,
+          color: this.colors.accent,
+        })
+        
+        this.addText(section.title, 11, this.helveticaBold, this.colors.darkText, 35)
+        this.yPosition -= 18
         
       } else {
         // Body text with proper paragraph spacing
         this.addTextWrapped(section.title, this.margin, this.yPosition, 
                            this.contentWidth, 10, this.helvetica, this.colors.darkText)
-        this.yPosition -= 12
+        this.yPosition -= 15
       }
     }
   }
@@ -459,6 +595,11 @@ class FormatGenerator {
   private addText(text: string, fontSize: number, font: any, color: any, indent: number) {
     const cleanText = this.cleanText(text)
     if (!cleanText) return
+    
+    // Check if we need a new page
+    if (this.yPosition < this.margin + fontSize * 2) {
+      this.addNewPageIfNeeded(fontSize * 2)
+    }
     
     this.page.drawText(cleanText, {
       x: this.margin + indent,
@@ -468,7 +609,7 @@ class FormatGenerator {
       color: color,
     })
     
-    this.yPosition -= fontSize * 1.3
+    this.yPosition -= fontSize * 1.4
   }
 
   private addTextWrapped(text: string, x: number, y: number, maxWidth: number, 
@@ -479,12 +620,19 @@ class FormatGenerator {
     const words = cleanText.split(' ')
     let line = ''
     let currentY = y
+    let lineCount = 0
     
     for (const word of words) {
       const testLine = line + word + ' '
       const textWidth = font.widthOfTextAtSize(testLine, fontSize)
       
       if (textWidth > maxWidth && line !== '') {
+        // Check if we need a new page
+        if (currentY < this.margin + fontSize * 2) {
+          this.addNewPageIfNeeded(fontSize * 2)
+          currentY = this.yPosition
+        }
+        
         this.page.drawText(line.trim(), {
           x: x,
           y: currentY,
@@ -492,7 +640,8 @@ class FormatGenerator {
           font: font,
           color: color,
         })
-        currentY -= fontSize * 1.3
+        currentY -= fontSize * 1.4
+        lineCount++
         line = word + ' '
       } else {
         line = testLine
@@ -500,6 +649,12 @@ class FormatGenerator {
     }
     
     if (line.trim()) {
+      // Check if we need a new page for the last line
+      if (currentY < this.margin + fontSize * 2) {
+        this.addNewPageIfNeeded(fontSize * 2)
+        currentY = this.yPosition
+      }
+      
       this.page.drawText(line.trim(), {
         x: x,
         y: currentY,
@@ -507,7 +662,11 @@ class FormatGenerator {
         font: font,
         color: color,
       })
+      lineCount++
     }
+    
+    // Update yPosition based on how many lines we drew
+    this.yPosition = currentY - (lineCount * fontSize * 0.2)
   }
 
   private parseContent(content: string) {
