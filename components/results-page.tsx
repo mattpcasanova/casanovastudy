@@ -169,7 +169,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                     </div>
                     <div className="space-y-3">
                       <h3 className="text-2xl font-bold text-foreground">
-                        {studyGuideData?.format.charAt(0).toUpperCase() + studyGuideData?.format.slice(1)} Study Guide
+                        {studyGuideData?.format ? studyGuideData.format.charAt(0).toUpperCase() + studyGuideData.format.slice(1) : 'Study'} Study Guide
                       </h3>
                       <div className="flex items-center justify-center gap-4 text-muted-foreground">
                         <div className="flex items-center gap-2">

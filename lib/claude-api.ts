@@ -73,7 +73,7 @@ export class ClaudeService {
   private buildPrompt(request: ClaudeApiRequest): string {
     const { content, subject, gradeLevel, format, topicFocus, difficultyLevel, additionalInstructions } = request
 
-    const formatInstructions = this.getFormatInstructions(format)
+    const formatInstructions = this.getFormatInstructions(format as any)
     const difficultyInstructions = this.getDifficultyInstructions(difficultyLevel)
 
       return `You are an expert educational content creator specializing in creating exam-focused study guides for ${gradeLevel} students.

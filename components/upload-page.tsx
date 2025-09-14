@@ -25,7 +25,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { StudyGuideData } from "@/app/page"
+import type { StudyGuideData } from "@/types"
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void

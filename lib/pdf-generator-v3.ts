@@ -1,7 +1,7 @@
 import type { StudyGuideResponse } from "@/types"
 import { PDFDocument, rgb, StandardFonts, PageSizes } from "pdf-lib"
 
-export class PDFGeneratorV2 {
+export class PDFGeneratorV3 {
   public static cleanText(text: string): string {
     if (!text) return ''
     

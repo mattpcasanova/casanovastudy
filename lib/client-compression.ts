@@ -59,7 +59,7 @@ export class ClientCompression {
       console.log(`Compressing PDF: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       
       // Check if pdf-lib is available
-      if (typeof window === 'undefined' || !window.PDFDocument) {
+      if (typeof window === 'undefined' || !(window as any).PDFDocument) {
         console.log('PDF compression not available in browser, using original file');
         return file;
       }
