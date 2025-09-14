@@ -815,8 +815,29 @@ class FormatGenerator {
   }
 
   private cleanText(text: string): string {
+    if (!text) return ''
+    
     return text
+      // Remove specific problematic emoji (📚 = 0x1f4da)
+      .replace(/[\u{1F4DA}]/gu, '')
+      // Remove all emojis and special Unicode characters (comprehensive)
+      .replace(/[\u{1F000}-\u{1F9FF}]/gu, '') // Emoji range
+      .replace(/[\u{2600}-\u{27BF}]/gu, '') // Miscellaneous Symbols and Pictographs
+      .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Miscellaneous Symbols and Pictographs
+      .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+      .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map Symbols
+      .replace(/[\u{1F700}-\u{1F77F}]/gu, '') // Alchemical Symbols
+      .replace(/[\u{1F780}-\u{1F7FF}]/gu, '') // Geometric Shapes Extended
+      .replace(/[\u{1F800}-\u{1F8FF}]/gu, '') // Supplemental Arrows-C
+      .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols and Pictographs
+      .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
+      .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
+      .replace(/[\u{1FB00}-\u{1FBFF}]/gu, '') // Symbols for Legacy Computing
+      // Remove any remaining non-ASCII characters
+      .replace(/[^\x00-\x7F]/g, '')
+      // Keep only printable ASCII characters and whitespace
       .replace(/[^\x20-\x7E\s]/g, '')
+      // Normalize whitespace
       .replace(/\s+/g, ' ')
       .trim()
   }
