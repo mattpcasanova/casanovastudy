@@ -705,7 +705,8 @@ export class PDFShiftPDFGenerator {
     /* Quiz Questions - Clean Professional Design */
     .content .quiz-question,
     .quiz-section .quiz-question,
-    .quiz-question {
+    .quiz-question,
+    .quiz-questions .quiz-question {
         background: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 0.5rem !important;
@@ -850,6 +851,10 @@ export class PDFShiftPDFGenerator {
 
     /* Quiz Sections */
     .quiz-section {
+        margin-bottom: 2rem;
+    }
+
+    .quiz-questions {
         margin-bottom: 2rem;
     }
 
@@ -1952,14 +1957,28 @@ export class PDFShiftPDFGenerator {
       }
       
       // Look for traditional quiz headers
-      if (line.includes('QUIZ') || line.includes('Quiz')) {
+      if (line.includes('QUIZ') || line.includes('Quiz') || line.includes('quiz')) {
         console.log('Found quiz header:', line)
         return lines.slice(i).join('\n')
       }
       
       // Look for question sections
-      if (line.includes('QUESTION') || line.includes('Question')) {
+      if (line.includes('QUESTION') || line.includes('Question') || line.includes('question')) {
         console.log('Found question section:', line)
+        return lines.slice(i).join('\n')
+      }
+      
+      // Look for multiple choice sections
+      if (line.toLowerCase().includes('multiple choice') || 
+          line.toLowerCase().includes('true/false') ||
+          line.toLowerCase().includes('short answer')) {
+        console.log('Found quiz type section:', line)
+        return lines.slice(i).join('\n')
+      }
+      
+      // Look for lines that contain question patterns
+      if (line.includes('?') && (line.match(/^\d+\.|^Question|^Q:/i) || line.length > 30)) {
+        console.log('Found question pattern:', line)
         return lines.slice(i).join('\n')
       }
     }
@@ -1976,8 +1995,9 @@ export class PDFShiftPDFGenerator {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       
-      // Look for "Question X:" format
-      if (line.match(/^Question \d+:/)) {
+      // Look for various question formats
+      const questionMatch = line.match(/^(Question \d+:|^\d+\.|^Q\d+:|^Q:)/i)
+      if (questionMatch) {
         if (currentQuestion) {
           // Save previous question
           this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
@@ -1991,8 +2011,12 @@ export class PDFShiftPDFGenerator {
         }
         console.log(`Found question ${questionNumber}: ${line}`)
         
-        // Get question text (next line)
-        if (i + 1 < lines.length) {
+        // Get question text - could be on same line or next line
+        if (line.includes('?') && line.length > 10) {
+          // Question is on the same line
+          currentQuestion.question = line.replace(/^(Question \d+:|^\d+\.|^Q\d+:|^Q:)\s*/i, '').trim()
+        } else if (i + 1 < lines.length) {
+          // Question is on the next line
           currentQuestion.question = lines[i + 1]
           console.log(`Question text: ${currentQuestion.question.substring(0, 50)}...`)
           i++ // Skip the question text line
@@ -2025,14 +2049,16 @@ export class PDFShiftPDFGenerator {
       // Skip empty lines
       if (!line) continue
       
-      // Check for MC options (a), b), c), d))
-      if (line.match(/^[a-d]\)/)) {
+      // Check for MC options (a), b), c), d)) or (A), (B), (C), (D))
+      if (line.match(/^[a-d]\)|^\([A-D]\)|^[A-D]\./)) {
         console.log(`Found MC option: ${line}`)
         return 'MC'
       }
       
       // Check for T/F indicators in the question text itself
-      if (line.toLowerCase().includes('true or false')) {
+      if (line.toLowerCase().includes('true or false') || 
+          line.toLowerCase().includes('true/false') ||
+          line.toLowerCase().includes('mark true or false')) {
         console.log(`Found T/F indicator: ${line}`)
         return 'TF'
       }
@@ -2040,13 +2066,16 @@ export class PDFShiftPDFGenerator {
       // Check for SA indicators (explain, describe, etc.)
       if (line.toLowerCase().includes('explain') || 
           line.toLowerCase().includes('compare') ||
-          line.toLowerCase().includes('describe')) {
+          line.toLowerCase().includes('describe') ||
+          line.toLowerCase().includes('what is') ||
+          line.toLowerCase().includes('how does') ||
+          line.toLowerCase().includes('why')) {
         console.log(`Found SA indicator: ${line}`)
         return 'SA'
       }
       
       // If we hit another question, stop looking
-      if (line.match(/^Question \d+:/)) {
+      if (line.match(/^(Question \d+:|^\d+\.|^Q\d+:|^Q:)/i)) {
         console.log(`Hit next question, stopping search: ${line}`)
         break
       }
@@ -2063,10 +2092,10 @@ export class PDFShiftPDFGenerator {
       // Skip empty lines
       if (!line) continue
       
-      if (line.match(/^[a-d]\)/)) {
+      if (line.match(/^[a-d]\)|^\([A-D]\)|^[A-D]\./)) {
         question.options.push(line)
         console.log(`Added MC option: ${line}`)
-      } else if (line.match(/^Question \d+:/)) {
+      } else if (line.match(/^(Question \d+:|^\d+\.|^Q\d+:|^Q:)/i)) {
         // Hit next question, stop collecting
         console.log(`Hit next question while collecting MC options: ${line}`)
         break
@@ -2200,6 +2229,9 @@ export class PDFShiftPDFGenerator {
   private static generateQuizFallback(content: string, studyGuide: StudyGuideResponse): string {
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
+    // Try to extract questions from the content even if parsing failed
+    const questions = this.extractQuestionsFromContent(content)
+    
     return `
     <div class="content">
         ${learningOutcomes ? `
@@ -2211,15 +2243,101 @@ export class PDFShiftPDFGenerator {
         </div>` : ''}
         <div class="quiz-instructions">
             <h2>Instructions</h2>
-            <p>This study guide contains important information for your exam. Review the content carefully.</p>
+            <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
         </div>
 
+        ${questions.length > 0 ? `
+        <div class="quiz-questions">
+            ${questions.map((question, index) => this.createStyledQuestionHTML(question, index + 1)).join('')}
+        </div>` : `
         <div class="quiz-content">
             <h2>Study Content</h2>
             <div class="study-content">
                 ${this.formatContent(content)}
             </div>
-        </div>
+        </div>`}
     </div>`
+  }
+
+  /**
+   * Extract questions from content when formal parsing fails
+   * This method looks for question patterns in the content and creates styled questions
+   */
+  private static extractQuestionsFromContent(content: string): Array<{question: string, type: string, options?: string[]}> {
+    const questions: Array<{question: string, type: string, options?: string[]}> = []
+    const lines = content.split('\n').filter(line => line.trim())
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Look for question patterns
+      if (line.includes('?') && (line.length > 20 || line.match(/^\d+\.|^Question|^Q:/i))) {
+        const question = line.replace(/^(Question \d+:|^\d+\.|^Q\d+:|^Q:)\s*/i, '').trim()
+        
+        if (question.length > 10) {
+          // Determine question type based on content
+          let type = 'SA' // Default to short answer
+          
+          // Check if it's multiple choice by looking at following lines
+          for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+            const nextLine = lines[j].trim()
+            if (nextLine.match(/^[a-d]\)|^\([A-D]\)|^[A-D]\./)) {
+              type = 'MC'
+              break
+            }
+            if (nextLine.toLowerCase().includes('true or false') || 
+                nextLine.toLowerCase().includes('true/false')) {
+              type = 'TF'
+              break
+            }
+            if (nextLine.includes('?') || nextLine.match(/^(Question|Q:)/i)) {
+              break
+            }
+          }
+          
+          questions.push({
+            question: question,
+            type: type,
+            options: type === 'MC' ? this.extractMCOptionsFromContent(lines, i) : undefined
+          })
+        }
+      }
+    }
+    
+    return questions.slice(0, 15) // Limit to 15 questions max
+  }
+
+  /**
+   * Extract multiple choice options from content
+   */
+  private static extractMCOptionsFromContent(lines: string[], questionIndex: number): string[] {
+    const options: string[] = []
+    
+    for (let i = questionIndex + 1; i < Math.min(questionIndex + 10, lines.length); i++) {
+      const line = lines[i].trim()
+      
+      if (line.match(/^[a-d]\)|^\([A-D]\)|^[A-D]\./)) {
+        options.push(line)
+      } else if (line.includes('?') || line.match(/^(Question|Q:)/i) || line === '') {
+        break
+      }
+    }
+    
+    return options
+  }
+
+  /**
+   * Create styled HTML for a question regardless of type
+   */
+  private static createStyledQuestionHTML(question: {question: string, type: string, options?: string[]}, questionNumber: number): string {
+    switch (question.type) {
+      case 'MC':
+        return this.createMCQuestionHTML(question, questionNumber)
+      case 'TF':
+        return this.createTFQuestionHTML(question, questionNumber)
+      case 'SA':
+      default:
+        return this.createSAQuestionHTML(question, questionNumber)
+    }
   }
 }
