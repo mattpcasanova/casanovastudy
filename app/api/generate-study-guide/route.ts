@@ -128,13 +128,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const pdfPath = join(pdfDir, pdfFileName)
     await writeFile(pdfPath, pdfBuffer)
     
-    // Create public URL for the PDF
-    const pdfUrl = `/generated-pdfs/${pdfFileName}`
+    // Create API URL for the PDF
+    const pdfUrl = `/api/pdf/${pdfFileName}`
 
-    // Add PDF URL to response
+    // Add PDF URL to response (with fallback to base64)
     const studyGuideWithPdf = {
       ...studyGuide,
-      pdfUrl: pdfUrl
+      pdfUrl: pdfUrl,
+      pdfDataUrl: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` // Fallback
     }
 
     return NextResponse.json({

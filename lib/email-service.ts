@@ -48,6 +48,7 @@ export class EmailService {
     const fileName = 'study-guide.pdf'
     const fileSize = 'PDF Document'
     const currentYear = new Date().getFullYear()
+    // Use API route if available, otherwise fall back to base64
     const ctaUrl = request.pdfUrl || request.pdfDataUrl
     
     return `<!DOCTYPE html>
