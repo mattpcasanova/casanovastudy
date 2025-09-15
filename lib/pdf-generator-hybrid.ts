@@ -83,20 +83,56 @@ export class PDFGeneratorHybrid {
     }
   }
 
+  private static async generatePDFWithChromium(studyGuide: StudyGuideResponse): Promise<Buffer> {
+    // Dynamic imports to avoid bundling issues
+    const puppeteer = await import('puppeteer-core')
+    const chromium = await import('@sparticuz/chromium')
+    
+    const browser = await puppeteer.default.launch({
+      args: chromium.default.args,
+      defaultViewport: chromium.default.defaultViewport,
+      executablePath: await chromium.default.executablePath(),
+      headless: chromium.default.headless,
+    })
+
+    try {
+      const page = await browser.newPage()
+      
+      // Generate HTML content
+      const html = this.generateHTML(studyGuide)
+      
+      await page.setContent(html, { waitUntil: 'networkidle0' })
+      
+      // Generate PDF
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '0.5in',
+          right: '0.5in',
+          bottom: '0.5in',
+          left: '0.5in'
+        }
+      })
+
+      return Buffer.from(pdf)
+    } finally {
+      await browser.close()
+    }
+  }
+
   private static async generatePDFServerless(studyGuide: StudyGuideResponse): Promise<Buffer> {
-    // For serverless environments, we'll use an external service
-    // For now, let's use a simple HTML-to-PDF service or fallback to a basic implementation
+    // For serverless environments, use Chromium
+    console.log('Using Chromium for serverless environment')
     
-    // Generate HTML
-    const html = this.generateHTML(studyGuide)
-    
-    // For now, we'll return a simple text-based PDF using a basic approach
-    // In production, you could use services like:
-    // - Puppeteer on a separate server
-    // - PDF generation APIs
-    // - Or other serverless PDF solutions
-    
-    throw new Error('Serverless PDF generation not available. Please run locally for now.')
+    try {
+      return await this.generatePDFWithChromium(studyGuide)
+    } catch (chromiumError) {
+      console.log('Chromium failed, falling back to pdf-lib:', chromiumError)
+      // Last resort fallback to pdf-lib
+      const { PDFGeneratorV4 } = await import('./pdf-generator-v4')
+      return await PDFGeneratorV4.generatePDF(studyGuide)
+    }
   }
 
   private static generateHTML(studyGuide: StudyGuideResponse): string {
