@@ -1262,23 +1262,16 @@ export class PDFShiftPDFGenerator {
             }).join('')}
         </div>
         
+        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
         <div class="outline-key-terms">
             <h2>Key Terms</h2>
             <div class="outline-key-terms-grid">
+                ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).map(term => `
                 <div class="outline-key-term">
-                    <span class="term">Prokaryote:</span> Cell without nucleus
-                </div>
-                <div class="outline-key-term">
-                    <span class="term">Eukaryote:</span> Cell with nucleus
-                </div>
-                <div class="outline-key-term">
-                    <span class="term">Organelle:</span> Specialized cell structure
-                </div>
-                <div class="outline-key-term">
-                    <span class="term">Cytoplasm:</span> Gel-like cell interior
-                </div>
+                    <span class="term">${term.term}:</span> ${term.definition}
+                </div>`).join('')}
             </div>
-        </div>
+        </div>` : ''}
         
         <div class="study-tips">
             <h2>📚 Study Tips for Success</h2>
@@ -1731,29 +1724,16 @@ export class PDFShiftPDFGenerator {
             }).join('')}
         </div>
         
+        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
         <div class="summary-key-terms">
             <h2>Key Terms to Remember</h2>
             <div class="summary-key-terms-grid">
+                ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).map(term => `
                 <div class="summary-key-term">
-                    <span class="term">Cell Theory:</span> Fundamental principles about cells
-                </div>
-                <div class="summary-key-term">
-                    <span class="term">Prokaryote:</span> Cell without a nucleus
-                </div>
-                <div class="summary-key-term">
-                    <span class="term">Eukaryote:</span> Cell with a nucleus
-                </div>
-                <div class="summary-key-term">
-                    <span class="term">Organelle:</span> Specialized cell structure
-                </div>
-                <div class="summary-key-term">
-                    <span class="term">Nucleus:</span> Cell's control center
-                </div>
-                <div class="summary-key-term">
-                    <span class="term">Mitochondria:</span> Cell's powerhouse
-                </div>
+                    <span class="term">${term.term}:</span> ${term.definition}
+                </div>`).join('')}
             </div>
-        </div>
+        </div>` : ''}
         
         <div class="study-tips">
             <h2>📚 Study Tips for Success</h2>
@@ -1798,6 +1778,79 @@ export class PDFShiftPDFGenerator {
     }
     
     return outcomes.slice(0, 5) // Limit to 5 outcomes max
+  }
+
+  private static generateKeyTerms(content: string, subject?: string): Array<{term: string, definition: string}> {
+    const keyTerms: Array<{term: string, definition: string}> = []
+    const lines = content.split('\n')
+    
+    // Look for key terms patterns
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Look for "Key Terms" or "Definitions" sections
+      if (line.toLowerCase().includes('key terms') || 
+          line.toLowerCase().includes('definitions') ||
+          line.toLowerCase().includes('vocabulary')) {
+        
+        // Extract the next few lines as key terms
+        for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
+          const termLine = lines[j].trim()
+          if (termLine && !termLine.startsWith('#') && termLine !== '---') {
+            // Look for term: definition pattern
+            const colonIndex = termLine.indexOf(':')
+            if (colonIndex > 0) {
+              const term = termLine.substring(0, colonIndex).trim()
+              const definition = termLine.substring(colonIndex + 1).trim()
+              if (term.length > 2 && definition.length > 5) {
+                keyTerms.push({ term, definition })
+              }
+            }
+          } else if (termLine.startsWith('#') || termLine === '---') {
+            break // Stop at next section
+          }
+        }
+        break
+      }
+    }
+    
+    // If no explicit key terms section found, extract from content
+    if (keyTerms.length === 0) {
+      // Look for bold terms and their definitions
+      const boldTerms = content.match(/\*\*([^*]+)\*\*[:\s]*([^*\n]+)/g)
+      if (boldTerms) {
+        boldTerms.slice(0, 8).forEach(term => {
+          const match = term.match(/\*\*([^*]+)\*\*[:\s]*([^*\n]+)/)
+          if (match) {
+            const termName = match[1].trim()
+            const definition = match[2].trim()
+            if (termName.length > 2 && definition.length > 5) {
+              keyTerms.push({ term: termName, definition })
+            }
+          }
+        })
+      }
+    }
+    
+    // If still no key terms, extract important concepts from the content
+    if (keyTerms.length === 0) {
+      const words = content.toLowerCase().split(/\s+/)
+      const importantWords = words.filter(word => 
+        word.length > 6 && 
+        !['the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'they', 'have', 'been', 'were', 'said', 'each', 'which', 'their', 'time', 'will', 'about', 'there', 'could', 'other', 'after', 'first', 'well', 'also', 'where', 'much', 'some', 'these', 'would', 'into', 'through', 'during', 'before', 'between', 'within', 'without', 'because', 'although', 'however', 'therefore', 'furthermore', 'moreover', 'nevertheless', 'consequently'].includes(word)
+      )
+      
+      // Get unique important words and create simple definitions
+      const uniqueWords = [...new Set(importantWords)].slice(0, 6)
+      uniqueWords.forEach(word => {
+        keyTerms.push({ 
+          term: word.charAt(0).toUpperCase() + word.slice(1), 
+          definition: `Important concept related to ${subject || 'the topic'}` 
+        })
+      })
+    }
+    
+    return keyTerms.slice(0, 8) // Limit to 8 key terms max
   }
 
   private static formatContent(content: string): string {
