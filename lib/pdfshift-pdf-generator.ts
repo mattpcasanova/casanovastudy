@@ -2057,15 +2057,27 @@ export class PDFShiftPDFGenerator {
       const line = lines[i].trim()
       
       // Detect section headers
-      if (line.includes('SECTION A:') || line.includes('MULTIPLE CHOICE') || line.includes('Multiple Choice')) {
+      if (line.includes('SECTION A:') || 
+          line.includes('MULTIPLE CHOICE') || 
+          line.includes('Multiple Choice') ||
+          line.includes('ESSENTIAL CONCEPTS') ||
+          line.includes('🔴')) {
         currentSection = 'MC'
         console.log('Found MC section:', line)
         continue
-      } else if (line.includes('SECTION B:') || line.includes('TRUE/FALSE') || line.includes('True/False')) {
+      } else if (line.includes('SECTION B:') || 
+                 line.includes('TRUE/FALSE') || 
+                 line.includes('True/False') ||
+                 line.includes('IMPORTANT APPLICATIONS') ||
+                 line.includes('🟡')) {
         currentSection = 'TF'
         console.log('Found T/F section:', line)
         continue
-      } else if (line.includes('SECTION C:') || line.includes('SHORT ANSWER') || line.includes('Short Answer')) {
+      } else if (line.includes('SECTION C:') || 
+                 line.includes('SHORT ANSWER') || 
+                 line.includes('Short Answer') ||
+                 line.includes('SUPPORTING UNDERSTANDING') ||
+                 line.includes('🟢')) {
         currentSection = 'SA'
         console.log('Found Short Answer section:', line)
         continue
@@ -2076,32 +2088,32 @@ export class PDFShiftPDFGenerator {
       
       // Parse questions based on current section
       if (currentSection === 'MC') {
-        // Look for numbered questions (1., 2., etc.)
-        if (line.match(/^\d+\./)) {
+        // Look for numbered questions (### Question 1, 1., etc.)
+        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
           if (currentQuestion) {
             mcQuestions.push(currentQuestion)
           }
           questionNumber++
-          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
           currentQuestion = {
             question: questionText,
             options: [],
             correctAnswer: 'A' // Will be determined from answer key
           }
           console.log(`Found MC question ${questionNumber}:`, questionText.substring(0, 50) + '...')
-        } else if (currentQuestion && line.match(/^[a-d]\)/i)) {
-          // This is an option
+        } else if (currentQuestion && line.match(/^[A-D]\)/)) {
+          // This is an option (A), B), C), D))
           currentQuestion.options.push(line)
           console.log('Added option:', line)
         }
       } else if (currentSection === 'TF') {
-        // Look for T/F questions
-        if (line.match(/^\d+\./) || line.includes('T/F:')) {
+        // Look for T/F questions (### Question X or numbered)
+        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
           if (currentQuestion) {
             tfQuestions.push(currentQuestion)
           }
           questionNumber++
-          let questionText = line.replace(/^\d+\.\s*/, '').replace(/^T\/F:\s*/, '').trim()
+          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
           currentQuestion = {
             question: questionText,
             correctAnswer: true // Will be determined from answer key
@@ -2109,13 +2121,13 @@ export class PDFShiftPDFGenerator {
           console.log(`Found T/F question ${questionNumber}:`, questionText.substring(0, 50) + '...')
         }
       } else if (currentSection === 'SA') {
-        // Look for short answer questions
-        if (line.match(/^\d+\./)) {
+        // Look for short answer questions (### Question X or numbered)
+        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
           if (currentQuestion) {
             saQuestions.push(currentQuestion)
           }
           questionNumber++
-          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
           currentQuestion = {
             question: questionText,
             sampleAnswer: ''
