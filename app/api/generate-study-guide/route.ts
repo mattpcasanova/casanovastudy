@@ -6,10 +6,13 @@ import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { storePDF } from '@/app/api/pdf/[filename]/route'
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<StudyGuideResponse>>> {
+  const startTime = Date.now()
+  
   try {
+    console.log('🚀 Study guide generation started')
     const body: StudyGuideRequest = await request.json()
     
-    console.log('API Request received:', {
+    console.log('📝 API Request received:', {
       studyGuideName: body.studyGuideName,
       subject: body.subject,
       gradeLevel: body.gradeLevel,
@@ -40,22 +43,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Process files - either from direct upload or Cloudinary
+    console.log('📁 Starting file processing...')
+    const fileProcessingStart = Date.now()
     let processedFiles;
     if (body.cloudinaryFiles && body.cloudinaryFiles.length > 0) {
       // Process files from Cloudinary URLs
-      console.log('Processing files from Cloudinary URLs...', body.cloudinaryFiles);
+      console.log('☁️ Processing files from Cloudinary URLs...', body.cloudinaryFiles);
       processedFiles = await Promise.all(
         body.cloudinaryFiles.map(async (cloudinaryFile) => {
-          console.log('Processing Cloudinary file:', cloudinaryFile.filename);
+          console.log('📄 Processing Cloudinary file:', cloudinaryFile.filename);
           return await FileProcessor.processFileFromUrl(cloudinaryFile.url, cloudinaryFile.filename);
         })
       );
-      console.log('Processed files from Cloudinary:', processedFiles);
+      console.log('✅ Processed files from Cloudinary:', processedFiles);
     } else {
       // Use existing files (fallback for direct upload)
-      console.log('Using direct upload files:', body.files);
+      console.log('📄 Using direct upload files:', body.files);
       processedFiles = body.files!;
     }
+    const fileProcessingTime = Date.now() - fileProcessingStart
+    console.log(`⏱️ File processing completed in ${fileProcessingTime}ms`)
 
     // Combine all file content
     const combinedContent = processedFiles
@@ -77,6 +84,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     let finalContent = combinedContent
 
     // Generate study guide using Claude
+    console.log('🤖 Starting Claude API call...')
+    const claudeStart = Date.now()
     const claudeService = new ClaudeService()
     const claudeResponse = await claudeService.generateStudyGuide({
       content: finalContent,
@@ -87,6 +96,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       difficultyLevel: body.difficultyLevel,
       additionalInstructions: body.additionalInstructions
     })
+    const claudeTime = Date.now() - claudeStart
+    console.log(`⏱️ Claude API call completed in ${claudeTime}ms`)
 
     // Create study guide response
     const studyGuideId = `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -103,16 +114,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Generate PDF using PDFShift HTML-to-PDF service
-    console.log('Starting PDF generation...')
-    const startTime = Date.now()
+    console.log('📄 Starting PDF generation...')
+    const pdfStart = Date.now()
     
     let pdfBuffer: Buffer
     try {
       pdfBuffer = await PDFShiftPDFGenerator.generatePDF(studyGuide)
-      const generationTime = Date.now() - startTime
-      console.log(`PDF generation completed in ${generationTime}ms`)
+      const pdfTime = Date.now() - pdfStart
+      console.log(`✅ PDF generation completed in ${pdfTime}ms`)
     } catch (pdfError) {
-      console.error('PDF generation failed:', pdfError)
+      console.error('❌ PDF generation failed:', pdfError)
       throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
     }
 
@@ -133,6 +144,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       pdfDataUrl: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` // Fallback
     }
 
+    const totalTime = Date.now() - startTime
+    console.log(`🎉 Study guide generation completed successfully in ${totalTime}ms`)
+    
     return NextResponse.json({
       success: true,
       data: studyGuideWithPdf,
@@ -140,7 +154,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     })
 
   } catch (error) {
-    console.error('Study guide generation error:', error)
+    const totalTime = Date.now() - startTime
+    console.error(`❌ Study guide generation error after ${totalTime}ms:`, error)
+    
+    // Handle timeout specifically
+    if (error instanceof Error && error.message.includes('timeout')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Request timeout - the PDF generation took too long. Try with a smaller file or contact support.'
+      }, { status: 504 })
+    }
+    
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to generate study guide'

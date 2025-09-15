@@ -4,7 +4,7 @@
       "maxDuration": 30
     },
     "app/api/generate-study-guide/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "headers": [
