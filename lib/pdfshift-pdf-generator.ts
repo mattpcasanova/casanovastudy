@@ -704,11 +704,11 @@ export class PDFShiftPDFGenerator {
 
     .quiz-question {
         background: #ffffff;
-        border: 1px solid #e2e8f0;
+        border: 2px solid #e2e8f0;
         border-radius: 0.75rem;
         padding: 1.5rem;
         margin-bottom: 2rem;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
         page-break-inside: avoid;
     }
 
@@ -720,8 +720,8 @@ export class PDFShiftPDFGenerator {
     }
 
     .quiz-question-number {
-        width: 2rem;
-        height: 2rem;
+        width: 2.5rem;
+        height: 2.5rem;
         background: #2563eb;
         color: #ffffff;
         border-radius: 50%;
@@ -729,8 +729,9 @@ export class PDFShiftPDFGenerator {
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        font-size: 0.875rem;
+        font-size: 1rem;
         flex-shrink: 0;
+        box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.3);
     }
 
     .quiz-question-text {
@@ -753,12 +754,12 @@ export class PDFShiftPDFGenerator {
         margin-bottom: 0.75rem;
         border: 1px solid #e2e8f0;
         border-radius: 0.5rem;
-        background: #f8fafc;
+        background: #ffffff;
         transition: all 0.2s;
     }
 
     .quiz-option:hover {
-        background: #f1f5f9;
+        background: #f8fafc;
         border-color: #cbd5e1;
     }
 
@@ -773,12 +774,8 @@ export class PDFShiftPDFGenerator {
         font-size: 0.75rem;
         flex-shrink: 0;
         color: #ffffff;
+        background: #6b7280;
     }
-
-    .quiz-option-letter.a { background: #dc2626; }
-    .quiz-option-letter.b { background: #2563eb; }
-    .quiz-option-letter.c { background: #16a34a; }
-    .quiz-option-letter.d { background: #ca8a04; }
 
     .quiz-option-circle {
         width: 1rem;
