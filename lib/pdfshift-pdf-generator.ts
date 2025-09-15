@@ -1643,10 +1643,10 @@ export class PDFShiftPDFGenerator {
         <div class="quiz-study-tips">
             <h2>📚 Study Tips for Success</h2>
             <ul>
-                <li>Remember the key principle: "Like dissolves like" - polar dissolves polar, nonpolar dissolves nonpolar</li>
-                <li>Focus on molecular interactions: Understanding why substances behave as they do is more important than memorizing lists</li>
-                <li>Practice predicting solubility: Look at molecular structures and identify polar vs. nonpolar regions</li>
-                <li>Connect to real-world examples: Think about everyday substances and their behavior in water</li>
+                <li>Focus on understanding the core concepts rather than memorizing facts</li>
+                <li>Practice active recall by covering answers and testing yourself</li>
+                <li>Connect concepts to real-world examples and applications</li>
+                <li>Review regularly to reinforce learning and identify knowledge gaps</li>
             </ul>
         </div>
         
@@ -1654,7 +1654,7 @@ export class PDFShiftPDFGenerator {
             <h2>Score Interpretation</h2>
             <div class="scoring-grid">
                 <div class="scoring-item excellent">
-                    <strong>9-11 correct:</strong> Excellent understanding of water solubility concepts
+                    <strong>9-11 correct:</strong> Excellent understanding of the material
                 </div>
                 <div class="scoring-item good">
                     <strong>7-8 correct:</strong> Good grasp with some areas for review
