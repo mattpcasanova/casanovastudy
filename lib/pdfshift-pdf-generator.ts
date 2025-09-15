@@ -1400,9 +1400,9 @@ export class PDFShiftPDFGenerator {
   }
 
   private static generateQuizContent(studyGuide: StudyGuideResponse): string {
-    const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
+    const content = studyGuide.content
     
-    // Parse different question types
+    // Parse different question types based on the actual content structure
     const multipleChoiceQuestions: Array<{
       question: string
       options: string[]
@@ -1419,86 +1419,130 @@ export class PDFShiftPDFGenerator {
       sampleAnswer: string
     }> = []
     
-    let currentQuestion: { question: string; options: string[]; correctAnswer?: string } | null = null
-    let questionNumber = 1
+    // Split content into sections by headers
+    const sections = content.split(/(?=##|###)/)
     
-    for (const section of sections) {
-      const lines = section.split('\n').filter(line => line.trim())
-      const firstLine = lines[0]?.trim() || ''
+    // Find the answer key section
+    let answerKeySection = ''
+    const answerKeyIndex = sections.findIndex(section => 
+      section.toLowerCase().includes('answer key') || 
+      section.toLowerCase().includes('answers:')
+    )
+    
+    if (answerKeyIndex !== -1) {
+      answerKeySection = sections[answerKeyIndex]
+    }
+    
+    // Parse Multiple Choice Questions
+    const mcSection = sections.find(section => 
+      section.toLowerCase().includes('multiple choice') || 
+      section.toLowerCase().includes('essential concepts')
+    )
+    
+    if (mcSection) {
+      const mcLines = mcSection.split('\n').filter(line => line.trim())
+      let currentQuestion: { question: string; options: string[] } | null = null
       
-      // Skip empty sections or sections with just "---"
-      if (!firstLine || firstLine === '---' || firstLine.startsWith('#')) {
-        continue
+      for (const line of mcLines) {
+        const trimmedLine = line.trim()
+        
+        // Check if this is a question (starts with "Question" or number)
+        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
+          if (currentQuestion) {
+            multipleChoiceQuestions.push({
+              question: currentQuestion.question,
+              options: currentQuestion.options,
+              correctAnswer: this.determineCorrectAnswer(currentQuestion.options)
+            })
+          }
+          currentQuestion = { question: '', options: [] }
+        } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
+          // This is an option
+          currentQuestion.options.push(trimmedLine)
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
+          // This is the question text
+          if (!currentQuestion.question) {
+            currentQuestion.question = trimmedLine
+          }
+        }
       }
       
-      // Check if this looks like a question
-      const isQuestion = firstLine.includes('?') || /^\d+\./.test(firstLine) ||
-                        firstLine.toLowerCase().includes('what') ||
-                        firstLine.toLowerCase().includes('which') ||
-                        firstLine.toLowerCase().includes('how') ||
-                        firstLine.toLowerCase().includes('why') ||
-                        firstLine.toLowerCase().includes('explain') ||
-                        firstLine.toLowerCase().includes('describe')
-      
-      if (isQuestion) {
-        // Save previous question if exists
-        if (currentQuestion) {
-          const correctAnswer = this.determineCorrectAnswer(currentQuestion.options)
-          multipleChoiceQuestions.push({
-            question: currentQuestion.question,
-            options: currentQuestion.options,
-            correctAnswer: correctAnswer || 'A'
-          })
-        }
-        
-        // Determine question type and start new question
-        if (firstLine.toLowerCase().includes('true') || firstLine.toLowerCase().includes('false')) {
-          // Skip this - it's likely an answer, not a question
-          continue
-        } else if (firstLine.toLowerCase().includes('explain') || firstLine.toLowerCase().includes('describe') || 
-                   firstLine.toLowerCase().includes('what happens') || firstLine.toLowerCase().includes('why')) {
-          // Short answer question
-          shortAnswerQuestions.push({
-            question: firstLine,
-            sampleAnswer: lines.slice(1).join(' ').trim() || 'Answer based on provided content'
-          })
-        } else if (lines.length === 1 || lines.slice(1).every(line => !line.match(/^[a-d]\)/))) {
-          // Check if this is a T/F question by looking for T/F pattern in the content
-          const hasTrueFalse = lines.some(line => line.toLowerCase().includes('true') || line.toLowerCase().includes('false'))
-          if (hasTrueFalse) {
-            // This is a T/F question
-            const correctAnswer = lines.some(line => line.toLowerCase().includes('true'))
-            trueFalseQuestions.push({
-              question: firstLine,
-              correctAnswer
-            })
-          } else {
-            // Short answer question
-            shortAnswerQuestions.push({
-              question: firstLine,
-              sampleAnswer: lines.slice(1).join(' ').trim() || 'Answer based on provided content'
-            })
-          }
-        } else {
-          // Multiple choice question
-          currentQuestion = {
-            question: firstLine,
-            options: lines.slice(1).filter(line => line.trim() && !line.startsWith('---'))
-          }
-        }
-      } else if (currentQuestion && lines.length > 0) {
-        // Add options to current question
-        currentQuestion.options.push(...lines.filter(line => line.trim() && !line.startsWith('---')))
+      // Add the last question
+      if (currentQuestion) {
+        multipleChoiceQuestions.push({
+          question: currentQuestion.question,
+          options: currentQuestion.options,
+          correctAnswer: this.determineCorrectAnswer(currentQuestion.options)
+        })
       }
     }
     
-    // Add the last question
-    if (currentQuestion) {
-      const correctAnswer = this.determineCorrectAnswer(currentQuestion.options)
-      multipleChoiceQuestions.push({
-        question: currentQuestion.question,
-        options: currentQuestion.options,
-        correctAnswer: correctAnswer || 'A'
+    // Parse True/False Questions
+    const tfSection = sections.find(section => 
+      section.toLowerCase().includes('true/false') || 
+      section.toLowerCase().includes('important concepts')
+    )
+    
+    if (tfSection) {
+      const tfLines = tfSection.split('\n').filter(line => line.trim())
+      
+      for (const line of tfLines) {
+        const trimmedLine = line.trim()
+        
+        // Check if this is a T/F question (starts with "Question" or number and contains T/F pattern)
+        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
+          const questionText = trimmedLine.replace(/^(Question \d+|### Question \d+)/, '').trim()
+          if (questionText) {
+            // Determine correct answer from answer key
+            const correctAnswer = this.findTrueFalseAnswer(answerKeySection, questionText)
+            trueFalseQuestions.push({
+              question: questionText,
+              correctAnswer
+            })
+          }
+        }
+      }
+    }
+    
+    // Parse Short Answer Questions
+    const saSection = sections.find(section => 
+      section.toLowerCase().includes('short answer') || 
+      section.toLowerCase().includes('supporting concepts')
+    )
+    
+    if (saSection) {
+      const saLines = saSection.split('\n').filter(line => line.trim())
+      let currentQuestion: { question: string; sampleAnswer: string } | null = null
+      
+      for (const line of saLines) {
+        const trimmedLine = line.trim()
+        
+        // Check if this is a short answer question
+        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
+          if (currentQuestion) {
+            shortAnswerQuestions.push(currentQuestion)
+          }
+          const questionText = trimmedLine.replace(/^(Question \d+|### Question \d+)/, '').trim()
+          currentQuestion = { question: questionText, sampleAnswer: '' }
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
+          // This is the question text
+          if (!currentQuestion.question) {
+            currentQuestion.question = trimmedLine
+          }
+        }
+      }
+      
+      // Add the last question
+      if (currentQuestion) {
+        shortAnswerQuestions.push(currentQuestion)
+      }
+      
+      // Find sample answers from answer key
+      shortAnswerQuestions.forEach((q, index) => {
+        const sampleAnswer = this.findShortAnswerSample(answerKeySection, q.question, index + 1)
+        if (sampleAnswer) {
+          q.sampleAnswer = sampleAnswer
+        }
       })
     }
     
@@ -1573,7 +1617,7 @@ export class PDFShiftPDFGenerator {
             ${trueFalseQuestions.map((q, index) => `
             <div class="quiz-question print-avoid-break">
                 <div class="quiz-question-header">
-                    <div class="quiz-question-number">${index + 1}</div>
+                    <div class="quiz-question-number">${index + 1 + multipleChoiceQuestions.length}</div>
                     <div class="quiz-question-text">${q.question}</div>
                 </div>
                 <div class="quiz-tf-options">
@@ -1595,7 +1639,7 @@ export class PDFShiftPDFGenerator {
             ${shortAnswerQuestions.map((q, index) => `
             <div class="quiz-question print-avoid-break">
                 <div class="quiz-question-header">
-                    <div class="quiz-question-number">${index + 1}</div>
+                    <div class="quiz-question-number">${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}</div>
                     <div class="quiz-question-text">${q.question}</div>
                 </div>
                 <div class="quiz-short-answer">
@@ -1617,11 +1661,11 @@ export class PDFShiftPDFGenerator {
                 </div>`).join('')}
                 ${trueFalseQuestions.map((q, index) => `
                 <div class="quiz-answer-item">
-                    <span>${index + 1}. ${q.correctAnswer ? 'T' : 'F'}</span>
+                    <span>${index + 1 + multipleChoiceQuestions.length}. ${q.correctAnswer ? 'T' : 'F'}</span>
                 </div>`).join('')}
                 ${shortAnswerQuestions.map((q, index) => `
                 <div class="quiz-answer-item">
-                    <span>${index + 1}. See sample answer</span>
+                    <span>${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}. See sample answer</span>
                 </div>`).join('')}
             </div>
         </div>
@@ -1631,7 +1675,7 @@ export class PDFShiftPDFGenerator {
             <h2>Sample Answers for Short Answer Questions</h2>
             ${shortAnswerQuestions.map((q, index) => `
             <div class="sample-answer">
-                <h3>Question ${index + 1}:</h3>
+                <h3>Question ${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}:</h3>
                 <p><strong>${q.question}</strong></p>
                 <div class="sample-answer-content">
                     <p><strong>Sample Answer:</strong></p>
@@ -1687,6 +1731,64 @@ export class PDFShiftPDFGenerator {
     const longestOption = options.reduce((a, b) => a.length > b.length ? a : b)
     const index = options.indexOf(longestOption)
     return String.fromCharCode(65 + index) // A, B, C, D
+  }
+
+  private static findTrueFalseAnswer(answerKeySection: string, questionText: string): boolean {
+    if (!answerKeySection) return true // Default to true if no answer key
+    
+    // Look for T/F answers in the answer key
+    const tfAnswers = answerKeySection.match(/\d+\.\s*[TF]/g)
+    if (tfAnswers) {
+      // Extract the question number from the question text
+      const questionMatch = questionText.match(/Question (\d+)/)
+      if (questionMatch) {
+        const questionNum = parseInt(questionMatch[1])
+        const answerMatch = tfAnswers.find(answer => answer.startsWith(`${questionNum}.`))
+        if (answerMatch) {
+          return answerMatch.includes('T')
+        }
+      }
+    }
+    
+    return true // Default to true
+  }
+
+  private static findShortAnswerSample(answerKeySection: string, questionText: string, questionNumber: number): string {
+    if (!answerKeySection) return 'Answer based on provided content'
+    
+    // Look for short answer samples in the answer key
+    const lines = answerKeySection.split('\n')
+    let inShortAnswerSection = false
+    let currentAnswer = ''
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      
+      if (trimmedLine.toLowerCase().includes('short answer')) {
+        inShortAnswerSection = true
+        continue
+      }
+      
+      if (inShortAnswerSection && trimmedLine.match(/^\d+\./)) {
+        // This is a numbered answer
+        if (currentAnswer && currentAnswer.includes(questionText.substring(0, 20))) {
+          return currentAnswer.replace(/^\d+\.\s*/, '').trim()
+        }
+        currentAnswer = trimmedLine
+      } else if (inShortAnswerSection && trimmedLine && !trimmedLine.startsWith('#')) {
+        // This is part of the answer
+        if (currentAnswer) {
+          currentAnswer += ' ' + trimmedLine
+        }
+      }
+    }
+    
+    // If we found an answer, return it
+    if (currentAnswer && currentAnswer.includes(questionText.substring(0, 20))) {
+      return currentAnswer.replace(/^\d+\.\s*/, '').trim()
+    }
+    
+    return 'Answer based on provided content'
   }
 
   private static generateSummaryContent(studyGuide: StudyGuideResponse): string {
