@@ -1509,10 +1509,11 @@ export class PDFShiftPDFGenerator {
         })
       }
       
-      console.log('MC Questions parsed:', multipleChoiceQuestions.length)
-      multipleChoiceQuestions.forEach((q, i) => {
-        console.log(`MC Q${i+1}:`, q.question.substring(0, 50) + '...', 'Options:', q.options.length)
-      })
+    console.log('MC Questions parsed:', multipleChoiceQuestions.length)
+    multipleChoiceQuestions.forEach((q, i) => {
+      console.log(`MC Q${i+1}:`, q.question.substring(0, 50) + '...', 'Options:', q.options.length)
+      console.log('Options:', q.options)
+    })
     }
     
     // Parse True/False Questions
@@ -1640,7 +1641,12 @@ export class PDFShiftPDFGenerator {
       </div>`
     }
     
-    return `
+    console.log('=== GENERATING QUIZ HTML ===')
+    console.log('MC Questions:', multipleChoiceQuestions.length)
+    console.log('T/F Questions:', trueFalseQuestions.length)
+    console.log('SA Questions:', shortAnswerQuestions.length)
+    
+    const html = `
     <div class="content">
         ${learningOutcomes ? `
         <div class="learning-outcomes">
@@ -1778,6 +1784,10 @@ export class PDFShiftPDFGenerator {
             </div>
         </div>
     </div>`
+    
+    console.log('Generated HTML length:', html.length)
+    console.log('HTML preview:', html.substring(0, 500) + '...')
+    return html
   }
 
   private static determineCorrectAnswer(options: string[]): string | null {
