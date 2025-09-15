@@ -1534,6 +1534,11 @@ export class PDFShiftPDFGenerator {
     console.log('SA Questions:', shortAnswerQuestions.length)
     console.log('MC Questions sample:', multipleChoiceQuestions.slice(0, 2))
     console.log('T/F Questions sample:', trueFalseQuestions.slice(0, 2))
+    console.log('SA Questions sample:', shortAnswerQuestions.slice(0, 2))
+    
+    // Debug: Show the actual HTML being generated
+    const quizHTML = this.createConsistentQuizHTML(multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
+    console.log('Generated Quiz HTML (first 500 chars):', quizHTML.substring(0, 500))
     
     const html = `
     <div class="content">
@@ -1549,8 +1554,9 @@ export class PDFShiftPDFGenerator {
             <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
         </div>
         
+        <div class="debug-test">CSS LOADING TEST - This should be red with black border</div>
         
-        ${this.createConsistentQuizHTML(multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)}
+        ${quizHTML}
         
         <div class="quiz-answer-key">
             <h2>Answer Key</h2>
@@ -2134,7 +2140,7 @@ export class PDFShiftPDFGenerator {
   }
 
   private static createMCQuestionHTML(question: any, questionNumber: number): string {
-    let html = `<div class="quiz-question">
+    let html = `<div class="quiz-question print-avoid-break">
       <div class="quiz-question-header">
         <div class="quiz-question-number">${questionNumber}</div>
         <div class="quiz-question-text">${question.question}</div>
@@ -2157,7 +2163,7 @@ export class PDFShiftPDFGenerator {
   }
 
   private static createTFQuestionHTML(question: any, questionNumber: number): string {
-    return `<div class="quiz-question">
+    return `<div class="quiz-question print-avoid-break">
       <div class="quiz-question-header">
         <div class="quiz-question-number">${questionNumber}</div>
         <div class="quiz-question-text">${question.question}</div>
@@ -2176,7 +2182,7 @@ export class PDFShiftPDFGenerator {
   }
 
   private static createSAQuestionHTML(question: any, questionNumber: number): string {
-    return `<div class="quiz-question">
+    return `<div class="quiz-question print-avoid-break">
       <div class="quiz-question-header">
         <div class="quiz-question-number">${questionNumber}</div>
         <div class="quiz-question-text">${question.question}</div>
