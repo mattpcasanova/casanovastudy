@@ -2031,116 +2031,116 @@ export class PDFShiftPDFGenerator {
 
   private static parseQuizSection(quizContent: string, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
     const lines = quizContent.split('\n').filter(line => line.trim())
-    let currentSection = ''
     let currentQuestion: any = null
     let questionNumber = 0
-    
+
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
+      const line = lines[i]
       
-      // Detect section headers
-      if (line.includes('SECTION A:') || 
-          line.includes('MULTIPLE CHOICE') || 
-          line.includes('Multiple Choice') ||
-          line.includes('ESSENTIAL CONCEPTS') ||
-          line.includes('🔴')) {
-        currentSection = 'MC'
-        console.log('Found MC section:', line)
-        continue
-      } else if (line.includes('SECTION B:') || 
-                 line.includes('TRUE/FALSE') || 
-                 line.includes('True/False') ||
-                 line.includes('IMPORTANT APPLICATIONS') ||
-                 line.includes('🟡')) {
-        currentSection = 'TF'
-        console.log('Found T/F section:', line)
-        continue
-      } else if (line.includes('SECTION C:') || 
-                 line.includes('SHORT ANSWER') || 
-                 line.includes('Short Answer') ||
-                 line.includes('SUPPORTING UNDERSTANDING') ||
-                 line.includes('🟢')) {
-        currentSection = 'SA'
-        console.log('Found Short Answer section:', line)
-        continue
-      }
-      
-      // Skip if we're not in a quiz section yet
-      if (!currentSection) continue
-      
-      // Parse questions based on current section
-      if (currentSection === 'MC') {
-        // Look for numbered questions (### Question 1, 1., etc.)
-        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
-          if (currentQuestion) {
-            mcQuestions.push(currentQuestion)
-          }
-          questionNumber++
-          // Question text might be on the next line, so start with empty text
-          currentQuestion = {
-            question: '',
-            options: [],
-            correctAnswer: 'A'
-          }
-          console.log(`Found MC question header: ${line}`)
-        } else if (currentQuestion && !currentQuestion.question && line && !line.match(/^[A-D]\)/)) {
-          // This is the question text (first non-option line after question header)
-          currentQuestion.question = line
-          console.log(`Set MC question text: ${line.substring(0, 50)}...`)
-        } else if (currentQuestion && line.match(/^[A-D]\)/)) {
-          // This is an option (A), B), C), D))
-          currentQuestion.options.push(line)
-          console.log('Added option:', line)
+      // Look for numbered questions (1., 2., etc.)
+      if (line.match(/^\d+\./)) {
+        if (currentQuestion) {
+          // Save previous question
+          this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
         }
-      } else if (currentSection === 'TF') {
-        // Look for T/F questions (### Question X or numbered)
-        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
-          if (currentQuestion) {
-            tfQuestions.push(currentQuestion)
-          }
-          questionNumber++
-          currentQuestion = {
-            question: '',
-            correctAnswer: true
-          }
-          console.log(`Found T/F question header: ${line}`)
-        } else if (currentQuestion && !currentQuestion.question && line) {
-          // This is the question text
-          currentQuestion.question = line
-          console.log(`Set T/F question text: ${line.substring(0, 50)}...`)
+        
+        questionNumber++
+        currentQuestion = {
+          question: '',
+          options: [],
+          type: 'unknown'
         }
-      } else if (currentSection === 'SA') {
-        // Look for short answer questions (### Question X or numbered)
-        if (line.match(/^### Question \d+/) || line.match(/^\d+\./)) {
-          if (currentQuestion) {
-            saQuestions.push(currentQuestion)
-          }
-          questionNumber++
-          currentQuestion = {
-            question: '',
-            sampleAnswer: ''
-          }
-          console.log(`Found SA question header: ${line}`)
-        } else if (currentQuestion && !currentQuestion.question && line && !line.includes('Space for answer')) {
-          // This is the question text (skip "Space for answer" lines)
-          currentQuestion.question = line
-          console.log(`Set SA question text: ${line.substring(0, 50)}...`)
+        console.log(`Found question ${questionNumber}: ${line}`)
+        
+        // Get question text (next line)
+        if (i + 1 < lines.length) {
+          currentQuestion.question = lines[i + 1]
+          console.log(`Question text: ${currentQuestion.question.substring(0, 50)}...`)
+          i++ // Skip the question text line
+        }
+        
+        // Determine question type by looking at upcoming lines
+        currentQuestion.type = this.determineQuestionType(lines, i)
+        console.log(`Determined question type: ${currentQuestion.type}`)
+        
+        // If it's MC, collect options
+        if (currentQuestion.type === 'MC') {
+          this.collectMCOptions(lines, i, currentQuestion)
         }
       }
     }
     
     // Add the last question
     if (currentQuestion) {
-      if (currentSection === 'MC') {
-        mcQuestions.push(currentQuestion)
-      } else if (currentSection === 'TF') {
-        tfQuestions.push(currentQuestion)
-      } else if (currentSection === 'SA') {
-        saQuestions.push(currentQuestion)
-      }
+      this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
     }
     
     console.log(`Parsed ${mcQuestions.length} MC, ${tfQuestions.length} T/F, ${saQuestions.length} SA questions`)
+  }
+
+  private static determineQuestionType(lines: string[], currentIndex: number): string {
+    // Look ahead to see what follows this question
+    for (let i = currentIndex + 1; i < Math.min(currentIndex + 10, lines.length); i++) {
+      const line = lines[i].trim()
+      
+      // Check for MC options (a), b), c), d))
+      if (line.match(/^[a-d]\)/)) {
+        return 'MC'
+      }
+      
+      // Check for T/F indicators
+      if (line.toLowerCase().includes('true') && line.toLowerCase().includes('false')) {
+        return 'TF'
+      }
+      
+      // Check for SA indicators (explain, describe, etc.)
+      if (line.toLowerCase().includes('explain') || 
+          line.toLowerCase().includes('describe') ||
+          line.toLowerCase().includes('what happens') ||
+          line.toLowerCase().includes('why')) {
+        return 'SA'
+      }
+    }
+    
+    return 'SA' // Default to SA if unclear
+  }
+
+  private static collectMCOptions(lines: string[], currentIndex: number, question: any): void {
+    for (let i = currentIndex + 1; i < Math.min(currentIndex + 10, lines.length); i++) {
+      const line = lines[i].trim()
+      
+      if (line.match(/^[a-d]\)/)) {
+        question.options.push(line)
+        console.log(`Added MC option: ${line}`)
+      } else if (line && !line.match(/^\d+\./)) {
+        // If we hit a non-option line that's not a new question, stop
+        break
+      }
+    }
+  }
+
+  private static addQuestionToCorrectArray(question: any, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
+    switch (question.type) {
+      case 'MC':
+        mcQuestions.push({
+          question: question.question,
+          options: question.options,
+          correctAnswer: 'A'
+        })
+        break
+      case 'TF':
+        tfQuestions.push({
+          question: question.question,
+          correctAnswer: true
+        })
+        break
+      case 'SA':
+        saQuestions.push({
+          question: question.question,
+          sampleAnswer: ''
+        })
+        break
+    }
   }
 
   private static generateQuizFallback(content: string, studyGuide: StudyGuideResponse): string {
