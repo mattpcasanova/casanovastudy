@@ -2024,28 +2024,20 @@ export class PDFShiftPDFGenerator {
   private static parseQuizSection(quizContent: string, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
     const lines = quizContent.split('\n').filter(line => line.trim())
     let currentSection = ''
+    let currentQuestion: any = null
     let questionNumber = 0
-
-    console.log('=== QUIZ PARSING DEBUG ===')
-    console.log('Total lines to parse:', lines.length)
-    console.log('First 20 lines:', lines.slice(0, 20))
-
+    
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+      const line = lines[i].trim()
       
-      // Debug: Log every line to see what we're processing
-      if (i < 30) {
-        console.log(`Line ${i}: "${line}"`)
-      }
-      
-      // Detect section headers to determine question type
+      // Detect section headers
       if (line.includes('MULTIPLE CHOICE QUESTIONS') || line.includes('Multiple Choice Questions')) {
         currentSection = 'MC'
-        console.log('Found Multiple Choice section')
+        console.log('Found MC section')
         continue
       } else if (line.includes('TRUE/FALSE QUESTIONS') || line.includes('True/False Questions')) {
         currentSection = 'TF'
-        console.log('Found True/False section')
+        console.log('Found T/F section')
         continue
       } else if (line.includes('SHORT ANSWER QUESTIONS') || line.includes('Short Answer Questions')) {
         currentSection = 'SA'
@@ -2053,29 +2045,68 @@ export class PDFShiftPDFGenerator {
         continue
       }
       
-      // Look for numbered questions (1., 2., etc.)
-      const questionMatch = line.match(/^(\d+)\.\s*(.+)/)
-      if (questionMatch) {
-        questionNumber++
-        const questionText = questionMatch[2].trim()
-        
-        const question = {
-          question: questionText,
-          options: [],
-          type: currentSection || 'SA' // Default to SA if no section detected
+      // Skip if we're not in a quiz section yet
+      if (!currentSection) continue
+      
+      // Parse questions based on current section
+      if (currentSection === 'MC') {
+        // Look for numbered questions (1., 2., etc.)
+        if (line.match(/^\d+\./)) {
+          if (currentQuestion) {
+            mcQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            options: [],
+            correctAnswer: 'A' // Will be determined from answer key
+          }
+          console.log(`Found MC question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        } else if (currentQuestion && line.match(/^[a-d]\)/i)) {
+          // This is an option
+          currentQuestion.options.push(line)
+          console.log('Added option:', line)
         }
-        
-        console.log(`Found question ${questionNumber}: ${questionText.substring(0, 50)}...`)
-        console.log(`Question type: ${question.type}`)
-        console.log(`Current section: ${currentSection}`)
-        
-        // If it's MC, collect options from following lines
-        if (question.type === 'MC') {
-          this.collectMCOptions(lines, i, question)
+      } else if (currentSection === 'TF') {
+        // Look for T/F questions
+        if (line.match(/^\d+\./) || line.includes('T/F:')) {
+          if (currentQuestion) {
+            tfQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          let questionText = line.replace(/^\d+\.\s*/, '').replace(/^T\/F:\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            correctAnswer: true // Will be determined from answer key
+          }
+          console.log(`Found T/F question ${questionNumber}:`, questionText.substring(0, 50) + '...')
         }
-        
-        // Add question to appropriate array
-        this.addQuestionToCorrectArray(question, mcQuestions, tfQuestions, saQuestions)
+      } else if (currentSection === 'SA') {
+        // Look for short answer questions
+        if (line.match(/^\d+\./)) {
+          if (currentQuestion) {
+            saQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            sampleAnswer: ''
+          }
+          console.log(`Found SA question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        }
+      }
+    }
+    
+    // Add the last question
+    if (currentQuestion) {
+      if (currentSection === 'MC') {
+        mcQuestions.push(currentQuestion)
+      } else if (currentSection === 'TF') {
+        tfQuestions.push(currentQuestion)
+      } else if (currentSection === 'SA') {
+        saQuestions.push(currentQuestion)
       }
     }
     
