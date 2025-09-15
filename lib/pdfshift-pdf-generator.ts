@@ -1488,14 +1488,17 @@ export class PDFShiftPDFGenerator {
         } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
           // This is an option
           currentQuestion.options.push(trimmedLine)
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
+          console.log('Added option:', trimmedLine)
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^[A-D]\)/)) {
           // This is question text (comes after ### Question X)
           if (!currentQuestion.question) {
             // First line after question header is the question text
             currentQuestion.question = trimmedLine
-          } else if (!trimmedLine.match(/^[A-D]\)/)) {
+            console.log('Set question text:', trimmedLine)
+          } else {
             // Additional question text
             currentQuestion.question += ' ' + trimmedLine
+            console.log('Extended question text:', currentQuestion.question)
           }
         }
       }
@@ -1533,6 +1536,7 @@ export class PDFShiftPDFGenerator {
         if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
           if (currentQuestion) {
             trueFalseQuestions.push(currentQuestion)
+            console.log('Added T/F question:', currentQuestion.question.substring(0, 50) + '...')
           }
           // Extract question text from the line or next line
           let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
@@ -1544,7 +1548,12 @@ export class PDFShiftPDFGenerator {
             // Determine correct answer from answer key
             const correctAnswer = this.findTrueFalseAnswer(answerKeySection, questionText)
             currentQuestion = { question: questionText, correctAnswer }
+            console.log('Set T/F question text:', questionText.substring(0, 50) + '...')
           }
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
+          // Additional question text for T/F
+          currentQuestion.question += ' ' + trimmedLine
+          console.log('Extended T/F question text:', currentQuestion.question.substring(0, 50) + '...')
         }
       }
       
@@ -1572,6 +1581,7 @@ export class PDFShiftPDFGenerator {
         if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
           if (currentQuestion) {
             shortAnswerQuestions.push(currentQuestion)
+            console.log('Added SA question:', currentQuestion.question.substring(0, 50) + '...')
           }
           // Extract question text from the line or next line
           let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
@@ -1580,10 +1590,12 @@ export class PDFShiftPDFGenerator {
             questionText = saLines[i + 1].trim()
           }
           currentQuestion = { question: questionText, sampleAnswer: '' }
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
+          console.log('Set SA question text:', questionText.substring(0, 50) + '...')
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
           // This is additional question text
           if (currentQuestion.question) {
             currentQuestion.question += ' ' + trimmedLine
+            console.log('Extended SA question text:', currentQuestion.question.substring(0, 50) + '...')
           }
         }
       }
