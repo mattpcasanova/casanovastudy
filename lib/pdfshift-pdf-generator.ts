@@ -864,13 +864,12 @@ export class PDFShiftPDFGenerator {
         font-weight: 600;
         margin-bottom: 0.5rem;
         margin-top: 2rem;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 0.5rem;
     }
 
     .quiz-section-divider {
-        height: 2px;
-        background: #2563eb;
-        margin-bottom: 1.5rem;
-        width: 100%;
+        display: none;
     }
 
     .quiz-section h2 {
@@ -1583,8 +1582,6 @@ export class PDFShiftPDFGenerator {
             <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
         </div>
         
-        <div class="debug-test">CSS LOADING TEST - This should be red with black border</div>
-        
         ${quizHTML}
         
         <div class="quiz-answer-key">
@@ -2033,15 +2030,15 @@ export class PDFShiftPDFGenerator {
       const line = lines[i]
       
       // Detect section headers to determine question type
-      if (line.includes('Multiple Choice') || line.includes('MULTIPLE CHOICE')) {
+      if (line.includes('MULTIPLE CHOICE QUESTIONS') || line.includes('Multiple Choice Questions')) {
         currentSection = 'MC'
         console.log('Found Multiple Choice section')
         continue
-      } else if (line.includes('True/False') || line.includes('TRUE/FALSE') || line.includes('True or False')) {
+      } else if (line.includes('TRUE/FALSE QUESTIONS') || line.includes('True/False Questions')) {
         currentSection = 'TF'
         console.log('Found True/False section')
         continue
-      } else if (line.includes('Short Answer') || line.includes('SHORT ANSWER')) {
+      } else if (line.includes('SHORT ANSWER QUESTIONS') || line.includes('Short Answer Questions')) {
         currentSection = 'SA'
         console.log('Found Short Answer section')
         continue
@@ -2179,11 +2176,7 @@ export class PDFShiftPDFGenerator {
     
     // Multiple Choice Questions
     if (mcQuestions.length > 0) {
-      html += `
-      <div class="quiz-section">
-        <h2 class="quiz-section-title">Multiple Choice Questions</h2>
-        <div class="quiz-section-divider"></div>
-      </div>`
+      html += `<h2 class="quiz-section-title">Multiple Choice Questions</h2>`
       
       mcQuestions.forEach((question, index) => {
         html += this.createMCQuestionHTML(question, index + 1)
@@ -2192,11 +2185,7 @@ export class PDFShiftPDFGenerator {
     
     // True/False Questions
     if (tfQuestions.length > 0) {
-      html += `
-      <div class="quiz-section">
-        <h2 class="quiz-section-title">True/False Questions</h2>
-        <div class="quiz-section-divider"></div>
-      </div>`
+      html += `<h2 class="quiz-section-title">True/False Questions</h2>`
       
       tfQuestions.forEach((question, index) => {
         html += this.createTFQuestionHTML(question, mcQuestions.length + index + 1)
@@ -2205,11 +2194,7 @@ export class PDFShiftPDFGenerator {
     
     // Short Answer Questions
     if (saQuestions.length > 0) {
-      html += `
-      <div class="quiz-section">
-        <h2 class="quiz-section-title">Short Answer Questions</h2>
-        <div class="quiz-section-divider"></div>
-      </div>`
+      html += `<h2 class="quiz-section-title">Short Answer Questions</h2>`
       
       saQuestions.forEach((question, index) => {
         html += this.createSAQuestionHTML(question, mcQuestions.length + tfQuestions.length + index + 1)
