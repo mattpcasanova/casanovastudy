@@ -80,10 +80,18 @@ export class PDFShiftPDFGenerator {
     <style>
         ${this.getBaseCSS()}
         ${this.getFormatCSS(studyGuide.format)}
+        
+        /* Additional debugging styles to ensure CSS is loading */
+        .debug-test {
+            background: red !important;
+            color: white !important;
+            padding: 10px !important;
+        }
     </style>
 </head>
 <body>
     <div class="document">
+        <div class="debug-test">CSS Debug Test - If you see this in red, CSS is loading</div>
         ${this.generateHeader(studyGuide, formatName, currentDate)}
         ${this.generateContent(studyGuide)}
         ${this.generateFooter()}
@@ -1527,6 +1535,8 @@ export class PDFShiftPDFGenerator {
     console.log('MC Questions:', multipleChoiceQuestions.length)
     console.log('T/F Questions:', trueFalseQuestions.length)
     console.log('SA Questions:', shortAnswerQuestions.length)
+    console.log('MC Questions sample:', multipleChoiceQuestions.slice(0, 2))
+    console.log('T/F Questions sample:', trueFalseQuestions.slice(0, 2))
     
     const html = `
     <div class="content">
