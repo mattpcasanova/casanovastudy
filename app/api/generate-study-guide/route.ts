@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { DocRaptorPDFGenerator } from '@/lib/docraptor-pdf-generator'
+import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { writeFile, mkdir } from 'fs/promises'
@@ -107,8 +107,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       tokenUsage: claudeResponse.usage
     }
 
-    // Generate PDF using DocRaptor HTML-to-PDF service
-    const pdfBuffer = await DocRaptorPDFGenerator.generatePDF(studyGuide)
+    // Generate PDF using PDFShift HTML-to-PDF service
+    const pdfBuffer = await PDFShiftPDFGenerator.generatePDF(studyGuide)
 
     // Convert PDF buffer to base64 for transmission
     const pdfBase64 = pdfBuffer.toString('base64')

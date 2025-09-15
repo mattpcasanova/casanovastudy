@@ -1,15 +1,15 @@
 import { StudyGuideResponse } from '../types'
 
-export class DocRaptorPDFGenerator {
-  private static readonly API_KEY = process.env.DOCRAPTOR_API_KEY
-  private static readonly API_URL = 'https://docraptor.com/docs'
+export class PDFShiftPDFGenerator {
+  private static readonly API_KEY = process.env.PDFSHIFT_API_KEY
+  private static readonly API_URL = 'https://api.pdfshift.io/v3/convert/pdf'
 
   static async generatePDF(studyGuide: StudyGuideResponse): Promise<Buffer> {
     try {
-      console.log('Generating PDF with DocRaptor for format:', studyGuide.format)
+      console.log('Generating PDF with PDFShift for format:', studyGuide.format)
       
       if (!this.API_KEY) {
-        throw new Error('DOCRAPTOR_API_KEY environment variable is required')
+        throw new Error('PDFSHIFT_API_KEY environment variable is required')
       }
 
       const html = this.generateHTML(studyGuide)
@@ -18,30 +18,28 @@ export class DocRaptorPDFGenerator {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`api:${this.API_KEY}`).toString('base64')}`
         },
         body: JSON.stringify({
-          user_credentials: this.API_KEY,
-          doc: {
-            content: html,
-            type: 'pdf',
-            name: `Study Guide - ${studyGuide.subject}`,
-            prince_options: {
-              media: 'print',
-              baseurl: process.env.NEXTAUTH_URL || 'http://localhost:3000'
-            }
-          }
+          source: html,
+          sandbox: false,
+          landscape: false,
+          format: 'A4',
+          margin: '0.5in',
+          print_media_type: true,
+          no_background: false
         })
       })
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`DocRaptor API error: ${response.status} - ${errorText}`)
+        throw new Error(`PDFShift API error: ${response.status} - ${errorText}`)
       }
 
       const pdfBuffer = await response.arrayBuffer()
       return Buffer.from(pdfBuffer)
     } catch (error) {
-      console.error('DocRaptor PDF generation error:', error)
+      console.error('PDFShift PDF generation error:', error)
       throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
