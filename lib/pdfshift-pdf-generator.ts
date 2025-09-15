@@ -2001,49 +2001,31 @@ export class PDFShiftPDFGenerator {
   }
 
   private static findQuizSection(content: string): string | null {
-    // Look for quiz section headers
-    const quizHeaders = [
-      '# WATER SOLUBILITY QUIZ',
-      '# QUIZ',
-      '# PRACTICE QUIZ',
-      '## QUIZ',
-      'WATER SOLUBILITY QUIZ',
-      'QUIZ QUESTIONS'
-    ]
-    
     const lines = content.split('\n')
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
-      // Check if this line matches any quiz header
-      if (quizHeaders.some(header => line.includes(header))) {
-        console.log('Found quiz header:', line)
-        // Return content from this point onwards
+      // Look for emoji-based quiz sections (🔴, 🟡, 🟢)
+      if (line.includes('🔴') || line.includes('🟡') || line.includes('🟢')) {
+        console.log('Found emoji quiz section:', line)
         return lines.slice(i).join('\n')
       }
-    }
-    
-    // If no specific quiz header found, look for sections that contain quiz-like content
-    console.log('No specific quiz header found, looking for quiz-like sections...')
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
       
-      // Look for sections that might contain quiz questions
-      if (line.includes('SECTION A:') || 
-          line.includes('MULTIPLE CHOICE') ||
-          line.includes('SECTION B:') ||
-          line.includes('TRUE/FALSE') ||
-          line.includes('SECTION C:') ||
-          line.includes('SHORT ANSWER')) {
-        console.log('Found quiz-like section:', line)
-        // Return content from this point onwards
+      // Look for traditional quiz headers
+      if (line.includes('QUIZ') || line.includes('Quiz')) {
+        console.log('Found quiz header:', line)
+        return lines.slice(i).join('\n')
+      }
+      
+      // Look for question sections
+      if (line.includes('QUESTION') || line.includes('Question')) {
+        console.log('Found question section:', line)
         return lines.slice(i).join('\n')
       }
     }
     
-    console.log('No quiz section found at all')
+    console.log('No quiz section found')
     return null
   }
 
@@ -2094,13 +2076,17 @@ export class PDFShiftPDFGenerator {
             mcQuestions.push(currentQuestion)
           }
           questionNumber++
-          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
+          // Question text might be on the next line, so start with empty text
           currentQuestion = {
-            question: questionText,
+            question: '',
             options: [],
-            correctAnswer: 'A' // Will be determined from answer key
+            correctAnswer: 'A'
           }
-          console.log(`Found MC question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+          console.log(`Found MC question header: ${line}`)
+        } else if (currentQuestion && !currentQuestion.question && line && !line.match(/^[A-D]\)/)) {
+          // This is the question text (first non-option line after question header)
+          currentQuestion.question = line
+          console.log(`Set MC question text: ${line.substring(0, 50)}...`)
         } else if (currentQuestion && line.match(/^[A-D]\)/)) {
           // This is an option (A), B), C), D))
           currentQuestion.options.push(line)
@@ -2113,12 +2099,15 @@ export class PDFShiftPDFGenerator {
             tfQuestions.push(currentQuestion)
           }
           questionNumber++
-          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
           currentQuestion = {
-            question: questionText,
-            correctAnswer: true // Will be determined from answer key
+            question: '',
+            correctAnswer: true
           }
-          console.log(`Found T/F question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+          console.log(`Found T/F question header: ${line}`)
+        } else if (currentQuestion && !currentQuestion.question && line) {
+          // This is the question text
+          currentQuestion.question = line
+          console.log(`Set T/F question text: ${line.substring(0, 50)}...`)
         }
       } else if (currentSection === 'SA') {
         // Look for short answer questions (### Question X or numbered)
@@ -2127,12 +2116,15 @@ export class PDFShiftPDFGenerator {
             saQuestions.push(currentQuestion)
           }
           questionNumber++
-          let questionText = line.replace(/^### Question \d+:\s*/, '').replace(/^\d+\.\s*/, '').trim()
           currentQuestion = {
-            question: questionText,
+            question: '',
             sampleAnswer: ''
           }
-          console.log(`Found SA question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+          console.log(`Found SA question header: ${line}`)
+        } else if (currentQuestion && !currentQuestion.question && line && !line.includes('Space for answer')) {
+          // This is the question text (skip "Space for answer" lines)
+          currentQuestion.question = line
+          console.log(`Set SA question text: ${line.substring(0, 50)}...`)
         }
       }
     }
