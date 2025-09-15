@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { PDFGeneratorV4 } from '@/lib/pdf-generator-v4'
+import { PDFGeneratorHybrid } from '@/lib/pdf-generator-hybrid'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { writeFile, mkdir } from 'fs/promises'
@@ -107,8 +107,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       tokenUsage: claudeResponse.usage
     }
 
-    // Generate PDF using the new generator
-    const pdfBuffer = await PDFGeneratorV4.generatePDF(studyGuide)
+    // Generate PDF using hybrid approach (Puppeteer locally, fallback for serverless)
+    const pdfBuffer = await PDFGeneratorHybrid.generatePDF(studyGuide)
 
     // Convert PDF buffer to base64 for transmission
     const pdfBase64 = pdfBuffer.toString('base64')
