@@ -13,6 +13,11 @@ export class PDFShiftPDFGenerator {
       }
 
       const html = this.generateHTML(studyGuide)
+      console.log('HTML generated, length:', html.length)
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
       
       const response = await fetch(this.API_URL, {
         method: 'POST',
@@ -26,18 +31,26 @@ export class PDFShiftPDFGenerator {
           landscape: false,
           format: 'A4',
           margin: '0.5in'
-        })
+        }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error('PDFShift API error response:', errorText)
         throw new Error(`PDFShift API error: ${response.status} - ${errorText}`)
       }
 
       const pdfBuffer = await response.arrayBuffer()
+      console.log('PDF generated successfully, size:', pdfBuffer.byteLength)
       return Buffer.from(pdfBuffer)
     } catch (error) {
       console.error('PDFShift PDF generation error:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('PDF generation timed out after 30 seconds')
+      }
       throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }

@@ -105,7 +105,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Generate PDF using PDFShift HTML-to-PDF service
-    const pdfBuffer = await PDFShiftPDFGenerator.generatePDF(studyGuide)
+    console.log('Starting PDF generation...')
+    const startTime = Date.now()
+    
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await PDFShiftPDFGenerator.generatePDF(studyGuide)
+      const generationTime = Date.now() - startTime
+      console.log(`PDF generation completed in ${generationTime}ms`)
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError)
+      throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
+    }
 
     // Convert PDF buffer to base64 for transmission
     const pdfBase64 = pdfBuffer.toString('base64')
