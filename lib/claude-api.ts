@@ -164,7 +164,7 @@ Make sure the study guide is ready for students to use immediately for studying 
     const instructions = {
       'outline': 'Create a detailed hierarchical outline using ONLY content from the source materials. Use clear numbering and indentation. Start with Learning Objectives from the source, then organize by priority. Only include concepts explicitly mentioned in the provided PDFs.',
       'flashcards': 'Create question-answer pairs using ONLY concepts from the source materials. Format as "Q: [question] A: [answer]". Only create questions about topics explicitly mentioned in the provided PDFs.',
-      'quiz': 'Create a quiz using ONLY content from the source materials. Include multiple choice questions based on concepts found in the provided PDFs. Include an answer key. Only test knowledge that is explicitly mentioned in the source materials.',
+      'quiz': 'Create a comprehensive quiz using ONLY content from the source materials. Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (3-5 questions), 3) Short answer questions (2-3 questions). Include an answer key with explanations. Only test knowledge that is explicitly mentioned in the source materials.',
       'summary': 'Create a summary using ONLY content from the source materials. Capture key concepts and main ideas that are explicitly mentioned in the provided PDFs. Do not add external knowledge or concepts not found in the source.',
     }
     return instructions[format] || instructions.summary

@@ -788,6 +788,59 @@ export class PDFShiftPDFGenerator {
         font-size: 0.875rem;
         font-weight: 500;
     }
+
+    /* Quiz Sections */
+    .quiz-section {
+        margin-bottom: 2rem;
+    }
+
+    .quiz-section h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 0.5rem;
+    }
+
+    /* True/False Questions */
+    .quiz-tf-options {
+        display: flex;
+        gap: 2rem;
+        margin-left: 3rem;
+    }
+
+    .quiz-tf-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        background: #f8fafc;
+    }
+
+    .quiz-tf-option span {
+        font-weight: 500;
+        color: #0f172a;
+    }
+
+    /* Short Answer Questions */
+    .quiz-short-answer {
+        margin-left: 3rem;
+    }
+
+    .answer-lines {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .answer-line {
+        height: 1px;
+        background: #e2e8f0;
+        margin-bottom: 1rem;
+    }
     `
   }
 
@@ -1159,14 +1212,25 @@ export class PDFShiftPDFGenerator {
   private static generateQuizContent(studyGuide: StudyGuideResponse): string {
     const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
     
-    // Parse content to separate actual questions from headings and other content
-    const questions: Array<{
+    // Parse different question types
+    const multipleChoiceQuestions: Array<{
       question: string
       options: string[]
-      correctAnswer?: string
+      correctAnswer: string
+    }> = []
+    
+    const trueFalseQuestions: Array<{
+      question: string
+      correctAnswer: boolean
+    }> = []
+    
+    const shortAnswerQuestions: Array<{
+      question: string
+      sampleAnswer: string
     }> = []
     
     let currentQuestion: { question: string; options: string[]; correctAnswer?: string } | null = null
+    let questionNumber = 1
     
     for (const section of sections) {
       const lines = section.split('\n').filter(line => line.trim())
@@ -1177,23 +1241,46 @@ export class PDFShiftPDFGenerator {
         continue
       }
       
-      // Check if this looks like a question (contains question mark or starts with number)
+      // Check if this looks like a question
       const isQuestion = firstLine.includes('?') || /^\d+\./.test(firstLine) ||
                         firstLine.toLowerCase().includes('what') ||
                         firstLine.toLowerCase().includes('which') ||
                         firstLine.toLowerCase().includes('how') ||
-                        firstLine.toLowerCase().includes('why')
+                        firstLine.toLowerCase().includes('why') ||
+                        firstLine.toLowerCase().includes('true') ||
+                        firstLine.toLowerCase().includes('false')
       
       if (isQuestion) {
         // Save previous question if exists
         if (currentQuestion) {
-          questions.push(currentQuestion)
+          const correctAnswer = this.determineCorrectAnswer(currentQuestion.options)
+          multipleChoiceQuestions.push({
+            question: currentQuestion.question,
+            options: currentQuestion.options,
+            correctAnswer: correctAnswer || 'A'
+          })
         }
         
-        // Start new question
-        currentQuestion = {
-          question: firstLine,
-          options: lines.slice(1).filter(line => line.trim() && !line.startsWith('---'))
+        // Determine question type and start new question
+        if (firstLine.toLowerCase().includes('true') || firstLine.toLowerCase().includes('false')) {
+          // True/False question
+          const correctAnswer = firstLine.toLowerCase().includes('true')
+          trueFalseQuestions.push({
+            question: firstLine,
+            correctAnswer
+          })
+        } else if (lines.length === 1 || lines.slice(1).every(line => !line.match(/^[a-d]\)/))) {
+          // Short answer question (no multiple choice options)
+          shortAnswerQuestions.push({
+            question: firstLine,
+            sampleAnswer: lines.slice(1).join(' ').trim() || 'Answer based on provided content'
+          })
+        } else {
+          // Multiple choice question
+          currentQuestion = {
+            question: firstLine,
+            options: lines.slice(1).filter(line => line.trim() && !line.startsWith('---'))
+          }
         }
       } else if (currentQuestion && lines.length > 0) {
         // Add options to current question
@@ -1203,14 +1290,19 @@ export class PDFShiftPDFGenerator {
     
     // Add the last question
     if (currentQuestion) {
-      questions.push(currentQuestion)
+      const correctAnswer = this.determineCorrectAnswer(currentQuestion.options)
+      multipleChoiceQuestions.push({
+        question: currentQuestion.question,
+        options: currentQuestion.options,
+        correctAnswer: correctAnswer || 'A'
+      })
     }
     
     // Extract learning outcomes from the content
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
     // If no proper questions found, create a simple structure
-    if (questions.length === 0) {
+    if (multipleChoiceQuestions.length === 0 && trueFalseQuestions.length === 0 && shortAnswerQuestions.length === 0) {
       return `
       <div class="content">
           ${learningOutcomes ? `
@@ -1245,42 +1337,90 @@ export class PDFShiftPDFGenerator {
         </div>` : ''}
         <div class="quiz-instructions">
             <h2>Instructions</h2>
-            <p>Choose the best answer for each question. Mark your answer clearly by filling in the corresponding circle.</p>
+            <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
         </div>
         
-        ${questions.map((q, index) => `
-        <div class="quiz-question print-avoid-break">
-            <div class="quiz-question-header">
-                <div class="quiz-question-number">${index + 1}</div>
-                <div class="quiz-question-text">${q.question}</div>
-            </div>
-            <div class="quiz-options">
-                ${q.options.slice(0, 4).map((option, optIndex) => {
-                  const letter = String.fromCharCode(65 + optIndex) // A, B, C, D
-                  return `
-                  <div class="quiz-option">
-                      <div class="quiz-option-letter ${letter.toLowerCase()}">${letter}</div>
-                      <div class="quiz-option-circle"></div>
-                      <div class="quiz-option-text">${option}</div>
-                  </div>`
-                }).join('')}
-            </div>
-        </div>`).join('')}
+        ${multipleChoiceQuestions.length > 0 ? `
+        <div class="quiz-section">
+            <h2>Multiple Choice Questions</h2>
+            ${multipleChoiceQuestions.map((q, index) => `
+            <div class="quiz-question print-avoid-break">
+                <div class="quiz-question-header">
+                    <div class="quiz-question-number">${index + 1}</div>
+                    <div class="quiz-question-text">${q.question}</div>
+                </div>
+                <div class="quiz-options">
+                    ${q.options.slice(0, 4).map((option, optIndex) => {
+                      const letter = String.fromCharCode(65 + optIndex) // A, B, C, D
+                      return `
+                      <div class="quiz-option">
+                          <div class="quiz-option-letter ${letter.toLowerCase()}">${letter}</div>
+                          <div class="quiz-option-circle"></div>
+                          <div class="quiz-option-text">${option}</div>
+                      </div>`
+                    }).join('')}
+                </div>
+            </div>`).join('')}
+        </div>` : ''}
         
-        ${questions.length > 0 ? `
+        ${trueFalseQuestions.length > 0 ? `
+        <div class="quiz-section">
+            <h2>True/False Questions</h2>
+            ${trueFalseQuestions.map((q, index) => `
+            <div class="quiz-question print-avoid-break">
+                <div class="quiz-question-header">
+                    <div class="quiz-question-number">${index + 1}</div>
+                    <div class="quiz-question-text">${q.question}</div>
+                </div>
+                <div class="quiz-tf-options">
+                    <div class="quiz-tf-option">
+                        <div class="quiz-option-circle"></div>
+                        <span>True</span>
+                    </div>
+                    <div class="quiz-tf-option">
+                        <div class="quiz-option-circle"></div>
+                        <span>False</span>
+                    </div>
+                </div>
+            </div>`).join('')}
+        </div>` : ''}
+        
+        ${shortAnswerQuestions.length > 0 ? `
+        <div class="quiz-section">
+            <h2>Short Answer Questions</h2>
+            ${shortAnswerQuestions.map((q, index) => `
+            <div class="quiz-question print-avoid-break">
+                <div class="quiz-question-header">
+                    <div class="quiz-question-number">${index + 1}</div>
+                    <div class="quiz-question-text">${q.question}</div>
+                </div>
+                <div class="quiz-short-answer">
+                    <div class="answer-lines">
+                        <div class="answer-line"></div>
+                        <div class="answer-line"></div>
+                        <div class="answer-line"></div>
+                    </div>
+                </div>
+            </div>`).join('')}
+        </div>` : ''}
+        
         <div class="quiz-answer-key">
             <h2>Answer Key</h2>
             <div class="quiz-answer-grid">
-                ${questions.map((q, index) => {
-                  // Try to determine correct answer from content
-                  const correctAnswer = this.determineCorrectAnswer(q.options) || 'A'
-                  return `
-                  <div class="quiz-answer-item">
-                      <span>${index + 1}. ${correctAnswer}</span>
-                  </div>`
-                }).join('')}
+                ${multipleChoiceQuestions.map((q, index) => `
+                <div class="quiz-answer-item">
+                    <span>${index + 1}. ${q.correctAnswer}</span>
+                </div>`).join('')}
+                ${trueFalseQuestions.map((q, index) => `
+                <div class="quiz-answer-item">
+                    <span>${index + 1}. ${q.correctAnswer ? 'T' : 'F'}</span>
+                </div>`).join('')}
+                ${shortAnswerQuestions.map((q, index) => `
+                <div class="quiz-answer-item">
+                    <span>${index + 1}. See sample answer</span>
+                </div>`).join('')}
             </div>
-        </div>` : ''}
+        </div>
     </div>`
   }
 

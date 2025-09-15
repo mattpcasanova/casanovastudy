@@ -75,11 +75,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       fileLengths: processedFiles.map(f => ({ name: f.name, length: f.content.length }))
     })
 
-    // Add fallback note if content is limited
+    // Use the content as-is without adding fallback notes
     let finalContent = combinedContent
-    if (hasLimitedContent) {
-      finalContent += `\n\nNote: Text extraction from PDF was limited. Please create a study guide based on available content and include general study tips for ${body.subject} topics when specific content is insufficient.`
-    }
 
     // Generate study guide using Claude
     const claudeService = new ClaudeService()
