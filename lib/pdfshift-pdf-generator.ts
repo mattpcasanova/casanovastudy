@@ -702,11 +702,11 @@ export class PDFShiftPDFGenerator {
         color: #0f172a;
     }
 
-    /* Quiz Questions - Clean Design */
+    /* Quiz Questions - Clean Professional Design */
     .content .quiz-question,
     .quiz-section .quiz-question,
     .quiz-question {
-        background: #f8fafc !important;
+        background: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 0.5rem !important;
         padding: 1.5rem !important;
@@ -717,7 +717,6 @@ export class PDFShiftPDFGenerator {
         width: 100% !important;
         box-sizing: border-box !important;
     }
-    
 
     .quiz-question-header {
         display: flex !important;
@@ -738,7 +737,6 @@ export class PDFShiftPDFGenerator {
         font-weight: 700;
         font-size: 0.875rem;
         flex-shrink: 0;
-        box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.2);
     }
 
     .quiz-question-text {
@@ -753,7 +751,7 @@ export class PDFShiftPDFGenerator {
         margin-left: 3rem;
     }
 
-    /* Quiz Options - Clean Design */
+    /* Quiz Options - Professional Design with Colored Letters */
     .content .quiz-option,
     .quiz-options .quiz-option,
     .quiz-option {
@@ -765,14 +763,8 @@ export class PDFShiftPDFGenerator {
         border: 1px solid #e2e8f0 !important;
         border-radius: 0.375rem !important;
         background: #ffffff !important;
-        transition: all 0.2s !important;
         width: 100% !important;
         box-sizing: border-box !important;
-    }
-
-    .quiz-option:hover {
-        background: #f8fafc;
-        border-color: #cbd5e1;
     }
 
     .quiz-option-letter {
@@ -782,11 +774,27 @@ export class PDFShiftPDFGenerator {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.75rem;
         flex-shrink: 0;
         color: #ffffff;
-        background: #6b7280;
+    }
+
+    /* Colored option letters matching target design */
+    .quiz-option-letter.a {
+        background: #ef4444; /* Red */
+    }
+
+    .quiz-option-letter.b {
+        background: #2563eb; /* Blue */
+    }
+
+    .quiz-option-letter.c {
+        background: #16a34a; /* Green */
+    }
+
+    .quiz-option-letter.d {
+        background: #ea580c; /* Orange */
     }
 
     .quiz-option-circle {
@@ -795,6 +803,7 @@ export class PDFShiftPDFGenerator {
         border: 2px solid #e2e8f0;
         border-radius: 50%;
         flex-shrink: 0;
+        background: #ffffff;
     }
 
     .quiz-option-text {
@@ -853,7 +862,34 @@ export class PDFShiftPDFGenerator {
         padding-bottom: 0.5rem;
     }
 
-    /* True/False Questions */
+    /* Section Headers with Blue Lines */
+    .quiz-section-header {
+        margin: 2rem 0 1.5rem 0;
+        position: relative;
+    }
+
+    .quiz-section-header h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        background: #ffffff;
+        padding-right: 1rem;
+        display: inline-block;
+    }
+
+    .quiz-section-header::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #2563eb;
+        z-index: -1;
+    }
+
+    /* True/False Questions - Horizontal Button Layout */
     .quiz-tf-options {
         display: flex;
         gap: 2rem;
@@ -864,18 +900,20 @@ export class PDFShiftPDFGenerator {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
         border: 1px solid #e2e8f0;
         border-radius: 0.375rem;
         background: #ffffff;
+        min-width: 120px;
     }
 
     .quiz-tf-option span {
         font-weight: 500;
         color: #0f172a;
+        font-size: 0.875rem;
     }
 
-    /* Short Answer Questions */
+    /* Short Answer Questions - Professional Answer Lines */
     .quiz-short-answer {
         margin-left: 3rem;
     }
@@ -883,13 +921,21 @@ export class PDFShiftPDFGenerator {
     .answer-lines {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 1.5rem;
+        margin-top: 1rem;
     }
 
     .answer-line {
+        height: 2px;
+        background: #000000;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .answer-line.light {
         height: 1px;
-        background: #e2e8f0;
-        margin-bottom: 1rem;
+        background: #d1d5db;
+        margin-bottom: 0.25rem;
     }
 
     /* Sample Answers */
@@ -1713,7 +1759,9 @@ export class PDFShiftPDFGenerator {
         
         ${trueFalseQuestions.length > 0 ? `
         <div class="quiz-section">
-            <h2>True/False Questions</h2>
+            <div class="quiz-section-header">
+                <h2>True/False Questions</h2>
+            </div>
             ${trueFalseQuestions.map((q, index) => `
             <div class="quiz-question print-avoid-break">
                 <div class="quiz-question-header">
@@ -1735,7 +1783,9 @@ export class PDFShiftPDFGenerator {
         
         ${shortAnswerQuestions.length > 0 ? `
         <div class="quiz-section">
-            <h2>Short Answer Questions</h2>
+            <div class="quiz-section-header">
+                <h2>Short Answer Questions</h2>
+            </div>
             ${shortAnswerQuestions.map((q, index) => `
             <div class="quiz-question print-avoid-break">
                 <div class="quiz-question-header">
@@ -1747,6 +1797,11 @@ export class PDFShiftPDFGenerator {
                         <div class="answer-line"></div>
                         <div class="answer-line"></div>
                         <div class="answer-line"></div>
+                        <div class="answer-line"></div>
+                        <div class="answer-line light"></div>
+                        <div class="answer-line light"></div>
+                        <div class="answer-line light"></div>
+                        <div class="answer-line light"></div>
                     </div>
                 </div>
             </div>`).join('')}
