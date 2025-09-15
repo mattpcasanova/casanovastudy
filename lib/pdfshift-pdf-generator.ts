@@ -869,6 +869,155 @@ export class PDFShiftPDFGenerator {
         background: #e2e8f0;
         margin-bottom: 1rem;
     }
+
+    /* Sample Answers */
+    .quiz-sample-answers {
+        margin-top: 2rem;
+        page-break-inside: avoid;
+    }
+
+    .quiz-sample-answers h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 0.5rem;
+    }
+
+    .sample-answer {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .sample-answer h3 {
+        color: #2563eb;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .sample-answer-content {
+        margin-top: 0.5rem;
+    }
+
+    .sample-answer-content p {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    /* Study Tips */
+    .quiz-study-tips {
+        margin-top: 2rem;
+        background: #eff6ff;
+        border: 1px solid #2563eb;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        page-break-inside: avoid;
+    }
+
+    .quiz-study-tips h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .quiz-study-tips ul {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    .quiz-study-tips li {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    /* Scoring */
+    .quiz-scoring {
+        margin-top: 2rem;
+        page-break-inside: avoid;
+    }
+
+    .quiz-scoring h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 0.5rem;
+    }
+
+    .scoring-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .scoring-item {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    .scoring-item.excellent {
+        background: #f0fdf4;
+        border-color: #16a34a;
+        color: #16a34a;
+    }
+
+    .scoring-item.good {
+        background: #fef3c7;
+        border-color: #ea580c;
+        color: #ea580c;
+    }
+
+    .scoring-item.fair {
+        background: #fef2f2;
+        border-color: #dc2626;
+        color: #dc2626;
+    }
+
+    .scoring-item.needs-work {
+        background: #f1f5f9;
+        border-color: #64748b;
+        color: #64748b;
+    }
+
+    /* Study Tips */
+    .study-tips {
+        margin-top: 2rem;
+        background: #eff6ff;
+        border: 1px solid #2563eb;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        page-break-inside: avoid;
+    }
+
+    .study-tips h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .study-tips ul {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    .study-tips li {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
     `
   }
 
@@ -1130,6 +1279,16 @@ export class PDFShiftPDFGenerator {
                 </div>
             </div>
         </div>
+        
+        <div class="study-tips">
+            <h2>📚 Study Tips for Success</h2>
+            <ul>
+                <li>Use the priority system to focus your study time effectively</li>
+                <li>Start with essential concepts before moving to important details</li>
+                <li>Create your own examples and connections to reinforce learning</li>
+                <li>Review supporting concepts to deepen your understanding</li>
+            </ul>
+        </div>
     </div>`
   }
 
@@ -1234,6 +1393,16 @@ export class PDFShiftPDFGenerator {
               </div>`
             }).join('')}
         </div>
+        
+        <div class="study-tips">
+            <h2>📚 Study Tips for Success</h2>
+            <ul>
+                <li>Focus on understanding the core concepts rather than memorizing facts</li>
+                <li>Practice active recall by covering answers and testing yourself</li>
+                <li>Connect concepts to real-world examples and applications</li>
+                <li>Review regularly to reinforce learning and identify knowledge gaps</li>
+            </ul>
+        </div>
     </div>`
   }
 
@@ -1275,8 +1444,8 @@ export class PDFShiftPDFGenerator {
                         firstLine.toLowerCase().includes('which') ||
                         firstLine.toLowerCase().includes('how') ||
                         firstLine.toLowerCase().includes('why') ||
-                        firstLine.toLowerCase().includes('true') ||
-                        firstLine.toLowerCase().includes('false')
+                        firstLine.toLowerCase().includes('explain') ||
+                        firstLine.toLowerCase().includes('describe')
       
       if (isQuestion) {
         // Save previous question if exists
@@ -1291,18 +1460,32 @@ export class PDFShiftPDFGenerator {
         
         // Determine question type and start new question
         if (firstLine.toLowerCase().includes('true') || firstLine.toLowerCase().includes('false')) {
-          // True/False question
-          const correctAnswer = firstLine.toLowerCase().includes('true')
-          trueFalseQuestions.push({
-            question: firstLine,
-            correctAnswer
-          })
-        } else if (lines.length === 1 || lines.slice(1).every(line => !line.match(/^[a-d]\)/))) {
-          // Short answer question (no multiple choice options)
+          // Skip this - it's likely an answer, not a question
+          continue
+        } else if (firstLine.toLowerCase().includes('explain') || firstLine.toLowerCase().includes('describe') || 
+                   firstLine.toLowerCase().includes('what happens') || firstLine.toLowerCase().includes('why')) {
+          // Short answer question
           shortAnswerQuestions.push({
             question: firstLine,
             sampleAnswer: lines.slice(1).join(' ').trim() || 'Answer based on provided content'
           })
+        } else if (lines.length === 1 || lines.slice(1).every(line => !line.match(/^[a-d]\)/))) {
+          // Check if this is a T/F question by looking for T/F pattern in the content
+          const hasTrueFalse = lines.some(line => line.toLowerCase().includes('true') || line.toLowerCase().includes('false'))
+          if (hasTrueFalse) {
+            // This is a T/F question
+            const correctAnswer = lines.some(line => line.toLowerCase().includes('true'))
+            trueFalseQuestions.push({
+              question: firstLine,
+              correctAnswer
+            })
+          } else {
+            // Short answer question
+            shortAnswerQuestions.push({
+              question: firstLine,
+              sampleAnswer: lines.slice(1).join(' ').trim() || 'Answer based on provided content'
+            })
+          }
         } else {
           // Multiple choice question
           currentQuestion = {
@@ -1449,6 +1632,48 @@ export class PDFShiftPDFGenerator {
                 </div>`).join('')}
             </div>
         </div>
+        
+        ${shortAnswerQuestions.length > 0 ? `
+        <div class="quiz-sample-answers">
+            <h2>Sample Answers for Short Answer Questions</h2>
+            ${shortAnswerQuestions.map((q, index) => `
+            <div class="sample-answer">
+                <h3>Question ${index + 1}:</h3>
+                <p><strong>${q.question}</strong></p>
+                <div class="sample-answer-content">
+                    <p><strong>Sample Answer:</strong></p>
+                    <p>${q.sampleAnswer}</p>
+                </div>
+            </div>`).join('')}
+        </div>` : ''}
+        
+        <div class="quiz-study-tips">
+            <h2>📚 Study Tips for Success</h2>
+            <ul>
+                <li>Remember the key principle: "Like dissolves like" - polar dissolves polar, nonpolar dissolves nonpolar</li>
+                <li>Focus on molecular interactions: Understanding why substances behave as they do is more important than memorizing lists</li>
+                <li>Practice predicting solubility: Look at molecular structures and identify polar vs. nonpolar regions</li>
+                <li>Connect to real-world examples: Think about everyday substances and their behavior in water</li>
+            </ul>
+        </div>
+        
+        <div class="quiz-scoring">
+            <h2>Score Interpretation</h2>
+            <div class="scoring-grid">
+                <div class="scoring-item excellent">
+                    <strong>9-11 correct:</strong> Excellent understanding of water solubility concepts
+                </div>
+                <div class="scoring-item good">
+                    <strong>7-8 correct:</strong> Good grasp with some areas for review
+                </div>
+                <div class="scoring-item fair">
+                    <strong>5-6 correct:</strong> Basic understanding, need more practice
+                </div>
+                <div class="scoring-item needs-work">
+                    <strong>Below 5:</strong> Review fundamental concepts before retesting
+                </div>
+            </div>
+        </div>
     </div>`
   }
 
@@ -1528,6 +1753,16 @@ export class PDFShiftPDFGenerator {
                     <span class="term">Mitochondria:</span> Cell's powerhouse
                 </div>
             </div>
+        </div>
+        
+        <div class="study-tips">
+            <h2>📚 Study Tips for Success</h2>
+            <ul>
+                <li>Focus on understanding the main concepts and their relationships</li>
+                <li>Use the key terms to build your vocabulary and understanding</li>
+                <li>Create mental connections between different concepts</li>
+                <li>Practice explaining concepts in your own words</li>
+            </ul>
         </div>
     </div>`
   }
