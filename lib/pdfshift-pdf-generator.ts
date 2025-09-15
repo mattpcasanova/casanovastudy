@@ -702,21 +702,58 @@ export class PDFShiftPDFGenerator {
         color: #0f172a;
     }
 
+    /* Quiz Questions - More Specific Selectors */
+    .content .quiz-question,
+    .quiz-section .quiz-question,
     .quiz-question {
-        background: #ffffff;
-        border: 2px solid #e2e8f0;
-        border-radius: 0.75rem;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
-        page-break-inside: avoid;
+        background: #ffffff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 0.75rem !important;
+        padding: 1.5rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
+        page-break-inside: avoid !important;
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Debug: Force quiz styling */
+    div[class*="quiz-question"] {
+        background: #ffffff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 0.75rem !important;
+        padding: 1.5rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
+        display: block !important;
+    }
+    
+    /* Force all quiz elements to be styled */
+    .quiz-question,
+    .quiz-question * {
+        box-sizing: border-box !important;
+    }
+    
+    /* Override any conflicting styles */
+    .quiz-question {
+        all: unset !important;
+        display: block !important;
+        background: #ffffff !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 0.75rem !important;
+        padding: 1.5rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .quiz-question-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 1rem !important;
+        margin-bottom: 1rem !important;
     }
 
     .quiz-question-number {
@@ -746,16 +783,21 @@ export class PDFShiftPDFGenerator {
         margin-left: 3rem;
     }
 
+    /* Quiz Options - More Specific Selectors */
+    .content .quiz-option,
+    .quiz-options .quiz-option,
     .quiz-option {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        margin-bottom: 0.75rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        background: #ffffff;
-        transition: all 0.2s;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+        padding: 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.5rem !important;
+        background: #ffffff !important;
+        transition: all 0.2s !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .quiz-option:hover {
@@ -1456,22 +1498,32 @@ export class PDFShiftPDFGenerator {
       answerKeySection = sections[answerKeyIndex]
     }
     
-    // Parse Multiple Choice Questions
-    const mcSection = sections.find(section => 
+    // Parse Multiple Choice Questions - Try multiple patterns
+    let mcSection = sections.find(section => 
       section.toLowerCase().includes('multiple choice') || 
       section.toLowerCase().includes('essential concepts') ||
       section.toLowerCase().includes('🔴 essential concepts')
     )
     
+    // If no MC section found, try to find any section with numbered questions
+    if (!mcSection) {
+      mcSection = sections.find(section => 
+        section.includes('Question 1') || 
+        section.includes('Question 2') ||
+        section.includes('1.') ||
+        section.includes('2.')
+      )
+    }
+    
     if (mcSection) {
       const mcLines = mcSection.split('\n').filter(line => line.trim())
       let currentQuestion: { question: string; options: string[] } | null = null
       
-      for (const line of mcLines) {
-        const trimmedLine = line.trim()
+      for (let i = 0; i < mcLines.length; i++) {
+        const trimmedLine = mcLines[i].trim()
         
-        // Check if this is a question (starts with "### Question" or "Question")
-        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
+        // Check if this is a question (multiple patterns)
+        if (trimmedLine.match(/^(### Question \d+|Question \d+|\d+\.)/)) {
           console.log('Found question line:', trimmedLine)
           if (currentQuestion) {
             multipleChoiceQuestions.push({
@@ -1480,8 +1532,13 @@ export class PDFShiftPDFGenerator {
               correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
             })
           }
-          // Start new question - the actual question text will be on the next line
-          currentQuestion = { question: '', options: [] }
+          // Start new question - extract question text from the same line or next line
+          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+|\d+\.)\s*/, '').trim()
+          if (!questionText && i + 1 < mcLines.length) {
+            // Question text is on the next line
+            questionText = mcLines[i + 1]?.trim() || ''
+          }
+          currentQuestion = { question: questionText, options: [] }
         } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
           // This is an option
           currentQuestion.options.push(trimmedLine)
@@ -1658,6 +1715,21 @@ export class PDFShiftPDFGenerator {
         <div class="quiz-instructions">
             <h2>Instructions</h2>
             <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
+        </div>
+        
+        <!-- Debug: Test quiz styling -->
+        <div class="quiz-question" style="background: #f0f0f0; border: 2px solid #ff0000; padding: 1rem; margin: 1rem 0;">
+            <div class="quiz-question-header">
+                <div class="quiz-question-number">TEST</div>
+                <div class="quiz-question-text">This is a test question to verify styling is working.</div>
+            </div>
+            <div class="quiz-options">
+                <div class="quiz-option">
+                    <div class="quiz-option-letter">A</div>
+                    <div class="quiz-option-circle"></div>
+                    <div class="quiz-option-text">Test option A</div>
+                </div>
+            </div>
         </div>
         
         ${multipleChoiceQuestions.length > 0 ? `
