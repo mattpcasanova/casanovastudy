@@ -1435,6 +1435,19 @@ export class PDFShiftPDFGenerator {
     // Split content into sections by main headers (## not ###)
     const sections = content.split(/(?=^## )/m)
     
+    // If that didn't work, try splitting by ## with any characters after
+    if (sections.length <= 1) {
+      const sections2 = content.split(/(?=^## )/m)
+      console.log('Trying alternative split, found:', sections2.length)
+      if (sections2.length > 1) {
+        sections.splice(0, sections.length, ...sections2)
+      }
+    }
+    console.log('=== QUIZ DEBUG ===')
+    console.log('Content length:', content.length)
+    console.log('Sections found:', sections.length)
+    console.log('Section previews:', sections.map(s => s.split('\n')[0].trim()).slice(0, 3))
+    
     // Find the answer key section
     let answerKeySection = ''
     const answerKeyIndex = sections.findIndex(section => 
@@ -1462,6 +1475,7 @@ export class PDFShiftPDFGenerator {
         
         // Check if this is a question (starts with "### Question" or "Question")
         if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
+          console.log('Found question line:', trimmedLine)
           if (currentQuestion) {
             multipleChoiceQuestions.push({
               question: currentQuestion.question,
@@ -1584,8 +1598,9 @@ export class PDFShiftPDFGenerator {
     // Extract learning outcomes from the content
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
-    // If no proper questions found, create a simple structure
+    // If no proper questions found, create a simple structure with styled content
     if (multipleChoiceQuestions.length === 0 && trueFalseQuestions.length === 0 && shortAnswerQuestions.length === 0) {
+      console.log('No questions parsed, using fallback with styled content')
       return `
       <div class="content">
           ${learningOutcomes ? `
@@ -1599,11 +1614,11 @@ export class PDFShiftPDFGenerator {
               <h2>Instructions</h2>
               <p>This study guide contains important information for your exam. Review the content carefully.</p>
           </div>
-          
+
           <div class="quiz-content">
               <h2>Study Content</h2>
               <div class="study-content">
-                  ${sections.map(section => `<p>${section}</p>`).join('')}
+                  ${this.formatContent(content)}
               </div>
           </div>
       </div>`
