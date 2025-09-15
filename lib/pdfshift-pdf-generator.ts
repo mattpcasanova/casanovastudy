@@ -1546,78 +1546,7 @@ export class PDFShiftPDFGenerator {
         </div>
         
         
-        ${multipleChoiceQuestions.length > 0 ? `
-        <div class="quiz-section">
-            <h2>Multiple Choice Questions</h2>
-            ${multipleChoiceQuestions.map((q, index) => `
-            <div class="quiz-question print-avoid-break">
-                <div class="quiz-question-header">
-                    <div class="quiz-question-number">${index + 1}</div>
-                    <div class="quiz-question-text">${q.question || 'Question text not found'}</div>
-                </div>
-                <div class="quiz-options">
-                    ${q.options.slice(0, 4).map((option, optIndex) => {
-                      const letter = String.fromCharCode(65 + optIndex) // A, B, C, D
-                      return `
-                      <div class="quiz-option">
-                          <div class="quiz-option-letter ${letter.toLowerCase()}">${letter}</div>
-                          <div class="quiz-option-circle"></div>
-                          <div class="quiz-option-text">${option}</div>
-                      </div>`
-                    }).join('')}
-                </div>
-            </div>`).join('')}
-        </div>` : ''}
-        
-        ${trueFalseQuestions.length > 0 ? `
-        <div class="quiz-section">
-            <div class="quiz-section-header">
-                <h2>True/False Questions</h2>
-            </div>
-            ${trueFalseQuestions.map((q, index) => `
-            <div class="quiz-question print-avoid-break">
-                <div class="quiz-question-header">
-                    <div class="quiz-question-number">${index + 1 + multipleChoiceQuestions.length}</div>
-                    <div class="quiz-question-text">${q.question}</div>
-                </div>
-                <div class="quiz-tf-options">
-                    <div class="quiz-tf-option">
-                        <div class="quiz-option-circle"></div>
-                        <span>True</span>
-                    </div>
-                    <div class="quiz-tf-option">
-                        <div class="quiz-option-circle"></div>
-                        <span>False</span>
-                    </div>
-                </div>
-            </div>`).join('')}
-        </div>` : ''}
-        
-        ${shortAnswerQuestions.length > 0 ? `
-        <div class="quiz-section">
-            <div class="quiz-section-header">
-                <h2>Short Answer Questions</h2>
-            </div>
-            ${shortAnswerQuestions.map((q, index) => `
-            <div class="quiz-question print-avoid-break">
-                <div class="quiz-question-header">
-                    <div class="quiz-question-number">${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}</div>
-                    <div class="quiz-question-text">${q.question}</div>
-                </div>
-                <div class="quiz-short-answer">
-                    <div class="answer-lines">
-                        <div class="answer-line"></div>
-                        <div class="answer-line"></div>
-                        <div class="answer-line"></div>
-                        <div class="answer-line"></div>
-                        <div class="answer-line light"></div>
-                        <div class="answer-line light"></div>
-                        <div class="answer-line light"></div>
-                        <div class="answer-line light"></div>
-                    </div>
-                </div>
-            </div>`).join('')}
-        </div>` : ''}
+        ${this.createConsistentQuizHTML(multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)}
         
         <div class="quiz-answer-key">
             <h2>Answer Key</h2>
@@ -2144,6 +2073,101 @@ export class PDFShiftPDFGenerator {
         })
         break
     }
+  }
+
+  /**
+   * Creates a consistent quiz HTML structure with proper styling
+   * This method ensures all quiz questions follow the same format and styling
+   */
+  private static createConsistentQuizHTML(mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): string {
+    let html = ''
+    
+    // Multiple Choice Questions
+    if (mcQuestions.length > 0) {
+      html += '<div class="quiz-section-header"><h2>🔴 ESSENTIAL CONCEPTS - Multiple Choice Questions</h2></div>'
+      
+      mcQuestions.forEach((question, index) => {
+        html += this.createMCQuestionHTML(question, index + 1)
+      })
+    }
+    
+    // True/False Questions
+    if (tfQuestions.length > 0) {
+      html += '<div class="quiz-section-header"><h2>🟡 IMPORTANT APPLICATIONS - True/False Questions</h2></div>'
+      
+      tfQuestions.forEach((question, index) => {
+        html += this.createTFQuestionHTML(question, mcQuestions.length + index + 1)
+      })
+    }
+    
+    // Short Answer Questions
+    if (saQuestions.length > 0) {
+      html += '<div class="quiz-section-header"><h2>🟢 SUPPORTING DETAILS - Short Answer Questions</h2></div>'
+      
+      saQuestions.forEach((question, index) => {
+        html += this.createSAQuestionHTML(question, mcQuestions.length + tfQuestions.length + index + 1)
+      })
+    }
+    
+    return html
+  }
+
+  private static createMCQuestionHTML(question: any, questionNumber: number): string {
+    let html = `<div class="quiz-question">
+      <div class="quiz-question-header">
+        <div class="quiz-question-number">${questionNumber}</div>
+        <div class="quiz-question-text">${question.question}</div>
+      </div>
+      <div class="quiz-options">`
+    
+    question.options.forEach((option: string, index: number) => {
+      const letter = option.charAt(0).toLowerCase()
+      const optionText = option.substring(3) // Remove "a) " part
+      
+      html += `<div class="quiz-option">
+        <div class="quiz-option-letter ${letter}">${letter.toUpperCase()}</div>
+        <div class="quiz-option-circle"></div>
+        <div class="quiz-option-text">${optionText}</div>
+      </div>`
+    })
+    
+    html += `</div></div>`
+    return html
+  }
+
+  private static createTFQuestionHTML(question: any, questionNumber: number): string {
+    return `<div class="quiz-question">
+      <div class="quiz-question-header">
+        <div class="quiz-question-number">${questionNumber}</div>
+        <div class="quiz-question-text">${question.question}</div>
+      </div>
+      <div class="quiz-tf-options">
+        <div class="quiz-tf-option">
+          <input type="radio" name="q${questionNumber}" value="true">
+          <label>True</label>
+        </div>
+        <div class="quiz-tf-option">
+          <input type="radio" name="q${questionNumber}" value="false">
+          <label>False</label>
+        </div>
+      </div>
+    </div>`
+  }
+
+  private static createSAQuestionHTML(question: any, questionNumber: number): string {
+    return `<div class="quiz-question">
+      <div class="quiz-question-header">
+        <div class="quiz-question-number">${questionNumber}</div>
+        <div class="quiz-question-text">${question.question}</div>
+      </div>
+      <div class="answer-lines">
+        <div class="answer-line"></div>
+        <div class="answer-line light"></div>
+        <div class="answer-line"></div>
+        <div class="answer-line light"></div>
+        <div class="answer-line"></div>
+      </div>
+    </div>`
   }
 
   private static generateQuizFallback(content: string, studyGuide: StudyGuideResponse): string {
