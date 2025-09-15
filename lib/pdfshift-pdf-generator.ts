@@ -25,9 +25,7 @@ export class PDFShiftPDFGenerator {
           sandbox: false,
           landscape: false,
           format: 'A4',
-          margin: '0.5in',
-          print_media_type: true,
-          no_background: false
+          margin: '0.5in'
         })
       })
 
