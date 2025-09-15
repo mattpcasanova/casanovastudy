@@ -118,14 +118,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
     }
 
-    // Convert PDF buffer to base64 for transmission
-    const pdfBase64 = pdfBuffer.toString('base64')
-    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
+    // Save PDF to file system
+    const pdfDir = join(process.cwd(), 'public', 'generated-pdfs')
+    if (!existsSync(pdfDir)) {
+      await mkdir(pdfDir, { recursive: true })
+    }
+    
+    const pdfFileName = `study-guide-${studyGuideId}.pdf`
+    const pdfPath = join(pdfDir, pdfFileName)
+    await writeFile(pdfPath, pdfBuffer)
+    
+    // Create public URL for the PDF
+    const pdfUrl = `/generated-pdfs/${pdfFileName}`
 
-    // Add PDF data to response
+    // Add PDF URL to response
     const studyGuideWithPdf = {
       ...studyGuide,
-      pdfDataUrl: pdfDataUrl
+      pdfUrl: pdfUrl
     }
 
     return NextResponse.json({

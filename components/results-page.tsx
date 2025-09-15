@@ -22,11 +22,12 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
 
   const handleDownloadPDF = () => {
-    if (studyGuideResponse?.pdfDataUrl) {
+    if (studyGuideResponse?.pdfUrl) {
       // Create a temporary link to download the PDF
       const link = document.createElement('a')
-      link.href = studyGuideResponse.pdfDataUrl
+      link.href = studyGuideResponse.pdfUrl
       link.download = `${studyGuideResponse.title}.pdf`
+      link.target = '_blank'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -47,7 +48,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           to: email,
           subject: `Your ${studyGuideResponse.title} is ready!`,
           studyGuideId: studyGuideResponse.id,
-          pdfDataUrl: studyGuideResponse.pdfDataUrl
+          pdfUrl: studyGuideResponse.pdfUrl
         })
       })
 

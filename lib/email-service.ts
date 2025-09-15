@@ -48,7 +48,7 @@ export class EmailService {
     const fileName = 'study-guide.pdf'
     const fileSize = 'PDF Document'
     const currentYear = new Date().getFullYear()
-    const ctaUrl = request.pdfDataUrl
+    const ctaUrl = request.pdfUrl || request.pdfDataUrl
     
     return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">

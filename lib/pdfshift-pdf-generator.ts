@@ -1652,7 +1652,7 @@ export class PDFShiftPDFGenerator {
             <div class="quiz-question print-avoid-break">
                 <div class="quiz-question-header">
                     <div class="quiz-question-number">${index + 1}</div>
-                    <div class="quiz-question-text">${q.question}</div>
+                    <div class="quiz-question-text">${q.question || 'Question text not found'}</div>
                 </div>
                 <div class="quiz-options">
                     ${q.options.slice(0, 4).map((option, optIndex) => {
