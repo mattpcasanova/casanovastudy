@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { PDFGeneratorV3 } from '@/lib/pdf-generator-v3'
+import { PDFGeneratorV4 } from '@/lib/pdf-generator-v4'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { writeFile, mkdir } from 'fs/promises'
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Generate PDF using the new generator
-    const pdfBuffer = await PDFGeneratorV3.generatePDF(studyGuide)
+    const pdfBuffer = await PDFGeneratorV4.generatePDF(studyGuide)
 
     // Convert PDF buffer to base64 for transmission
     const pdfBase64 = pdfBuffer.toString('base64')
