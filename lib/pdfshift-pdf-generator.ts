@@ -2026,8 +2026,17 @@ export class PDFShiftPDFGenerator {
     let currentSection = ''
     let questionNumber = 0
 
+    console.log('=== QUIZ PARSING DEBUG ===')
+    console.log('Total lines to parse:', lines.length)
+    console.log('First 20 lines:', lines.slice(0, 20))
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
+      
+      // Debug: Log every line to see what we're processing
+      if (i < 30) {
+        console.log(`Line ${i}: "${line}"`)
+      }
       
       // Detect section headers to determine question type
       if (line.includes('MULTIPLE CHOICE QUESTIONS') || line.includes('Multiple Choice Questions')) {
@@ -2058,6 +2067,7 @@ export class PDFShiftPDFGenerator {
         
         console.log(`Found question ${questionNumber}: ${questionText.substring(0, 50)}...`)
         console.log(`Question type: ${question.type}`)
+        console.log(`Current section: ${currentSection}`)
         
         // If it's MC, collect options from following lines
         if (question.type === 'MC') {
