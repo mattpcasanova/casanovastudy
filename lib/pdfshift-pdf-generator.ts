@@ -922,13 +922,64 @@ export class PDFShiftPDFGenerator {
   private static generateFlashcardsContent(studyGuide: StudyGuideResponse): string {
     const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
     
+    // Filter out sections that are not proper Q&A pairs
+    const validSections = sections.filter(section => {
+      const lines = section.split('\n').filter(line => line.trim())
+      const firstLine = lines[0]?.trim() || ''
+      
+      // Skip headings, empty sections, or sections with just "---"
+      if (!firstLine || firstLine === '---' || firstLine.startsWith('#')) {
+        return false
+      }
+      
+      // Look for content that could be a question or has Q&A structure
+      return lines.length >= 2 || firstLine.includes('?') || 
+             firstLine.toLowerCase().includes('what') ||
+             firstLine.toLowerCase().includes('which') ||
+             firstLine.toLowerCase().includes('how') ||
+             firstLine.toLowerCase().includes('why')
+    })
+    
+    if (validSections.length === 0) {
+      return `
+      <div class="content">
+          <div class="study-content">
+              <h2>Study Content</h2>
+              <div class="content-sections">
+                  ${sections.map(section => `<p>${section}</p>`).join('')}
+              </div>
+          </div>
+      </div>`
+    }
+    
     return `
     <div class="content">
         <div class="flashcards-grid">
-            ${sections.map((section, index) => {
+            ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
-              const question = lines.find(line => line.toLowerCase().includes('question') || line.toLowerCase().includes('q:')) || lines[0]
-              const answer = lines.find(line => line.toLowerCase().includes('answer') || line.toLowerCase().includes('a:')) || lines[1] || 'Answer not provided'
+              
+              // Try to find question and answer
+              let question = lines[0] || 'Question not provided'
+              let answer = 'Answer not provided'
+              
+              // Look for explicit Q: and A: markers
+              const qIndex = lines.findIndex(line => line.toLowerCase().includes('q:') || line.toLowerCase().includes('question:'))
+              const aIndex = lines.findIndex(line => line.toLowerCase().includes('a:') || line.toLowerCase().includes('answer:'))
+              
+              if (qIndex !== -1 && aIndex !== -1) {
+                question = lines[qIndex].replace(/^(Q:|Question:)\s*/i, '')
+                answer = lines[aIndex].replace(/^(A:|Answer:)\s*/i, '')
+              } else if (qIndex !== -1) {
+                question = lines[qIndex].replace(/^(Q:|Question:)\s*/i, '')
+                answer = lines.slice(qIndex + 1).join(' ').trim() || 'Answer not provided'
+              } else if (aIndex !== -1) {
+                answer = lines[aIndex].replace(/^(A:|Answer:)\s*/i, '')
+                question = lines.slice(0, aIndex).join(' ').trim() || 'Question not provided'
+              } else if (lines.length >= 2) {
+                // Assume first line is question, rest is answer
+                question = lines[0]
+                answer = lines.slice(1).join(' ').trim()
+              }
               
               return `
               <div class="flashcard print-avoid-break">
@@ -940,14 +991,14 @@ export class PDFShiftPDFGenerator {
                           <div class="flashcard-question-icon">Q</div>
                           <span class="flashcard-question-label">Question</span>
                       </div>
-                      <div class="flashcard-question-text">${question.replace(/^(Q:|Question:)\s*/i, '')}</div>
+                      <div class="flashcard-question-text">${question}</div>
                   </div>
                   <div class="flashcard-answer">
                       <div class="flashcard-answer-header">
                           <div class="flashcard-answer-icon">A</div>
                           <span class="flashcard-answer-label">Answer</span>
                       </div>
-                      <div class="flashcard-answer-text">${answer.replace(/^(A:|Answer:)\s*/i, '')}</div>
+                      <div class="flashcard-answer-text">${answer}</div>
                   </div>
               </div>`
             }).join('')}
@@ -958,6 +1009,71 @@ export class PDFShiftPDFGenerator {
   private static generateQuizContent(studyGuide: StudyGuideResponse): string {
     const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
     
+    // Parse content to separate actual questions from headings and other content
+    const questions: Array<{
+      question: string
+      options: string[]
+      correctAnswer?: string
+    }> = []
+    
+    let currentQuestion: { question: string; options: string[]; correctAnswer?: string } | null = null
+    
+    for (const section of sections) {
+      const lines = section.split('\n').filter(line => line.trim())
+      const firstLine = lines[0]?.trim() || ''
+      
+      // Skip empty sections or sections with just "---"
+      if (!firstLine || firstLine === '---' || firstLine.startsWith('#')) {
+        continue
+      }
+      
+      // Check if this looks like a question (contains question mark or starts with number)
+      const isQuestion = firstLine.includes('?') || /^\d+\./.test(firstLine) || 
+                        firstLine.toLowerCase().includes('what') ||
+                        firstLine.toLowerCase().includes('which') ||
+                        firstLine.toLowerCase().includes('how') ||
+                        firstLine.toLowerCase().includes('why')
+      
+      if (isQuestion) {
+        // Save previous question if exists
+        if (currentQuestion) {
+          questions.push(currentQuestion)
+        }
+        
+        // Start new question
+        currentQuestion = {
+          question: firstLine,
+          options: lines.slice(1).filter(line => line.trim() && !line.startsWith('---'))
+        }
+      } else if (currentQuestion && lines.length > 0) {
+        // Add options to current question
+        currentQuestion.options.push(...lines.filter(line => line.trim() && !line.startsWith('---')))
+      }
+    }
+    
+    // Add the last question
+    if (currentQuestion) {
+      questions.push(currentQuestion)
+    }
+    
+    // If no proper questions found, create a simple structure
+    if (questions.length === 0) {
+      return `
+      <div class="content">
+          <div class="quiz-instructions">
+              <h2>Instructions</h2>
+              <p>This study guide contains important information for your exam. Review the content carefully.</p>
+          </div>
+          
+          <div class="quiz-content">
+              <h2>Study Content</h2>
+              <div class="study-content">
+                  ${sections.map(section => `<p>${section}</p>`).join('')}
+              </div>
+          </div>
+      </div>`
+    }
+    
     return `
     <div class="content">
         <div class="quiz-instructions">
@@ -965,45 +1081,59 @@ export class PDFShiftPDFGenerator {
             <p>Choose the best answer for each question. Mark your answer clearly by filling in the corresponding circle.</p>
         </div>
         
-        ${sections.map((section, index) => {
-          const lines = section.split('\n').filter(line => line.trim())
-          const question = lines[0] || `Question ${index + 1}`
-          const options = lines.slice(1).filter(line => line.trim())
-          
-          return `
-          <div class="quiz-question print-avoid-break">
-              <div class="quiz-question-header">
-                  <div class="quiz-question-number">${index + 1}</div>
-                  <div class="quiz-question-text">${question}</div>
-              </div>
-              <div class="quiz-options">
-                  ${options.map((option, optIndex) => {
-                    const letter = String.fromCharCode(65 + optIndex) // A, B, C, D
-                    return `
-                    <div class="quiz-option">
-                        <div class="quiz-option-letter ${letter.toLowerCase()}">${letter}</div>
-                        <div class="quiz-option-circle"></div>
-                        <div class="quiz-option-text">${option}</div>
-                    </div>`
-                  }).join('')}
-              </div>
-          </div>`
-        }).join('')}
+        ${questions.map((q, index) => `
+        <div class="quiz-question print-avoid-break">
+            <div class="quiz-question-header">
+                <div class="quiz-question-number">${index + 1}</div>
+                <div class="quiz-question-text">${q.question}</div>
+            </div>
+            <div class="quiz-options">
+                ${q.options.slice(0, 4).map((option, optIndex) => {
+                  const letter = String.fromCharCode(65 + optIndex) // A, B, C, D
+                  return `
+                  <div class="quiz-option">
+                      <div class="quiz-option-letter ${letter.toLowerCase()}">${letter}</div>
+                      <div class="quiz-option-circle"></div>
+                      <div class="quiz-option-text">${option}</div>
+                  </div>`
+                }).join('')}
+            </div>
+        </div>`).join('')}
         
+        ${questions.length > 0 ? `
         <div class="quiz-answer-key">
             <h2>Answer Key</h2>
             <div class="quiz-answer-grid">
-                ${sections.map((section, index) => {
-                  // Simple answer key - in real implementation, you'd parse the correct answers
-                  const correctAnswer = 'A' // Placeholder
+                ${questions.map((q, index) => {
+                  // Try to determine correct answer from content
+                  const correctAnswer = this.determineCorrectAnswer(q.options) || 'A'
                   return `
                   <div class="quiz-answer-item">
                       <span>${index + 1}. ${correctAnswer}</span>
                   </div>`
                 }).join('')}
             </div>
-        </div>
+        </div>` : ''}
     </div>`
+  }
+
+  private static determineCorrectAnswer(options: string[]): string | null {
+    // Simple heuristic to determine correct answer
+    // Look for options that seem more complete or have specific indicators
+    
+    if (options.length === 0) return 'A'
+    
+    // Look for options with bold text (likely correct answers)
+    const boldOption = options.find(opt => opt.includes('**'))
+    if (boldOption) {
+      const index = options.indexOf(boldOption)
+      return String.fromCharCode(65 + index) // A, B, C, D
+    }
+    
+    // Look for options that are longer (often more complete)
+    const longestOption = options.reduce((a, b) => a.length > b.length ? a : b)
+    const index = options.indexOf(longestOption)
+    return String.fromCharCode(65 + index) // A, B, C, D
   }
 
   private static generateSummaryContent(studyGuide: StudyGuideResponse): string {
