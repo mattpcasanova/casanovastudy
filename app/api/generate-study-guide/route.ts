@@ -3,9 +3,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { storePDF } from '@/app/api/pdf/[filename]/route'
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<StudyGuideResponse>>> {
   try {
@@ -118,18 +116,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
     }
 
-    // Save PDF to file system
-    const pdfDir = join(process.cwd(), 'public', 'generated-pdfs')
-    if (!existsSync(pdfDir)) {
-      await mkdir(pdfDir, { recursive: true })
-    }
+    // Store PDF in memory for Vercel deployment
+    storePDF(studyGuideId, pdfBuffer)
     
-    const pdfFileName = `study-guide-${studyGuideId}.pdf`
-    const pdfPath = join(pdfDir, pdfFileName)
-    await writeFile(pdfPath, pdfBuffer)
+    // Create base64 data URL as fallback
+    const pdfBase64 = pdfBuffer.toString('base64')
+    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
     
     // Create API URL for the PDF
-    const pdfUrl = `/api/pdf/${pdfFileName}`
+    const pdfUrl = `/api/pdf/${studyGuideId}.pdf`
 
     // Add PDF URL to response (with fallback to base64)
     const studyGuideWithPdf = {

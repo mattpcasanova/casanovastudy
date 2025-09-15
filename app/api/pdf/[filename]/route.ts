@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+
+// In-memory storage for PDFs (in production, you'd use a database or cloud storage)
+const pdfStorage = new Map<string, Buffer>()
 
 export async function GET(
   request: NextRequest,
@@ -20,15 +20,15 @@ export async function GET(
       return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 })
     }
     
-    const pdfPath = join(process.cwd(), 'public', 'generated-pdfs', filename)
+    // Extract study guide ID from filename
+    const studyGuideId = filename.replace('.pdf', '')
     
-    // Check if file exists
-    if (!existsSync(pdfPath)) {
+    // Check if PDF exists in memory storage
+    const pdfBuffer = pdfStorage.get(studyGuideId)
+    
+    if (!pdfBuffer) {
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 })
     }
-    
-    // Read the PDF file
-    const pdfBuffer = await readFile(pdfPath)
     
     // Return the PDF with proper headers
     return new NextResponse(pdfBuffer, {
@@ -37,7 +37,7 @@ export async function GET(
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
       },
     })
     
@@ -45,4 +45,9 @@ export async function GET(
     console.error('PDF serving error:', error)
     return NextResponse.json({ error: 'Failed to serve PDF' }, { status: 500 })
   }
+}
+
+// Function to store PDF in memory (called from generate-study-guide)
+export function storePDF(studyGuideId: string, pdfBuffer: Buffer) {
+  pdfStorage.set(studyGuideId, pdfBuffer)
 }
