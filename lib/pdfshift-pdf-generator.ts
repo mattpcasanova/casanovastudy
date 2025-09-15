@@ -1500,6 +1500,10 @@ export class PDFShiftPDFGenerator {
     
     console.log('Found quiz section starting at:', quizSectionStart.substring(0, 200) + '...')
     
+    // Debug: Show the first few lines of the quiz section
+    const quizLines = quizSectionStart.split('\n').slice(0, 20)
+    console.log('First 20 lines of quiz section:', quizLines)
+    
     // Parse the quiz section into different question types
     this.parseQuizSection(quizSectionStart, multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
     
@@ -2009,8 +2013,11 @@ export class PDFShiftPDFGenerator {
 
   private static determineQuestionType(lines: string[], currentIndex: number): string {
     // Look ahead to see what follows this question
-    for (let i = currentIndex + 1; i < Math.min(currentIndex + 10, lines.length); i++) {
+    for (let i = currentIndex + 1; i < Math.min(currentIndex + 15, lines.length); i++) {
       const line = lines[i].trim()
+      
+      // Skip empty lines
+      if (!line) continue
       
       // Check for MC options (a), b), c), d))
       if (line.match(/^[a-d]\)/)) {
@@ -2031,6 +2038,12 @@ export class PDFShiftPDFGenerator {
         console.log(`Found SA indicator: ${line}`)
         return 'SA'
       }
+      
+      // If we hit another question, stop looking
+      if (line.match(/^Question \d+:/)) {
+        console.log(`Hit next question, stopping search: ${line}`)
+        break
+      }
     }
     
     console.log('No clear question type found, defaulting to SA')
@@ -2038,14 +2051,22 @@ export class PDFShiftPDFGenerator {
   }
 
   private static collectMCOptions(lines: string[], currentIndex: number, question: any): void {
-    for (let i = currentIndex + 1; i < Math.min(currentIndex + 10, lines.length); i++) {
+    for (let i = currentIndex + 1; i < Math.min(currentIndex + 15, lines.length); i++) {
       const line = lines[i].trim()
+      
+      // Skip empty lines
+      if (!line) continue
       
       if (line.match(/^[a-d]\)/)) {
         question.options.push(line)
         console.log(`Added MC option: ${line}`)
-      } else if (line && !line.match(/^Question \d+:/)) {
-        // If we hit a non-option line that's not a new question, stop
+      } else if (line.match(/^Question \d+:/)) {
+        // Hit next question, stop collecting
+        console.log(`Hit next question while collecting MC options: ${line}`)
+        break
+      } else if (line) {
+        // Hit non-option line, stop collecting
+        console.log(`Hit non-option line while collecting MC options: ${line}`)
         break
       }
     }
