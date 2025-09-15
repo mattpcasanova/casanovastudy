@@ -2037,8 +2037,8 @@ export class PDFShiftPDFGenerator {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       
-      // Look for numbered questions (1., 2., etc.)
-      if (line.match(/^\d+\./)) {
+      // Look for "Question X:" format
+      if (line.match(/^Question \d+:/)) {
         if (currentQuestion) {
           // Save previous question
           this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
@@ -2085,23 +2085,26 @@ export class PDFShiftPDFGenerator {
       
       // Check for MC options (a), b), c), d))
       if (line.match(/^[a-d]\)/)) {
+        console.log(`Found MC option: ${line}`)
         return 'MC'
       }
       
-      // Check for T/F indicators
-      if (line.toLowerCase().includes('true') && line.toLowerCase().includes('false')) {
+      // Check for T/F indicators in the question text itself
+      if (line.toLowerCase().includes('true or false')) {
+        console.log(`Found T/F indicator: ${line}`)
         return 'TF'
       }
       
       // Check for SA indicators (explain, describe, etc.)
       if (line.toLowerCase().includes('explain') || 
-          line.toLowerCase().includes('describe') ||
-          line.toLowerCase().includes('what happens') ||
-          line.toLowerCase().includes('why')) {
+          line.toLowerCase().includes('compare') ||
+          line.toLowerCase().includes('describe')) {
+        console.log(`Found SA indicator: ${line}`)
         return 'SA'
       }
     }
     
+    console.log('No clear question type found, defaulting to SA')
     return 'SA' // Default to SA if unclear
   }
 
@@ -2112,7 +2115,7 @@ export class PDFShiftPDFGenerator {
       if (line.match(/^[a-d]\)/)) {
         question.options.push(line)
         console.log(`Added MC option: ${line}`)
-      } else if (line && !line.match(/^\d+\./)) {
+      } else if (line && !line.match(/^Question \d+:/)) {
         // If we hit a non-option line that's not a new question, stop
         break
       }
