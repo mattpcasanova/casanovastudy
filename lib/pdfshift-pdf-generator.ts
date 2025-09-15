@@ -43,7 +43,7 @@ export class PDFShiftPDFGenerator {
   }
 
   private static generateHTML(studyGuide: StudyGuideResponse): string {
-    const formatNames = {
+    const formatNames: Record<string, string> = {
       outline: "Structured Study Outline",
       flashcards: "Interactive Flashcards", 
       quiz: "Practice Quiz",
@@ -1419,8 +1419,8 @@ export class PDFShiftPDFGenerator {
       sampleAnswer: string
     }> = []
     
-    // Split content into sections by headers
-    const sections = content.split(/(?=##|###)/)
+    // Split content into sections by main headers (## not ###)
+    const sections = content.split(/(?=^## )/m)
     
     // Find the answer key section
     let answerKeySection = ''
@@ -1436,7 +1436,8 @@ export class PDFShiftPDFGenerator {
     // Parse Multiple Choice Questions
     const mcSection = sections.find(section => 
       section.toLowerCase().includes('multiple choice') || 
-      section.toLowerCase().includes('essential concepts')
+      section.toLowerCase().includes('essential concepts') ||
+      section.toLowerCase().includes('🔴 essential concepts')
     )
     
     if (mcSection) {
@@ -1446,23 +1447,26 @@ export class PDFShiftPDFGenerator {
       for (const line of mcLines) {
         const trimmedLine = line.trim()
         
-        // Check if this is a question (starts with "Question" or number)
-        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
+        // Check if this is a question (starts with "### Question" or "Question")
+        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
           if (currentQuestion) {
             multipleChoiceQuestions.push({
               question: currentQuestion.question,
               options: currentQuestion.options,
-              correctAnswer: this.determineCorrectAnswer(currentQuestion.options)
+              correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
             })
           }
-          currentQuestion = { question: '', options: [] }
+          // Extract question text from the line
+          const questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
+          currentQuestion = { question: questionText, options: [] }
         } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
           // This is an option
           currentQuestion.options.push(trimmedLine)
         } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
-          // This is the question text
-          if (!currentQuestion.question) {
-            currentQuestion.question = trimmedLine
+          // This is additional question text or content
+          if (currentQuestion.question && !trimmedLine.match(/^[A-D]\)/)) {
+            // If we already have a question and this isn't an option, append to question
+            currentQuestion.question += ' ' + trimmedLine
           }
         }
       }
@@ -1472,7 +1476,7 @@ export class PDFShiftPDFGenerator {
         multipleChoiceQuestions.push({
           question: currentQuestion.question,
           options: currentQuestion.options,
-          correctAnswer: this.determineCorrectAnswer(currentQuestion.options)
+          correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
         })
       }
     }
@@ -1480,54 +1484,72 @@ export class PDFShiftPDFGenerator {
     // Parse True/False Questions
     const tfSection = sections.find(section => 
       section.toLowerCase().includes('true/false') || 
-      section.toLowerCase().includes('important concepts')
+      section.toLowerCase().includes('important concepts') ||
+      section.toLowerCase().includes('🟡 important concepts')
     )
     
     if (tfSection) {
       const tfLines = tfSection.split('\n').filter(line => line.trim())
+      let currentQuestion: { question: string; correctAnswer: boolean } | null = null
       
-      for (const line of tfLines) {
-        const trimmedLine = line.trim()
+      for (let i = 0; i < tfLines.length; i++) {
+        const trimmedLine = tfLines[i].trim()
         
-        // Check if this is a T/F question (starts with "Question" or number and contains T/F pattern)
-        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
-          const questionText = trimmedLine.replace(/^(Question \d+|### Question \d+)/, '').trim()
+        // Check if this is a T/F question (starts with "### Question" or "Question")
+        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
+          if (currentQuestion) {
+            trueFalseQuestions.push(currentQuestion)
+          }
+          // Extract question text from the line or next line
+          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
+          if (!questionText && i + 1 < tfLines.length) {
+            // Question text is on the next line
+            questionText = tfLines[i + 1].trim()
+          }
           if (questionText) {
             // Determine correct answer from answer key
             const correctAnswer = this.findTrueFalseAnswer(answerKeySection, questionText)
-            trueFalseQuestions.push({
-              question: questionText,
-              correctAnswer
-            })
+            currentQuestion = { question: questionText, correctAnswer }
           }
         }
+      }
+      
+      // Add the last question
+      if (currentQuestion) {
+        trueFalseQuestions.push(currentQuestion)
       }
     }
     
     // Parse Short Answer Questions
     const saSection = sections.find(section => 
       section.toLowerCase().includes('short answer') || 
-      section.toLowerCase().includes('supporting concepts')
+      section.toLowerCase().includes('supporting concepts') ||
+      section.toLowerCase().includes('🟢 supporting concepts')
     )
     
     if (saSection) {
       const saLines = saSection.split('\n').filter(line => line.trim())
       let currentQuestion: { question: string; sampleAnswer: string } | null = null
       
-      for (const line of saLines) {
-        const trimmedLine = line.trim()
+      for (let i = 0; i < saLines.length; i++) {
+        const trimmedLine = saLines[i].trim()
         
         // Check if this is a short answer question
-        if (trimmedLine.match(/^(Question \d+|### Question \d+)/)) {
+        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
           if (currentQuestion) {
             shortAnswerQuestions.push(currentQuestion)
           }
-          const questionText = trimmedLine.replace(/^(Question \d+|### Question \d+)/, '').trim()
+          // Extract question text from the line or next line
+          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
+          if (!questionText && i + 1 < saLines.length) {
+            // Question text is on the next line
+            questionText = saLines[i + 1].trim()
+          }
           currentQuestion = { question: questionText, sampleAnswer: '' }
         } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
-          // This is the question text
-          if (!currentQuestion.question) {
-            currentQuestion.question = trimmedLine
+          // This is additional question text
+          if (currentQuestion.question) {
+            currentQuestion.question += ' ' + trimmedLine
           }
         }
       }
