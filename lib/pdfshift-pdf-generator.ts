@@ -1483,16 +1483,18 @@ export class PDFShiftPDFGenerator {
               correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
             })
           }
-          // Extract question text from the line
-          const questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
-          currentQuestion = { question: questionText, options: [] }
+          // Start new question - the actual question text will be on the next line
+          currentQuestion = { question: '', options: [] }
         } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
           // This is an option
           currentQuestion.options.push(trimmedLine)
         } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
-          // This is additional question text or content
-          if (currentQuestion.question && !trimmedLine.match(/^[A-D]\)/)) {
-            // If we already have a question and this isn't an option, append to question
+          // This is question text (comes after ### Question X)
+          if (!currentQuestion.question) {
+            // First line after question header is the question text
+            currentQuestion.question = trimmedLine
+          } else if (!trimmedLine.match(/^[A-D]\)/)) {
+            // Additional question text
             currentQuestion.question += ' ' + trimmedLine
           }
         }
@@ -1506,6 +1508,11 @@ export class PDFShiftPDFGenerator {
           correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
         })
       }
+      
+      console.log('MC Questions parsed:', multipleChoiceQuestions.length)
+      multipleChoiceQuestions.forEach((q, i) => {
+        console.log(`MC Q${i+1}:`, q.question.substring(0, 50) + '...', 'Options:', q.options.length)
+      })
     }
     
     // Parse True/False Questions
