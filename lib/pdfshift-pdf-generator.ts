@@ -331,6 +331,38 @@ export class PDFShiftPDFGenerator {
         color: #64748b;
     }
 
+    /* Learning Outcomes */
+    .learning-outcomes {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        page-break-inside: avoid;
+    }
+
+    .learning-outcomes h2 {
+        color: #2563eb;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 0.5rem;
+    }
+
+    .learning-outcomes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .learning-outcome-item {
+        color: #0f172a;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        padding-left: 0.5rem;
+    }
+
     /* Print utilities */
     .print-avoid-break {
         page-break-inside: avoid;
@@ -924,7 +956,7 @@ export class PDFShiftPDFGenerator {
   private static generateHeader(studyGuide: StudyGuideResponse, formatName: string, currentDate: string): string {
     return `
     <div class="header">
-        <h1>${formatName}</h1>
+        <h1>${studyGuide.title || formatName}</h1>
         <div class="subtitle">${studyGuide.subject}</div>
         <div class="metadata">
             <div class="metadata-item">
@@ -961,8 +993,18 @@ export class PDFShiftPDFGenerator {
       return lines.length > 0 && lines[0] !== '---'
     })
     
+    // Extract learning outcomes from the content
+    const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
+    
     return `
     <div class="content">
+        ${learningOutcomes ? `
+        <div class="learning-outcomes">
+            <h2>Learning Outcomes</h2>
+            <div class="learning-outcomes-list">
+                ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+            </div>
+        </div>` : ''}
         <div class="outline-sections">
             ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
@@ -1031,9 +1073,19 @@ export class PDFShiftPDFGenerator {
              firstLine.toLowerCase().includes('why')
     })
     
+    // Extract learning outcomes from the content
+    const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
+    
     if (validSections.length === 0) {
       return `
       <div class="content">
+          ${learningOutcomes ? `
+          <div class="learning-outcomes">
+              <h2>Learning Outcomes</h2>
+              <div class="learning-outcomes-list">
+                  ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+              </div>
+          </div>` : ''}
           <div class="study-content">
               <h2>Study Content</h2>
               <div class="content-sections">
@@ -1045,6 +1097,13 @@ export class PDFShiftPDFGenerator {
     
     return `
     <div class="content">
+        ${learningOutcomes ? `
+        <div class="learning-outcomes">
+            <h2>Learning Outcomes</h2>
+            <div class="learning-outcomes-list">
+                ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+            </div>
+        </div>` : ''}
         <div class="flashcards-grid">
             ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
@@ -1119,7 +1178,7 @@ export class PDFShiftPDFGenerator {
       }
       
       // Check if this looks like a question (contains question mark or starts with number)
-      const isQuestion = firstLine.includes('?') || /^\d+\./.test(firstLine) || 
+      const isQuestion = firstLine.includes('?') || /^\d+\./.test(firstLine) ||
                         firstLine.toLowerCase().includes('what') ||
                         firstLine.toLowerCase().includes('which') ||
                         firstLine.toLowerCase().includes('how') ||
@@ -1147,10 +1206,20 @@ export class PDFShiftPDFGenerator {
       questions.push(currentQuestion)
     }
     
+    // Extract learning outcomes from the content
+    const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
+    
     // If no proper questions found, create a simple structure
     if (questions.length === 0) {
       return `
       <div class="content">
+          ${learningOutcomes ? `
+          <div class="learning-outcomes">
+              <h2>Learning Outcomes</h2>
+              <div class="learning-outcomes-list">
+                  ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+              </div>
+          </div>` : ''}
           <div class="quiz-instructions">
               <h2>Instructions</h2>
               <p>This study guide contains important information for your exam. Review the content carefully.</p>
@@ -1167,6 +1236,13 @@ export class PDFShiftPDFGenerator {
     
     return `
     <div class="content">
+        ${learningOutcomes ? `
+        <div class="learning-outcomes">
+            <h2>Learning Outcomes</h2>
+            <div class="learning-outcomes-list">
+                ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+            </div>
+        </div>` : ''}
         <div class="quiz-instructions">
             <h2>Instructions</h2>
             <p>Choose the best answer for each question. Mark your answer clearly by filling in the corresponding circle.</p>
@@ -1236,8 +1312,18 @@ export class PDFShiftPDFGenerator {
       return lines.length > 0 && lines[0] !== '---'
     })
     
+    // Extract learning outcomes from the content
+    const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
+    
     return `
     <div class="content">
+        ${learningOutcomes ? `
+        <div class="learning-outcomes">
+            <h2>Learning Outcomes</h2>
+            <div class="learning-outcomes-list">
+                ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+            </div>
+        </div>` : ''}
         <div class="summary-sections">
             ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
@@ -1276,6 +1362,39 @@ export class PDFShiftPDFGenerator {
             </div>
         </div>
     </div>`
+  }
+
+  private static extractLearningOutcomes(content: string): string[] {
+    const lines = content.split('\n')
+    const outcomes: string[] = []
+    
+    // Look for learning outcomes patterns
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Look for "Learning Outcomes" or "Objectives" sections
+      if (line.toLowerCase().includes('learning outcomes') || 
+          line.toLowerCase().includes('objectives') ||
+          line.toLowerCase().includes('learning objectives')) {
+        
+        // Extract the next few lines as outcomes
+        for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+          const outcomeLine = lines[j].trim()
+          if (outcomeLine && !outcomeLine.startsWith('#') && outcomeLine !== '---') {
+            // Clean up the outcome text
+            const cleanOutcome = outcomeLine.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '')
+            if (cleanOutcome.length > 10) { // Only include substantial outcomes
+              outcomes.push(cleanOutcome)
+            }
+          } else if (outcomeLine.startsWith('#') || outcomeLine === '---') {
+            break // Stop at next section
+          }
+        }
+        break
+      }
+    }
+    
+    return outcomes.slice(0, 5) // Limit to 5 outcomes max
   }
 
   private static formatContent(content: string): string {
