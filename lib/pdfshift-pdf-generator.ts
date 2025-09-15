@@ -80,18 +80,10 @@ export class PDFShiftPDFGenerator {
     <style>
         ${this.getBaseCSS()}
         ${this.getFormatCSS(studyGuide.format)}
-        
-        /* Additional debugging styles to ensure CSS is loading */
-        .debug-test {
-            background: red !important;
-            color: white !important;
-            padding: 10px !important;
-        }
     </style>
 </head>
 <body>
     <div class="document">
-        <div class="debug-test">CSS Debug Test - If you see this in red, CSS is loading</div>
         ${this.generateHeader(studyGuide, formatName, currentDate)}
         ${this.generateContent(studyGuide)}
         ${this.generateFooter()}
@@ -1502,10 +1494,11 @@ export class PDFShiftPDFGenerator {
     const quizSectionStart = this.findQuizSection(content)
     if (!quizSectionStart) {
       console.log('No quiz section found, using fallback')
+      console.log('Content preview:', content.substring(0, 500) + '...')
       return this.generateQuizFallback(content, studyGuide)
     }
     
-    console.log('Found quiz section starting at:', quizSectionStart.substring(0, 100) + '...')
+    console.log('Found quiz section starting at:', quizSectionStart.substring(0, 200) + '...')
     
     // Parse the quiz section into different question types
     this.parseQuizSection(quizSectionStart, multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
@@ -2031,6 +2024,26 @@ export class PDFShiftPDFGenerator {
       }
     }
     
+    // If no specific quiz header found, look for sections that contain quiz-like content
+    console.log('No specific quiz header found, looking for quiz-like sections...')
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Look for sections that might contain quiz questions
+      if (line.includes('SECTION A:') || 
+          line.includes('MULTIPLE CHOICE') ||
+          line.includes('SECTION B:') ||
+          line.includes('TRUE/FALSE') ||
+          line.includes('SECTION C:') ||
+          line.includes('SHORT ANSWER')) {
+        console.log('Found quiz-like section:', line)
+        // Return content from this point onwards
+        return lines.slice(i).join('\n')
+      }
+    }
+    
+    console.log('No quiz section found at all')
     return null
   }
 
@@ -2044,17 +2057,17 @@ export class PDFShiftPDFGenerator {
       const line = lines[i].trim()
       
       // Detect section headers
-      if (line.includes('SECTION A:') || line.includes('MULTIPLE CHOICE')) {
+      if (line.includes('SECTION A:') || line.includes('MULTIPLE CHOICE') || line.includes('Multiple Choice')) {
         currentSection = 'MC'
-        console.log('Found MC section')
+        console.log('Found MC section:', line)
         continue
-      } else if (line.includes('SECTION B:') || line.includes('TRUE/FALSE')) {
+      } else if (line.includes('SECTION B:') || line.includes('TRUE/FALSE') || line.includes('True/False')) {
         currentSection = 'TF'
-        console.log('Found T/F section')
+        console.log('Found T/F section:', line)
         continue
-      } else if (line.includes('SECTION C:') || line.includes('SHORT ANSWER')) {
+      } else if (line.includes('SECTION C:') || line.includes('SHORT ANSWER') || line.includes('Short Answer')) {
         currentSection = 'SA'
-        console.log('Found Short Answer section')
+        console.log('Found Short Answer section:', line)
         continue
       }
       
