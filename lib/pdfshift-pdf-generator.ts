@@ -1521,6 +1521,13 @@ export class PDFShiftPDFGenerator {
       section.toLowerCase().includes('🔴 essential concepts')
     )
     
+    // Also check for the exact format from the image: "ESSENTIAL CONCEPTS"
+    if (!mcSection) {
+      mcSection = sections.find(section => 
+        section.toUpperCase().includes('ESSENTIAL CONCEPTS')
+      )
+    }
+    
     // If no MC section found, try to find any section with numbered questions
     if (!mcSection) {
       mcSection = sections.find(section => 
@@ -1529,6 +1536,12 @@ export class PDFShiftPDFGenerator {
         section.includes('1.') ||
         section.includes('2.')
       )
+    }
+    
+    // If still no section found, use the entire content for parsing
+    if (!mcSection) {
+      mcSection = content
+      console.log('No specific section found, parsing entire content')
     }
     
     if (mcSection) {
@@ -1555,11 +1568,13 @@ export class PDFShiftPDFGenerator {
             questionText = mcLines[i + 1]?.trim() || ''
           }
           currentQuestion = { question: questionText, options: [] }
-        } else if (currentQuestion && trimmedLine.match(/^[A-D]\)/)) {
-          // This is an option
-          currentQuestion.options.push(trimmedLine)
-          console.log('Added option:', trimmedLine)
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^[A-D]\)/)) {
+        } else if (trimmedLine.match(/^[a-d]\)/i)) {
+          // This is an option (a), b), c), d))
+          if (currentQuestion) {
+            currentQuestion.options.push(trimmedLine)
+            console.log('Added option:', trimmedLine)
+          }
+        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^[a-d]\)/i) && !trimmedLine.match(/^\d+\./)) {
           // This is question text (comes after ### Question X)
           if (!currentQuestion.question) {
             // First line after question header is the question text
@@ -1688,30 +1703,69 @@ export class PDFShiftPDFGenerator {
     // Extract learning outcomes from the content
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
-    // If no proper questions found, create a simple structure with styled content
+    // If no proper questions found, try to parse the entire content as quiz questions
     if (multipleChoiceQuestions.length === 0 && trueFalseQuestions.length === 0 && shortAnswerQuestions.length === 0) {
-      console.log('No questions parsed, using fallback with styled content')
-      return `
-      <div class="content">
-          ${learningOutcomes ? `
-          <div class="learning-outcomes">
-              <h2>Learning Outcomes</h2>
-              <div class="learning-outcomes-list">
-                  ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
-              </div>
-          </div>` : ''}
-          <div class="quiz-instructions">
-              <h2>Instructions</h2>
-              <p>This study guide contains important information for your exam. Review the content carefully.</p>
-          </div>
+      console.log('No questions parsed, trying to parse entire content as quiz')
+      
+      // Try to parse the entire content for quiz questions
+      const allLines = content.split('\n').filter(line => line.trim())
+      let currentQuestion: { question: string; options: string[] } | null = null
+      
+      for (let i = 0; i < allLines.length; i++) {
+        const trimmedLine = allLines[i].trim()
+        
+        // Look for numbered questions (1., 2., etc.)
+        if (trimmedLine.match(/^\d+\./)) {
+          if (currentQuestion) {
+            multipleChoiceQuestions.push({
+              question: currentQuestion.question,
+              options: currentQuestion.options,
+              correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
+            })
+          }
+          // Start new question
+          let questionText = trimmedLine.replace(/^\d+\.\s*/, '').trim()
+          currentQuestion = { question: questionText, options: [] }
+        } else if (currentQuestion && trimmedLine.match(/^[a-d]\)/i)) {
+          // This is an option
+          currentQuestion.options.push(trimmedLine)
+        }
+      }
+      
+      // Add the last question
+      if (currentQuestion) {
+        multipleChoiceQuestions.push({
+          question: currentQuestion.question,
+          options: currentQuestion.options,
+          correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
+        })
+      }
+      
+      // If still no questions found, use fallback
+      if (multipleChoiceQuestions.length === 0) {
+        console.log('Still no questions parsed, using fallback with styled content')
+        return `
+        <div class="content">
+            ${learningOutcomes ? `
+            <div class="learning-outcomes">
+                <h2>Learning Outcomes</h2>
+                <div class="learning-outcomes-list">
+                    ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+                </div>
+            </div>` : ''}
+            <div class="quiz-instructions">
+                <h2>Instructions</h2>
+                <p>This study guide contains important information for your exam. Review the content carefully.</p>
+            </div>
 
-          <div class="quiz-content">
-              <h2>Study Content</h2>
-              <div class="study-content">
-                  ${this.formatContent(content)}
-              </div>
-          </div>
-      </div>`
+            <div class="quiz-content">
+                <h2>Study Content</h2>
+                <div class="study-content">
+                    ${this.formatContent(content)}
+                </div>
+            </div>
+        </div>`
+      }
     }
     
     console.log('=== GENERATING QUIZ HTML ===')
