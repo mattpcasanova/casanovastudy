@@ -363,6 +363,34 @@ export class PDFShiftPDFGenerator {
         padding-left: 0.5rem;
     }
 
+    /* Priority Sections */
+    .priority-section {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 2rem 0 1rem 0;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid;
+    }
+
+    .priority-section.essential {
+        background-color: #fef2f2;
+        border-left-color: #dc2626;
+        color: #dc2626;
+    }
+
+    .priority-section.important {
+        background-color: #fef3c7;
+        border-left-color: #ea580c;
+        color: #ea580c;
+    }
+
+    .priority-section.supporting {
+        background-color: #f0fdf4;
+        border-left-color: #16a34a;
+        color: #16a34a;
+    }
+
     /* Print utilities */
     .print-avoid-break {
         page-break-inside: avoid;
@@ -1538,8 +1566,13 @@ export class PDFShiftPDFGenerator {
   }
 
   private static formatContent(content: string): string {
-    // First, handle tables
-    let formatted = content.replace(/\|(.+)\|/g, (match, row) => {
+    // First, handle priority sections with emojis
+    let formatted = content.replace(/^## 🔴 ESSENTIAL.*$/gm, '<h2 class="priority-section essential">🔴 ESSENTIAL CONCEPTS</h2>')
+    formatted = formatted.replace(/^## 🟡 IMPORTANT.*$/gm, '<h2 class="priority-section important">🟡 IMPORTANT CONCEPTS</h2>')
+    formatted = formatted.replace(/^## 🟢 SUPPORTING.*$/gm, '<h2 class="priority-section supporting">🟢 SUPPORTING CONCEPTS</h2>')
+    
+    // Handle tables
+    formatted = formatted.replace(/\|(.+)\|/g, (match, row) => {
       const cells = row.split('|').map((cell: string) => cell.trim()).filter((cell: string) => cell)
       if (cells.length > 1) {
         return `<tr>${cells.map((cell: string) => `<td>${cell}</td>`).join('')}</tr>`

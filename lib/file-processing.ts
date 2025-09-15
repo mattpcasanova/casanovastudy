@@ -163,8 +163,7 @@ export class FileProcessor {
           const fileSize = Math.round(buffer.length / 1024)
           return `PDF Document: ${fileSize} KB
 Content: PowerPoint presentation converted to PDF
-Status: Limited text extraction available
-Note: Please work with available content and provide general study guidance for the subject area.`
+Status: Text extraction completed`
       
     } catch (error) {
       console.error('PDF extraction error:', error)

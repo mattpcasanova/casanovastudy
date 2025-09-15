@@ -82,10 +82,10 @@ TASK: Create a study guide using ONLY the content provided in the source materia
 
 CRITICAL REQUIREMENTS:
 1. USE ONLY PROVIDED CONTENT: Base all content on concepts, terms, and information from the source materials
-2. EXTRACT LEARNING OBJECTIVES: Find and organize content around learning objectives from the source material
+2. ALWAYS INCLUDE LEARNING OBJECTIVES: Create learning objectives based on the content, even if not explicitly stated in the source
 3. NO EXTERNAL KNOWLEDGE: Do not add new concepts, formulas, or examples not found in the provided PDFs
 4. ALLOW CLARIFICATIONS: You may add analogies, explanations, and expansions to help explain the provided content
-5. CREATE CLEAR HIERARCHY: Essential → Important → Supporting information (based on what's in the source)
+5. CREATE CLEAR HIERARCHY: Always organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections
 
 SUBJECT: ${subject}
 GRADE LEVEL: ${gradeLevel}
@@ -104,15 +104,17 @@ ${content}
 
 STUDY GUIDE STRUCTURE REQUIREMENTS:
 
-1. LEARNING OBJECTIVES SECTION (Start Here)
-   - Extract specific learning objectives from source material
-   - If "Learning Intentions" or similar sections exist, prioritize these
-   - Organize content around these objectives
+1. LEARNING OBJECTIVES SECTION (Always Required)
+   - Create learning objectives based on the content provided
+   - If "Learning Intentions" or similar sections exist, use those
+   - If not explicitly stated, infer objectives from the content topics
+   - Always include 3-5 clear, measurable learning objectives
 
-2. CONTENT PRIORITIZATION SYSTEM (Based on Source Material)
-   - 🔴 ESSENTIAL: Key concepts, formulas, and definitions explicitly mentioned in the source materials
-   - 🟡 IMPORTANT: Examples, applications, and relationships described in the provided PDFs
-   - 🟢 SUPPORTING: Additional context and details found in the source materials
+2. CONTENT PRIORITIZATION SYSTEM (Always Required)
+   - 🔴 ESSENTIAL: Core concepts, key definitions, and fundamental principles from the source materials
+   - 🟡 IMPORTANT: Examples, applications, and practical relationships from the provided PDFs
+   - 🟢 SUPPORTING: Additional context, background information, and extended details from the source materials
+   - Always organize content into these three priority levels with clear section headers
 
 3. ACTIVE LEARNING ELEMENTS (Based on Source Content Only)
    - Questions: Create questions about concepts from the source materials (may include analogies to help explain)
@@ -162,10 +164,10 @@ Make sure the study guide is ready for students to use immediately for studying 
 
   private getFormatInstructions(format: StudyGuideFormat): string {
     const instructions = {
-      'outline': 'Create a detailed hierarchical outline using ONLY content from the source materials. Use clear numbering and indentation. Start with Learning Objectives from the source, then organize by priority. Only include concepts explicitly mentioned in the provided PDFs.',
-      'flashcards': 'Create question-answer pairs using ONLY concepts from the source materials. Format as "Q: [question] A: [answer]". Only create questions about topics explicitly mentioned in the provided PDFs.',
-      'quiz': 'Create a comprehensive quiz using ONLY content from the source materials. Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (3-5 questions), 3) Short answer questions (2-3 questions). Include an answer key with explanations. Only test knowledge that is explicitly mentioned in the source materials.',
-      'summary': 'Create a summary using ONLY content from the source materials. Capture key concepts and main ideas that are explicitly mentioned in the provided PDFs. Do not add external knowledge or concepts not found in the source.',
+      'outline': 'Create a detailed hierarchical outline using ONLY content from the source materials. Always start with Learning Objectives, then organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Use clear numbering and indentation. Only include concepts explicitly mentioned in the provided PDFs.',
+      'flashcards': 'Create question-answer pairs using ONLY concepts from the source materials. Always organize into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Format as "Q: [question] A: [answer]". Only create questions about topics explicitly mentioned in the provided PDFs.',
+      'quiz': 'Create a comprehensive quiz using ONLY content from the source materials. Always organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (3-5 questions), 3) Short answer questions (2-3 questions). Include an answer key with explanations. Only test knowledge that is explicitly mentioned in the source materials.',
+      'summary': 'Create a summary using ONLY content from the source materials. Always organize into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Capture key concepts and main ideas that are explicitly mentioned in the provided PDFs. Do not add external knowledge or concepts not found in the source.',
     }
     return instructions[format] || instructions.summary
   }
