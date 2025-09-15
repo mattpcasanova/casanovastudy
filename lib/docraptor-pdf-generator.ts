@@ -1,53 +1,48 @@
 import { StudyGuideResponse } from '../types'
 
-export class HTMLPDFGenerator {
+export class DocRaptorPDFGenerator {
+  private static readonly API_KEY = process.env.DOCRAPTOR_API_KEY
+  private static readonly API_URL = 'https://docraptor.com/docs'
+
   static async generatePDF(studyGuide: StudyGuideResponse): Promise<Buffer> {
     try {
-      console.log('Generating PDF with Puppeteer + Chromium for format:', studyGuide.format)
+      console.log('Generating PDF with DocRaptor for format:', studyGuide.format)
       
-      // Use Puppeteer with Chromium for reliable PDF generation
-      return await this.generatePDFWithPuppeteer(studyGuide)
-    } catch (error) {
-      console.error('PDF generation error:', error)
-      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
+      if (!this.API_KEY) {
+        throw new Error('DOCRAPTOR_API_KEY environment variable is required')
+      }
 
-  private static async generatePDFWithPuppeteer(studyGuide: StudyGuideResponse): Promise<Buffer> {
-    // Dynamic import to avoid bundling issues
-    const puppeteer = await import('puppeteer-core')
-    const chromium = await import('@sparticuz/chromium')
-    
-    const browser = await puppeteer.default.launch({
-      args: chromium.default.args,
-      defaultViewport: chromium.default.defaultViewport,
-      executablePath: await chromium.default.executablePath(),
-      headless: chromium.default.headless,
-    })
-
-    try {
-      const page = await browser.newPage()
-      
-      // Generate HTML content
       const html = this.generateHTML(studyGuide)
       
-      await page.setContent(html, { waitUntil: 'networkidle0' })
-      
-      // Generate PDF
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0.5in',
-          right: '0.5in',
-          bottom: '0.5in',
-          left: '0.5in'
-        }
+      const response = await fetch(this.API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_credentials: this.API_KEY,
+          doc: {
+            content: html,
+            type: 'pdf',
+            name: `Study Guide - ${studyGuide.subject}`,
+            prince_options: {
+              media: 'print',
+              baseurl: process.env.NEXTAUTH_URL || 'http://localhost:3000'
+            }
+          }
+        })
       })
 
-      return Buffer.from(pdf)
-    } finally {
-      await browser.close()
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`DocRaptor API error: ${response.status} - ${errorText}`)
+      }
+
+      const pdfBuffer = await response.arrayBuffer()
+      return Buffer.from(pdfBuffer)
+    } catch (error) {
+      console.error('DocRaptor PDF generation error:', error)
+      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
 
