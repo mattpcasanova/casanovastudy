@@ -702,52 +702,22 @@ export class PDFShiftPDFGenerator {
         color: #0f172a;
     }
 
-    /* Quiz Questions - More Specific Selectors */
+    /* Quiz Questions - Clean Design */
     .content .quiz-question,
     .quiz-section .quiz-question,
     .quiz-question {
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 0.75rem !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.5rem !important;
         padding: 1.5rem !important;
-        margin-bottom: 2rem !important;
-        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
+        margin-bottom: 1.5rem !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
         page-break-inside: avoid !important;
         display: block !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }
     
-    /* Debug: Force quiz styling */
-    div[class*="quiz-question"] {
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 0.75rem !important;
-        padding: 1.5rem !important;
-        margin-bottom: 2rem !important;
-        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
-        display: block !important;
-    }
-    
-    /* Force all quiz elements to be styled */
-    .quiz-question,
-    .quiz-question * {
-        box-sizing: border-box !important;
-    }
-    
-    /* Override any conflicting styles */
-    .quiz-question {
-        all: unset !important;
-        display: block !important;
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 0.75rem !important;
-        padding: 1.5rem !important;
-        margin-bottom: 2rem !important;
-        box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1) !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
 
     .quiz-question-header {
         display: flex !important;
@@ -757,8 +727,8 @@ export class PDFShiftPDFGenerator {
     }
 
     .quiz-question-number {
-        width: 2.5rem;
-        height: 2.5rem;
+        width: 2rem;
+        height: 2rem;
         background: #2563eb;
         color: #ffffff;
         border-radius: 50%;
@@ -766,9 +736,9 @@ export class PDFShiftPDFGenerator {
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 0.875rem;
         flex-shrink: 0;
-        box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.3);
+        box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.2);
     }
 
     .quiz-question-text {
@@ -783,17 +753,17 @@ export class PDFShiftPDFGenerator {
         margin-left: 3rem;
     }
 
-    /* Quiz Options - More Specific Selectors */
+    /* Quiz Options - Clean Design */
     .content .quiz-option,
     .quiz-options .quiz-option,
     .quiz-option {
         display: flex !important;
-        align-items: flex-start !important;
+        align-items: center !important;
         gap: 0.75rem !important;
         padding: 0.75rem !important;
-        margin-bottom: 0.75rem !important;
+        margin-bottom: 0.5rem !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 0.5rem !important;
+        border-radius: 0.375rem !important;
         background: #ffffff !important;
         transition: all 0.2s !important;
         width: 100% !important;
@@ -896,8 +866,8 @@ export class PDFShiftPDFGenerator {
         gap: 0.5rem;
         padding: 0.75rem;
         border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        background: #f8fafc;
+        border-radius: 0.375rem;
+        background: #ffffff;
     }
 
     .quiz-tf-option span {
@@ -1717,20 +1687,6 @@ export class PDFShiftPDFGenerator {
             <p>Answer all questions. For multiple choice, choose the best answer. For true/false, mark T or F. For short answer, provide a complete response.</p>
         </div>
         
-        <!-- Debug: Test quiz styling -->
-        <div class="quiz-question" style="background: #f0f0f0; border: 2px solid #ff0000; padding: 1rem; margin: 1rem 0;">
-            <div class="quiz-question-header">
-                <div class="quiz-question-number">TEST</div>
-                <div class="quiz-question-text">This is a test question to verify styling is working.</div>
-            </div>
-            <div class="quiz-options">
-                <div class="quiz-option">
-                    <div class="quiz-option-letter">A</div>
-                    <div class="quiz-option-circle"></div>
-                    <div class="quiz-option-text">Test option A</div>
-                </div>
-            </div>
-        </div>
         
         ${multipleChoiceQuestions.length > 0 ? `
         <div class="quiz-section">
