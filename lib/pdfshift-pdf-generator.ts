@@ -212,12 +212,39 @@ export class PDFShiftPDFGenerator {
 
     ul, ol {
         margin-bottom: 1rem;
-        padding-left: 1.5rem;
+        padding-left: 0;
+        list-style: none;
     }
 
     li {
         margin-bottom: 0.5rem;
         line-height: 1.6;
+        position: relative;
+        padding-left: 1.5rem;
+    }
+
+    ul li::before {
+        content: "•";
+        color: #2563eb;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+    }
+
+    ol {
+        counter-reset: item;
+    }
+
+    ol li {
+        counter-increment: item;
+    }
+
+    ol li::before {
+        content: counter(item) ".";
+        color: #2563eb;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
     }
 
     strong {
@@ -244,6 +271,64 @@ export class PDFShiftPDFGenerator {
         border-radius: 0.25rem;
         font-weight: 500;
         font-size: 0.875rem;
+    }
+
+    /* Table Styling */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.875rem;
+    }
+
+    th, td {
+        padding: 0.75rem;
+        text-align: left;
+        border: 1px solid #e2e8f0;
+    }
+
+    th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+
+    tr:hover {
+        background-color: #f1f5f9;
+    }
+
+    /* Code and inline formatting */
+    code {
+        background-color: #f1f5f9;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        color: #e11d48;
+    }
+
+    pre {
+        background-color: #f8fafc;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        overflow-x: auto;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    /* Blockquotes */
+    blockquote {
+        border-left: 4px solid #2563eb;
+        padding-left: 1rem;
+        margin: 1rem 0;
+        font-style: italic;
+        color: #64748b;
     }
 
     /* Print utilities */
@@ -870,10 +955,16 @@ export class PDFShiftPDFGenerator {
   private static generateOutlineContent(studyGuide: StudyGuideResponse): string {
     const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
     
+    // Filter out empty sections and improve content parsing
+    const validSections = sections.filter(section => {
+      const lines = section.split('\n').filter(line => line.trim())
+      return lines.length > 0 && lines[0] !== '---'
+    })
+    
     return `
     <div class="content">
         <div class="outline-sections">
-            ${sections.map((section, index) => {
+            ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
               const title = lines[0]?.replace(/^#+\s*/, '') || `Section ${index + 1}`
               const content = lines.slice(1).join('\n')
@@ -1139,10 +1230,16 @@ export class PDFShiftPDFGenerator {
   private static generateSummaryContent(studyGuide: StudyGuideResponse): string {
     const sections = studyGuide.content.split('\n\n').filter(section => section.trim())
     
+    // Filter out empty sections and improve content parsing
+    const validSections = sections.filter(section => {
+      const lines = section.split('\n').filter(line => line.trim())
+      return lines.length > 0 && lines[0] !== '---'
+    })
+    
     return `
     <div class="content">
         <div class="summary-sections">
-            ${sections.map((section, index) => {
+            ${validSections.map((section, index) => {
               const lines = section.split('\n').filter(line => line.trim())
               const title = lines[0]?.replace(/^#+\s*/, '') || `Section ${index + 1}`
               const content = lines.slice(1).join('\n')
@@ -1182,13 +1279,64 @@ export class PDFShiftPDFGenerator {
   }
 
   private static formatContent(content: string): string {
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<span class="key-term">$1</span>')
-      .replace(/\n/g, '<br>')
-      .replace(/^•\s+/gm, '• ')
-      .replace(/^\d+\.\s+/gm, (match) => match)
+    // First, handle tables
+    let formatted = content.replace(/\|(.+)\|/g, (match, row) => {
+      const cells = row.split('|').map((cell: string) => cell.trim()).filter((cell: string) => cell)
+      if (cells.length > 1) {
+        return `<tr>${cells.map((cell: string) => `<td>${cell}</td>`).join('')}</tr>`
+      }
+      return match
+    })
+    
+    // Wrap consecutive table rows in table tags
+    formatted = formatted.replace(/(<tr>.*<\/tr>(\s*<tr>.*<\/tr>)*)/g, (match) => {
+      const rows = match.match(/<tr>.*?<\/tr>/g) || []
+      if (rows.length > 1) {
+        return `<table>${rows.join('')}</table>`
+      }
+      return match
+    })
+    
+    // Handle markdown headers
+    formatted = formatted.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    formatted = formatted.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    formatted = formatted.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    
+    // Handle bold and italic text
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>')
+    
+    // Handle code blocks
+    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    formatted = formatted.replace(/`(.*?)`/g, '<code>$1</code>')
+    
+    // Handle lists - convert to proper HTML
+    formatted = formatted.replace(/^[\s]*[-*+]\s+(.+)$/gm, '<li>$1</li>')
+    formatted = formatted.replace(/^[\s]*\d+\.\s+(.+)$/gm, '<li>$1</li>')
+    
+    // Wrap consecutive list items in ul/ol tags
+    formatted = formatted.replace(/(<li>.*<\/li>(\s*<li>.*<\/li>)*)/g, (match) => {
+      const items = match.match(/<li>.*?<\/li>/g) || []
+      if (items.length > 1) {
+        return `<ul>${items.join('')}</ul>`
+      }
+      return match
+    })
+    
+    // Handle blockquotes
+    formatted = formatted.replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
+    
+    // Handle horizontal rules
+    formatted = formatted.replace(/^---$/gm, '<hr>')
+    formatted = formatted.replace(/^\*\*\*$/gm, '<hr>')
+    
+    // Convert line breaks to <br> but preserve existing HTML structure
+    formatted = formatted.replace(/\n(?![<\s])/g, '<br>')
+    
+    // Clean up multiple consecutive <br> tags
+    formatted = formatted.replace(/(<br>\s*){3,}/g, '<br><br>')
+    
+    return formatted
   }
 
   private static generateFooter(): string {
