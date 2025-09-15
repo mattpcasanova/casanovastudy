@@ -9,7 +9,7 @@ export class PDFShiftPDFGenerator {
       console.log('Generating PDF with PDFShift for format:', studyGuide.format)
       
       if (!this.API_KEY) {
-        throw new Error('PDFSHIFT_API_KEY environment variable is required')
+        throw new Error('PDFSHIFT_API_KEY environment variable is required. Please add your PDFShift API key to .env.local')
       }
 
       const html = this.generateHTML(studyGuide)
