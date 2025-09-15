@@ -78,14 +78,14 @@ export class ClaudeService {
 
       return `You are an expert educational content creator specializing in creating exam-focused study guides for ${gradeLevel} students.
 
-TASK: Create a study guide that prioritizes learning objectives and exam preparation. Work with whatever text was successfully extracted, even if incomplete.
+TASK: Create a study guide using ONLY the content provided in the source materials. You may add analogies, explanations, and expansions to help clarify the provided content, but do not introduce new concepts, formulas, or information not mentioned in the provided PDFs.
 
 CRITICAL REQUIREMENTS:
-1. START WITH LEARNING OBJECTIVES: Extract and organize content around specific learning objectives from the source material
-2. PRIORITIZE EXAM CONTENT: Focus on concepts that will definitely or likely be tested
-3. ADD ACTIVE LEARNING: Include Quick Check questions, Key Term boxes, and Connection Points
-4. CREATE CLEAR HIERARCHY: Essential → Important → Supporting information
-5. OPTIMIZE FOR RETENTION: Use active recall and visual learning cues
+1. USE ONLY PROVIDED CONTENT: Base all content on concepts, terms, and information from the source materials
+2. EXTRACT LEARNING OBJECTIVES: Find and organize content around learning objectives from the source material
+3. NO EXTERNAL KNOWLEDGE: Do not add new concepts, formulas, or examples not found in the provided PDFs
+4. ALLOW CLARIFICATIONS: You may add analogies, explanations, and expansions to help explain the provided content
+5. CREATE CLEAR HIERARCHY: Essential → Important → Supporting information (based on what's in the source)
 
 SUBJECT: ${subject}
 GRADE LEVEL: ${gradeLevel}
@@ -109,14 +109,14 @@ STUDY GUIDE STRUCTURE REQUIREMENTS:
    - If "Learning Intentions" or similar sections exist, prioritize these
    - Organize content around these objectives
 
-2. CONTENT PRIORITIZATION SYSTEM
-   - 🔴 ESSENTIAL: Concepts that will definitely be on exam (formulas, key definitions, core processes)
-   - 🟡 IMPORTANT: Details likely to be tested (examples, applications, relationships)
-   - 🟢 SUPPORTING: Helpful context but not exam-critical (background info, extended examples)
+2. CONTENT PRIORITIZATION SYSTEM (Based on Source Material)
+   - 🔴 ESSENTIAL: Key concepts, formulas, and definitions explicitly mentioned in the source materials
+   - 🟡 IMPORTANT: Examples, applications, and relationships described in the provided PDFs
+   - 🟢 SUPPORTING: Additional context and details found in the source materials
 
-3. ACTIVE LEARNING ELEMENTS (Include Throughout)
-   - Quick Check Questions: "What is the formula for...?" "Explain the difference between..."
-   - Key Term Boxes: Highlight definitions with clear, concise explanations
+3. ACTIVE LEARNING ELEMENTS (Based on Source Content Only)
+   - Questions: Create questions about concepts from the source materials (may include analogies to help explain)
+   - Key Term Boxes: Highlight terms and definitions from the provided PDFs (may add clarifications and analogies)
    - Connection Points: "This relates to..." "Remember that..." "Compare with..."
    - Visual Cues: Use symbols, arrows, and formatting to show relationships
 
@@ -155,15 +155,17 @@ Create a study guide that:
 7. Is appropriate for ${gradeLevel} students
 8. Follows the ${format} format exactly
 
+IMPORTANT: Base all content on what is mentioned in the provided source materials. You may add analogies, explanations, and clarifications to help students understand the provided content, but do not introduce new concepts, formulas, or information not found in the PDFs. If a concept is not mentioned in the source materials, do not include it in the study guide.
+
 Make sure the study guide is ready for students to use immediately for studying and review.`
   }
 
   private getFormatInstructions(format: StudyGuideFormat): string {
     const instructions = {
-      'outline': 'Create a detailed hierarchical outline with main topics, subtopics, and key points. Use clear numbering and indentation. Start with Learning Objectives, then organize by priority (Essential → Important → Supporting). Include Quick Check questions and Key Term boxes throughout.',
-      'flashcards': 'Create question-answer pairs suitable for flashcards. Include both factual questions and conceptual questions. Format as "Q: [question] A: [answer]". Prioritize exam-critical concepts and include active recall elements.',
-      'quiz': 'Create a comprehensive quiz with multiple choice, true/false, and short answer questions. Include an answer key at the end. Focus on learning objectives and exam-critical concepts. Include questions that test both knowledge and application.',
-      'summary': 'Create a comprehensive summary that captures all key concepts, main ideas, and important details in a flowing narrative format. Start with Learning Objectives, use priority system (🔴 Essential, 🟡 Important, 🟢 Supporting), and include active learning elements throughout.',
+      'outline': 'Create a detailed hierarchical outline using ONLY content from the source materials. Use clear numbering and indentation. Start with Learning Objectives from the source, then organize by priority. Only include concepts explicitly mentioned in the provided PDFs.',
+      'flashcards': 'Create question-answer pairs using ONLY concepts from the source materials. Format as "Q: [question] A: [answer]". Only create questions about topics explicitly mentioned in the provided PDFs.',
+      'quiz': 'Create a quiz using ONLY content from the source materials. Include multiple choice questions based on concepts found in the provided PDFs. Include an answer key. Only test knowledge that is explicitly mentioned in the source materials.',
+      'summary': 'Create a summary using ONLY content from the source materials. Capture key concepts and main ideas that are explicitly mentioned in the provided PDFs. Do not add external knowledge or concepts not found in the source.',
     }
     return instructions[format] || instructions.summary
   }
