@@ -858,6 +858,21 @@ export class PDFShiftPDFGenerator {
         margin-bottom: 2rem;
     }
 
+    .quiz-section-title {
+        color: #2563eb;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    .quiz-section-divider {
+        height: 2px;
+        background: #2563eb;
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
     .quiz-section h2 {
         color: #2563eb;
         font-size: 1.25rem;
@@ -1680,45 +1695,51 @@ export class PDFShiftPDFGenerator {
   private static findShortAnswerSample(answerKeySection: string, questionText: string, questionNumber: number): string {
     if (!answerKeySection) return 'Answer based on provided content'
     
+    console.log(`Looking for sample answer for question: ${questionText.substring(0, 50)}...`)
+    
     // Look for short answer samples in the answer key
     const lines = answerKeySection.split('\n')
     let inShortAnswerSection = false
-    let currentAnswer = ''
     let answerLines: string[] = []
-    let foundQuestion = false
+    let currentAnswerNumber = 0
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
       if (line.toLowerCase().includes('short answer') || line.toLowerCase().includes('sample answer')) {
         inShortAnswerSection = true
+        console.log('Found short answer section')
         continue
       }
       
-      if (inShortAnswerSection && line.match(/^\d+\./)) {
+      if (inShortAnswerSection && line.match(/^(\d+)\./)) {
         // This is a numbered answer
-        if (foundQuestion && answerLines.length > 0) {
-          return answerLines.join(' ').replace(/^\d+\.\s*/, '').trim()
-        }
-        answerLines = [line]
-        foundQuestion = false
-      } else if (inShortAnswerSection && line && !line.startsWith('#') && !line.startsWith('---') && !line.includes('Answer:') && !line.includes('Sample Answer:')) {
-        // This is part of the answer
-        if (answerLines.length > 0) {
-          answerLines.push(line)
-          // Check if this answer matches our question
-          if (questionText && answerLines.join(' ').toLowerCase().includes(questionText.toLowerCase().substring(0, 30))) {
-            foundQuestion = true
+        const match = line.match(/^(\d+)\./)
+        if (match) {
+          currentAnswerNumber = parseInt(match[1])
+          console.log(`Found answer ${currentAnswerNumber}`)
+          
+          // If this is the answer we're looking for
+          if (currentAnswerNumber === questionNumber) {
+            answerLines = [line]
+            console.log(`Found matching answer for question ${questionNumber}`)
           }
         }
+      } else if (inShortAnswerSection && line && !line.startsWith('#') && !line.startsWith('---') && answerLines.length > 0) {
+        // This is part of the current answer
+        answerLines.push(line)
+        console.log(`Added line to answer: ${line.substring(0, 50)}...`)
       }
     }
     
     // If we found an answer, return it
-    if (foundQuestion && answerLines.length > 0) {
-      return answerLines.join(' ').replace(/^\d+\.\s*/, '').trim()
+    if (answerLines.length > 0) {
+      const fullAnswer = answerLines.join(' ').replace(/^\d+\.\s*/, '').trim()
+      console.log(`Returning sample answer: ${fullAnswer.substring(0, 100)}...`)
+      return fullAnswer
     }
     
+    console.log('No sample answer found, using default')
     return 'Answer based on provided content'
   }
 
@@ -2005,9 +2026,8 @@ export class PDFShiftPDFGenerator {
 
   private static parseQuizSection(quizContent: string, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
     const lines = quizContent.split('\n').filter(line => line.trim())
-    let currentQuestion: any = null
-    let questionNumber = 0
     let currentSection = ''
+    let questionNumber = 0
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -2030,33 +2050,26 @@ export class PDFShiftPDFGenerator {
       // Look for numbered questions (1., 2., etc.)
       const questionMatch = line.match(/^(\d+)\.\s*(.+)/)
       if (questionMatch) {
-        if (currentQuestion) {
-          // Save previous question
-          this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
-        }
-        
         questionNumber++
         const questionText = questionMatch[2].trim()
         
-        currentQuestion = {
+        const question = {
           question: questionText,
           options: [],
           type: currentSection || 'SA' // Default to SA if no section detected
         }
         
         console.log(`Found question ${questionNumber}: ${questionText.substring(0, 50)}...`)
-        console.log(`Question type: ${currentQuestion.type}`)
+        console.log(`Question type: ${question.type}`)
         
         // If it's MC, collect options from following lines
-        if (currentQuestion.type === 'MC') {
-          this.collectMCOptions(lines, i, currentQuestion)
+        if (question.type === 'MC') {
+          this.collectMCOptions(lines, i, question)
         }
+        
+        // Add question to appropriate array
+        this.addQuestionToCorrectArray(question, mcQuestions, tfQuestions, saQuestions)
       }
-    }
-    
-    // Add the last question
-    if (currentQuestion) {
-      this.addQuestionToCorrectArray(currentQuestion, mcQuestions, tfQuestions, saQuestions)
     }
     
     console.log(`Parsed ${mcQuestions.length} MC, ${tfQuestions.length} T/F, ${saQuestions.length} SA questions`)
@@ -2166,7 +2179,11 @@ export class PDFShiftPDFGenerator {
     
     // Multiple Choice Questions
     if (mcQuestions.length > 0) {
-      html += '<div class="quiz-section-header"><h2>🔴 ESSENTIAL CONCEPTS - Multiple Choice Questions</h2></div>'
+      html += `
+      <div class="quiz-section">
+        <h2 class="quiz-section-title">Multiple Choice Questions</h2>
+        <div class="quiz-section-divider"></div>
+      </div>`
       
       mcQuestions.forEach((question, index) => {
         html += this.createMCQuestionHTML(question, index + 1)
@@ -2175,7 +2192,11 @@ export class PDFShiftPDFGenerator {
     
     // True/False Questions
     if (tfQuestions.length > 0) {
-      html += '<div class="quiz-section-header"><h2>🟡 IMPORTANT APPLICATIONS - True/False Questions</h2></div>'
+      html += `
+      <div class="quiz-section">
+        <h2 class="quiz-section-title">True/False Questions</h2>
+        <div class="quiz-section-divider"></div>
+      </div>`
       
       tfQuestions.forEach((question, index) => {
         html += this.createTFQuestionHTML(question, mcQuestions.length + index + 1)
@@ -2184,7 +2205,11 @@ export class PDFShiftPDFGenerator {
     
     // Short Answer Questions
     if (saQuestions.length > 0) {
-      html += '<div class="quiz-section-header"><h2>🟢 SUPPORTING DETAILS - Short Answer Questions</h2></div>'
+      html += `
+      <div class="quiz-section">
+        <h2 class="quiz-section-title">Short Answer Questions</h2>
+        <div class="quiz-section-divider"></div>
+      </div>`
       
       saQuestions.forEach((question, index) => {
         html += this.createSAQuestionHTML(question, mcQuestions.length + tfQuestions.length + index + 1)
