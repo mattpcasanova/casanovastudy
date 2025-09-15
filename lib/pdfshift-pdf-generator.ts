@@ -1487,24 +1487,24 @@ export class PDFShiftPDFGenerator {
       sampleAnswer: string
     }> = []
     
-    // Split content into sections by main headers (## not ###)
-    const sections = content.split(/(?=^## )/m)
-    
-    // If that didn't work, try splitting by ## with any characters after
-    if (sections.length <= 1) {
-      const sections2 = content.split(/(?=^## )/m)
-      console.log('Trying alternative split, found:', sections2.length)
-      if (sections2.length > 1) {
-        sections.splice(0, sections.length, ...sections2)
-      }
-    }
     console.log('=== QUIZ DEBUG ===')
     console.log('Content length:', content.length)
-    console.log('Sections found:', sections.length)
-    console.log('Section previews:', sections.map(s => s.split('\n')[0].trim()).slice(0, 3))
+    
+    // First, find the QUIZ section specifically
+    const quizSectionStart = this.findQuizSection(content)
+    if (!quizSectionStart) {
+      console.log('No quiz section found, using fallback')
+      return this.generateQuizFallback(content, studyGuide)
+    }
+    
+    console.log('Found quiz section starting at:', quizSectionStart.substring(0, 100) + '...')
+    
+    // Parse the quiz section into different question types
+    this.parseQuizSection(quizSectionStart, multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
     
     // Find the answer key section
     let answerKeySection = ''
+    const sections = content.split(/(?=^## )/m)
     const answerKeyIndex = sections.findIndex(section => 
       section.toLowerCase().includes('answer key') || 
       section.toLowerCase().includes('answers:')
@@ -1514,258 +1514,13 @@ export class PDFShiftPDFGenerator {
       answerKeySection = sections[answerKeyIndex]
     }
     
-    // Parse Multiple Choice Questions - Try multiple patterns
-    let mcSection = sections.find(section => 
-      section.toLowerCase().includes('multiple choice') || 
-      section.toLowerCase().includes('essential concepts') ||
-      section.toLowerCase().includes('🔴 essential concepts')
-    )
-    
-    // Also check for the exact format from the image: "ESSENTIAL CONCEPTS"
-    if (!mcSection) {
-      mcSection = sections.find(section => 
-        section.toUpperCase().includes('ESSENTIAL CONCEPTS')
-      )
-    }
-    
-    // If no MC section found, try to find any section with numbered questions
-    if (!mcSection) {
-      mcSection = sections.find(section => 
-        section.includes('Question 1') || 
-        section.includes('Question 2') ||
-        section.includes('1.') ||
-        section.includes('2.')
-      )
-    }
-    
-    // If still no section found, use the entire content for parsing
-    if (!mcSection) {
-      mcSection = content
-      console.log('No specific section found, parsing entire content')
-    }
-    
-    if (mcSection) {
-      const mcLines = mcSection.split('\n').filter(line => line.trim())
-      let currentQuestion: { question: string; options: string[] } | null = null
-      
-      for (let i = 0; i < mcLines.length; i++) {
-        const trimmedLine = mcLines[i].trim()
-        
-        // Check if this is a question (multiple patterns)
-        if (trimmedLine.match(/^(### Question \d+|Question \d+|\d+\.)/)) {
-          console.log('Found question line:', trimmedLine)
-          if (currentQuestion) {
-            multipleChoiceQuestions.push({
-              question: currentQuestion.question,
-              options: currentQuestion.options,
-              correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
-            })
-          }
-          // Start new question - extract question text from the same line or next line
-          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+|\d+\.)\s*/, '').trim()
-          if (!questionText && i + 1 < mcLines.length) {
-            // Question text is on the next line
-            questionText = mcLines[i + 1]?.trim() || ''
-          }
-          currentQuestion = { question: questionText, options: [] }
-        } else if (trimmedLine.match(/^[a-d]\)/i)) {
-          // This is an option (a), b), c), d))
-          if (currentQuestion) {
-            currentQuestion.options.push(trimmedLine)
-            console.log('Added option:', trimmedLine)
-          }
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^[a-d]\)/i) && !trimmedLine.match(/^\d+\./)) {
-          // This is question text (comes after ### Question X)
-          if (!currentQuestion.question) {
-            // First line after question header is the question text
-            currentQuestion.question = trimmedLine
-            console.log('Set question text:', trimmedLine)
-          } else {
-            // Additional question text
-            currentQuestion.question += ' ' + trimmedLine
-            console.log('Extended question text:', currentQuestion.question)
-          }
-        }
-      }
-      
-      // Add the last question
-      if (currentQuestion) {
-        multipleChoiceQuestions.push({
-          question: currentQuestion.question,
-          options: currentQuestion.options,
-          correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
-        })
-      }
-      
-    console.log('MC Questions parsed:', multipleChoiceQuestions.length)
-    multipleChoiceQuestions.forEach((q, i) => {
-      console.log(`MC Q${i+1}:`, q.question.substring(0, 50) + '...', 'Options:', q.options.length)
-      console.log('Options:', q.options)
-    })
-    }
-    
-    // Parse True/False Questions
-    const tfSection = sections.find(section => 
-      section.toLowerCase().includes('true/false') || 
-      section.toLowerCase().includes('important concepts') ||
-      section.toLowerCase().includes('🟡 important concepts')
-    )
-    
-    if (tfSection) {
-      const tfLines = tfSection.split('\n').filter(line => line.trim())
-      let currentQuestion: { question: string; correctAnswer: boolean } | null = null
-      
-      for (let i = 0; i < tfLines.length; i++) {
-        const trimmedLine = tfLines[i].trim()
-        
-        // Check if this is a T/F question (starts with "### Question" or "Question")
-        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
-          if (currentQuestion) {
-            trueFalseQuestions.push(currentQuestion)
-            console.log('Added T/F question:', currentQuestion.question.substring(0, 50) + '...')
-          }
-          // Extract question text from the line or next line
-          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
-          if (!questionText && i + 1 < tfLines.length) {
-            // Question text is on the next line
-            questionText = tfLines[i + 1].trim()
-          }
-          if (questionText) {
-            // Determine correct answer from answer key
-            const correctAnswer = this.findTrueFalseAnswer(answerKeySection, questionText)
-            currentQuestion = { question: questionText, correctAnswer }
-            console.log('Set T/F question text:', questionText.substring(0, 50) + '...')
-          }
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
-          // Additional question text for T/F
-          currentQuestion.question += ' ' + trimmedLine
-          console.log('Extended T/F question text:', currentQuestion.question.substring(0, 50) + '...')
-        }
-      }
-      
-      // Add the last question
-      if (currentQuestion) {
-        trueFalseQuestions.push(currentQuestion)
-      }
-    }
-    
-    // Parse Short Answer Questions
-    const saSection = sections.find(section => 
-      section.toLowerCase().includes('short answer') || 
-      section.toLowerCase().includes('supporting concepts') ||
-      section.toLowerCase().includes('🟢 supporting concepts')
-    )
-    
-    if (saSection) {
-      const saLines = saSection.split('\n').filter(line => line.trim())
-      let currentQuestion: { question: string; sampleAnswer: string } | null = null
-      
-      for (let i = 0; i < saLines.length; i++) {
-        const trimmedLine = saLines[i].trim()
-        
-        // Check if this is a short answer question
-        if (trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
-          if (currentQuestion) {
-            shortAnswerQuestions.push(currentQuestion)
-            console.log('Added SA question:', currentQuestion.question.substring(0, 50) + '...')
-          }
-          // Extract question text from the line or next line
-          let questionText = trimmedLine.replace(/^(### Question \d+|Question \d+)\s*/, '').trim()
-          if (!questionText && i + 1 < saLines.length) {
-            // Question text is on the next line
-            questionText = saLines[i + 1].trim()
-          }
-          currentQuestion = { question: questionText, sampleAnswer: '' }
-          console.log('Set SA question text:', questionText.substring(0, 50) + '...')
-        } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#') && !trimmedLine.match(/^(### Question \d+|Question \d+)/)) {
-          // This is additional question text
-          if (currentQuestion.question) {
-            currentQuestion.question += ' ' + trimmedLine
-            console.log('Extended SA question text:', currentQuestion.question.substring(0, 50) + '...')
-          }
-        }
-      }
-      
-      // Add the last question
-      if (currentQuestion) {
-        shortAnswerQuestions.push(currentQuestion)
-      }
-      
-      // Find sample answers from answer key
-      shortAnswerQuestions.forEach((q, index) => {
-        const sampleAnswer = this.findShortAnswerSample(answerKeySection, q.question, index + 1)
-        if (sampleAnswer) {
-          q.sampleAnswer = sampleAnswer
-        }
-      })
-    }
-    
     // Extract learning outcomes from the content
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
-    // If no proper questions found, try to parse the entire content as quiz questions
+    // If no questions found, use fallback
     if (multipleChoiceQuestions.length === 0 && trueFalseQuestions.length === 0 && shortAnswerQuestions.length === 0) {
-      console.log('No questions parsed, trying to parse entire content as quiz')
-      
-      // Try to parse the entire content for quiz questions
-      const allLines = content.split('\n').filter(line => line.trim())
-      let currentQuestion: { question: string; options: string[] } | null = null
-      
-      for (let i = 0; i < allLines.length; i++) {
-        const trimmedLine = allLines[i].trim()
-        
-        // Look for numbered questions (1., 2., etc.)
-        if (trimmedLine.match(/^\d+\./)) {
-          if (currentQuestion) {
-            multipleChoiceQuestions.push({
-              question: currentQuestion.question,
-              options: currentQuestion.options,
-              correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
-            })
-          }
-          // Start new question
-          let questionText = trimmedLine.replace(/^\d+\.\s*/, '').trim()
-          currentQuestion = { question: questionText, options: [] }
-        } else if (currentQuestion && trimmedLine.match(/^[a-d]\)/i)) {
-          // This is an option
-          currentQuestion.options.push(trimmedLine)
-        }
-      }
-      
-      // Add the last question
-      if (currentQuestion) {
-        multipleChoiceQuestions.push({
-          question: currentQuestion.question,
-          options: currentQuestion.options,
-          correctAnswer: this.determineCorrectAnswer(currentQuestion.options) || 'A'
-        })
-      }
-      
-      // If still no questions found, use fallback
-      if (multipleChoiceQuestions.length === 0) {
-        console.log('Still no questions parsed, using fallback with styled content')
-        return `
-        <div class="content">
-            ${learningOutcomes ? `
-            <div class="learning-outcomes">
-                <h2>Learning Outcomes</h2>
-                <div class="learning-outcomes-list">
-                    ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
-                </div>
-            </div>` : ''}
-            <div class="quiz-instructions">
-                <h2>Instructions</h2>
-                <p>This study guide contains important information for your exam. Review the content carefully.</p>
-            </div>
-
-            <div class="quiz-content">
-                <h2>Study Content</h2>
-                <div class="study-content">
-                    ${this.formatContent(content)}
-                </div>
-            </div>
-        </div>`
-      }
+      console.log('No questions parsed, using fallback with styled content')
+      return this.generateQuizFallback(content, studyGuide)
     }
     
     console.log('=== GENERATING QUIZ HTML ===')
@@ -2239,6 +1994,151 @@ export class PDFShiftPDFGenerator {
     <div class="footer">
         <p>Generated by Casanova Study Guide Generator</p>
         <div class="page-number"></div>
+    </div>`
+  }
+
+  private static findQuizSection(content: string): string | null {
+    // Look for quiz section headers
+    const quizHeaders = [
+      '# WATER SOLUBILITY QUIZ',
+      '# QUIZ',
+      '# PRACTICE QUIZ',
+      '## QUIZ',
+      'WATER SOLUBILITY QUIZ',
+      'QUIZ QUESTIONS'
+    ]
+    
+    const lines = content.split('\n')
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Check if this line matches any quiz header
+      if (quizHeaders.some(header => line.includes(header))) {
+        console.log('Found quiz header:', line)
+        // Return content from this point onwards
+        return lines.slice(i).join('\n')
+      }
+    }
+    
+    return null
+  }
+
+  private static parseQuizSection(quizContent: string, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
+    const lines = quizContent.split('\n').filter(line => line.trim())
+    let currentSection = ''
+    let currentQuestion: any = null
+    let questionNumber = 0
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Detect section headers
+      if (line.includes('SECTION A:') || line.includes('MULTIPLE CHOICE')) {
+        currentSection = 'MC'
+        console.log('Found MC section')
+        continue
+      } else if (line.includes('SECTION B:') || line.includes('TRUE/FALSE')) {
+        currentSection = 'TF'
+        console.log('Found T/F section')
+        continue
+      } else if (line.includes('SECTION C:') || line.includes('SHORT ANSWER')) {
+        currentSection = 'SA'
+        console.log('Found Short Answer section')
+        continue
+      }
+      
+      // Skip if we're not in a quiz section yet
+      if (!currentSection) continue
+      
+      // Parse questions based on current section
+      if (currentSection === 'MC') {
+        // Look for numbered questions (1., 2., etc.)
+        if (line.match(/^\d+\./)) {
+          if (currentQuestion) {
+            mcQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            options: [],
+            correctAnswer: 'A' // Will be determined from answer key
+          }
+          console.log(`Found MC question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        } else if (currentQuestion && line.match(/^[a-d]\)/i)) {
+          // This is an option
+          currentQuestion.options.push(line)
+          console.log('Added option:', line)
+        }
+      } else if (currentSection === 'TF') {
+        // Look for T/F questions
+        if (line.match(/^\d+\./) || line.includes('T/F:')) {
+          if (currentQuestion) {
+            tfQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          let questionText = line.replace(/^\d+\.\s*/, '').replace(/^T\/F:\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            correctAnswer: true // Will be determined from answer key
+          }
+          console.log(`Found T/F question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        }
+      } else if (currentSection === 'SA') {
+        // Look for short answer questions
+        if (line.match(/^\d+\./)) {
+          if (currentQuestion) {
+            saQuestions.push(currentQuestion)
+          }
+          questionNumber++
+          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          currentQuestion = {
+            question: questionText,
+            sampleAnswer: ''
+          }
+          console.log(`Found SA question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        }
+      }
+    }
+    
+    // Add the last question
+    if (currentQuestion) {
+      if (currentSection === 'MC') {
+        mcQuestions.push(currentQuestion)
+      } else if (currentSection === 'TF') {
+        tfQuestions.push(currentQuestion)
+      } else if (currentSection === 'SA') {
+        saQuestions.push(currentQuestion)
+      }
+    }
+    
+    console.log(`Parsed ${mcQuestions.length} MC, ${tfQuestions.length} T/F, ${saQuestions.length} SA questions`)
+  }
+
+  private static generateQuizFallback(content: string, studyGuide: StudyGuideResponse): string {
+    const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
+    
+    return `
+    <div class="content">
+        ${learningOutcomes ? `
+        <div class="learning-outcomes">
+            <h2>Learning Outcomes</h2>
+            <div class="learning-outcomes-list">
+                ${learningOutcomes.map(outcome => `<div class="learning-outcome-item">• ${outcome}</div>`).join('')}
+            </div>
+        </div>` : ''}
+        <div class="quiz-instructions">
+            <h2>Instructions</h2>
+            <p>This study guide contains important information for your exam. Review the content carefully.</p>
+        </div>
+
+        <div class="quiz-content">
+            <h2>Study Content</h2>
+            <div class="study-content">
+                ${this.formatContent(content)}
+            </div>
+        </div>
     </div>`
   }
 }
