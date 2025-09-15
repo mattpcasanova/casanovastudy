@@ -26,8 +26,12 @@ export async function GET(
     // Check if PDF exists in memory storage
     const pdfBuffer = pdfStorage.get(studyGuideId)
     
+    console.log('PDF request for:', studyGuideId)
+    console.log('PDF found in storage:', !!pdfBuffer)
+    console.log('Storage size:', pdfStorage.size)
+    
     if (!pdfBuffer) {
-      return NextResponse.json({ error: 'PDF not found' }, { status: 404 })
+      return NextResponse.json({ error: 'PDF not found in storage' }, { status: 404 })
     }
     
     // Return the PDF with proper headers
@@ -49,5 +53,7 @@ export async function GET(
 
 // Function to store PDF in memory (called from generate-study-guide)
 export function storePDF(studyGuideId: string, pdfBuffer: Buffer) {
+  console.log('Storing PDF for:', studyGuideId, 'Size:', pdfBuffer.length)
   pdfStorage.set(studyGuideId, pdfBuffer)
+  console.log('Storage size after storing:', pdfStorage.size)
 }

@@ -22,20 +22,20 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
 
   const handleDownloadPDF = () => {
-    if (studyGuideResponse?.pdfUrl) {
-      // Try API route first
+    // Use base64 data URL directly for reliable downloads
+    if (studyGuideResponse?.pdfDataUrl) {
+      const link = document.createElement('a')
+      link.href = studyGuideResponse.pdfDataUrl
+      link.download = `${studyGuideResponse.title}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else if (studyGuideResponse?.pdfUrl) {
+      // Fallback to API route
       const link = document.createElement('a')
       link.href = studyGuideResponse.pdfUrl
       link.download = `${studyGuideResponse.title}.pdf`
       link.target = '_blank'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } else if (studyGuideResponse?.pdfDataUrl) {
-      // Fallback to base64 data URL
-      const link = document.createElement('a')
-      link.href = studyGuideResponse.pdfDataUrl
-      link.download = `${studyGuideResponse.title}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
