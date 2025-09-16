@@ -1602,7 +1602,7 @@ export class PDFShiftPDFGenerator {
             </div>
         </div>
         
-        ${shortAnswerQuestions.length > 0 ? `
+        ${shortAnswerQuestions && shortAnswerQuestions.length > 0 ? `
         <div class="quiz-sample-answers">
             <h2>Sample Answers for Short Answer Questions</h2>
             ${shortAnswerQuestions.map((q, index) => `
@@ -2092,17 +2092,7 @@ export class PDFShiftPDFGenerator {
       }
     }
     
-    // Add debug info to the first question for PDF display
-    if (mcQuestions.length > 0) {
-      mcQuestions[0].debugInfo = debugInfo.join('<br>')
-    } else if (tfQuestions.length > 0) {
-      tfQuestions[0].debugInfo = debugInfo.join('<br>')
-    } else if (saQuestions.length > 0) {
-      saQuestions[0].debugInfo = debugInfo.join('<br>')
-    }
-    
-    debugInfo.push(`📊 FINAL COUNTS: MC=${mcQuestions.length}, TF=${tfQuestions.length}, SA=${saQuestions.length}`)
-    console.log('Quiz parsing debug:', debugInfo.join('\n'))
+    console.log(`Quiz parsing complete: MC=${mcQuestions.length}, TF=${tfQuestions.length}, SA=${saQuestions.length}`)
   }
 
   private static determineQuestionType(lines: string[], currentIndex: number): string {
@@ -2207,12 +2197,6 @@ export class PDFShiftPDFGenerator {
   private static createConsistentQuizHTML(mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): string {
     let html = ''
     
-    // Add debug info at the top
-    const debugInfo = mcQuestions[0]?.debugInfo || tfQuestions[0]?.debugInfo || saQuestions[0]?.debugInfo || 'No debug info available'
-    html += `<div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border: 2px solid #333; font-family: monospace; font-size: 12px;">
-      <h3 style="margin: 0 0 10px 0; color: #d32f2f;">🔍 QUIZ PARSING DEBUG INFO</h3>
-      <div>${debugInfo}</div>
-    </div>`
     
     // Multiple Choice Questions
     if (mcQuestions.length > 0) {
