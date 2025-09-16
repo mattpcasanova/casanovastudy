@@ -166,7 +166,25 @@ Make sure the study guide is ready for students to use immediately for studying 
     const instructions = {
       'outline': 'Create a detailed hierarchical outline using ONLY content from the source materials. Always start with Learning Objectives, then organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Use clear numbering and indentation. Only include concepts explicitly mentioned in the provided PDFs.',
       'flashcards': 'Create question-answer pairs using ONLY concepts from the source materials. Always organize into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Format as "Q: [question] A: [answer]". Only create questions about topics explicitly mentioned in the provided PDFs.',
-      'quiz': 'Create a comprehensive quiz using ONLY content from the source materials. Always organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (3-5 questions), 3) Short answer questions (2-3 questions). Include an answer key with explanations. Only test knowledge that is explicitly mentioned in the source materials.',
+      'quiz': `Create a comprehensive quiz using ONLY content from the source materials. Always organize content into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections.
+
+CRITICAL FORMATTING REQUIREMENTS FOR QUIZ QUESTIONS:
+- Multiple Choice Questions: Start each with "MC_QUESTION:" followed by the question text, then list options as "A) option", "B) option", etc.
+- True/False Questions: Start each with "TF_QUESTION:" followed by the question text
+- Short Answer Questions: Start each with "SA_QUESTION:" followed by the question text
+
+EXAMPLE FORMAT:
+MC_QUESTION: Which factor most directly affects solubility?
+A) The color of the solution
+B) The temperature of the water
+C) The volume of the container
+D) The time of day
+
+TF_QUESTION: Stirring increases the rate of dissolving but not the total amount that can dissolve.
+
+SA_QUESTION: Explain what happens when salt dissolves in water.
+
+Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (3-5 questions), 3) Short answer questions (2-3 questions). Include an answer key with explanations. Only test knowledge that is explicitly mentioned in the source materials.`,
       'summary': 'Create a summary using ONLY content from the source materials. Always organize into 🔴 ESSENTIAL, 🟡 IMPORTANT, and 🟢 SUPPORTING sections. Capture key concepts and main ideas that are explicitly mentioned in the provided PDFs. Do not add external knowledge or concepts not found in the source.',
     }
     return instructions[format] || instructions.summary

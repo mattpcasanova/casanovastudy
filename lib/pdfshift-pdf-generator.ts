@@ -2023,115 +2023,86 @@ export class PDFShiftPDFGenerator {
 
   private static parseQuizSection(quizContent: string, mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): void {
     const lines = quizContent.split('\n').filter(line => line.trim())
-    let currentSection = ''
+    let debugInfo: string[] = []
     let currentQuestion: any = null
-    let questionNumber = 0
+    
+    debugInfo.push(`🔍 DEBUG: Parsing ${lines.length} lines of quiz content`)
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
-      // Debug: Log lines that might be section headers
-      if (line.includes('CHOICE') || line.includes('FALSE') || line.includes('ANSWER')) {
-        console.log(`Potential section header: "${line}"`)
+      // Look for MC questions
+      if (line.startsWith('MC_QUESTION:')) {
+        if (currentQuestion) {
+          mcQuestions.push(currentQuestion)
+          debugInfo.push(`✅ Pushed MC question with ${currentQuestion.options.length} options`)
+        }
+        const questionText = line.replace('MC_QUESTION:', '').trim()
+        currentQuestion = {
+          question: questionText,
+          options: [],
+          correctAnswer: 'A'
+        }
+        debugInfo.push(`📝 Found MC question: ${questionText.substring(0, 50)}...`)
       }
-      
-      // Detect section headers
-      if (line.includes('MULTIPLE CHOICE QUESTIONS') || line.includes('Multiple Choice Questions')) {
-        currentSection = 'MC'
-        console.log('Found MC section')
-        continue
-      } else if (line.includes('TRUE/FALSE QUESTIONS') || line.includes('True/False Questions')) {
-        currentSection = 'TF'
-        console.log('Found T/F section')
-        continue
-      } else if (line.includes('SHORT ANSWER QUESTIONS') || line.includes('Short Answer Questions')) {
-        currentSection = 'SA'
-        console.log('Found Short Answer section')
-        continue
+      // Look for TF questions
+      else if (line.startsWith('TF_QUESTION:')) {
+        if (currentQuestion) {
+          tfQuestions.push(currentQuestion)
+          debugInfo.push(`✅ Pushed TF question`)
+        }
+        const questionText = line.replace('TF_QUESTION:', '').trim()
+        currentQuestion = {
+          question: questionText,
+          correctAnswer: true
+        }
+        debugInfo.push(`📝 Found TF question: ${questionText.substring(0, 50)}...`)
       }
-      
-      // Skip if we're not in a quiz section yet
-      if (!currentSection) continue
-      
-      // Parse questions based on current section
-      if (currentSection === 'MC') {
-        // Look for question headers (### Question 1, Question 1:, etc.)
-        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
-          if (currentQuestion) {
-            mcQuestions.push(currentQuestion)
-            console.log(`Pushed MC question with ${currentQuestion.options.length} options`)
-          }
-          questionNumber++
-          // Extract question text from the next line
-          let questionText = ''
-          if (i + 1 < lines.length) {
-            questionText = lines[i + 1].trim()
-            i++ // Skip the question text line
-          }
-          currentQuestion = {
-            question: questionText,
-            options: [],
-            correctAnswer: 'A' // Will be determined from answer key
-          }
-          console.log(`Found MC question ${questionNumber}:`, questionText.substring(0, 50) + '...')
-        } else if (currentQuestion && line.match(/^[a-d]\)/i)) {
-          // This is an option
-          currentQuestion.options.push(line)
-          console.log('Added MC option:', line)
+      // Look for SA questions
+      else if (line.startsWith('SA_QUESTION:')) {
+        if (currentQuestion) {
+          saQuestions.push(currentQuestion)
+          debugInfo.push(`✅ Pushed SA question`)
         }
-      } else if (currentSection === 'TF') {
-        // Look for T/F questions
-        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
-          if (currentQuestion) {
-            tfQuestions.push(currentQuestion)
-          }
-          questionNumber++
-          // Extract question text from the next line
-          let questionText = ''
-          if (i + 1 < lines.length) {
-            questionText = lines[i + 1].trim()
-            i++ // Skip the question text line
-          }
-          currentQuestion = {
-            question: questionText,
-            correctAnswer: true // Will be determined from answer key
-          }
-          console.log(`Found T/F question ${questionNumber}:`, questionText.substring(0, 50) + '...')
+        const questionText = line.replace('SA_QUESTION:', '').trim()
+        currentQuestion = {
+          question: questionText,
+          sampleAnswer: ''
         }
-      } else if (currentSection === 'SA') {
-        // Look for short answer questions
-        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
-          if (currentQuestion) {
-            saQuestions.push(currentQuestion)
-          }
-          questionNumber++
-          // Extract question text from the next line
-          let questionText = ''
-          if (i + 1 < lines.length) {
-            questionText = lines[i + 1].trim()
-            i++ // Skip the question text line
-          }
-          currentQuestion = {
-            question: questionText,
-            sampleAnswer: ''
-          }
-          console.log(`Found SA question ${questionNumber}:`, questionText.substring(0, 50) + '...')
-        }
+        debugInfo.push(`📝 Found SA question: ${questionText.substring(0, 50)}...`)
+      }
+      // Look for MC options
+      else if (currentQuestion && currentQuestion.options !== undefined && line.match(/^[A-D]\)/)) {
+        currentQuestion.options.push(line)
+        debugInfo.push(`📋 Added MC option: ${line}`)
       }
     }
     
     // Add the last question
     if (currentQuestion) {
-      if (currentSection === 'MC') {
+      if (currentQuestion.options !== undefined) {
         mcQuestions.push(currentQuestion)
-      } else if (currentSection === 'TF') {
-        tfQuestions.push(currentQuestion)
-      } else if (currentSection === 'SA') {
+        debugInfo.push(`✅ Pushed final MC question with ${currentQuestion.options.length} options`)
+      } else if (currentQuestion.sampleAnswer !== undefined) {
         saQuestions.push(currentQuestion)
+        debugInfo.push(`✅ Pushed final SA question`)
+      } else {
+        tfQuestions.push(currentQuestion)
+        debugInfo.push(`✅ Pushed final TF question`)
       }
     }
     
-    console.log(`Parsed ${mcQuestions.length} MC, ${tfQuestions.length} T/F, ${saQuestions.length} SA questions`)
+    // Add debug info to the first question for PDF display
+    if (mcQuestions.length > 0) {
+      mcQuestions[0].debugInfo = debugInfo.join('<br>')
+    } else if (tfQuestions.length > 0) {
+      tfQuestions[0].debugInfo = debugInfo.join('<br>')
+    } else if (saQuestions.length > 0) {
+      saQuestions[0].debugInfo = debugInfo.join('<br>')
+    }
+    
+    debugInfo.push(`📊 FINAL COUNTS: MC=${mcQuestions.length}, TF=${tfQuestions.length}, SA=${saQuestions.length}`)
+    console.log('Quiz parsing debug:', debugInfo.join('\n'))
   }
 
   private static determineQuestionType(lines: string[], currentIndex: number): string {
@@ -2235,6 +2206,13 @@ export class PDFShiftPDFGenerator {
    */
   private static createConsistentQuizHTML(mcQuestions: any[], tfQuestions: any[], saQuestions: any[]): string {
     let html = ''
+    
+    // Add debug info at the top
+    const debugInfo = mcQuestions[0]?.debugInfo || tfQuestions[0]?.debugInfo || saQuestions[0]?.debugInfo || 'No debug info available'
+    html += `<div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border: 2px solid #333; font-family: monospace; font-size: 12px;">
+      <h3 style="margin: 0 0 10px 0; color: #d32f2f;">🔍 QUIZ PARSING DEBUG INFO</h3>
+      <div>${debugInfo}</div>
+    </div>`
     
     // Multiple Choice Questions
     if (mcQuestions.length > 0) {
@@ -2438,4 +2416,5 @@ export class PDFShiftPDFGenerator {
         return this.createSAQuestionHTML(question, questionNumber)
     }
   }
+}
 }
