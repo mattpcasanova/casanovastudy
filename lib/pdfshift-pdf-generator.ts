@@ -2055,14 +2055,19 @@ export class PDFShiftPDFGenerator {
       
       // Parse questions based on current section
       if (currentSection === 'MC') {
-        // Look for numbered questions (1., 2., etc.)
-        if (line.match(/^\d+\./)) {
+        // Look for question headers (### Question 1, Question 1:, etc.)
+        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
           if (currentQuestion) {
             mcQuestions.push(currentQuestion)
             console.log(`Pushed MC question with ${currentQuestion.options.length} options`)
           }
           questionNumber++
-          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          // Extract question text from the next line
+          let questionText = ''
+          if (i + 1 < lines.length) {
+            questionText = lines[i + 1].trim()
+            i++ // Skip the question text line
+          }
           currentQuestion = {
             question: questionText,
             options: [],
@@ -2076,12 +2081,17 @@ export class PDFShiftPDFGenerator {
         }
       } else if (currentSection === 'TF') {
         // Look for T/F questions
-        if (line.match(/^\d+\./) || line.includes('T/F:')) {
+        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
           if (currentQuestion) {
             tfQuestions.push(currentQuestion)
           }
           questionNumber++
-          let questionText = line.replace(/^\d+\.\s*/, '').replace(/^T\/F:\s*/, '').trim()
+          // Extract question text from the next line
+          let questionText = ''
+          if (i + 1 < lines.length) {
+            questionText = lines[i + 1].trim()
+            i++ // Skip the question text line
+          }
           currentQuestion = {
             question: questionText,
             correctAnswer: true // Will be determined from answer key
@@ -2090,12 +2100,17 @@ export class PDFShiftPDFGenerator {
         }
       } else if (currentSection === 'SA') {
         // Look for short answer questions
-        if (line.match(/^\d+\./)) {
+        if (line.match(/^### Question \d+|^Question \d+:|^\d+\./)) {
           if (currentQuestion) {
             saQuestions.push(currentQuestion)
           }
           questionNumber++
-          const questionText = line.replace(/^\d+\.\s*/, '').trim()
+          // Extract question text from the next line
+          let questionText = ''
+          if (i + 1 < lines.length) {
+            questionText = lines[i + 1].trim()
+            i++ // Skip the question text line
+          }
           currentQuestion = {
             question: questionText,
             sampleAnswer: ''
