@@ -2417,4 +2417,3 @@ export class PDFShiftPDFGenerator {
     }
   }
 }
-}
