@@ -1542,7 +1542,7 @@ export class PDFShiftPDFGenerator {
     
     // Extract sample answers for short answer questions
     if (answerKeySection && shortAnswerQuestions && shortAnswerQuestions.length > 0) {
-      shortAnswerQuestions.forEach((question, index) => {
+      shortAnswerQuestions && shortAnswerQuestions.forEach((question, index) => {
         question.sampleAnswer = this.findShortAnswerSample(answerKeySection, question.question, index + 1)
       })
     }
@@ -1870,7 +1870,7 @@ export class PDFShiftPDFGenerator {
       // Look for bold terms and their definitions
       const boldTerms = content.match(/\*\*([^*]+)\*\*[:\s]*([^*\n]+)/g)
       if (boldTerms) {
-        boldTerms.slice(0, 8).forEach(term => {
+        boldTerms && boldTerms.slice(0, 8).forEach(term => {
           const match = term.match(/\*\*([^*]+)\*\*[:\s]*([^*\n]+)/)
           if (match) {
             const termName = match[1].trim()
@@ -1893,7 +1893,7 @@ export class PDFShiftPDFGenerator {
       
       // Get unique important words and create simple definitions
       const uniqueWords = [...new Set(importantWords)].slice(0, 6)
-      uniqueWords.forEach(word => {
+      uniqueWords && uniqueWords.forEach(word => {
         keyTerms.push({ 
           term: word.charAt(0).toUpperCase() + word.slice(1), 
           definition: `Important concept related to ${subject || 'the topic'}` 
@@ -2202,7 +2202,7 @@ export class PDFShiftPDFGenerator {
     if (mcQuestions && mcQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">Multiple Choice Questions</h2>`
       
-      mcQuestions.forEach((question, index) => {
+      mcQuestions && mcQuestions.forEach((question, index) => {
         html += this.createMCQuestionHTML(question, index + 1)
       })
     }
@@ -2211,7 +2211,7 @@ export class PDFShiftPDFGenerator {
     if (tfQuestions && tfQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">True/False Questions</h2>`
       
-      tfQuestions.forEach((question, index) => {
+      tfQuestions && tfQuestions.forEach((question, index) => {
         html += this.createTFQuestionHTML(question, (mcQuestions ? mcQuestions.length : 0) + index + 1)
       })
     }
@@ -2220,7 +2220,7 @@ export class PDFShiftPDFGenerator {
     if (saQuestions && saQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">Short Answer Questions</h2>`
       
-      saQuestions.forEach((question, index) => {
+      saQuestions && saQuestions.forEach((question, index) => {
         html += this.createSAQuestionHTML(question, (mcQuestions ? mcQuestions.length : 0) + (tfQuestions ? tfQuestions.length : 0) + index + 1)
       })
     }
@@ -2236,7 +2236,7 @@ export class PDFShiftPDFGenerator {
       </div>
       <div class="quiz-options">`
     
-    question.options.forEach((option: string, index: number) => {
+    question.options && question.options.forEach((option: string, index: number) => {
       const letter = option.charAt(0).toLowerCase()
       const optionText = option.substring(3) // Remove "a) " part
       
