@@ -1587,18 +1587,18 @@ export class PDFShiftPDFGenerator {
         <div class="quiz-answer-key">
             <h2>Answer Key</h2>
             <div class="quiz-answer-grid">
-                ${multipleChoiceQuestions.map((q, index) => `
+                ${multipleChoiceQuestions ? multipleChoiceQuestions.map((q, index) => `
                 <div class="quiz-answer-item">
                     <span>${index + 1}. ${q.correctAnswer}</span>
-                </div>`).join('')}
-                ${trueFalseQuestions.map((q, index) => `
+                </div>`).join('') : ''}
+                ${trueFalseQuestions ? trueFalseQuestions.map((q, index) => `
                 <div class="quiz-answer-item">
-                    <span>${index + 1 + multipleChoiceQuestions.length}. ${q.correctAnswer ? 'T' : 'F'}</span>
-                </div>`).join('')}
-                ${shortAnswerQuestions.map((q, index) => `
+                    <span>${index + 1 + (multipleChoiceQuestions ? multipleChoiceQuestions.length : 0)}. ${q.correctAnswer ? 'T' : 'F'}</span>
+                </div>`).join('') : ''}
+                ${shortAnswerQuestions ? shortAnswerQuestions.map((q, index) => `
                 <div class="quiz-answer-item">
-                    <span>${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}. See sample answer</span>
-                </div>`).join('')}
+                    <span>${index + 1 + (multipleChoiceQuestions ? multipleChoiceQuestions.length : 0) + (trueFalseQuestions ? trueFalseQuestions.length : 0)}. See sample answer</span>
+                </div>`).join('') : ''}
             </div>
         </div>
         
@@ -1607,7 +1607,7 @@ export class PDFShiftPDFGenerator {
             <h2>Sample Answers for Short Answer Questions</h2>
             ${shortAnswerQuestions.map((q, index) => `
             <div class="sample-answer">
-                <h3>Question ${index + 1 + multipleChoiceQuestions.length + trueFalseQuestions.length}:</h3>
+                <h3>Question ${index + 1 + (multipleChoiceQuestions ? multipleChoiceQuestions.length : 0) + (trueFalseQuestions ? trueFalseQuestions.length : 0)}:</h3>
                 <p><strong>${q.question}</strong></p>
                 <div class="sample-answer-content">
                     <p><strong>Sample Answer:</strong></p>
@@ -2199,7 +2199,7 @@ export class PDFShiftPDFGenerator {
     
     
     // Multiple Choice Questions
-    if (mcQuestions.length > 0) {
+    if (mcQuestions && mcQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">Multiple Choice Questions</h2>`
       
       mcQuestions.forEach((question, index) => {
@@ -2208,20 +2208,20 @@ export class PDFShiftPDFGenerator {
     }
     
     // True/False Questions
-    if (tfQuestions.length > 0) {
+    if (tfQuestions && tfQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">True/False Questions</h2>`
       
       tfQuestions.forEach((question, index) => {
-        html += this.createTFQuestionHTML(question, mcQuestions.length + index + 1)
+        html += this.createTFQuestionHTML(question, (mcQuestions ? mcQuestions.length : 0) + index + 1)
       })
     }
     
     // Short Answer Questions
-    if (saQuestions.length > 0) {
+    if (saQuestions && saQuestions.length > 0) {
       html += `<h2 class="quiz-section-title">Short Answer Questions</h2>`
       
       saQuestions.forEach((question, index) => {
-        html += this.createSAQuestionHTML(question, mcQuestions.length + tfQuestions.length + index + 1)
+        html += this.createSAQuestionHTML(question, (mcQuestions ? mcQuestions.length : 0) + (tfQuestions ? tfQuestions.length : 0) + index + 1)
       })
     }
     
