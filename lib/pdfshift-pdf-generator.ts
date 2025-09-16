@@ -1349,7 +1349,7 @@ export class PDFShiftPDFGenerator {
             }).join('')}
         </div>
         
-        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
+        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject) && this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
         <div class="outline-key-terms">
             <h2>Key Terms</h2>
             <div class="outline-key-terms-grid">
@@ -1541,7 +1541,7 @@ export class PDFShiftPDFGenerator {
     this.parseQuizSection(quizSectionStart, multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
     
     // Extract sample answers for short answer questions
-    if (answerKeySection && shortAnswerQuestions.length > 0) {
+    if (answerKeySection && shortAnswerQuestions && shortAnswerQuestions.length > 0) {
       shortAnswerQuestions.forEach((question, index) => {
         question.sampleAnswer = this.findShortAnswerSample(answerKeySection, question.question, index + 1)
       })
@@ -1551,18 +1551,18 @@ export class PDFShiftPDFGenerator {
     const learningOutcomes = this.extractLearningOutcomes(studyGuide.content)
     
     // If no questions found, use fallback
-    if (multipleChoiceQuestions.length === 0 && trueFalseQuestions.length === 0 && shortAnswerQuestions.length === 0) {
+    if ((!multipleChoiceQuestions || multipleChoiceQuestions.length === 0) && (!trueFalseQuestions || trueFalseQuestions.length === 0) && (!shortAnswerQuestions || shortAnswerQuestions.length === 0)) {
       console.log('No questions parsed, using fallback with styled content')
       return this.generateQuizFallback(content, studyGuide)
     }
     
     console.log('=== GENERATING QUIZ HTML ===')
-    console.log('MC Questions:', multipleChoiceQuestions.length)
-    console.log('T/F Questions:', trueFalseQuestions.length)
-    console.log('SA Questions:', shortAnswerQuestions.length)
-    console.log('MC Questions sample:', multipleChoiceQuestions.slice(0, 2))
-    console.log('T/F Questions sample:', trueFalseQuestions.slice(0, 2))
-    console.log('SA Questions sample:', shortAnswerQuestions.slice(0, 2))
+    console.log('MC Questions:', multipleChoiceQuestions ? multipleChoiceQuestions.length : 0)
+    console.log('T/F Questions:', trueFalseQuestions ? trueFalseQuestions.length : 0)
+    console.log('SA Questions:', shortAnswerQuestions ? shortAnswerQuestions.length : 0)
+    console.log('MC Questions sample:', multipleChoiceQuestions ? multipleChoiceQuestions.slice(0, 2) : [])
+    console.log('T/F Questions sample:', trueFalseQuestions ? trueFalseQuestions.slice(0, 2) : [])
+    console.log('SA Questions sample:', shortAnswerQuestions ? shortAnswerQuestions.slice(0, 2) : [])
     
     // Debug: Show the actual HTML being generated
     const quizHTML = this.createConsistentQuizHTML(multipleChoiceQuestions, trueFalseQuestions, shortAnswerQuestions)
@@ -1775,7 +1775,7 @@ export class PDFShiftPDFGenerator {
             }).join('')}
         </div>
         
-        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
+        ${this.generateKeyTerms(studyGuide.content, studyGuide.subject) && this.generateKeyTerms(studyGuide.content, studyGuide.subject).length > 0 ? `
         <div class="summary-key-terms">
             <h2>Key Terms to Remember</h2>
             <div class="summary-key-terms-grid">
@@ -2035,7 +2035,7 @@ export class PDFShiftPDFGenerator {
       if (line.includes('MC_QUESTION:')) {
         if (currentQuestion) {
           mcQuestions.push(currentQuestion)
-          debugInfo.push(`✅ Pushed MC question with ${currentQuestion.options.length} options`)
+          debugInfo.push(`✅ Pushed MC question with ${currentQuestion.options ? currentQuestion.options.length : 0} options`)
         }
         const questionText = line.replace(/\*\*MC_QUESTION:\*\*/, '').replace('MC_QUESTION:', '').trim()
         currentQuestion = {
@@ -2082,7 +2082,7 @@ export class PDFShiftPDFGenerator {
     if (currentQuestion) {
       if (currentQuestion.options !== undefined) {
         mcQuestions.push(currentQuestion)
-        debugInfo.push(`✅ Pushed final MC question with ${currentQuestion.options.length} options`)
+        debugInfo.push(`✅ Pushed final MC question with ${currentQuestion.options ? currentQuestion.options.length : 0} options`)
       } else if (currentQuestion.sampleAnswer !== undefined) {
         saQuestions.push(currentQuestion)
         debugInfo.push(`✅ Pushed final SA question`)
@@ -2092,7 +2092,7 @@ export class PDFShiftPDFGenerator {
       }
     }
     
-    console.log(`Quiz parsing complete: MC=${mcQuestions.length}, TF=${tfQuestions.length}, SA=${saQuestions.length}`)
+    console.log(`Quiz parsing complete: MC=${mcQuestions ? mcQuestions.length : 0}, TF=${tfQuestions ? tfQuestions.length : 0}, SA=${saQuestions ? saQuestions.length : 0}`)
   }
 
   private static determineQuestionType(lines: string[], currentIndex: number): string {
