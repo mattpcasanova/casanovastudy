@@ -2030,6 +2030,11 @@ export class PDFShiftPDFGenerator {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
+      // Debug: Log lines that might be section headers
+      if (line.includes('CHOICE') || line.includes('FALSE') || line.includes('ANSWER')) {
+        console.log(`Potential section header: "${line}"`)
+      }
+      
       // Detect section headers
       if (line.includes('MULTIPLE CHOICE QUESTIONS') || line.includes('Multiple Choice Questions')) {
         currentSection = 'MC'
@@ -2054,6 +2059,7 @@ export class PDFShiftPDFGenerator {
         if (line.match(/^\d+\./)) {
           if (currentQuestion) {
             mcQuestions.push(currentQuestion)
+            console.log(`Pushed MC question with ${currentQuestion.options.length} options`)
           }
           questionNumber++
           const questionText = line.replace(/^\d+\.\s*/, '').trim()
@@ -2066,7 +2072,7 @@ export class PDFShiftPDFGenerator {
         } else if (currentQuestion && line.match(/^[a-d]\)/i)) {
           // This is an option
           currentQuestion.options.push(line)
-          console.log('Added option:', line)
+          console.log('Added MC option:', line)
         }
       } else if (currentSection === 'TF') {
         // Look for T/F questions
