@@ -2031,13 +2031,13 @@ export class PDFShiftPDFGenerator {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
-      // Look for MC questions
-      if (line.startsWith('MC_QUESTION:')) {
+      // Look for MC questions (handle both **MC_QUESTION:** and MC_QUESTION:)
+      if (line.includes('MC_QUESTION:')) {
         if (currentQuestion) {
           mcQuestions.push(currentQuestion)
           debugInfo.push(`✅ Pushed MC question with ${currentQuestion.options.length} options`)
         }
-        const questionText = line.replace('MC_QUESTION:', '').trim()
+        const questionText = line.replace(/\*\*MC_QUESTION:\*\*/, '').replace('MC_QUESTION:', '').trim()
         currentQuestion = {
           question: questionText,
           options: [],
@@ -2045,26 +2045,26 @@ export class PDFShiftPDFGenerator {
         }
         debugInfo.push(`📝 Found MC question: ${questionText.substring(0, 50)}...`)
       }
-      // Look for TF questions
-      else if (line.startsWith('TF_QUESTION:')) {
+      // Look for TF questions (handle both **TF_QUESTION:** and TF_QUESTION:)
+      else if (line.includes('TF_QUESTION:')) {
         if (currentQuestion) {
           tfQuestions.push(currentQuestion)
           debugInfo.push(`✅ Pushed TF question`)
         }
-        const questionText = line.replace('TF_QUESTION:', '').trim()
+        const questionText = line.replace(/\*\*TF_QUESTION:\*\*/, '').replace('TF_QUESTION:', '').trim()
         currentQuestion = {
           question: questionText,
           correctAnswer: true
         }
         debugInfo.push(`📝 Found TF question: ${questionText.substring(0, 50)}...`)
       }
-      // Look for SA questions
-      else if (line.startsWith('SA_QUESTION:')) {
+      // Look for SA questions (handle both **SA_QUESTION:** and SA_QUESTION:)
+      else if (line.includes('SA_QUESTION:')) {
         if (currentQuestion) {
           saQuestions.push(currentQuestion)
           debugInfo.push(`✅ Pushed SA question`)
         }
-        const questionText = line.replace('SA_QUESTION:', '').trim()
+        const questionText = line.replace(/\*\*SA_QUESTION:\*\*/, '').replace('SA_QUESTION:', '').trim()
         currentQuestion = {
           question: questionText,
           sampleAnswer: ''
