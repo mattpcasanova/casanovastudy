@@ -92,10 +92,6 @@ export interface ClaudeApiResponse {
     output_tokens: number
     total_tokens: number
   }
-  validation?: {
-    isValid: boolean
-    warnings: string[]
-  }
 }
 
 export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary'
