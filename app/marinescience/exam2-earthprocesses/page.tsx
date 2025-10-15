@@ -26,6 +26,22 @@ export default function MarineScienceStudyGuide() {
   ])
 
   const [expandedSections, setExpandedSections] = useState<string[]>([])
+  const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({
+    'earth-layers': false,
+    'crust-difference': false,
+    'plate-boundaries': false,
+    'plate-evidence': false,
+    'subduction-zone': false,
+    'weathering-types': false,
+    'weathering-erosion-diff': false,
+    'tidal-range-calc': false,
+    'spring-neap-tides': false,
+    'coriolis-effect': false,
+    'surface-deep-currents': false,
+    'upwelling': false,
+    'el-nino-conditions': false,
+    'littoral-zone': false,
+  })
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => 
@@ -33,6 +49,13 @@ export default function MarineScienceStudyGuide() {
         ? prev.filter(id => id !== sectionId)
         : [...prev, sectionId]
     )
+  }
+
+  const toggleChecklistItem = (itemId: string) => {
+    setChecklistItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }))
   }
 
   const toggleStudyItem = (itemId: string) => {
@@ -845,63 +868,63 @@ export default function MarineScienceStudyGuide() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Label Earth's layers (crust, mantle, core)</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('earth-layers')}>
+                  {checklistItems['earth-layers'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['earth-layers'] ? 'line-through text-gray-500' : ''}>Label Earth's layers (crust, mantle, core)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Explain difference between oceanic and continental crust</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('crust-difference')}>
+                  {checklistItems['crust-difference'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['crust-difference'] ? 'line-through text-gray-500' : ''}>Explain difference between oceanic and continental crust</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>List THREE types of plate boundaries and their features</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('plate-boundaries')}>
+                  {checklistItems['plate-boundaries'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['plate-boundaries'] ? 'line-through text-gray-500' : ''}>List THREE types of plate boundaries and their features</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Provide evidence for plate tectonics</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('plate-evidence')}>
+                  {checklistItems['plate-evidence'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['plate-evidence'] ? 'line-through text-gray-500' : ''}>Provide evidence for plate tectonics</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Define subduction zone</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('subduction-zone')}>
+                  {checklistItems['subduction-zone'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['subduction-zone'] ? 'line-through text-gray-500' : ''}>Define subduction zone</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Name THREE types of weathering</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('weathering-types')}>
+                  {checklistItems['weathering-types'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['weathering-types'] ? 'line-through text-gray-500' : ''}>Name THREE types of weathering</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Explain difference between weathering and erosion</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('weathering-erosion-diff')}>
+                  {checklistItems['weathering-erosion-diff'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['weathering-erosion-diff'] ? 'line-through text-gray-500' : ''}>Explain difference between weathering and erosion</span>
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Calculate tidal range (High tide - Low tide)</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('tidal-range-calc')}>
+                  {checklistItems['tidal-range-calc'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['tidal-range-calc'] ? 'line-through text-gray-500' : ''}>Calculate tidal range (High tide - Low tide)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Explain difference between spring and neap tides</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('spring-neap-tides')}>
+                  {checklistItems['spring-neap-tides'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['spring-neap-tides'] ? 'line-through text-gray-500' : ''}>Explain difference between spring and neap tides</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Describe Coriolis effect</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('coriolis-effect')}>
+                  {checklistItems['coriolis-effect'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['coriolis-effect'] ? 'line-through text-gray-500' : ''}>Describe Coriolis effect</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Compare surface currents vs deep currents</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('surface-deep-currents')}>
+                  {checklistItems['surface-deep-currents'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['surface-deep-currents'] ? 'line-through text-gray-500' : ''}>Compare surface currents vs deep currents</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Define upwelling and explain its importance</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('upwelling')}>
+                  {checklistItems['upwelling'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['upwelling'] ? 'line-through text-gray-500' : ''}>Define upwelling and explain its importance</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Describe El Niño conditions</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('el-nino-conditions')}>
+                  {checklistItems['el-nino-conditions'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['el-nino-conditions'] ? 'line-through text-gray-500' : ''}>Describe El Niño conditions</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Circle className="h-4 w-4" />
-                  <span>Define littoral zone</span>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onClick={() => toggleChecklistItem('littoral-zone')}>
+                  {checklistItems['littoral-zone'] ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4" />}
+                  <span className={checklistItems['littoral-zone'] ? 'line-through text-gray-500' : ''}>Define littoral zone</span>
                 </div>
               </div>
             </div>
