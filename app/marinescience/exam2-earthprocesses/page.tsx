@@ -853,9 +853,9 @@ export default function MarineScienceStudyGuide() {
               <li>✓ Global conveyor belt driven by density (temperature + salinity)</li>
               <li>✓ Ice erosion is associated with glaciers</li>
               <li>✓ Littoral zone = area between highest and lowest tide marks</li>
-              <li>✓ <strong>NEW:</strong> Upwelling = cold, nutrient-rich water rises to surface</li>
-              <li>✓ <strong>NEW:</strong> Coriolis effect: Northern Hemisphere deflects RIGHT</li>
-              <li>✓ <strong>NEW:</strong> Surface currents = WIND driven, Deep currents = DENSITY driven</li>
+              <li>✓ Upwelling = cold, nutrient-rich water rises to surface</li>
+              <li>✓ Coriolis effect: Northern Hemisphere deflects RIGHT</li>
+              <li>✓ Surface currents = WIND driven, Deep currents = DENSITY driven</li>
             </ul>
           </CardContent>
         </Card>
