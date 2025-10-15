@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle } from "lucide-react"
+import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -201,6 +201,18 @@ export default function MarineScienceStudyGuide() {
                     <Star className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-800">
                       <strong>💡 EXAM TIP:</strong> Oceanic crust = basaltic & denser than continental
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <strong>🔥 CRITICAL EXAM POINT:</strong> 
+                      <ul className="list-disc list-inside mt-2 text-sm">
+                        <li><strong>Oceanic crust:</strong> 5-10km thick, basaltic rocks, DENSER</li>
+                        <li><strong>Continental crust:</strong> 30-70km thick, granite rocks, less dense</li>
+                        <li><strong>Why oceanic is denser:</strong> Basaltic rocks contain more iron and magnesium</li>
+                      </ul>
                     </AlertDescription>
                   </Alert>
                 </div>
@@ -462,6 +474,23 @@ export default function MarineScienceStudyGuide() {
                       <li>4. Environmental factors (wind, pressure)</li>
                     </ol>
                   </div>
+                  
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <Calculator className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      <h4 className="font-semibold text-blue-700 mb-3">📐 TIDAL RANGE CALCULATION PRACTICE</h4>
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm font-medium mb-2">Example Data:</p>
+                        <div className="text-sm space-y-1">
+                          <p><strong>Date:</strong> 1 May</p>
+                          <p><strong>High tide:</strong> 2.8m</p>
+                          <p><strong>Low tide:</strong> 0.4m</p>
+                          <p className="text-green-700"><strong>Tidal range = 2.8 - 0.4 = 2.4m</strong></p>
+                        </div>
+                      </div>
+                      <p className="text-sm mt-2"><strong>Formula:</strong> Tidal Range = High Tide - Low Tide</p>
+                    </AlertDescription>
+                  </Alert>
                 </div>
               </CardContent>
             )}
@@ -547,6 +576,19 @@ export default function MarineScienceStudyGuide() {
                         <li><strong>Cold, nutrient-rich</strong> water rises to surface</li>
                         <li>Increases productivity (more phytoplankton)</li>
                         <li>Important for fishing areas</li>
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Alert className="border-orange-200 bg-orange-50">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-800">
+                      <strong>🌊 EXAM FOCUS - Ocean Currents:</strong>
+                      <ul className="list-disc list-inside mt-2 text-sm">
+                        <li><strong>Surface currents:</strong> Driven by WIND, affected by Coriolis effect</li>
+                        <li><strong>Deep currents:</strong> Driven by DENSITY (temperature + salinity)</li>
+                        <li><strong>Global conveyor belt:</strong> Thermohaline circulation moves water globally</li>
+                        <li><strong>Upwelling:</strong> Cold, nutrient-rich water rises to surface</li>
                       </ul>
                     </AlertDescription>
                   </Alert>
@@ -740,6 +782,38 @@ export default function MarineScienceStudyGuide() {
           </Card>
         </div>
 
+        {/* Exam Practice Section */}
+        <Card className="mt-6 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+          <CardHeader>
+            <CardTitle className="text-white">📝 Exam Practice Questions</CardTitle>
+          </CardHeader>
+          <CardContent className="text-white">
+            <div className="space-y-4">
+              <div className="bg-white/10 p-4 rounded-lg">
+                <h4 className="font-semibold mb-2">Multiple Choice Practice:</h4>
+                <div className="space-y-2 text-sm">
+                  <p><strong>1.</strong> The outermost layer of Earth's crust is composed primarily of:</p>
+                  <p className="ml-4">A) Granite and similar rocks in oceanic crust</p>
+                  <p className="ml-4">B) Basaltic rocks in continental crust</p>
+                  <p className="ml-4 text-green-200">C) Basaltic rocks in oceanic crust ✓</p>
+                  <p className="ml-4">D) Iron and magnesium in continental crust</p>
+                </div>
+              </div>
+              
+              <div className="bg-white/10 p-4 rounded-lg">
+                <h4 className="font-semibold mb-2">Short Answer Practice:</h4>
+                <div className="space-y-2 text-sm">
+                  <p><strong>Define:</strong> Subduction zone</p>
+                  <p className="ml-4 text-green-200">Answer: Area where one tectonic plate slides beneath another at a convergent boundary</p>
+                  
+                  <p><strong>Calculate:</strong> Tidal range if high tide = 3.2m and low tide = 0.8m</p>
+                  <p className="ml-4 text-green-200">Answer: 3.2 - 0.8 = 2.4m</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Final Tips */}
         <Card className="mt-6 bg-gradient-to-r from-green-600 to-green-700 text-white">
           <CardHeader>
@@ -756,6 +830,9 @@ export default function MarineScienceStudyGuide() {
               <li>✓ Global conveyor belt driven by density (temperature + salinity)</li>
               <li>✓ Ice erosion is associated with glaciers</li>
               <li>✓ Littoral zone = area between highest and lowest tide marks</li>
+              <li>✓ <strong>NEW:</strong> Upwelling = cold, nutrient-rich water rises to surface</li>
+              <li>✓ <strong>NEW:</strong> Coriolis effect: Northern Hemisphere deflects RIGHT</li>
+              <li>✓ <strong>NEW:</strong> Surface currents = WIND driven, Deep currents = DENSITY driven</li>
             </ul>
           </CardContent>
         </Card>
