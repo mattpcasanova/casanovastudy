@@ -157,24 +157,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🌍 Earth's Structure
-                  {studyItems.find(item => item.id === 'earth-layers')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('earth-layers')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'earth-layers')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('earth-layers')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'earth-layers')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('earth-structure') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -219,24 +217,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🗺️ Plate Tectonics
-                  {studyItems.find(item => item.id === 'plate-tectonics')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('plate-tectonics')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'plate-tectonics')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('plate-tectonics')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'plate-tectonics')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('plate-tectonics') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -313,24 +309,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🪨 Weathering & Erosion
-                  {studyItems.find(item => item.id === 'weathering-erosion')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('weathering-erosion')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'weathering-erosion')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('weathering-erosion')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'weathering-erosion')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('weathering-erosion') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -392,24 +386,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🌊 Tides
-                  {studyItems.find(item => item.id === 'tides')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('tides')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'tides')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('tides')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'tides')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('tides') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -484,24 +476,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🌀 Ocean Currents
-                  {studyItems.find(item => item.id === 'ocean-currents')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('ocean-currents')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'ocean-currents')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('ocean-currents')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'ocean-currents')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('ocean-currents') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -582,24 +572,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🌡️ El Niño vs La Niña
-                  {studyItems.find(item => item.id === 'el-nino')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('el-nino')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'el-nino')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('el-nino')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'el-nino')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('el-nino') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -654,24 +642,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   🏖️ Coastal Zones
-                  {studyItems.find(item => item.id === 'coastal-zones')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('coastal-zones')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'coastal-zones')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('coastal-zones')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'coastal-zones')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('coastal-zones') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
@@ -713,24 +699,22 @@ export default function MarineScienceStudyGuide() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   📚 Key Definitions for Exam
-                  {studyItems.find(item => item.id === 'definitions')?.completed && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleStudyItem('definitions')
+                    }}
+                    className="p-1 h-auto"
+                  >
+                    {studyItems.find(item => item.id === 'definitions')?.completed ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleStudyItem('definitions')
-                  }}
-                >
-                  {studyItems.find(item => item.id === 'definitions')?.completed ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
-                </Button>
                 {expandedSections.includes('definitions') ? (
                   <ChevronUp className="h-5 w-5" />
                 ) : (
