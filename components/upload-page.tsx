@@ -22,6 +22,9 @@ import {
   CreditCard,
   HelpCircle,
   ScrollText,
+  BookOpen,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -231,6 +234,76 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
 
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Study Guides Section */}
+          <Card className="shadow-xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-2xl text-foreground flex items-center gap-3">
+                <BookOpen className="h-6 w-6 text-blue-600" />
+                Interactive Study Guides
+              </CardTitle>
+              <p className="text-muted-foreground text-pretty">
+                Access our collection of interactive study guides with progress tracking and practice questions
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Marine Science Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-blue-200 dark:border-blue-800 transition-all duration-300 hover:shadow-lg hover:border-blue-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                        <span className="text-2xl">🌊</span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">Marine Science</h3>
+                        <p className="text-sm text-muted-foreground">AICE Level Study Guides</p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      1 guide available
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-blue-300 dark:hover:border-blue-500">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                          2
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-foreground">Chapter 2: Earth Processes</h4>
+                          <p className="text-sm text-muted-foreground">Interactive guide with practice questions</p>
+                        </div>
+                      </div>
+                      <a
+                        href="/marinescience/exam2-earthprocesses"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 text-sm font-medium"
+                      >
+                        Open Guide
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coming Soon Section */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 opacity-75">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <span className="text-2xl">📚</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">More Subjects Coming Soon</h3>
+                      <p className="text-sm text-muted-foreground">Additional interactive study guides in development</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground italic">
+                    We're working on expanding our collection of interactive study guides. Check back soon for more subjects!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl">
             <CardHeader className="pb-6">
               <CardTitle className="text-2xl text-foreground flex items-center gap-3">
