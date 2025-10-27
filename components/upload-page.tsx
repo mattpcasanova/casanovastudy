@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { StudyGuideData } from "@/types"
 
 interface UploadPageProps {
@@ -201,6 +202,58 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
         </div>
 
         <div className="container mx-auto px-4 relative">
+          {/* Study Guides Button - Top Right */}
+          <div className="absolute top-0 right-4 z-10">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-white/90 hover:bg-white text-gray-800 shadow-lg backdrop-blur-sm border border-white/20"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Study Guides
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-4">
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    Available Study Guides
+                  </h3>
+                  
+                  {/* Marine Science */}
+                  <div className="space-y-3">
+                    <div className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xl">🌊</span>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Marine Science</h4>
+                          <p className="text-xs text-gray-500">AICE Level</p>
+                        </div>
+                      </div>
+                      
+                      <div className="ml-8">
+                        <a
+                          href="/marinescience/exam2-earthprocesses"
+                          className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                              2
+                            </div>
+                            <span className="text-sm font-medium text-gray-800">Earth Processes</span>
+                          </div>
+                          <ExternalLink className="h-3 w-3 text-blue-600 group-hover:text-blue-700" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div className="flex justify-center mb-8">
             <div className="bg-white rounded-2xl p-6 shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl cursor-pointer">
               <img src="/images/casanova-study-logo.png" alt="CasanovaStudy Logo" className="h-30 w-48" />
@@ -234,76 +287,6 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
 
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          {/* Study Guides Section */}
-          <Card className="shadow-xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl">
-            <CardHeader className="pb-6">
-              <CardTitle className="text-2xl text-foreground flex items-center gap-3">
-                <BookOpen className="h-6 w-6 text-blue-600" />
-                Interactive Study Guides
-              </CardTitle>
-              <p className="text-muted-foreground text-pretty">
-                Access our collection of interactive study guides with progress tracking and practice questions
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Marine Science Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-blue-200 dark:border-blue-800 transition-all duration-300 hover:shadow-lg hover:border-blue-300">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                        <span className="text-2xl">🌊</span>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">Marine Science</h3>
-                        <p className="text-sm text-muted-foreground">AICE Level Study Guides</p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                      1 guide available
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-blue-300 dark:hover:border-blue-500">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                          2
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground">Chapter 2: Earth Processes</h4>
-                          <p className="text-sm text-muted-foreground">Interactive guide with practice questions</p>
-                        </div>
-                      </div>
-                      <a
-                        href="/marinescience/exam2-earthprocesses"
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 text-sm font-medium"
-                      >
-                        Open Guide
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Coming Soon Section */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 opacity-75">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                      <span className="text-2xl">📚</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">More Subjects Coming Soon</h3>
-                      <p className="text-sm text-muted-foreground">Additional interactive study guides in development</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground italic">
-                    We're working on expanding our collection of interactive study guides. Check back soon for more subjects!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
           <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl">
             <CardHeader className="pb-6">
               <CardTitle className="text-2xl text-foreground flex items-center gap-3">
