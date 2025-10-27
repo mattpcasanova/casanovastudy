@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
+import Link from "next/link"
 import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -237,12 +239,28 @@ export default function MarineScienceStudyGuide() {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-2">
-              🌊 AICE Marine Science
-            </h1>
-            <h2 className="text-xl opacity-90">Chapter 2: Earth Processes - Study Guide</h2>
-            <p className="mt-4 text-sm opacity-75">Interactive study guide with progress tracking</p>
+          <div className="relative">
+            {/* Logo in top left */}
+            <div className="absolute top-0 left-0">
+              <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Image
+                  src="/images/casanova-study-logo.png"
+                  alt="Casanova Study"
+                  width={120}
+                  height={40}
+                  className="h-10 w-auto"
+                />
+              </Link>
+            </div>
+            
+            {/* Centered content */}
+            <div className="text-center pt-4">
+              <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-2">
+                🌊 AICE Marine Science
+              </h1>
+              <h2 className="text-xl opacity-90">Chapter 2: Earth Processes - Study Guide</h2>
+              <p className="mt-4 text-sm opacity-75">Interactive study guide with progress tracking</p>
+            </div>
           </div>
         </div>
       </div>
