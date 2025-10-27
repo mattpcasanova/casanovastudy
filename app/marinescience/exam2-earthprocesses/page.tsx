@@ -242,13 +242,13 @@ export default function MarineScienceStudyGuide() {
           <div className="relative">
             {/* Logo in top left */}
             <div className="absolute top-0 left-0">
-              <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <Link href="/" className="inline-block bg-white rounded-lg p-3 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
                 <Image
                   src="/images/casanova-study-logo.png"
                   alt="Casanova Study"
-                  width={120}
-                  height={40}
-                  className="h-10 w-auto"
+                  width={160}
+                  height={60}
+                  className="h-12 w-auto"
                 />
               </Link>
             </div>
