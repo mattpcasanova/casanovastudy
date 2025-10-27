@@ -146,8 +146,28 @@ export default function MarineScienceStudyGuide() {
       id: 'q8',
       type: 'short-answer',
       question: 'Name TWO ways that El Niño conditions impact marine ecosystems.',
-      correctAnswer: '1) Reduced fish populations due to lack of nutrients in warm water, 2) Coral bleaching from increased water temperatures',
-      explanation: 'El Niño disrupts marine food chains by reducing nutrient availability and stressing marine organisms with warmer temperatures.'
+      correctAnswer: '1) Reduced fish populations due to lack of nutrients in warm water, 2) Disrupted food chain from less phytoplankton',
+      explanation: 'El Niño stops upwelling, which means less cold, nutrient-rich water reaches the surface. This reduces phytoplankton growth, which disrupts the entire marine food chain and causes fish populations to decline.'
+    },
+    {
+      id: 'q9',
+      type: 'multiple-choice',
+      question: 'What is the main difference between weathering and erosion?',
+      options: [
+        'Weathering moves materials, erosion breaks them down',
+        'Weathering breaks down rocks in place, erosion transports materials',
+        'Weathering only affects igneous rocks, erosion affects all rocks',
+        'There is no difference between weathering and erosion'
+      ],
+      correctAnswer: 'Weathering breaks down rocks in place, erosion transports materials',
+      explanation: 'Weathering is the breaking down of rocks without movement, while erosion involves the transportation of broken materials to new locations.'
+    },
+    {
+      id: 'q10',
+      type: 'calculation',
+      question: 'If the high tide is 4.1m and the low tide is 1.3m, calculate the tidal range and show your working.',
+      correctAnswer: '2.8m',
+      explanation: 'Tidal range = High tide - Low tide = 4.1m - 1.3m = 2.8m. Always remember to show your working step by step in exam calculations.'
     }
   ]
 
@@ -831,9 +851,9 @@ export default function MarineScienceStudyGuide() {
                           <h5 className="font-semibold text-orange-700 mb-2">Marine Ecosystem Impacts:</h5>
                           <ul className="list-disc list-inside text-sm space-y-1">
                             <li><strong>Reduced fish populations:</strong> Warm water lacks nutrients, fish move to cooler areas</li>
-                            <li><strong>Coral bleaching:</strong> Warmer water temperatures stress coral reefs</li>
                             <li><strong>Disrupted food chain:</strong> Less phytoplankton → fewer fish → impacts on seabirds and marine mammals</li>
                             <li><strong>Economic impact:</strong> Fishing industry suffers, especially in Peru and Ecuador</li>
+                            <li><strong>Marine productivity decline:</strong> Reduced upwelling means less nutrient cycling in ocean ecosystems</li>
                           </ul>
                         </div>
                         <div>
@@ -1060,18 +1080,24 @@ export default function MarineScienceStudyGuide() {
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
-                        {userAnswer.toLowerCase().includes(currentQuestion.correctAnswer.toLowerCase()) || 
-                         userAnswer === currentQuestion.correctAnswer ? (
-                          <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
+                        {currentQuestion.type === 'multiple-choice' ? (
+                          userAnswer === currentQuestion.correctAnswer ? (
+                            <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
+                          ) : (
+                            <Circle className="h-6 w-6 text-red-600 mt-0.5" />
+                          )
                         ) : (
-                          <Circle className="h-6 w-6 text-red-600 mt-0.5" />
+                          <BookOpen className="h-6 w-6 text-blue-600 mt-0.5" />
                         )}
                       </div>
                       <div className="flex-1">
                         <h5 className="font-semibold text-gray-800 mb-2">
-                          {userAnswer.toLowerCase().includes(currentQuestion.correctAnswer.toLowerCase()) || 
-                           userAnswer === currentQuestion.correctAnswer ? 
-                           'Correct! 🎉' : 'Not quite right 📚'}
+                          {currentQuestion.type === 'multiple-choice' ? (
+                            userAnswer === currentQuestion.correctAnswer ? 
+                            'Correct! 🎉' : 'Not quite right 📚'
+                          ) : (
+                            'Here\'s the answer and explanation 📚'
+                          )}
                         </h5>
                         <div className="space-y-2">
                           <p><strong>Correct Answer:</strong> {currentQuestion.correctAnswer}</p>
@@ -1089,9 +1115,9 @@ export default function MarineScienceStudyGuide() {
         </Card>
 
         {/* Final Tips */}
-        <Card className="mt-6 bg-gradient-to-r from-green-600 to-green-700 text-white">
+        <Card className="mt-6 border-green-300">
           <CardHeader>
-            <CardTitle className="text-white">🎯 Last-Minute Exam Tips</CardTitle>
+            <CardTitle className="text-green-600">🎯 Last-Minute Exam Tips</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
