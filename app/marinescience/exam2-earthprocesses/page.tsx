@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator } from "lucide-react"
+import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 interface StudyItem {
   id: string
   completed: boolean
+}
+
+interface PracticeQuestion {
+  id: string
+  type: 'multiple-choice' | 'short-answer' | 'calculation'
+  question: string
+  options?: string[]
+  correctAnswer: string
+  explanation?: string
 }
 
 export default function MarineScienceStudyGuide() {
@@ -57,6 +66,116 @@ export default function MarineScienceStudyGuide() {
       [itemId]: !prev[itemId]
     }))
   }
+
+  // Practice Questions Data
+  const practiceQuestions: PracticeQuestion[] = [
+    {
+      id: 'q1',
+      type: 'multiple-choice',
+      question: 'The outermost layer of Earth\'s crust is composed primarily of:',
+      options: [
+        'Granite and similar rocks in oceanic crust',
+        'Basaltic rocks in continental crust', 
+        'Basaltic rocks in oceanic crust',
+        'Iron and magnesium in continental crust'
+      ],
+      correctAnswer: 'Basaltic rocks in oceanic crust',
+      explanation: 'Oceanic crust is primarily composed of basaltic rocks, which are denser than the granitic rocks found in continental crust.'
+    },
+    {
+      id: 'q2',
+      type: 'short-answer',
+      question: 'Define: Subduction zone',
+      correctAnswer: 'Area where one tectonic plate slides beneath another at a convergent boundary',
+      explanation: 'Subduction zones are characterized by deep ocean trenches and volcanic activity as the denser oceanic plate is forced under the less dense continental plate.'
+    },
+    {
+      id: 'q3',
+      type: 'calculation',
+      question: 'Calculate the tidal range if high tide = 3.2m and low tide = 0.8m',
+      correctAnswer: '2.4m',
+      explanation: 'Tidal range = High tide - Low tide = 3.2m - 0.8m = 2.4m. Always remember to show your working in exam calculations.'
+    },
+    {
+      id: 'q4',
+      type: 'multiple-choice',
+      question: 'Which type of plate boundary is associated with deep ocean trenches?',
+      options: [
+        'Divergent boundaries',
+        'Transform boundaries',
+        'Convergent boundaries',
+        'All boundary types'
+      ],
+      correctAnswer: 'Convergent boundaries',
+      explanation: 'Convergent boundaries, where plates collide, create deep ocean trenches through subduction processes.'
+    },
+    {
+      id: 'q5',
+      type: 'short-answer',
+      question: 'Explain the difference between spring tides and neap tides.',
+      correctAnswer: 'Spring tides occur during full/new moon when Sun-Moon-Earth are aligned, creating the largest tidal range. Neap tides occur during first/last quarter moon when Sun and Moon are at right angles, creating the smallest tidal range.',
+      explanation: 'Remember: Spring tides have nothing to do with the season - they\'re named for the way water "springs" higher up the shore.'
+    },
+    {
+      id: 'q6',
+      type: 'multiple-choice',
+      question: 'Surface ocean currents are primarily driven by:',
+      options: [
+        'Density differences',
+        'Temperature variations',
+        'Wind patterns',
+        'Tidal forces'
+      ],
+      correctAnswer: 'Wind patterns',
+      explanation: 'Surface currents are driven by wind, while deep currents are driven by density differences (temperature and salinity).'
+    },
+    {
+      id: 'q7',
+      type: 'multiple-choice',
+      question: 'During El Niño conditions, what happens to upwelling along the South American coast?',
+      options: [
+        'Upwelling increases significantly',
+        'Upwelling remains the same',
+        'Upwelling decreases or stops',
+        'Upwelling only occurs at night'
+      ],
+      correctAnswer: 'Upwelling decreases or stops',
+      explanation: 'El Niño weakens trade winds, which reduces or stops the upwelling of cold, nutrient-rich water along the South American coast.'
+    },
+    {
+      id: 'q8',
+      type: 'short-answer',
+      question: 'Name TWO ways that El Niño conditions impact marine ecosystems.',
+      correctAnswer: '1) Reduced fish populations due to lack of nutrients in warm water, 2) Coral bleaching from increased water temperatures',
+      explanation: 'El Niño disrupts marine food chains by reducing nutrient availability and stressing marine organisms with warmer temperatures.'
+    }
+  ]
+
+  // Practice Questions State
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [userAnswer, setUserAnswer] = useState('')
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [shuffledQuestions, setShuffledQuestions] = useState(practiceQuestions)
+
+  const shuffleQuestions = () => {
+    const shuffled = [...practiceQuestions].sort(() => Math.random() - 0.5)
+    setShuffledQuestions(shuffled)
+    setCurrentQuestionIndex(0)
+    setUserAnswer('')
+    setShowAnswer(false)
+  }
+
+  const handleAnswerSubmit = () => {
+    setShowAnswer(true)
+  }
+
+  const nextQuestion = () => {
+    setCurrentQuestionIndex((prev) => (prev + 1) % shuffledQuestions.length)
+    setUserAnswer('')
+    setShowAnswer(false)
+  }
+
+  const currentQuestion = shuffledQuestions[currentQuestionIndex]
 
   const toggleStudyItem = (itemId: string) => {
     setStudyItems(prev => 
@@ -662,37 +781,84 @@ export default function MarineScienceStudyGuide() {
             </CardHeader>
             {expandedSections.includes('el-nino') && (
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-blue-600 text-white">
-                        <th className="border border-gray-300 p-2 text-left">Condition</th>
-                        <th className="border border-gray-300 p-2 text-left">Trade Winds</th>
-                        <th className="border border-gray-300 p-2 text-left">South America</th>
-                        <th className="border border-gray-300 p-2 text-left">Upwelling</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="even:bg-gray-50">
-                        <td className="border border-gray-300 p-2"><strong>NORMAL</strong></td>
-                        <td className="border border-gray-300 p-2">Strong (east→west)</td>
-                        <td className="border border-gray-300 p-2">Cold water, good fishing</td>
-                        <td className="border border-gray-300 p-2">YES</td>
-                      </tr>
-                      <tr className="even:bg-gray-50 bg-red-50">
-                        <td className="border border-gray-300 p-2"><strong>EL NIÑO</strong></td>
-                        <td className="border border-gray-300 p-2"><strong>Weaken/reverse</strong></td>
-                        <td className="border border-gray-300 p-2"><strong>Warm water accumulates</strong></td>
-                        <td className="border border-gray-300 p-2"><strong>STOPS</strong></td>
-                      </tr>
-                      <tr className="even:bg-gray-50 bg-blue-50">
-                        <td className="border border-gray-300 p-2"><strong>LA NIÑA</strong></td>
-                        <td className="border border-gray-300 p-2">Strengthen</td>
-                        <td className="border border-gray-300 p-2">Extra cold water</td>
-                        <td className="border border-gray-300 p-2">Enhanced</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="space-y-6">
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertDescription className="text-blue-800">
+                      <h4 className="font-semibold text-blue-700 mb-2">🌊 El Niño Southern Oscillation (ENSO)</h4>
+                      <p className="text-sm">A climate pattern that affects weather and ocean conditions across the Pacific Ocean, alternating between El Niño, La Niña, and neutral conditions every 2-7 years.</p>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-700">
+                      <thead className="text-xs text-white uppercase bg-blue-600">
+                        <tr>
+                          <th scope="col" className="px-4 py-2">Condition</th>
+                          <th scope="col" className="px-4 py-2">Trade Winds</th>
+                          <th scope="col" className="px-4 py-2">Water Temperature (South America)</th>
+                          <th scope="col" className="px-4 py-2">Upwelling</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-white border-b">
+                          <td className="px-4 py-2 font-medium text-blue-600"><strong>NORMAL</strong></td>
+                          <td className="px-4 py-2">Strong (east→west)</td>
+                          <td className="px-4 py-2">Cold water, good fishing</td>
+                          <td className="px-4 py-2">YES - Active</td>
+                        </tr>
+                        <tr className="bg-red-50 border-b">
+                          <td className="px-4 py-2 font-medium text-red-600"><strong>EL NIÑO</strong></td>
+                          <td className="px-4 py-2"><strong className="text-red-600">Weaken/reverse</strong></td>
+                          <td className="px-4 py-2"><strong className="text-red-600">WARM water accumulates</strong></td>
+                          <td className="px-4 py-2"><strong className="text-red-600">STOPS/Reduced</strong></td>
+                        </tr>
+                        <tr className="bg-blue-50">
+                          <td className="px-4 py-2 font-medium text-blue-600"><strong>LA NIÑA</strong></td>
+                          <td className="px-4 py-2"><strong className="text-blue-600">Strengthen</strong></td>
+                          <td className="px-4 py-2"><strong className="text-blue-600">EXTRA COLD water</strong></td>
+                          <td className="px-4 py-2"><strong className="text-blue-600">Enhanced/Increased</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <Alert className="border-orange-200 bg-orange-50">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-800">
+                      <h4 className="font-semibold text-orange-700 mb-2">🎯 EXAM FOCUS - El Niño Impacts on Marine Ecosystems & Climate:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <h5 className="font-semibold text-orange-700 mb-2">Marine Ecosystem Impacts:</h5>
+                          <ul className="list-disc list-inside text-sm space-y-1">
+                            <li><strong>Reduced fish populations:</strong> Warm water lacks nutrients, fish move to cooler areas</li>
+                            <li><strong>Coral bleaching:</strong> Warmer water temperatures stress coral reefs</li>
+                            <li><strong>Disrupted food chain:</strong> Less phytoplankton → fewer fish → impacts on seabirds and marine mammals</li>
+                            <li><strong>Economic impact:</strong> Fishing industry suffers, especially in Peru and Ecuador</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-orange-700 mb-2">Climate Impacts:</h5>
+                          <ul className="list-disc list-inside text-sm space-y-1">
+                            <li><strong>Increased rainfall:</strong> Western South America experiences flooding</li>
+                            <li><strong>Droughts:</strong> Australia and Southeast Asia become drier</li>
+                            <li><strong>Storm patterns:</strong> Changes in hurricane/typhoon activity</li>
+                            <li><strong>Global temperature:</strong> El Niño years tend to be warmer globally</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+
+                  <Alert className="border-green-200 bg-green-50">
+                    <AlertDescription className="text-green-800">
+                      <h4 className="font-semibold text-green-700 mb-2">💡 EXAM TIP - Remember the Key Differences:</h4>
+                      <div className="text-sm space-y-2">
+                        <p><strong>El Niño:</strong> Warm water + Weak trade winds + NO upwelling = Poor fishing + Climate disruption</p>
+                        <p><strong>La Niña:</strong> Cold water + Strong trade winds + Enhanced upwelling = Good fishing + More extreme weather</p>
+                        <p><strong>Normal:</strong> Balanced conditions with regular upwelling and stable climate patterns</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
                 </div>
               </CardContent>
             )}
@@ -805,34 +971,119 @@ export default function MarineScienceStudyGuide() {
           </Card>
         </div>
 
-        {/* Exam Practice Section */}
-        <Card className="mt-6 bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+        {/* Interactive Exam Practice Section */}
+        <Card className="mt-6 border-blue-300">
           <CardHeader>
-            <CardTitle className="text-white">📝 Exam Practice Questions</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-blue-600">📝 Interactive Exam Practice</CardTitle>
+              <Button 
+                onClick={shuffleQuestions}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Shuffle Questions
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="text-white">
-            <div className="space-y-4">
-              <div className="bg-white/10 p-4 rounded-lg">
-                <h4 className="font-semibold mb-2">Multiple Choice Practice:</h4>
-                <div className="space-y-2 text-sm">
-                  <p><strong>1.</strong> The outermost layer of Earth's crust is composed primarily of:</p>
-                  <p className="ml-4">A) Granite and similar rocks in oceanic crust</p>
-                  <p className="ml-4">B) Basaltic rocks in continental crust</p>
-                  <p className="ml-4 text-green-200">C) Basaltic rocks in oceanic crust ✓</p>
-                  <p className="ml-4">D) Iron and magnesium in continental crust</p>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>Question {currentQuestionIndex + 1} of {shuffledQuestions.length}</span>
+                <Badge variant="outline" className="capitalize">
+                  {currentQuestion.type.replace('-', ' ')}
+                </Badge>
+              </div>
+
+              <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-lg mb-4 text-blue-800">
+                  {currentQuestion.question}
+                </h4>
+
+                {currentQuestion.type === 'multiple-choice' && currentQuestion.options && (
+                  <div className="space-y-3">
+                    {currentQuestion.options.map((option, index) => (
+                      <label key={index} className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="answer"
+                          value={option}
+                          checked={userAnswer === option}
+                          onChange={(e) => setUserAnswer(e.target.value)}
+                          className="w-4 h-4 text-blue-600"
+                          disabled={showAnswer}
+                        />
+                        <span className={`${showAnswer && option === currentQuestion.correctAnswer ? 'text-green-600 font-semibold' : ''} ${showAnswer && userAnswer === option && option !== currentQuestion.correctAnswer ? 'text-red-600' : ''}`}>
+                          {String.fromCharCode(65 + index)}) {option}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {(currentQuestion.type === 'short-answer' || currentQuestion.type === 'calculation') && (
+                  <div className="space-y-3">
+                    <textarea
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      placeholder="Type your answer here..."
+                      className="w-full p-3 border border-gray-300 rounded-md resize-none"
+                      rows={3}
+                      disabled={showAnswer}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-6">
+                  {!showAnswer ? (
+                    <Button 
+                      onClick={handleAnswerSubmit}
+                      disabled={!userAnswer.trim()}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Submit Answer
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={nextQuestion}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Next Question
+                    </Button>
+                  )}
                 </div>
               </div>
-              
-              <div className="bg-white/10 p-4 rounded-lg">
-                <h4 className="font-semibold mb-2">Short Answer Practice:</h4>
-                <div className="space-y-2 text-sm">
-                  <p><strong>Define:</strong> Subduction zone</p>
-                  <p className="ml-4 text-green-200">Answer: Area where one tectonic plate slides beneath another at a convergent boundary</p>
-                  
-                  <p><strong>Calculate:</strong> Tidal range if high tide = 3.2m and low tide = 0.8m</p>
-                  <p className="ml-4 text-green-200">Answer: 3.2 - 0.8 = 2.4m</p>
+
+              {showAnswer && (
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        {userAnswer.toLowerCase().includes(currentQuestion.correctAnswer.toLowerCase()) || 
+                         userAnswer === currentQuestion.correctAnswer ? (
+                          <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
+                        ) : (
+                          <Circle className="h-6 w-6 text-red-600 mt-0.5" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-gray-800 mb-2">
+                          {userAnswer.toLowerCase().includes(currentQuestion.correctAnswer.toLowerCase()) || 
+                           userAnswer === currentQuestion.correctAnswer ? 
+                           'Correct! 🎉' : 'Not quite right 📚'}
+                        </h5>
+                        <div className="space-y-2">
+                          <p><strong>Correct Answer:</strong> {currentQuestion.correctAnswer}</p>
+                          {currentQuestion.explanation && (
+                            <p className="text-gray-600"><strong>Explanation:</strong> {currentQuestion.explanation}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
