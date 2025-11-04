@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle, Download, FileCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -27,6 +28,7 @@ interface GradingResult {
 export default function ImperatoriGradingPage() {
   const [markSchemeFile, setMarkSchemeFile] = useState<File | null>(null)
   const [studentExamFile, setStudentExamFile] = useState<File | null>(null)
+  const [additionalComments, setAdditionalComments] = useState<string>("")
   const [isGrading, setIsGrading] = useState(false)
   const [gradingResult, setGradingResult] = useState<GradingResult | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -132,10 +134,13 @@ export default function ImperatoriGradingPage() {
     setErrors({})
 
     try {
-      // Create FormData - just send the files, let the backend handle everything
+      // Create FormData - send files and additional comments
       const formData = new FormData()
       formData.append("markScheme", markSchemeFile!)
       formData.append("studentExam", studentExamFile!)
+      if (additionalComments.trim()) {
+        formData.append("additionalComments", additionalComments.trim())
+      }
 
       // Call API
       const response = await fetch("/api/grade-exam", {
@@ -338,6 +343,26 @@ export default function ImperatoriGradingPage() {
                 )}
               </div>
 
+              {/* Additional Comments (Optional) */}
+              <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                <Label htmlFor="additionalComments" className="text-foreground font-semibold text-base flex items-center gap-2">
+                  <span className="text-blue-600 dark:text-blue-400">💬</span>
+                  Grading Instructions (Optional)
+                </Label>
+                <Textarea
+                  id="additionalComments"
+                  placeholder="Add specific instructions for the AI grader (e.g., 'Be lenient on Question 3', 'Student struggled with time management', 'Focus on application skills', etc.)"
+                  value={additionalComments}
+                  onChange={(e) => setAdditionalComments(e.target.value)}
+                  rows={4}
+                  disabled={isGrading}
+                  className="resize-none border-2 border-blue-300 focus:border-blue-500 bg-white dark:bg-gray-900"
+                />
+                <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                  💡 These instructions guide the AI grader but won't appear in the PDF report
+                </p>
+              </div>
+
               {/* Grade Button */}
               <div className="pt-6 border-t">
                 <Button
@@ -374,17 +399,14 @@ export default function ImperatoriGradingPage() {
               <CardContent className="space-y-6">
                 {/* Summary */}
                 <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Total Score</h3>
-                      <p className="text-3xl font-bold text-green-600">
-                        {gradingResult.totalMarks} / {gradingResult.totalPossibleMarks} marks
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {((gradingResult.totalMarks / gradingResult.totalPossibleMarks) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    <Download className="h-12 w-12 text-green-500 opacity-50" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Total Score</h3>
+                    <p className="text-3xl font-bold text-green-600">
+                      {gradingResult.totalMarks} / {gradingResult.totalPossibleMarks} marks
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {((gradingResult.totalMarks / gradingResult.totalPossibleMarks) * 100).toFixed(1)}%
+                    </p>
                   </div>
                 </div>
 

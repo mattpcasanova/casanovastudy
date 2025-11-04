@@ -26,6 +26,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const formData = await request.formData()
     const markSchemeFile = formData.get('markScheme') as File | null
     const studentExamFile = formData.get('studentExam') as File | null
+    const additionalComments = formData.get('additionalComments') as string | null
+
+    console.log('Additional comments received:', additionalComments ? `"${additionalComments}"` : 'None')
 
     if (!markSchemeFile || !studentExamFile) {
       console.error('❌ Missing files:', {
@@ -119,7 +122,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         buffer: Buffer.from(await studentExamFile.arrayBuffer()),
         name: studentExamFile.name,
         type: studentExamFile.type
-      } : undefined
+      } : undefined,
+      additionalComments: additionalComments || undefined
     })
 
     // Parse Claude's response to extract grading information
@@ -206,7 +210,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       totalPossibleMarks,
       gradeBreakdown,
       markSchemeFile.name,
-      studentExamFile.name
+      studentExamFile.name,
+      additionalComments || undefined
     )
 
     // Generate PDF using PDFShift (already working on other pages)
@@ -500,7 +505,8 @@ function generateGradingPDFContent(
     explanation: string
   }>,
   markSchemeName: string,
-  studentExamName: string
+  studentExamName: string,
+  additionalComments?: string
 ): string {
   const percentage = ((totalMarks / totalPossibleMarks) * 100).toFixed(1)
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -509,47 +515,39 @@ function generateGradingPDFContent(
     day: 'numeric'
   })
 
-  let content = `# AICE Business Exam Grading Report
+  // Simple, clean format matching the website
+  let content = `<style>
+  body { font-family: Arial, sans-serif; }
+  h1 { color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
+  h2 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 5px; margin-top: 20px; }
+  p { color: #000000; line-height: 1.6; }
+  .explanation { color: #000000; }
+  strong { color: #000000; }
+</style>
 
-**Mark Scheme:** ${markSchemeName}  
-**Student Exam:** ${studentExamName}  
-**Date Graded:** ${currentDate}
+# Exam Grading Report
 
----
-
-## Summary
-
+**Student:** ${studentExamName}  
+**Date:** ${currentDate}  
 **Total Score:** ${totalMarks} / ${totalPossibleMarks} marks (${percentage}%)
 
 ---
 
-## Detailed Question Breakdown
-
 `
 
-  // Add each question breakdown
-  gradeBreakdown.forEach((item, index) => {
-    content += `### Question ${item.questionNumber}
+  // Add each question in simple format (matching website)
+  gradeBreakdown.forEach((item) => {
+    content += `## Question ${item.questionNumber} - ${item.marksAwarded}/${item.marksPossible} marks
 
-**Marks Awarded:** ${item.marksAwarded} / ${item.marksPossible}
-
-**Explanation:**
-${item.explanation}
+<div class="explanation">${item.explanation}</div>
 
 ---
 
 `
   })
 
-  // Add full analysis if available
-  if (gradingContent.length > 0) {
-    content += `## Full Grading Analysis
-
-${gradingContent}
-
-`
-  }
-
+  // Don't add teacher comments to PDF - they're only for grading context
+  
   return content
 }
 

@@ -214,8 +214,9 @@ Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (
     studentExamImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
     markSchemeFile?: { buffer: Buffer; name: string; type: string }
     studentExamFile?: { buffer: Buffer; name: string; type: string }
+    additionalComments?: string
   }): Promise<ClaudeApiResponse> {
-    const { markSchemeText, studentExamText, markSchemeImages: providedMarkSchemeImages, studentExamImages: providedStudentExamImages, markSchemeFile, studentExamFile } = params
+    const { markSchemeText, studentExamText, markSchemeImages: providedMarkSchemeImages, studentExamImages: providedStudentExamImages, markSchemeFile, studentExamFile, additionalComments } = params
     
     // SIMPLE APPROACH: Send PDFs directly to Claude (like Claude Chat does)
     console.log('📤 Sending PDFs directly to Claude API...')
@@ -233,14 +234,31 @@ Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (
     // Build content array with PDFs as documents
     const content: any[] = []
     
-    // Add instruction
+    // Add instruction (with optional teacher comments)
+    let instructionText = `You are an expert exam grader. Grade this exam against the mark scheme with STRICT CONSISTENCY.
+
+CRITICAL GRADING PRINCIPLES:
+1. **Be Consistent**: Apply the same standards to all similar responses
+2. **Follow the Mark Scheme Exactly**: Award marks only when criteria are clearly met
+3. **No Assumptions**: If the answer doesn't explicitly show understanding, don't award the mark
+4. **Partial Marks**: Award partial marks fairly based on the mark scheme breakdown
+5. **Be Fair but Strict**: Maintain the same level of strictness throughout
+
+I've attached the mark scheme and student exam.`
+    
+    if (additionalComments && additionalComments.trim()) {
+      instructionText += `\n\n**Teacher's Special Instructions:**\n${additionalComments}`
+    }
+    
+    instructionText += `\n\nPlease format your response as follows:
+- For each question, provide: Question [number], Mark: X/Y - [brief explanation]
+- At the end, provide total marks, percentage, and brief feedback on strengths/areas for improvement.
+
+Remember: Grade strictly and consistently according to the mark scheme. Do not be overly generous or harsh - just follow the criteria precisely.`
+    
     content.push({
       type: 'text',
-      text: `Can you tell me what marks you would give for this exam with this mark scheme? Give concise reasons. I've attached the mark scheme and student exam.
-
-Please format your response as follows:
-- For each question, provide: Question [number], Mark: X/Y - [brief explanation]
-- At the end, provide total marks, percentage, and brief feedback on strengths/areas for improvement.`
+      text: instructionText
     })
     
     // Add mark scheme as document
@@ -272,7 +290,7 @@ Please format your response as follows:
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      temperature: 0.3,
+      temperature: 0.1, // Lower temperature for more consistent grading (was 0.3)
       messages: [
         {
           role: 'user',
