@@ -202,4 +202,324 @@ Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (
     }
     return instructions[difficultyLevel as keyof typeof instructions] || ''
   }
+
+  /**
+   * Grade an exam with images (from client-side conversion or server-side)
+   * This is the simplest approach - just use the images provided
+   */
+  async gradeExamWithImages(params: {
+    markSchemeText: string
+    studentExamText: string
+    markSchemeImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
+    studentExamImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
+    markSchemeFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFile?: { buffer: Buffer; name: string; type: string }
+  }): Promise<ClaudeApiResponse> {
+    const { markSchemeText, studentExamText, markSchemeImages: providedMarkSchemeImages, studentExamImages: providedStudentExamImages, markSchemeFile, studentExamFile } = params
+    
+    // SIMPLE APPROACH: Send PDFs directly to Claude (like Claude Chat does)
+    console.log('📤 Sending PDFs directly to Claude API...')
+    console.log('Mark scheme file:', {
+      name: markSchemeFile?.name,
+      size: markSchemeFile?.buffer.length,
+      type: markSchemeFile?.type
+    })
+    console.log('Student exam file:', {
+      name: studentExamFile?.name,
+      size: studentExamFile?.buffer.length,
+      type: studentExamFile?.type
+    })
+    
+    // Build content array with PDFs as documents
+    const content: any[] = []
+    
+    // Add instruction
+    content.push({
+      type: 'text',
+      text: `Can you tell me what marks you would give for this exam with this mark scheme? Give concise reasons. I've attached the mark scheme and student exam.
+
+Please format your response as follows:
+- For each question, provide: Question [number], Mark: X/Y - [brief explanation]
+- At the end, provide total marks, percentage, and brief feedback on strengths/areas for improvement.`
+    })
+    
+    // Add mark scheme as document
+    if (markSchemeFile) {
+      content.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: markSchemeFile.buffer.toString('base64')
+        }
+      })
+    }
+    
+    // Add student exam as document
+    if (studentExamFile) {
+      content.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: studentExamFile.buffer.toString('base64')
+        }
+      })
+    }
+    
+    console.log('📤 Sending to Claude API with', content.length, 'content items')
+    
+    const response = await this.anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ]
+    })
+
+    const responseContent = response.content[0]
+    if (responseContent.type !== 'text') {
+      throw new Error('Unexpected response type from Claude API')
+    }
+
+    return {
+      content: responseContent.text,
+      usage: {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens
+      }
+    }
+  }
+
+  /**
+   * Grade an exam with support for vision API when text extraction fails
+   * For image-based PDFs, converts PDF pages to images and sends them to Claude's vision API
+   * @deprecated Use gradeExamWithImages instead
+   */
+  async gradeExamWithVision(params: {
+    markSchemeText: string
+    studentExamText: string
+    markSchemeFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFile?: { buffer: Buffer; name: string; type: string }
+  }): Promise<ClaudeApiResponse> {
+    const { markSchemeText, studentExamText, markSchemeFile, studentExamFile } = params
+    
+    // Build content array - mix of text and images
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = []
+    
+    // Start with the instruction
+    content.push({
+      type: 'text',
+      text: `Can you tell me what marks you would give for this exam with this mark scheme? Give concise reasons.\n\n`
+    })
+    
+    // Convert PDFs to images if needed
+    let markSchemeImages: any[] = []
+    let studentExamImages: any[] = []
+    
+    if (markSchemeFile) {
+      console.log('📸 Converting mark scheme PDF to images...')
+      const { convertPDFToImages } = await import('@/lib/pdf-to-image')
+      markSchemeImages = await convertPDFToImages(markSchemeFile.buffer, 10) // Max 10 pages
+      console.log(`✅ Converted mark scheme to ${markSchemeImages.length} images`)
+    }
+    
+    if (studentExamFile) {
+      console.log('📸 Converting student exam PDF to images...')
+      const { convertPDFToImages } = await import('@/lib/pdf-to-image')
+      studentExamImages = await convertPDFToImages(studentExamFile.buffer, 10) // Max 10 pages
+      console.log(`✅ Converted student exam to ${studentExamImages.length} images`)
+    }
+    
+    // Handle mark scheme - add images or text
+    if (markSchemeImages.length > 0) {
+      content.push({
+        type: 'text',
+        text: `MARK SCHEME (image-based PDF with ${markSchemeImages.length} page${markSchemeImages.length > 1 ? 's' : ''}):\n`
+      })
+      
+      // Add each page as an image
+      for (const image of markSchemeImages) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/png',
+            data: image.imageData
+          }
+        })
+      }
+      
+      // Also include any extracted text if available
+      if (markSchemeText && markSchemeText.length > 50 && !markSchemeText.includes('PDF Document:')) {
+        content.push({
+          type: 'text',
+          text: `\nExtracted text from mark scheme (may be incomplete):\n${markSchemeText}\n\n`
+        })
+      }
+    } else {
+      content.push({
+        type: 'text',
+        text: `MARK SCHEME:\n${markSchemeText}\n\n`
+      })
+    }
+    
+    // Handle student exam - add images or text
+    if (studentExamImages.length > 0) {
+      content.push({
+        type: 'text',
+        text: `STUDENT EXAM (image-based PDF with ${studentExamImages.length} page${studentExamImages.length > 1 ? 's' : ''}):\n`
+      })
+      
+      // Add each page as an image
+      for (const image of studentExamImages) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/png',
+            data: image.imageData
+          }
+        })
+      }
+      
+      // Also include any extracted text if available
+      if (studentExamText && studentExamText.length > 50 && !studentExamText.includes('PDF Document:')) {
+        content.push({
+          type: 'text',
+          text: `\nExtracted text from student exam (may be incomplete):\n${studentExamText}\n\n`
+        })
+      }
+    } else {
+      content.push({
+        type: 'text',
+        text: `STUDENT EXAM:\n${studentExamText}\n\n`
+      })
+    }
+    
+    // Add final instructions
+    content.push({
+      type: 'text',
+      text: `\nPlease analyze each question and sub-question in the student exam against the mark scheme. For each one, provide:
+- The question number/identifier
+- The marks awarded (e.g., "Mark: 3/5")
+- A brief reason for the marks given
+
+Include totals for each main question and an overall total at the end.
+
+${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs are image-based/scanned documents. Please read the images carefully to extract all text and grade accordingly.' : ''}`
+    })
+    
+    try {
+      console.log('📊 Grading with Vision API:', {
+        hasMarkSchemeImage: markSchemeImages.length > 0,
+        hasStudentExamImage: studentExamImages.length > 0,
+        markSchemePages: markSchemeImages.length,
+        studentExamPages: studentExamImages.length,
+        markSchemeTextLength: markSchemeText.length,
+        studentExamTextLength: studentExamText.length
+      })
+      
+      const response = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: content
+          }
+        ]
+      })
+
+      const responseContent = response.content[0]
+      if (responseContent.type !== 'text') {
+        throw new Error('Unexpected response type from Claude API')
+      }
+
+      const actualUsage = {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens
+      }
+      
+      console.log('✅ Grading Token Usage (may include limited text from image-based PDFs):', {
+        inputTokens: actualUsage.input_tokens,
+        outputTokens: actualUsage.output_tokens,
+        totalTokens: actualUsage.total_tokens,
+        costEstimate: `~$${(actualUsage.total_tokens * 0.000015).toFixed(4)}`
+      })
+
+      return {
+        content: responseContent.text,
+        usage: actualUsage
+      }
+    } catch (error) {
+      console.error('Claude Vision API grading error:', error)
+      throw new Error(`Failed to grade exam: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Grade an exam by comparing student answers against a mark scheme
+   * @param prompt - The grading prompt containing mark scheme and student exam content
+   * @returns Claude API response with grading analysis
+   */
+  async gradeExam(prompt: string): Promise<ClaudeApiResponse> {
+    try {
+      // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
+      const estimatedInputTokens = Math.ceil(prompt.length / 4)
+      
+      console.log('📊 Grading Token Usage Analysis:', {
+        promptLength: prompt.length,
+        estimatedInputTokens,
+        maxOutputTokens: 4000,
+        totalEstimatedTokens: estimatedInputTokens + 4000,
+        contentPreview: prompt.substring(0, 200) + '...'
+      })
+      
+      const response = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        temperature: 0.3, // Lower temperature for more consistent grading
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type from Claude API')
+      }
+
+      // Log actual token usage
+      const actualUsage = {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens
+      }
+      
+      console.log('✅ Grading Token Usage:', {
+        inputTokens: actualUsage.input_tokens,
+        outputTokens: actualUsage.output_tokens,
+        totalTokens: actualUsage.total_tokens,
+        costEstimate: `~$${(actualUsage.total_tokens * 0.000015).toFixed(4)}`
+      })
+
+      return {
+        content: content.text,
+        usage: actualUsage
+      }
+    } catch (error) {
+      console.error('Claude API grading error:', error)
+      throw new Error(`Failed to grade exam: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 }

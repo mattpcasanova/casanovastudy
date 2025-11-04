@@ -34,21 +34,79 @@ export class FileProcessor {
   }
 
   static async processFile(file: File): Promise<ProcessedFile> {
+    console.log(`🔍 Processing file: ${file.name}`, {
+      type: file.type,
+      size: file.size,
+      isFile: file instanceof File,
+      hasArrayBuffer: typeof file.arrayBuffer === 'function'
+    })
+    
     const validation = this.validateFile(file)
     if (!validation.valid) {
       throw new Error(validation.error)
     }
 
-    const fileType = this.getFileType(file.type)
+    // Detect file type - try MIME type first, fallback to extension
+    let fileType = this.getFileType(file.type)
+    
+    // If MIME type is missing or generic, try to detect from filename
+    if (!file.type || file.type === 'application/octet-stream' || fileType === 'txt') {
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      console.log(`⚠️ MIME type unclear (${file.type}), trying extension: ${extension}`)
+      if (extension === 'pdf') {
+        fileType = 'pdf'
+        console.log('✅ Detected PDF from extension')
+      } else if (extension === 'docx') {
+        fileType = 'docx'
+        console.log('✅ Detected DOCX from extension')
+      } else if (extension === 'pptx') {
+        fileType = 'pptx'
+        console.log('✅ Detected PPTX from extension')
+      }
+    }
+    
+    console.log(`📄 Final file type detected: ${fileType}`)
+    
     let content = ''
 
     try {
+      console.log('📦 Converting file to buffer...')
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
+      
+      console.log('✅ Buffer created:', {
+        bufferLength: buffer.length,
+        expectedSize: file.size,
+        match: buffer.length === file.size,
+        firstBytes: buffer.subarray(0, 10).toString('hex'),
+        isPDF: buffer.subarray(0, 4).toString() === '%PDF'
+      })
+      
+      // Verify PDF header if it's supposed to be a PDF
+      if (fileType === 'pdf') {
+        const pdfHeader = buffer.subarray(0, 4).toString()
+        if (pdfHeader !== '%PDF') {
+          console.error('❌ Invalid PDF header! Expected "%PDF", got:', pdfHeader)
+          throw new Error(`Invalid PDF file: missing PDF header. File may be corrupted or not a valid PDF.`)
+        }
+        console.log('✅ PDF header verified:', pdfHeader)
+      }
 
       switch (fileType) {
         case 'pdf':
+          console.log('📄 Starting PDF extraction...')
           content = await this.extractFromPDF(buffer)
+          console.log('✅ PDF extraction completed, content length:', content.length)
+          
+          // Check if we got the fallback message (extraction failed)
+          // Note: We don't throw here - let the calling code handle the validation
+          // This allows the grade-exam route to provide more specific error messages
+          if (content.includes('PDF Document:') && content.includes('Status: Text extraction completed')) {
+            console.error('❌ PDF extraction failed - got fallback message')
+            console.error('Fallback content length:', content.length)
+            console.error('Fallback content preview:', content.substring(0, 200))
+            // Don't throw - return the fallback so calling code can handle it appropriately
+          }
           break
         case 'docx':
           content = await this.extractFromDOCX(buffer)
@@ -77,50 +135,129 @@ export class FileProcessor {
 
   private static async extractFromPDF(buffer: Buffer): Promise<string> {
     try {
-      // Try multiple extraction methods for PowerPoint-converted PDFs
-      
-      // Method 1: Enhanced custom extraction
-      const customText = this.extractTextFromPDFBuffer(buffer)
-      console.log('Custom extraction result:', {
-        length: customText?.length || 0,
-        preview: customText?.substring(0, 200) + '...',
-        hasContent: customText && customText.trim().length > 100
-      })
-      
-      if (customText && customText.trim().length > 100) {
-        console.log('Custom extraction successful, length:', customText.length)
-        return this.summarizeText(customText.trim())
-      }
-      
-      // Method 2: Try pdf-parse with different options
+      // PRIORITY: Try pdf-parse FIRST (it's the most reliable method - same as study guide generator)
+      // Method 1: Try pdf-parse with different options
+      let pdfParseWorked = false
       try {
-        const pdfParse = await import('pdf-parse')
+        // Import pdf-parse - handle test file errors gracefully
+        // The test file error is harmless - pdf-parse module still works
+        let pdfParse: any
+        let importSucceeded = false
         
-        // Try with different options
+        // Try dynamic import first (works in Next.js/Turbopack)
+        try {
+          const pdfParseModule = await import('pdf-parse')
+          pdfParse = pdfParseModule.default || pdfParseModule
+          importSucceeded = true
+          console.log('📦 pdf-parse loaded via dynamic import()')
+        } catch (importError) {
+          // Check if it's the test file error - if so, pdf-parse might still be partially loaded
+          const errorMsg = importError instanceof Error ? importError.message : String(importError)
+          if (errorMsg.includes('test/data') || errorMsg.includes('ENOENT')) {
+            console.log('⚠️ pdf-parse test file error during import (harmless), trying to use module anyway...')
+            // Try to access pdf-parse from require cache or try require
+            try {
+              if (typeof require !== 'undefined') {
+                pdfParse = require('pdf-parse')
+                importSucceeded = true
+                console.log('📦 pdf-parse loaded via require() after import error')
+              }
+            } catch (requireError) {
+              console.log('⚠️ require() also failed, but continuing to try pdf-parse...')
+            }
+          } else {
+            // Real error - try require as fallback
+            if (typeof require !== 'undefined') {
+              try {
+                pdfParse = require('pdf-parse')
+                importSucceeded = true
+                console.log('📦 pdf-parse loaded via require() fallback')
+              } catch (requireError) {
+                throw new Error(`Failed to load pdf-parse: ${errorMsg}`)
+              }
+            } else {
+              throw importError
+            }
+          }
+        }
+        
+        // If import failed completely, log and skip pdf-parse (don't throw - continue to fallback methods)
+        if (!importSucceeded || !pdfParse) {
+          console.warn('⚠️ pdf-parse module failed to load, will try fallback extraction methods')
+          // Don't throw - continue to fallback methods below
+        } else {
+          console.log('📦 pdf-parse module loaded, attempting extraction (same method as study guide generator)...')
+        
+        // Try with different options - same as study guide generator uses
         const options = [
-          { max: 0 },
+          { max: 0 }, // No page limit - try this first (most reliable)
+          {}, // Default options
           { max: 0, version: 'v1.10.100' as any },
           { max: 0, version: 'v1.10.100' as any, useSystemFonts: true },
-          {} // Default options
         ]
         
-        for (const option of options) {
+        for (let i = 0; i < options.length; i++) {
+          const option = options[i]
           try {
-            const data = await pdfParse.default(buffer, option)
+            console.log(`Trying pdf-parse option ${i + 1}/${options.length}:`, option)
+            // Use the buffer directly - pdf-parse should handle it
+            // Wrap in try-catch to handle test file errors that pdf-parse may throw
+            let data: any
+            try {
+              data = await pdfParse(buffer, option)
+            } catch (parseError) {
+              // If it's a test file error, ignore it and continue
+              if (parseError instanceof Error && parseError.message.includes('test/data')) {
+                console.log('⚠️ pdf-parse test file error during parsing (can be ignored), trying next option...')
+                continue
+              }
+              throw parseError // Re-throw if it's a real error
+            }
+            console.log(`Option ${i + 1} result:`, {
+              textLength: data.text?.length || 0,
+              numPages: data.numpages,
+              preview: data.text?.substring(0, 300),
+              hasText: !!data.text && data.text.trim().length > 0
+            })
+            
             if (data.text && data.text.trim().length > 50) {
-              console.log('PDF-parse successful with options:', option, 'length:', data.text.length)
-              return this.summarizeText(data.text.trim())
+              console.log('✅ PDF-parse successful with options:', option, 'length:', data.text.length)
+              console.log('Text preview (first 500 chars):', data.text.substring(0, 500))
+              pdfParseWorked = true
+              // Don't summarize for grading - we need all the text
+              return data.text.trim()
+            } else if (data.text && data.text.trim().length > 0) {
+              console.log('⚠️ PDF-parse returned text but too short:', data.text.trim().length, 'chars')
+              console.log('Short text preview:', data.text.substring(0, 200))
+            } else {
+              console.log('⚠️ PDF-parse returned empty or no text')
             }
           } catch (optionError) {
-            console.log('PDF-parse option failed:', option, optionError instanceof Error ? optionError.message : String(optionError))
+            // Ignore test file errors - they're from pdf-parse's internal test file
+            if (optionError instanceof Error && optionError.message.includes('test/data')) {
+              console.log('⚠️ pdf-parse test file error (can be ignored), trying next option...')
+              continue
+            }
+            console.log('❌ PDF-parse option failed:', option, optionError instanceof Error ? optionError.message : String(optionError))
             continue
           }
         }
+        
+        if (!pdfParseWorked) {
+          console.log('⚠️ All pdf-parse options failed or returned insufficient text')
+        }
+        }
       } catch (pdfParseError) {
-        console.log('PDF-parse completely failed:', pdfParseError instanceof Error ? pdfParseError.message : String(pdfParseError))
+        // Ignore test file errors - they're from pdf-parse's internal test file
+        if (pdfParseError instanceof Error && pdfParseError.message.includes('test/data')) {
+          console.log('⚠️ pdf-parse test file error during import (can be ignored), will try other methods...')
+        } else {
+          console.error('❌ PDF-parse completely failed:', pdfParseError instanceof Error ? pdfParseError.message : String(pdfParseError))
+          console.error('Error details:', pdfParseError)
+        }
       }
       
-      // Method 3: Try with temporary file approach
+      // Method 2: Try with temporary file approach (sometimes works when direct buffer doesn't)
       try {
         const fs = await import('fs')
         const path = await import('path')
@@ -132,12 +269,15 @@ export class FileProcessor {
         try {
           fs.writeFileSync(tempFile, buffer)
           
-          const pdfParse = await import('pdf-parse')
-          const data = await pdfParse.default(fs.readFileSync(tempFile))
+          // Use require for pdf-parse (same as above)
+          const pdfParse = require('pdf-parse')
+          const data = await pdfParse(fs.readFileSync(tempFile))
           
           if (data.text && data.text.trim().length > 50) {
-            console.log('Temporary file approach successful, length:', data.text.length)
-            return this.summarizeText(data.text.trim())
+            console.log('✅ Temporary file approach successful, length:', data.text.length)
+            console.log('Text preview:', data.text.substring(0, 300))
+            // Don't summarize for grading - we need all the text
+            return data.text.trim()
           }
         } finally {
           // Clean up temp file
@@ -150,13 +290,56 @@ export class FileProcessor {
           }
         }
       } catch (tempFileError) {
-        console.log('Temporary file approach failed:', tempFileError instanceof Error ? tempFileError.message : String(tempFileError))
+        // Ignore test file errors
+        if (tempFileError instanceof Error && tempFileError.message.includes('test/data')) {
+          console.log('⚠️ pdf-parse test file error in temp file approach (can be ignored)')
+        } else {
+          console.log('Temporary file approach failed:', tempFileError instanceof Error ? tempFileError.message : String(tempFileError))
+        }
       }
       
-      // Method 4: Return whatever we got from custom extraction
-      if (customText && customText.trim().length > 20) {
-        console.log('Using partial custom extraction, length:', customText.length)
-        return this.summarizeText(customText.trim())
+      // Method 3: Try custom extraction as fallback (but check it's not PDF structure)
+      console.log('Trying custom extraction as fallback...')
+      const customText = this.extractTextFromPDFBuffer(buffer)
+      console.log('Custom extraction result:', {
+        length: customText?.length || 0,
+        preview: customText?.substring(0, 200) + '...',
+        firstChars: customText?.substring(0, 100)
+      })
+      
+      // Check if custom extraction returned actual text (not PDF structure)
+      const isPDFStructure = (text: string): boolean => {
+        if (!text || text.length < 50) return false
+        // Check for common PDF structure patterns
+        const structurePatterns = [
+          /endobj/g,
+          /Pages\s+\d+\s+0\s+R/g,
+          /Metadata\s+\d+\s+0\s+R/g,
+          /FlateDecode/g,
+          /WinAnsiEncoding/g,
+          /FontFile2/g,
+          /CIDFontType2/g
+        ]
+        const structureCount = structurePatterns.reduce((count, pattern) => {
+          return count + (text.match(pattern) || []).length
+        }, 0)
+        // If more than 5 structure patterns found, it's likely PDF metadata
+        return structureCount > 5 || (text.match(/endobj/g) || []).length > 10
+      }
+      
+      if (customText && customText.trim().length > 50 && !isPDFStructure(customText)) {
+        console.log('✅ Custom extraction successful (not PDF structure), length:', customText.length)
+        return customText.trim()
+      } else if (customText && isPDFStructure(customText)) {
+        console.log('⚠️ Custom extraction returned PDF structure/metadata, skipping...')
+      }
+      
+      // Method 4: Try aggressive extraction as last resort
+      console.log('Trying aggressive extraction without content filtering...')
+      const aggressiveText = this.extractTextAggressively(buffer)
+      if (aggressiveText && aggressiveText.trim().length > 50 && !isPDFStructure(aggressiveText)) {
+        console.log('✅ Aggressive extraction successful, length:', aggressiveText.length)
+        return aggressiveText.trim()
       }
       
           // If nothing worked, return minimal content for Claude to work with
@@ -363,8 +546,8 @@ Status: Text extraction completed`
               .replace(/\\t/g, '\t')
               .replace(/\\(.)/g, '$1') // Unescape other characters
             
-            // Filter out encoded/garbled text and prioritize educational content
-            if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText)) {
+            // Filter out encoded/garbled text (but don't filter by educational content for grading)
+            if (this.isReadableText(extractedText)) {
               textObjects.push(extractedText.trim())
             }
           }
@@ -385,8 +568,8 @@ Status: Text extraction completed`
               .replace(/\\t/g, '\t')
               .replace(/\\(.)/g, '$1')
             
-            // Filter out encoded/garbled text and prioritize educational content
-            if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText)) {
+            // Filter out encoded/garbled text (but don't filter by educational content for grading)
+            if (this.isReadableText(extractedText)) {
               textObjects.push(extractedText.trim())
             }
           }
@@ -394,9 +577,10 @@ Status: Text extraction completed`
       }
       
       // Pattern 3: Look for readable text patterns (for PowerPoint PDFs) - enhanced
-      const readableText = pdfString.match(/[A-Za-z][A-Za-z0-9\s.,!?;:'"()-]{15,}/g) || []
+      // Less restrictive for grading - we need all text
+      const readableText = pdfString.match(/[A-Za-z][A-Za-z0-9\s.,!?;:'"()-]{10,}/g) || []
       for (const text of readableText) {
-        if (this.isReadableText(text) && this.isEducationalContent(text) && text.trim().length > 15) {
+        if (this.isReadableText(text) && text.trim().length > 10) {
           textObjects.push(text.trim())
         }
       }
@@ -412,7 +596,7 @@ Status: Text extraction completed`
             .replace(/\\t/g, '\t')
             .replace(/\\(.)/g, '$1')
           
-          if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText) && extractedText.trim().length > 5) {
+          if (this.isReadableText(extractedText) && extractedText.trim().length > 5) {
             textObjects.push(extractedText.trim())
           }
         }
@@ -429,7 +613,7 @@ Status: Text extraction completed`
             .replace(/\\t/g, '\t')
             .replace(/\\(.)/g, '$1')
           
-          if (this.isReadableText(extractedText) && this.isEducationalContent(extractedText) && extractedText.trim().length > 5) {
+          if (this.isReadableText(extractedText) && extractedText.trim().length > 5) {
             textObjects.push(extractedText.trim())
           }
         }
@@ -448,6 +632,41 @@ Status: Text extraction completed`
         .trim()
     } catch (error) {
       console.error('Custom PDF text extraction error:', error)
+      return ''
+    }
+  }
+
+  private static extractTextAggressively(buffer: Buffer): string {
+    try {
+      const pdfString = buffer.toString('latin1')
+      const textObjects: string[] = []
+      
+      // Extract ALL text from BT/ET blocks without filtering
+      const btEtMatches = pdfString.match(/BT\s+.*?ET/gs) || []
+      for (const match of btEtMatches) {
+        const textMatches = match.match(/\((.*?)\)\s*Tj|\[(.*?)\]\s*TJ/g) || []
+        for (const textMatch of textMatches) {
+          const text = textMatch.match(/\(([^)]+)\)|\[([^\]]+)\]/)
+          if (text) {
+            let extractedText = (text[1] || text[2] || '')
+              .replace(/\\n/g, '\n')
+              .replace(/\\r/g, '\n')
+              .replace(/\\t/g, '\t')
+              .replace(/\\(.)/g, '$1')
+            
+            // Only filter out obviously garbled text (very permissive)
+            if (extractedText.trim().length > 3 && 
+                !extractedText.match(/^[^\w\s]+$/) && // Not all symbols
+                extractedText.match(/[A-Za-z]/)) { // Has at least one letter
+              textObjects.push(extractedText.trim())
+            }
+          }
+        }
+      }
+      
+      return textObjects.join('\n').trim()
+    } catch (error) {
+      console.error('Aggressive extraction error:', error)
       return ''
     }
   }
