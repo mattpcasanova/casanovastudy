@@ -514,39 +514,327 @@ function generateGradingPDFContent(
     month: 'long',
     day: 'numeric'
   })
+  
+  // Determine grade based on percentage
+  let grade = 'F'
+  let gradeColor = '#ef4444' // red
+  if (parseFloat(percentage) >= 90) { grade = 'A*'; gradeColor = '#10b981'; } // green
+  else if (parseFloat(percentage) >= 80) { grade = 'A'; gradeColor = '#10b981'; }
+  else if (parseFloat(percentage) >= 70) { grade = 'B'; gradeColor = '#3b82f6'; } // blue
+  else if (parseFloat(percentage) >= 60) { grade = 'C'; gradeColor = '#f59e0b'; } // amber
+  else if (parseFloat(percentage) >= 50) { grade = 'D'; gradeColor = '#f59e0b'; }
+  else if (parseFloat(percentage) >= 40) { grade = 'E'; gradeColor = '#ef4444'; }
 
-  // Simple, clean format matching the website
-  let content = `<style>
-  body { font-family: Arial, sans-serif; }
-  h1 { color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
-  h2 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 5px; margin-top: 20px; }
-  p { color: #000000; line-height: 1.6; }
-  .explanation { color: #000000; }
-  strong { color: #000000; }
+  // Clean, professional PDF report
+  const content = `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body { 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #1f2937;
+    line-height: 1.6;
+    background: #ffffff;
+    padding: 48px;
+  }
+  
+  /* Clean header without redundancy */
+  .header {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  
+  .student-name {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+  
+  .exam-date {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .exam-title {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  
+  /* Score summary section */
+  .score-summary {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    background: #f9fafb;
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 40px;
+  }
+  
+  .score-circle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, ${gradeColor} 0%, ${gradeColor}dd 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .score-number {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  
+  .score-total {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+  
+  .grade-info {
+    flex: 1;
+  }
+  
+  .grade-label {
+    font-size: 14px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  
+  .grade-value {
+    font-size: 48px;
+    font-weight: 700;
+    color: ${gradeColor};
+    line-height: 1;
+  }
+  
+  .percentage {
+    font-size: 20px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  
+  /* Question breakdown */
+  .breakdown-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 24px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  
+  .question {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+    page-break-inside: avoid;
+    transition: box-shadow 0.2s;
+  }
+  
+  .question:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .q-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .q-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+  
+  .q-marks {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .marks-badge {
+    background: ${gradeColor}15;
+    color: ${gradeColor};
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid ${gradeColor}30;
+  }
+  
+  .marks-percent {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+  
+  .q-explanation {
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.6;
+    padding-left: 4px;
+  }
+  
+  /* Performance summary at bottom */
+  .summary-section {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 2px solid #e5e7eb;
+  }
+  
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  
+  .summary-box {
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .summary-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  
+  .summary-content {
+    font-size: 14px;
+    color: #1f2937;
+    line-height: 1.5;
+  }
+  
+  /* Remove any blue accent lines - use subtle gray */
+  hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
+  }
+  
+  @media print {
+    body {
+      padding: 24px;
+    }
+    .question:hover {
+      box-shadow: none;
+    }
+  }
 </style>
+</head>
+<body>
 
-# Exam Grading Report
+<!-- Clean header without duplication -->
+<div class="header">
+  <div class="header-row">
+    <div class="student-name">${studentExamName.replace('.pdf', '').replace(/_/g, ' ')}</div>
+    <div class="exam-date">${currentDate}</div>
+  </div>
+  <div class="exam-title">Exam Grading Report</div>
+</div>
 
-**Student:** ${studentExamName}  
-**Date:** ${currentDate}  
-**Total Score:** ${totalMarks} / ${totalPossibleMarks} marks (${percentage}%)
+<!-- Score summary with grade -->
+<div class="score-summary">
+  <div class="score-circle">
+    <div class="score-number">${totalMarks}</div>
+    <div class="score-total">out of ${totalPossibleMarks}</div>
+  </div>
+  <div class="grade-info">
+    <div class="grade-label">Grade</div>
+    <div class="grade-value">${grade}</div>
+    <div class="percentage">${percentage}%</div>
+  </div>
+</div>
 
----
+<!-- Question breakdown -->
+<div class="breakdown-title">Question Breakdown</div>
 
-`
+${gradeBreakdown.map((item) => {
+  const qPercent = item.marksPossible > 0 
+    ? ((item.marksAwarded / item.marksPossible) * 100).toFixed(0) 
+    : '0';
+  
+  // Determine color based on performance
+  let markColor = '#ef4444'; // red
+  if (parseFloat(qPercent) >= 80) markColor = '#10b981'; // green
+  else if (parseFloat(qPercent) >= 60) markColor = '#3b82f6'; // blue
+  else if (parseFloat(qPercent) >= 40) markColor = '#f59e0b'; // amber
+  
+  return `
+<div class="question">
+  <div class="q-header">
+    <div class="q-title">Question ${item.questionNumber}</div>
+    <div class="q-marks">
+      <span class="marks-badge" style="background: ${markColor}15; color: ${markColor}; border-color: ${markColor}30;">
+        ${item.marksAwarded} / ${item.marksPossible}
+      </span>
+      <span class="marks-percent">${qPercent}%</span>
+    </div>
+  </div>
+  <div class="q-explanation">${item.explanation}</div>
+</div>
+`;
+}).join('')}
 
-  // Add each question in simple format (matching website)
-  gradeBreakdown.forEach((item) => {
-    content += `## Question ${item.questionNumber} - ${item.marksAwarded}/${item.marksPossible} marks
+<!-- Performance summary -->
+<div class="summary-section">
+  <div class="summary-grid">
+    <div class="summary-box">
+      <div class="summary-title">Strengths</div>
+      <div class="summary-content">
+        ${gradeBreakdown
+          .filter(q => (q.marksAwarded / q.marksPossible) >= 0.7)
+          .map(q => `Strong performance on Question ${q.questionNumber}`)
+          .join(', ') || 'Continue developing your understanding across all topics'}
+      </div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-title">Areas for Improvement</div>
+      <div class="summary-content">
+        ${gradeBreakdown
+          .filter(q => (q.marksAwarded / q.marksPossible) < 0.5)
+          .map(q => `Review Question ${q.questionNumber} concepts`)
+          .join(', ') || 'Maintain consistent performance across all questions'}
+      </div>
+    </div>
+  </div>
+</div>
 
-<div class="explanation">${item.explanation}</div>
-
----
-
-`
-  })
-
-  // Don't add teacher comments to PDF - they're only for grading context
+</body>
+</html>`
   
   return content
 }
