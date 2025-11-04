@@ -30,10 +30,7 @@ export class PDFShiftPDFGenerator {
           sandbox: false,
           landscape: false,
           format: 'A4',
-          margin: '0.5in',
-          // Wait for all resources to load before generating PDF
-          wait: 3000, // Wait 3 seconds for fonts/images to load
-          delay: 1000 // Additional delay after page load
+          margin: '0.5in'
         }),
         signal: controller.signal
       })
