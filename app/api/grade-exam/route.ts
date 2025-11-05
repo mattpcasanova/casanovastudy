@@ -6,6 +6,7 @@ import { storePDF } from '@/app/api/pdf/[filename]/route'
 
 interface GradingResult {
   pdfUrl: string
+  pdfDataUrl?: string // Base64 data URL as fallback for downloads
   totalMarks: number
   totalPossibleMarks: number
   gradeBreakdown: Array<{
@@ -227,12 +228,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tokenUsage: claudeResponse.usage
     })
 
+    // Validate PDF buffer before storing
+    if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
+      console.error('❌ Invalid PDF buffer generated:', {
+        isBuffer: Buffer.isBuffer(pdfBuffer),
+        length: pdfBuffer?.length || 0,
+        type: typeof pdfBuffer
+      })
+      throw new Error('Failed to generate valid PDF buffer')
+    }
+
+    console.log('✅ PDF buffer generated successfully:', {
+      size: pdfBuffer.length,
+      gradingId: gradingId
+    })
+
     // Store PDF - store without .pdf extension (route strips it)
     storePDF(gradingId, pdfBuffer)
+    console.log('✅ PDF stored with key:', gradingId)
+    
+    // Create base64 data URL as fallback (for serverless environments where in-memory storage may not persist)
+    const pdfBase64 = pdfBuffer.toString('base64')
+    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
+    
     const pdfUrl = `/api/pdf/${gradingId}.pdf`
 
     const result: GradingResult = {
       pdfUrl,
+      pdfDataUrl, // Add base64 fallback for reliable downloads
       totalMarks,
       totalPossibleMarks,
       gradeBreakdown,
@@ -508,334 +531,226 @@ function generateGradingPDFContent(
   studentExamName: string,
   additionalComments?: string
 ): string {
-  const percentage = ((totalMarks / totalPossibleMarks) * 100).toFixed(1)
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-  
-  // Determine grade based on percentage
-  let grade = 'F'
-  let gradeColor = '#ef4444' // red
-  if (parseFloat(percentage) >= 90) { grade = 'A*'; gradeColor = '#10b981'; } // green
-  else if (parseFloat(percentage) >= 80) { grade = 'A'; gradeColor = '#10b981'; }
-  else if (parseFloat(percentage) >= 70) { grade = 'B'; gradeColor = '#3b82f6'; } // blue
-  else if (parseFloat(percentage) >= 60) { grade = 'C'; gradeColor = '#f59e0b'; } // amber
-  else if (parseFloat(percentage) >= 50) { grade = 'D'; gradeColor = '#f59e0b'; }
-  else if (parseFloat(percentage) >= 40) { grade = 'E'; gradeColor = '#ef4444'; }
+  const percentage = totalPossibleMarks > 0 ? ((totalMarks / totalPossibleMarks) * 100).toFixed(1) : '0'
+  const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-  // Clean, professional PDF report
-  const content = `<!DOCTYPE html>
+  // Determine grade
+  let grade = 'F'
+  let gradeColor = '#dc2626'
+  const percentNum = parseFloat(percentage)
+  if (percentNum >= 90) { grade = 'A*'; gradeColor = '#059669'; }
+  else if (percentNum >= 80) { grade = 'A'; gradeColor = '#10b981'; }
+  else if (percentNum >= 70) { grade = 'B'; gradeColor = '#3b82f6'; }
+  else if (percentNum >= 60) { grade = 'C'; gradeColor = '#f59e0b'; }
+  else if (percentNum >= 50) { grade = 'D'; gradeColor = '#f97316'; }
+  else if (percentNum >= 40) { grade = 'E'; gradeColor = '#ef4444'; }
+
+  const studentName = studentExamName.replace(/\.(pdf|docx)$/i, '').replace(/_/g, ' ')
+
+  return `<!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
-  body { 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #1f2937;
-    line-height: 1.6;
-    background: #ffffff;
-    padding: 48px;
-  }
-  
-  /* Clean header without redundancy */
-  .header {
-    margin-bottom: 32px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  
-  .header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 8px;
-  }
-  
-  .student-name {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1f2937;
-  }
-  
-  .exam-date {
-    font-size: 14px;
-    color: #6b7280;
-  }
-  
-  .exam-title {
-    font-size: 14px;
-    color: #6b7280;
-    margin-top: 4px;
-  }
-  
-  /* Score summary section */
-  .score-summary {
-    display: flex;
-    gap: 24px;
-    align-items: center;
-    background: #f9fafb;
-    padding: 24px;
-    border-radius: 12px;
-    margin-bottom: 40px;
-  }
-  
-  .score-circle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, ${gradeColor} 0%, ${gradeColor}dd 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-  
-  .score-number {
-    font-size: 32px;
-    font-weight: 700;
-    line-height: 1;
-  }
-  
-  .score-total {
-    font-size: 14px;
-    opacity: 0.9;
-    margin-top: 4px;
-  }
-  
-  .grade-info {
-    flex: 1;
-  }
-  
-  .grade-label {
-    font-size: 14px;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
-  
-  .grade-value {
-    font-size: 48px;
-    font-weight: 700;
-    color: ${gradeColor};
-    line-height: 1;
-  }
-  
-  .percentage {
-    font-size: 20px;
-    color: #6b7280;
-    margin-top: 4px;
-  }
-  
-  /* Question breakdown */
-  .breakdown-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 24px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e5e7eb;
-  }
-  
-  .question {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 16px;
-    page-break-inside: avoid;
-    transition: box-shadow 0.2s;
-  }
-  
-  .question:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  }
-  
-  .q-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-  
-  .q-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1f2937;
-  }
-  
-  .q-marks {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .marks-badge {
-    background: ${gradeColor}15;
-    color: ${gradeColor};
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    border: 1px solid ${gradeColor}30;
-  }
-  
-  .marks-percent {
-    font-size: 12px;
-    color: #6b7280;
-    font-weight: 500;
-  }
-  
-  .q-explanation {
-    color: #4b5563;
-    font-size: 14px;
-    line-height: 1.6;
-    padding-left: 4px;
-  }
-  
-  /* Performance summary at bottom */
-  .summary-section {
-    margin-top: 48px;
-    padding-top: 32px;
-    border-top: 2px solid #e5e7eb;
-  }
-  
-  .summary-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-  
-  .summary-box {
-    background: #f9fafb;
-    padding: 20px;
-    border-radius: 8px;
-  }
-  
-  .summary-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-  }
-  
-  .summary-content {
-    font-size: 14px;
-    color: #1f2937;
-    line-height: 1.5;
-  }
-  
-  /* Remove any blue accent lines - use subtle gray */
-  hr {
-    border: none;
-    border-top: 1px solid #e5e7eb;
-    margin: 24px 0;
-  }
-  
-  @media print {
-    body {
-      padding: 24px;
-    }
-    .question:hover {
-      box-shadow: none;
-    }
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  color: #111827;
+  line-height: 1.5;
+  padding: 24px;
+  background: #fff;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.student-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+.date {
+  font-size: 13px;
+  color: #6b7280;
+}
+.score-banner {
+  background: linear-gradient(135deg, ${gradeColor}15 0%, ${gradeColor}08 100%);
+  border-left: 4px solid ${gradeColor};
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.score-main {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+.grade-box {
+  font-size: 48px;
+  font-weight: 800;
+  color: ${gradeColor};
+  line-height: 1;
+  min-width: 70px;
+  text-align: center;
+}
+.score-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.score-points {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+.score-percent {
+  font-size: 15px;
+  color: #6b7280;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 24px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.question {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.q-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.q-number {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.q-score {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.q-feedback {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+.summary {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #e5e7eb;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.summary-box {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 14px;
+}
+.summary-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.summary-list {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.6;
+}
+.summary-list li {
+  margin-bottom: 4px;
+}
+.footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+  font-size: 11px;
+  color: #9ca3af;
+}
 </style>
 </head>
 <body>
 
-<!-- Clean header without duplication -->
 <div class="header">
-  <div class="header-row">
-    <div class="student-name">${studentExamName.replace('.pdf', '').replace(/_/g, ' ')}</div>
-    <div class="exam-date">${currentDate}</div>
-  </div>
-  <div class="exam-title">Exam Grading Report</div>
+  <div class="student-name">${studentName}</div>
+  <div class="date">${currentDate}</div>
 </div>
 
-<!-- Score summary with grade -->
-<div class="score-summary">
-  <div class="score-circle">
-    <div class="score-number">${totalMarks}</div>
-    <div class="score-total">out of ${totalPossibleMarks}</div>
-  </div>
-  <div class="grade-info">
-    <div class="grade-label">Grade</div>
-    <div class="grade-value">${grade}</div>
-    <div class="percentage">${percentage}%</div>
+<div class="score-banner">
+  <div class="score-main">
+    <div class="grade-box">${grade}</div>
+    <div class="score-info">
+      <div class="score-points">${totalMarks} / ${totalPossibleMarks} marks</div>
+      <div class="score-percent">${percentage}% • AICE Business Exam</div>
+    </div>
   </div>
 </div>
 
-<!-- Question breakdown -->
-<div class="breakdown-title">Question Breakdown</div>
+<div class="section-title">Question Breakdown</div>
 
 ${gradeBreakdown.map((item) => {
-  const qPercent = item.marksPossible > 0 
-    ? ((item.marksAwarded / item.marksPossible) * 100).toFixed(0) 
-    : '0';
-  
-  // Determine color based on performance
-  let markColor = '#ef4444'; // red
-  if (parseFloat(qPercent) >= 80) markColor = '#10b981'; // green
-  else if (parseFloat(qPercent) >= 60) markColor = '#3b82f6'; // blue
-  else if (parseFloat(qPercent) >= 40) markColor = '#f59e0b'; // amber
-  
-  return `
-<div class="question">
+  const qPercent = item.marksPossible > 0 ? ((item.marksAwarded / item.marksPossible) * 100) : 0;
+  let color = '#dc2626';
+  let bg = '#dc262615';
+  if (qPercent >= 80) { color = '#059669'; bg = '#05966915'; }
+  else if (qPercent >= 60) { color = '#3b82f6'; bg = '#3b82f615'; }
+  else if (qPercent >= 40) { color = '#f59e0b'; bg = '#f59e0b15'; }
+
+  return `<div class="question">
   <div class="q-header">
-    <div class="q-title">Question ${item.questionNumber}</div>
-    <div class="q-marks">
-      <span class="marks-badge" style="background: ${markColor}15; color: ${markColor}; border-color: ${markColor}30;">
-        ${item.marksAwarded} / ${item.marksPossible}
-      </span>
-      <span class="marks-percent">${qPercent}%</span>
-    </div>
+    <div class="q-number">Question ${item.questionNumber}</div>
+    <div class="q-score" style="background: ${bg}; color: ${color};">${item.marksAwarded}/${item.marksPossible} (${qPercent.toFixed(0)}%)</div>
   </div>
-  <div class="q-explanation">${item.explanation}</div>
-</div>
-`;
+  <div class="q-feedback">${item.explanation}</div>
+</div>`;
 }).join('')}
 
-<!-- Performance summary -->
-<div class="summary-section">
-  <div class="summary-grid">
-    <div class="summary-box">
-      <div class="summary-title">Strengths</div>
-      <div class="summary-content">
-        ${gradeBreakdown
-          .filter(q => (q.marksAwarded / q.marksPossible) >= 0.7)
-          .map(q => `Strong performance on Question ${q.questionNumber}`)
-          .join(', ') || 'Continue developing your understanding across all topics'}
-      </div>
-    </div>
-    <div class="summary-box">
-      <div class="summary-title">Areas for Improvement</div>
-      <div class="summary-content">
-        ${gradeBreakdown
-          .filter(q => (q.marksAwarded / q.marksPossible) < 0.5)
-          .map(q => `Review Question ${q.questionNumber} concepts`)
-          .join(', ') || 'Maintain consistent performance across all questions'}
-      </div>
-    </div>
+<div class="summary">
+  <div class="summary-box">
+    <div class="summary-title">Strengths</div>
+    <ul class="summary-list">
+      ${gradeBreakdown.filter(q => (q.marksAwarded / q.marksPossible) >= 0.7).slice(0, 3)
+        .map(q => `<li>Question ${q.questionNumber}</li>`).join('') ||
+        '<li>Keep building on fundamentals</li>'}
+    </ul>
   </div>
+  <div class="summary-box">
+    <div class="summary-title">Focus Areas</div>
+    <ul class="summary-list">
+      ${gradeBreakdown.filter(q => (q.marksAwarded / q.marksPossible) < 0.5).slice(0, 3)
+        .map(q => `<li>Question ${q.questionNumber}</li>`).join('') ||
+        '<li>Maintain strong performance</li>'}
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  CasanovaStudy Exam Grader • ${currentDate}
 </div>
 
 </body>
-</html>`
-  
-  return content
+</html>`;
 }
 

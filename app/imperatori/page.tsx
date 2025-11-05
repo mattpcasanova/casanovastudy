@@ -14,6 +14,7 @@ import Image from "next/image"
 
 interface GradingResult {
   pdfUrl: string
+  pdfDataUrl?: string // Base64 data URL as fallback for downloads
   totalMarks: number
   totalPossibleMarks: number
   gradeBreakdown: Array<{
@@ -439,7 +440,18 @@ export default function ImperatoriGradingPage() {
                 <div className="pt-6 border-t">
                   <Button
                     onClick={() => {
-                      window.open(gradingResult.pdfUrl, "_blank")
+                      // Use base64 data URL as primary method (more reliable in serverless environments)
+                      if (gradingResult.pdfDataUrl) {
+                        const link = document.createElement('a')
+                        link.href = gradingResult.pdfDataUrl
+                        link.download = `Graded_Exam_${Date.now()}.pdf`
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                      } else if (gradingResult.pdfUrl) {
+                        // Fallback to API route
+                        window.open(gradingResult.pdfUrl, "_blank")
+                      }
                     }}
                     className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-6 text-lg font-semibold"
                     size="lg"
