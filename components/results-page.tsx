@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Download, Mail, FileText, CheckCircle, Sparkles, Share2 } from "lucide-react"
+import { ArrowLeft, Download, Mail, FileText, CheckCircle, Sparkles, Share2, BookOpen, Smartphone, Link, Printer } from "lucide-react"
 import { StudyGuideData, StudyGuideResponse } from "@/types"
 import { useState } from "react"
 
@@ -21,24 +21,9 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
 
-  const handleDownloadPDF = () => {
-    // Use base64 data URL directly for reliable downloads
-    if (studyGuideResponse?.pdfDataUrl) {
-      const link = document.createElement('a')
-      link.href = studyGuideResponse.pdfDataUrl
-      link.download = `${studyGuideResponse.title}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } else if (studyGuideResponse?.pdfUrl) {
-      // Fallback to API route
-      const link = document.createElement('a')
-      link.href = studyGuideResponse.pdfUrl
-      link.download = `${studyGuideResponse.title}.pdf`
-      link.target = '_blank'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+  const handleViewStudyGuide = () => {
+    if (studyGuideResponse?.studyGuideUrl) {
+      window.location.href = studyGuideResponse.studyGuideUrl
     }
   }
 
@@ -75,8 +60,8 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
-      <div className="bg-gradient-to-r from-primary via-accent to-primary text-primary-foreground py-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-10 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
           <div
@@ -87,12 +72,17 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
             }}
           ></div>
         </div>
-        <div className="container mx-auto px-4 relative">
+
+        {/* Animated background orbs */}
+        <div className="absolute top-10 left-10 w-72 h-72 bg-blue-400/30 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+
+        <div className="container mx-auto px-4 py-4 relative">
           <div className="flex items-center gap-4 mb-6">
             <Button
               variant="ghost"
               onClick={onBack}
-              className="text-primary-foreground hover:bg-primary-foreground/10 transition-all duration-200 hover:scale-105"
+              className="text-white hover:bg-white/10 transition-all duration-200 hover:scale-105 backdrop-blur-sm"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -100,20 +90,26 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <CheckCircle className="h-12 w-12 text-green-400 animate-in zoom-in-50 duration-500" />
-              <h1 className="text-5xl font-bold text-balance animate-in slide-in-from-bottom-4 duration-700">
-                Study Guide Complete!
+              <div className="relative">
+                <CheckCircle className="h-12 w-12 text-green-400 animate-in zoom-in-50 duration-500" />
+                <div className="absolute inset-0 h-12 w-12 bg-green-400/20 rounded-full animate-ping"></div>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold text-balance animate-in slide-in-from-bottom-4 duration-700">
+                Success!
               </h1>
-              <Sparkles className="h-12 w-12 text-yellow-400 animate-pulse" />
+              <Sparkles className="h-12 w-12 text-yellow-300 animate-bounce" />
             </div>
-            <p className="text-xl text-primary-foreground/90 text-pretty max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-6 duration-700 [animation-delay:200ms]">
-              Your personalized study guide is ready for download and sharing
+            <p className="text-xl font-semibold mb-2 animate-in slide-in-from-bottom-6 duration-700 [animation-delay:200ms]">
+              Your Interactive Study Guide is Ready
+            </p>
+            <p className="text-base text-white/80 max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-6 duration-700 [animation-delay:400ms]">
+              Click below to view your personalized, interactive study guide
             </p>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-8 -mt-6">
         <div className="max-w-4xl mx-auto space-y-8">
           <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
             <CardHeader className="pb-6">
@@ -205,92 +201,89 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
             </CardContent>
           </Card>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-left-8 duration-700 [animation-delay:200ms]">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-xl text-foreground flex items-center gap-3">
-                  <Download className="h-5 w-5 text-primary" />
-                  Download & Share
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <Card className="shadow-2xl border-0 overflow-hidden transition-all duration-300 hover:shadow-3xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:200ms] max-w-4xl mx-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-6">
+              <h3 className="text-xl font-semibold flex items-center gap-2 justify-center">
+                <BookOpen className="h-5 w-5" />
+                Access Your Study Guide
+              </h3>
+            </div>
+            <CardContent className="space-y-5 pt-6 pb-6 bg-gradient-to-br from-white to-blue-50">
+                <div className="text-center space-y-2">
+                  <p className="text-base font-semibold text-gray-800">
+                    {studyGuideData?.format && `${studyGuideData.format.charAt(0).toUpperCase() + studyGuideData.format.slice(1)}`} Format
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {studyGuideData?.format === 'flashcards' ? '3D flip cards with mastery tracking' : studyGuideData?.format === 'quiz' ? 'Interactive questions with instant feedback' : studyGuideData?.format === 'outline' ? 'Collapsible sections with progress tracking' : 'Highlighted key terms and study tips'}
+                  </p>
+                </div>
+
                 <Button
-                  onClick={handleDownloadPDF}
-                  disabled={!studyGuideResponse?.pdfDataUrl}
-                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  size="lg"
+                  onClick={handleViewStudyGuide}
+                  disabled={!studyGuideResponse?.studyGuideUrl}
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-base font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  {studyGuideResponse?.pdfDataUrl ? 'Download PDF' : 'Generating...'}
+                  <BookOpen className="h-5 w-5 mr-2" />
+                  {studyGuideResponse?.studyGuideUrl ? 'View Interactive Study Guide' : 'Generating...'}
                 </Button>
+
+                <div className="relative py-3">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-3 bg-gradient-to-r from-white to-blue-50 text-gray-500">or</span>
+                  </div>
+                </div>
 
                 <Button
                   onClick={onCreateAnother}
                   variant="outline"
-                  className="w-full border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg"
-                  size="lg"
+                  className="w-full h-11 border-2 border-indigo-400 text-indigo-600 hover:bg-indigo-600 hover:text-white bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg font-semibold"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Create Another Guide
+                  Create Another Study Guide
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-right-8 duration-700 [animation-delay:400ms]">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-xl text-foreground flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-accent" />
-                  Email Study Guide
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <Label htmlFor="email" className="text-foreground font-medium">
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="transition-all duration-200 hover:border-accent/50 focus:border-accent"
-                  />
+          {/* Quick Tips Card */}
+          <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-white to-green-50 transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:400ms] max-w-4xl mx-auto">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-100 mb-2">
+                  <Sparkles className="h-7 w-7 text-green-600" />
                 </div>
-
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={!email || !studyGuideResponse?.pdfDataUrl || isSendingEmail}
-                  className={`w-full transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
-                    emailSent
-                      ? "bg-green-500 hover:bg-green-600 text-white"
-                      : "bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-accent-foreground"
-                  }`}
-                  size="lg"
-                >
-                  {emailSent ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Email Sent!
-                    </>
-                  ) : isSendingEmail ? (
-                    <>
-                      <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-accent-foreground border-t-transparent" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Email
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                <h3 className="text-xl font-bold text-gray-800">What's Next?</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="p-4 bg-white rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Smartphone className="h-4 w-4 text-green-600" />
+                      <div className="font-semibold text-gray-800">Mobile Friendly</div>
+                    </div>
+                    <p className="text-gray-600">Study on any device, anywhere</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Link className="h-4 w-4 text-green-600" />
+                      <div className="font-semibold text-gray-800">Share Link</div>
+                    </div>
+                    <p className="text-gray-600">Copy URL to share with classmates</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Printer className="h-4 w-4 text-green-600" />
+                      <div className="font-semibold text-gray-800">Print Option</div>
+                    </div>
+                    <p className="text-gray-600">Download PDF if needed</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {studyGuideData && (
-            <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:600ms]">
+            <Card className="shadow-xl border-0 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:600ms] max-w-4xl mx-auto">
               <CardHeader className="pb-6">
                 <CardTitle className="text-xl text-foreground flex items-center gap-3">
                   <Share2 className="h-5 w-5 text-primary" />

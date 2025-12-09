@@ -25,6 +25,7 @@ import {
   BookOpen,
   ChevronRight,
   ExternalLink,
+  Waves,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -84,11 +85,15 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
     e.stopPropagation()
     setDragActive(false)
 
+    if (isGenerating) return
+
     const droppedFiles = Array.from(e.dataTransfer.files)
     addFiles(droppedFiles)
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isGenerating) return
+
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files)
       addFiles(selectedFiles)
@@ -179,9 +184,9 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
         studyGuideName,
         subject,
         gradeLevel,
-        format,
+        format: format as 'outline' | 'flashcards' | 'quiz' | 'summary',
         topicFocus: topicFocus || undefined,
-        difficultyLevel: difficultyLevel || undefined,
+        difficultyLevel: difficultyLevel as 'beginner' | 'intermediate' | 'advanced' | undefined,
         additionalInstructions: additionalInstructions || undefined,
       })
     }
@@ -226,7 +231,9 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                   <div className="space-y-3">
                     <div className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xl">🌊</span>
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                          <Waves className="h-4 w-4 text-blue-600" />
+                        </div>
                         <div>
                           <h4 className="font-medium text-gray-900">Marine Science</h4>
                           <p className="text-xs text-gray-500">AICE Level</p>
@@ -260,25 +267,45 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
             </div>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 mx-auto max-w-4xl">
+          <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 mx-auto max-w-4xl shadow-2xl border border-white/10">
             <p className="text-xl text-center text-white text-pretty leading-relaxed">
-              Transform your course materials into personalized study guides with smart learning assistance
+              Transform your course materials into <span className="font-bold text-yellow-300">interactive</span> study guides in seconds
             </p>
+            <div className="flex items-center justify-center gap-6 text-white/90 text-sm mt-4">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                </div>
+                <span>3x faster generation</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-blue-400/20 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                </div>
+                <span>Always accessible online</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-purple-400/20 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                </div>
+                <span>Mobile-friendly</span>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-center mt-10">
-            <div className="flex items-center gap-8 text-sm text-white/90 bg-black/10 px-8 py-4 rounded-full backdrop-blur-sm border border-white/20">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">PDF Support</span>
+            <div className="flex items-center gap-8 text-sm text-white/90 bg-black/10 px-8 py-4 rounded-full backdrop-blur-sm border border-white/20 shadow-lg">
+              <div className="flex items-center gap-2 group hover:scale-105 transition-transform">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse group-hover:bg-emerald-300"></div>
+                <span className="font-medium">Interactive Pages</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">Multiple Formats</span>
+              <div className="flex items-center gap-2 group hover:scale-105 transition-transform">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse group-hover:bg-blue-300"></div>
+                <span className="font-medium">4 Formats</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">Smart</span>
+              <div className="flex items-center gap-2 group hover:scale-105 transition-transform">
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse group-hover:bg-purple-300"></div>
+                <span className="font-medium">Smart Generation</span>
               </div>
             </div>
           </div>
@@ -300,7 +327,9 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
             <CardContent>
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
-                  dragActive
+                  isGenerating
+                    ? "opacity-50 cursor-not-allowed border-border"
+                    : dragActive
                     ? "border-primary bg-primary/10 scale-[1.02] shadow-lg"
                     : "border-border hover:border-primary/50 hover:bg-primary/5"
                 } ${errors.files ? "border-destructive bg-destructive/5" : ""}`}
@@ -434,12 +463,12 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                         <SelectValue placeholder="Select subject" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="mathematics">📐 Mathematics</SelectItem>
-                        <SelectItem value="science">🔬 Science</SelectItem>
-                        <SelectItem value="english">📚 English</SelectItem>
-                        <SelectItem value="history">🏛️ History</SelectItem>
-                        <SelectItem value="foreign-language">🌍 Foreign Language</SelectItem>
-                        <SelectItem value="other">📝 Other</SelectItem>
+                        <SelectItem value="mathematics">Mathematics</SelectItem>
+                        <SelectItem value="science">Science</SelectItem>
+                        <SelectItem value="english">English</SelectItem>
+                        <SelectItem value="history">History</SelectItem>
+                        <SelectItem value="foreign-language">Foreign Language</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.subject && (
@@ -464,7 +493,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                         <SelectItem value="10th">10th Grade</SelectItem>
                         <SelectItem value="11th">11th Grade</SelectItem>
                         <SelectItem value="12th">12th Grade</SelectItem>
-                        <SelectItem value="college">🎓 College</SelectItem>
+                        <SelectItem value="college">College</SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.gradeLevel && (
@@ -476,68 +505,118 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                 </div>
 
                 <div className="space-y-4">
-                  <Label className="text-foreground font-medium">Study Guide Format *</Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <Label className="text-foreground font-medium flex items-center gap-2">
+                    Study Guide Format *
+                    <span className="text-xs text-muted-foreground font-normal">(All formats are interactive!)</span>
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
-                      className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
-                        format === "outline" ? "border-primary bg-primary/5 shadow-md" : "border-border"
+                      className={`rounded-xl border-2 transition-all duration-300 group ${
+                        isGenerating
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer hover:scale-[1.02] hover:shadow-lg"
+                      } ${
+                        format === "outline"
+                          ? "border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200"
+                          : "border-border hover:border-blue-300 hover:bg-blue-50/50"
                       }`}
-                      onClick={() => setFormat("outline")}
+                      onClick={() => !isGenerating && setFormat("outline")}
                     >
-                      <div className="flex items-center space-x-3 p-4 h-full">
-                        <List className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm flex items-center gap-2">Outline</div>
-                          <div className="text-xs text-muted-foreground">Structured topic breakdown</div>
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${format === "outline" ? "bg-blue-500" : "bg-blue-100 group-hover:bg-blue-200"} transition-colors`}>
+                            <List className={`h-5 w-5 ${format === "outline" ? "text-white" : "text-blue-600"}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold text-base mb-1">Outline</div>
+                            <div className="text-xs text-muted-foreground leading-relaxed">
+                              Hierarchical breakdown with collapsible sections & progress tracking
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <div
-                      className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
-                        format === "flashcards" ? "border-primary bg-primary/5 shadow-md" : "border-border"
+                      className={`rounded-xl border-2 transition-all duration-300 group ${
+                        isGenerating
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer hover:scale-[1.02] hover:shadow-lg"
+                      } ${
+                        format === "flashcards"
+                          ? "border-indigo-500 bg-indigo-50 shadow-lg ring-2 ring-indigo-200"
+                          : "border-border hover:border-indigo-300 hover:bg-indigo-50/50"
                       }`}
-                      onClick={() => setFormat("flashcards")}
+                      onClick={() => !isGenerating && setFormat("flashcards")}
                     >
-                      <div className="flex items-center space-x-3 p-4 h-full">
-                        <CreditCard className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm flex items-center gap-2">Flashcards</div>
-                          <div className="text-xs text-muted-foreground">Question and answer cards</div>
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${format === "flashcards" ? "bg-indigo-500" : "bg-indigo-100 group-hover:bg-indigo-200"} transition-colors`}>
+                            <CreditCard className={`h-5 w-5 ${format === "flashcards" ? "text-white" : "text-indigo-600"}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold text-base mb-1">Flashcards</div>
+                            <div className="text-xs text-muted-foreground leading-relaxed">
+                              3D flip cards with mastery tracking & shuffle mode
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <div
-                      className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
-                        format === "quiz" ? "border-primary bg-primary/5 shadow-md" : "border-border"
+                      className={`rounded-xl border-2 transition-all duration-300 group ${
+                        isGenerating
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer hover:scale-[1.02] hover:shadow-lg"
+                      } ${
+                        format === "quiz"
+                          ? "border-purple-500 bg-purple-50 shadow-lg ring-2 ring-purple-200"
+                          : "border-border hover:border-purple-300 hover:bg-purple-50/50"
                       }`}
-                      onClick={() => setFormat("quiz")}
+                      onClick={() => !isGenerating && setFormat("quiz")}
                     >
-                      <div className="flex items-center space-x-3 p-4 h-full">
-                        <HelpCircle className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm flex items-center gap-2">Quiz</div>
-                          <div className="text-xs text-muted-foreground">Practice questions</div>
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${format === "quiz" ? "bg-purple-500" : "bg-purple-100 group-hover:bg-purple-200"} transition-colors`}>
+                            <HelpCircle className={`h-5 w-5 ${format === "quiz" ? "text-white" : "text-purple-600"}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold text-base mb-1">Quiz</div>
+                            <div className="text-xs text-muted-foreground leading-relaxed">
+                              Interactive questions with instant grading & detailed feedback
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <div
-                      className={`cursor-pointer rounded-lg border-2 transition-all duration-200 hover:bg-muted/50 hover:border-primary/70 h-20 min-w-0 ${
-                        format === "summary" ? "border-primary bg-primary/5 shadow-md" : "border-border"
+                      className={`rounded-xl border-2 transition-all duration-300 group ${
+                        isGenerating
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer hover:scale-[1.02] hover:shadow-lg"
+                      } ${
+                        format === "summary"
+                          ? "border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200"
+                          : "border-border hover:border-green-300 hover:bg-green-50/50"
                       }`}
-                      onClick={() => setFormat("summary")}
+                      onClick={() => !isGenerating && setFormat("summary")}
                     >
-                      <div className="flex items-center space-x-3 p-4 h-full">
-                        <ScrollText className="h-4 w-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm flex items-center gap-2">Summary</div>
-                          <div className="text-xs text-muted-foreground">Key points overview</div>
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${format === "summary" ? "bg-green-500" : "bg-green-100 group-hover:bg-green-200"} transition-colors`}>
+                            <ScrollText className={`h-5 w-5 ${format === "summary" ? "text-white" : "text-green-600"}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold text-base mb-1">Summary</div>
+                            <div className="text-xs text-muted-foreground leading-relaxed">
+                              Clean reading format with highlighted key terms & tips
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-
                   </div>
                   {errors.format && (
                     <p className="text-sm text-destructive animate-in slide-in-from-top-1 duration-200">
@@ -578,9 +657,9 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                         <SelectValue placeholder="Select difficulty" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="beginner">🌱 Beginner</SelectItem>
-                        <SelectItem value="intermediate">🌿 Intermediate</SelectItem>
-                        <SelectItem value="advanced">🌳 Advanced</SelectItem>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

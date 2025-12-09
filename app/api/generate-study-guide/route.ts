@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
-import { storePDF } from '@/app/api/pdf/[filename]/route'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<StudyGuideResponse>>> {
   const startTime = Date.now()
@@ -99,57 +98,55 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const claudeTime = Date.now() - claudeStart
     console.log(`⏱️ Claude API call completed in ${claudeTime}ms`)
 
+    // Save to Supabase
+    console.log('💾 Saving to Supabase...')
+    const supabaseStart = Date.now()
+
+    const { data: savedGuide, error: supabaseError } = await supabase
+      .from('study_guides')
+      .insert({
+        title: body.studyGuideName,
+        subject: body.subject,
+        grade_level: body.gradeLevel,
+        format: body.format,
+        content: claudeResponse.content,
+        topic_focus: body.topicFocus,
+        difficulty_level: body.difficultyLevel,
+        additional_instructions: body.additionalInstructions,
+        file_count: body.cloudinaryFiles?.length || body.files?.length || 0,
+        token_usage: claudeResponse.usage
+      })
+      .select()
+      .single()
+
+    if (supabaseError || !savedGuide) {
+      console.error('❌ Supabase save failed:', supabaseError)
+      throw new Error(`Failed to save study guide: ${supabaseError?.message || 'Unknown error'}`)
+    }
+
+    const supabaseTime = Date.now() - supabaseStart
+    console.log(`✅ Saved to Supabase in ${supabaseTime}ms`)
+
     // Create study guide response
-    const studyGuideId = `sg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const studyGuide: StudyGuideResponse = {
-      id: studyGuideId,
-      title: body.studyGuideName,
-      content: claudeResponse.content,
-      format: body.format,
-      generatedAt: new Date(),
-      fileCount: body.cloudinaryFiles?.length || body.files?.length || 0,
-      subject: body.subject,
-      gradeLevel: body.gradeLevel,
-      tokenUsage: claudeResponse.usage
-    }
-
-    // Generate PDF using PDFShift HTML-to-PDF service
-    console.log('📄 Starting PDF generation...')
-    const pdfStart = Date.now()
-    
-    let pdfBuffer: Buffer
-    try {
-      pdfBuffer = await PDFShiftPDFGenerator.generatePDF(studyGuide)
-      const pdfTime = Date.now() - pdfStart
-      console.log(`✅ PDF generation completed in ${pdfTime}ms`)
-    } catch (pdfError) {
-      console.error('❌ PDF generation failed:', pdfError)
-      throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
-    }
-
-    // Store PDF in memory for Vercel deployment
-    storePDF(studyGuideId, pdfBuffer)
-    
-    // Create base64 data URL as fallback
-    const pdfBase64 = pdfBuffer.toString('base64')
-    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
-    
-    // Create API URL for the PDF
-    const pdfUrl = `/api/pdf/${studyGuideId}.pdf`
-
-    // Add PDF URL to response (with fallback to base64)
-    const studyGuideWithPdf = {
-      ...studyGuide,
-      pdfUrl: pdfUrl,
-      pdfDataUrl: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` // Fallback
+    const studyGuideResponse: StudyGuideResponse = {
+      id: savedGuide.id,
+      title: savedGuide.title,
+      content: savedGuide.content,
+      format: savedGuide.format,
+      generatedAt: new Date(savedGuide.created_at),
+      fileCount: savedGuide.file_count,
+      subject: savedGuide.subject,
+      gradeLevel: savedGuide.grade_level,
+      tokenUsage: savedGuide.token_usage,
+      studyGuideUrl: `/study-guide/${savedGuide.id}`
     }
 
     const totalTime = Date.now() - startTime
     console.log(`🎉 Study guide generation completed successfully in ${totalTime}ms`)
-    
+
     return NextResponse.json({
       success: true,
-      data: studyGuideWithPdf,
+      data: studyGuideResponse,
       message: 'Study guide generated successfully'
     })
 

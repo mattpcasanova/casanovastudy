@@ -45,6 +45,7 @@ export interface StudyGuideResponse {
   fileCount: number
   subject: string
   gradeLevel: string
+  studyGuideUrl?: string
   pdfDataUrl?: string
   pdfUrl?: string
   tokenUsage?: {
