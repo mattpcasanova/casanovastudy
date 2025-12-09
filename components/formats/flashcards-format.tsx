@@ -102,7 +102,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
         >
           {/* Front of card */}
           <Card
-            className={`absolute inset-0 backface-hidden border-4 shadow-2xl bg-white ${
+            className={`absolute inset-0 backface-hidden border-4 shadow-2xl bg-white p-0 ${
               masteredCards.has(currentCard.id)
                 ? 'border-green-500'
                 : difficultCards.has(currentCard.id)
@@ -133,7 +133,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
 
           {/* Back of card */}
           <Card
-            className={`absolute inset-0 backface-hidden rotate-y-180 border-4 shadow-2xl bg-white ${
+            className={`absolute inset-0 backface-hidden rotate-y-180 border-4 shadow-2xl bg-white p-0 ${
               masteredCards.has(currentCard.id)
                 ? 'border-green-500'
                 : difficultCards.has(currentCard.id)
@@ -254,6 +254,17 @@ function parseFlashcards(content: string): Flashcard[] {
   for (const section of sections) {
     const lines = section.split('\n').filter(l => l.trim())
     if (lines.length < 2) continue
+
+    // Skip sections that look like titles/headers (all uppercase, contains "FLASHCARD", etc.)
+    const firstLine = lines[0].trim()
+    if (
+      firstLine === firstLine.toUpperCase() ||
+      firstLine.toLowerCase().includes('flashcard') ||
+      firstLine.toLowerCase().includes('study guide') ||
+      lines.length === 1
+    ) {
+      continue
+    }
 
     let question = ''
     let answer = ''

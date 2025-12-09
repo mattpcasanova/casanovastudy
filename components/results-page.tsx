@@ -201,7 +201,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
             </CardContent>
           </Card>
 
-          <Card className="shadow-2xl border-0 overflow-hidden transition-all duration-300 hover:shadow-3xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:200ms] max-w-4xl mx-auto">
+          <Card className="shadow-2xl border-0 overflow-hidden transition-all duration-300 hover:shadow-3xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:200ms] max-w-4xl mx-auto p-0">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-6">
               <h3 className="text-xl font-semibold flex items-center gap-2 justify-center">
                 <BookOpen className="h-5 w-5" />
@@ -261,21 +261,21 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                       <Smartphone className="h-4 w-4 text-green-600" />
                       <div className="font-semibold text-gray-800">Mobile Friendly</div>
                     </div>
-                    <p className="text-gray-600">Study on any device, anywhere</p>
+                    <p className="text-gray-600 text-left">Study on any device, anywhere</p>
                   </div>
                   <div className="p-4 bg-white rounded-lg border border-green-200">
                     <div className="flex items-center gap-2 mb-2">
                       <Link className="h-4 w-4 text-green-600" />
                       <div className="font-semibold text-gray-800">Share Link</div>
                     </div>
-                    <p className="text-gray-600">Copy URL to share with classmates</p>
+                    <p className="text-gray-600 text-left">Copy URL to share with classmates</p>
                   </div>
                   <div className="p-4 bg-white rounded-lg border border-green-200">
                     <div className="flex items-center gap-2 mb-2">
                       <Printer className="h-4 w-4 text-green-600" />
                       <div className="font-semibold text-gray-800">Print Option</div>
                     </div>
-                    <p className="text-gray-600">Download PDF if needed</p>
+                    <p className="text-gray-600 text-left">Download PDF if needed</p>
                   </div>
                 </div>
               </div>

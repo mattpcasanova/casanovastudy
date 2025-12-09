@@ -292,6 +292,12 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
                 disabled={submitted}
                 className="resize-none"
               />
+              {!submitted && (
+                <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4">
+                  <p className="font-semibold text-gray-900 mb-2">Sample Answer:</p>
+                  <p className="text-gray-700 text-sm italic">{currentQuestion.sampleAnswer}</p>
+                </div>
+              )}
               {submitted && isScoring && (
                 <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
                   <p className="font-semibold text-yellow-900 mb-2">Scoring your answer...</p>

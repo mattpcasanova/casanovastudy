@@ -137,8 +137,8 @@ function OutlineSection({
   return (
     <Card className={`${getBgColor()} print:break-inside-avoid`}>
       <CardHeader
-        className="cursor-pointer hover:bg-gray-50/50 transition-colors print:cursor-default"
-        onClick={() => toggleSection(section.id)}
+        className={level === 0 ? "print:cursor-default" : "cursor-pointer hover:bg-gray-50/50 transition-colors print:cursor-default"}
+        onClick={level === 0 ? undefined : () => toggleSection(section.id)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
@@ -161,7 +161,7 @@ function OutlineSection({
               {section.title}
             </CardTitle>
           </div>
-          {hasChildren && (
+          {hasChildren && level !== 0 && (
             <div className="print:hidden">
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5" />
@@ -172,7 +172,7 @@ function OutlineSection({
           )}
         </div>
       </CardHeader>
-      {(isExpanded || !hasChildren) && (
+      {((level === 0 || isExpanded) || !hasChildren) && (
         <CardContent className="print:block">
           {section.content && (
             <InteractiveContent
