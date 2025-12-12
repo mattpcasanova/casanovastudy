@@ -233,26 +233,26 @@ export default function MarineScienceChapter3StudyGuide() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
         <div className="container mx-auto px-4 py-8">
           <div className="relative">
             {/* Logo in top left */}
-            <div className="absolute top-0 left-0">
-              <Link href="/" className="inline-block bg-white rounded-lg p-3 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0">
+              <Link href="/" className="block transition-all duration-200 hover:scale-105">
                 <Image
                   src="/images/casanova-study-logo.png"
                   alt="Casanova Study"
-                  width={160}
-                  height={60}
-                  className="h-12 w-auto"
+                  width={384}
+                  height={144}
+                  className="h-40 w-64 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
                 />
               </Link>
             </div>
 
             {/* Centered content */}
-            <div className="text-center pt-4">
-              <h1 className="text-4xl font-bold mb-2 flex items-center justify-center gap-2">
-                🌊 AICE Marine Science
+            <div className="text-center">
+              <h1 className="text-4xl font-bold mb-2">
+                AICE Marine Science
               </h1>
               <h2 className="text-xl opacity-90">Chapter 3: Interactions in Marine Ecosystems - Study Guide</h2>
               <p className="mt-4 text-sm opacity-75">Interactive study guide with progress tracking</p>
