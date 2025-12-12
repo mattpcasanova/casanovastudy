@@ -92,18 +92,18 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white print:hidden">
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden">
         <div className="container mx-auto px-4 py-8">
           <div className="relative">
             {/* Logo in top left */}
             <div className="absolute top-0 left-0">
-              <Link href="/" className="inline-block bg-white rounded-lg p-3 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105">
+              <Link href="/" className="inline-block transition-all duration-200 hover:scale-105">
                 <Image
                   src="/images/casanova-study-logo.png"
                   alt="Casanova Study"
                   width={160}
                   height={60}
-                  className="h-12 w-auto"
+                  className="h-12 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
                 />
               </Link>
             </div>

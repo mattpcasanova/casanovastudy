@@ -240,7 +240,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                         </div>
                       </div>
                       
-                      <div className="ml-8">
+                      <div className="ml-8 space-y-2">
                         <a
                           href="/marinescience/exam2-earthprocesses"
                           className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group"
@@ -253,6 +253,18 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
                           </div>
                           <ExternalLink className="h-3 w-3 text-blue-600 group-hover:text-blue-700" />
                         </a>
+                        <a
+                          href="/marinescience/exam3-ecosystems"
+                          className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                              3
+                            </div>
+                            <span className="text-sm font-medium text-gray-800">Interactions in Marine Ecosystems</span>
+                          </div>
+                          <ExternalLink className="h-3 w-3 text-blue-600 group-hover:text-blue-700" />
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -262,8 +274,12 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
           </div>
 
           <div className="flex justify-center mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl cursor-pointer">
-              <img src="/images/casanova-study-logo.png" alt="CasanovaStudy Logo" className="h-30 w-48" />
+            <div className="transition-all duration-300 hover:scale-105 cursor-pointer">
+              <img
+                src="/images/casanova-study-logo.png"
+                alt="CasanovaStudy Logo"
+                className="h-30 w-48 drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]"
+              />
             </div>
           </div>
 

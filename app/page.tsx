@@ -1,33 +1,37 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import UploadPage from "@/components/upload-page"
-import ResultsPage from "@/components/results-page"
+import { StreamingGenerationProgress } from "@/components/generation-progress"
 import { Toaster } from "@/components/ui/toaster"
-import { StudyGuideData, StudyGuideResponse, ProcessedFile } from "@/types"
+import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState<"upload" | "results">("upload")
-  const [studyGuideData, setStudyGuideData] = useState<StudyGuideData | null>(null)
-  const [studyGuideResponse, setStudyGuideResponse] = useState<StudyGuideResponse | null>(null)
+  const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [streamingContent, setStreamingContent] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
+  const [isComplete, setIsComplete] = useState(false)
 
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
+    setStreamingContent('')
+    setStatusMessage('Uploading files...')
+    setIsComplete(false)
 
     try {
-      // Step 1: Upload files directly to Cloudinary (bypassing Vercel)
-      console.log('Uploading files directly to Cloudinary...');
+      // Step 1: Upload files directly to Cloudinary
       const cloudinaryUploads = await Promise.all(
         data.files.map(async (file) => {
           return await ClientCompression.uploadToCloudinary(file);
         })
       )
 
-      console.log('Cloudinary uploads completed:', cloudinaryUploads)
+      setStatusMessage('Files uploaded! Starting generation...')
 
-      // Step 2: Generate study guide using Cloudinary URLs
+      // Step 2: Generate study guide with streaming
       const studyGuideRequest = {
         cloudinaryFiles: cloudinaryUploads.map(upload => ({
           url: upload.url,
@@ -44,15 +48,7 @@ export default function Home() {
         additionalInstructions: data.additionalInstructions
       }
 
-      console.log('Study Guide Request:', {
-        studyGuideName: studyGuideRequest.studyGuideName,
-        subject: studyGuideRequest.subject,
-        gradeLevel: studyGuideRequest.gradeLevel,
-        format: studyGuideRequest.format,
-        fileCount: studyGuideRequest.cloudinaryFiles?.length || (studyGuideRequest as any).files?.length || 0
-      })
-
-      const generateResponse = await fetch('/api/generate-study-guide', {
+      const response = await fetch('/api/generate-study-guide-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -60,51 +56,87 @@ export default function Home() {
         body: JSON.stringify(studyGuideRequest)
       })
 
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json()
-        console.error('API Error:', errorData)
-        throw new Error(errorData.error || 'Failed to generate study guide')
+      if (!response.ok) {
+        throw new Error('Failed to start generation')
       }
 
-      const generateResult = await generateResponse.json()
-      if (!generateResult.success) {
-        throw new Error(generateResult.error || 'Generation failed')
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('No response body')
       }
 
-      setStudyGuideData(data)
-      setStudyGuideResponse(generateResult.data)
-      setCurrentPage("results")
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6))
+
+            if (data.type === 'progress') {
+              setStatusMessage(data.message)
+            } else if (data.type === 'content') {
+              setStreamingContent(prev => prev + data.chunk)
+            } else if (data.type === 'complete') {
+              setStatusMessage('Complete! Redirecting...')
+              setIsComplete(true)
+              // Redirect to study guide
+              setTimeout(() => {
+                router.push(data.studyGuideUrl)
+              }, 1000)
+            } else if (data.type === 'error') {
+              throw new Error(data.message)
+            }
+          }
+        }
+      }
+
     } catch (error) {
       console.error("Error generating study guide:", error)
       alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
       setIsGenerating(false)
+      setStreamingContent('')
+      setStatusMessage('')
     }
-  }
-
-  const handleBackToUpload = () => {
-    setCurrentPage("upload")
-    setStudyGuideData(null)
-    setStudyGuideResponse(null)
-  }
-
-  const handleCreateAnother = () => {
-    setCurrentPage("upload")
-    setStudyGuideData(null)
-    setStudyGuideResponse(null)
   }
 
   return (
     <main className="min-h-screen bg-background">
-      {currentPage === "upload" ? (
+      {!isGenerating ? (
         <UploadPage onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
       ) : (
-        <ResultsPage
-          studyGuideData={studyGuideData}
-          studyGuideResponse={studyGuideResponse}
-          onBack={handleBackToUpload}
-          onCreateAnother={handleCreateAnother}
-        />
+        <div className="min-h-screen bg-gradient-to-r from-primary via-secondary to-accent relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+                backgroundSize: "20px 20px",
+              }}
+            ></div>
+          </div>
+          <div className="container mx-auto px-4 max-w-4xl relative z-10 py-20">
+            <div className="text-center mb-12 text-white">
+              <h1 className="text-4xl font-bold mb-2">Generating Your Study Guide</h1>
+              <p className="text-blue-100">Sit back and relax while we create your personalized study materials</p>
+            </div>
+            <StreamingGenerationProgress
+              content={streamingContent}
+              statusMessage={statusMessage}
+              isComplete={isComplete}
+            />
+          </div>
+        </div>
       )}
       <Toaster />
     </main>

@@ -17,10 +17,10 @@ export class ClaudeService {
   async generateStudyGuide(request: ClaudeApiRequest): Promise<ClaudeApiResponse> {
     try {
       const prompt = this.buildPrompt(request)
-      
+
       // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
       const estimatedInputTokens = Math.ceil(prompt.length / 4)
-      
+
       console.log('📊 Token Usage Analysis:', {
         promptLength: prompt.length,
         estimatedInputTokens,
@@ -28,7 +28,7 @@ export class ClaudeService {
         totalEstimatedTokens: estimatedInputTokens + 4000,
         contentPreview: prompt.substring(0, 200) + '...'
       })
-      
+
       const response = await this.anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
@@ -52,7 +52,7 @@ export class ClaudeService {
         output_tokens: response.usage.output_tokens,
         total_tokens: response.usage.input_tokens + response.usage.output_tokens
       }
-      
+
       console.log('✅ Actual Token Usage:', {
         inputTokens: actualUsage.input_tokens,
         outputTokens: actualUsage.output_tokens,
@@ -66,6 +66,53 @@ export class ClaudeService {
       }
     } catch (error) {
       console.error('Claude API error:', error)
+      throw new Error(`Failed to generate study guide: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async *generateStudyGuideStream(request: ClaudeApiRequest): AsyncGenerator<string, { content: string; usage: any }, undefined> {
+    try {
+      const prompt = this.buildPrompt(request)
+
+      console.log('📊 Starting streaming generation...')
+
+      const stream = await this.anthropic.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        temperature: 0.7,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+
+      let fullContent = ''
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+          const text = chunk.delta.text
+          fullContent += text
+          yield text
+        }
+      }
+
+      const finalMessage = await stream.finalMessage()
+      const actualUsage = {
+        input_tokens: finalMessage.usage.input_tokens,
+        output_tokens: finalMessage.usage.output_tokens,
+        total_tokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens
+      }
+
+      console.log('✅ Streaming Complete - Token Usage:', actualUsage)
+
+      return {
+        content: fullContent,
+        usage: actualUsage
+      }
+    } catch (error) {
+      console.error('Claude API streaming error:', error)
       throw new Error(`Failed to generate study guide: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
