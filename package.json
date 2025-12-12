@@ -45,6 +45,8 @@
     "pdf-parse": "^1.1.4",
     "pdfjs-dist": "^5.4.394",
     "pdfshift": "^2.0.1",
+    "pizzip": "^3.2.0",
+    "pptx2json": "^0.0.10",
     "puppeteer": "^24.28.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

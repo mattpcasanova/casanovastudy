@@ -246,9 +246,9 @@ export default function MarineScienceStudyGuide() {
                 <Image
                   src="/images/casanova-study-logo.png"
                   alt="Casanova Study"
-                  width={384}
-                  height={144}
-                  className="h-40 w-64 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
+                  width={312}
+                  height={117}
+                  className="h-20 w-32 sm:h-24 sm:w-40 md:h-28 md:w-48 lg:h-32 lg:w-52 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
                 />
               </Link>
             </div>

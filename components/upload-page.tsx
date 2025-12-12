@@ -278,7 +278,7 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
               <img
                 src="/images/casanova-study-logo.png"
                 alt="CasanovaStudy Logo"
-                className="h-40 w-64 drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]"
+                className="h-28 w-48 sm:h-32 sm:w-52 md:h-36 md:w-56 lg:h-40 lg:w-64 drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]"
               />
             </div>
           </div>

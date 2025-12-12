@@ -1,5 +1,6 @@
 // Custom PDF text extraction implementation
 import mammoth from 'mammoth'
+import PizZip from 'pizzip'
 import { ProcessedFile, FileType } from '@/types'
 
 export class FileProcessor {
@@ -701,9 +702,47 @@ Status: Text extraction completed`
   }
 
   private static async extractFromPPTX(buffer: Buffer): Promise<string> {
-    // For now, we'll return a placeholder. PPTX extraction requires additional libraries
-    // In a production app, you'd use libraries like 'pptx2json' or 'officegen'
-    throw new Error('PPTX processing not yet implemented. Please convert to PDF or DOCX first.')
+    try {
+      const zip = new PizZip(buffer)
+      const slideTexts: string[] = []
+
+      // Get all slide files (slides are in ppt/slides/slideN.xml)
+      const slideFileNames = Object.keys(zip.files).filter(name =>
+        name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+      )
+
+      // Sort slide files by number
+      slideFileNames.sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)\.xml/)?.[1] || '0')
+        const numB = parseInt(b.match(/slide(\d+)\.xml/)?.[1] || '0')
+        return numA - numB
+      })
+
+      // Extract text from each slide
+      for (const fileName of slideFileNames) {
+        const slideXml = zip.files[fileName].asText()
+
+        // Extract text from <a:t> tags (text content in PowerPoint)
+        const textMatches = slideXml.match(/<a:t>([^<]+)<\/a:t>/g) || []
+        const slideText = textMatches
+          .map(match => match.replace(/<\/?a:t>/g, ''))
+          .join(' ')
+          .trim()
+
+        if (slideText) {
+          slideTexts.push(slideText)
+        }
+      }
+
+      if (slideTexts.length === 0) {
+        throw new Error('No text content found in PowerPoint file')
+      }
+
+      return slideTexts.join('\n\n')
+    } catch (error) {
+      console.error('PPTX extraction error:', error)
+      throw new Error('Failed to extract text from PowerPoint file. Please try converting to PDF or DOCX first.')
+    }
   }
 
   private static async extractFromTXT(buffer: Buffer): Promise<string> {
