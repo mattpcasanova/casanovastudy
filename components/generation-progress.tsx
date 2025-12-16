@@ -128,6 +128,7 @@ const streamingThinkingVerbs = [
 
 export function StreamingGenerationProgress({ content, statusMessage, isComplete }: StreamingGenerationProgressProps) {
   const [currentVerb, setCurrentVerb] = useState(0)
+  const [wavePosition, setWavePosition] = useState(0)
 
   useEffect(() => {
     if (isComplete) return
@@ -139,6 +140,47 @@ export function StreamingGenerationProgress({ content, statusMessage, isComplete
     return () => clearInterval(interval)
   }, [isComplete])
 
+  // Wave animation - move through each character
+  useEffect(() => {
+    if (isComplete) return
+
+    const currentText = streamingThinkingVerbs[currentVerb] + '...'
+    const interval = setInterval(() => {
+      setWavePosition(prev => (prev + 1) % (currentText.length + 5))
+    }, 80)
+
+    return () => clearInterval(interval)
+  }, [isComplete, currentVerb])
+
+  // Render text with wave effect
+  const renderWaveText = () => {
+    const text = streamingThinkingVerbs[currentVerb] + '...'
+    return text.split('').map((char, index) => {
+      const distance = Math.abs(wavePosition - index)
+      const isActive = distance < 2
+      const scale = isActive ? 1.2 : 1
+
+      // Calculate color based on position in word for gradient effect
+      const progress = index / text.length
+      const baseColor = `rgb(${59 + progress * 80}, ${130 + progress * 22}, ${246 - progress * 86})`
+
+      return (
+        <span
+          key={index}
+          style={{
+            display: 'inline-block',
+            transform: `scale(${scale})`,
+            transition: 'all 0.15s ease',
+            color: isActive ? 'white' : baseColor,
+            textShadow: isActive ? '0 0 20px rgba(255,255,255,0.8), 0 0 10px rgba(255,255,255,0.6)' : 'none',
+          }}
+        >
+          {char}
+        </span>
+      )
+    })
+  }
+
   // Calculate more accurate progress based on content length
   const estimatedFullLength = 3000 // Typical study guide length
   const currentLength = content.length
@@ -147,23 +189,26 @@ export function StreamingGenerationProgress({ content, statusMessage, isComplete
 
   return (
     <div className="space-y-6">
-      {/* Header with gradient background */}
-      <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-8 shadow-2xl">
-        <div className="text-center space-y-3">
+      {/* Header with white background and outline */}
+      <div className="bg-white border-4 border-blue-500 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 pointer-events-none" />
+
+        <div className="text-center space-y-3 relative z-10">
           <div className="flex items-center justify-center gap-3">
-            {!isComplete && <Sparkles className="h-6 w-6 text-white animate-pulse" />}
+            {!isComplete && <Sparkles className="h-6 w-6 text-blue-500 animate-pulse" />}
             {isComplete && (
-              <div className="h-6 w-6 rounded-full bg-green-400 flex items-center justify-center">
+              <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
             )}
-            <h2 className="text-2xl font-bold text-white">
-              {!isComplete ? streamingThinkingVerbs[currentVerb] + '...' : 'Complete!'}
+            <h2 className="text-3xl font-bold">
+              {!isComplete ? renderWaveText() : <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Complete!</span>}
             </h2>
           </div>
-          <p className="text-blue-100 text-sm">{statusMessage}</p>
+          <p className="text-gray-600 text-sm font-medium">{statusMessage}</p>
         </div>
       </div>
 

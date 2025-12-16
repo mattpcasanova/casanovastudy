@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -47,6 +47,52 @@ export default function UploadPage({ onGenerateStudyGuide, isGenerating }: Uploa
   const [difficultyLevel, setDifficultyLevel] = useState("")
   const [additionalInstructions, setAdditionalInstructions] = useState("")
   const [dragActive, setDragActive] = useState(false)
+
+  // Sliding focus indicator
+  const outlineRef = useRef<HTMLDivElement>(null)
+  const flashcardsRef = useRef<HTMLDivElement>(null)
+  const quizRef = useRef<HTMLDivElement>(null)
+  const summaryRef = useRef<HTMLDivElement>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({})
+
+  // Calculate indicator position when format changes
+  useEffect(() => {
+    if (!format) {
+      setIndicatorStyle({ opacity: 0 })
+      return
+    }
+
+    let targetRef: React.RefObject<HTMLDivElement | null> | null = null
+    switch (format) {
+      case 'outline':
+        targetRef = outlineRef
+        break
+      case 'flashcards':
+        targetRef = flashcardsRef
+        break
+      case 'quiz':
+        targetRef = quizRef
+        break
+      case 'summary':
+        targetRef = summaryRef
+        break
+    }
+
+    if (targetRef?.current) {
+      const rect = targetRef.current.getBoundingClientRect()
+      const parentRect = targetRef.current.parentElement?.getBoundingClientRect()
+
+      if (parentRect) {
+        setIndicatorStyle({
+          opacity: 1,
+          width: rect.width,
+          height: rect.height,
+          transform: `translate(${rect.left - parentRect.left}px, ${rect.top - parentRect.top}px)`,
+        })
+      }
+    }
+  }, [format])
+
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const { toast } = useToast()
