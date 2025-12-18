@@ -7,6 +7,9 @@ import { StudyGuideRecord } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Download, Share2, Home, Printer } from 'lucide-react'
+import NavigationHeader from '@/components/navigation-header'
+import AuthModal from '@/components/auth-modal'
+import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
 import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
@@ -17,6 +20,8 @@ interface StudyGuideViewerProps {
 }
 
 export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
+  const { user, signIn, signUp, signOut } = useAuth()
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
 
   const handlePrintToPDF = () => {
@@ -91,29 +96,46 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Navigation Header */}
+      <div className="print:hidden">
+        <NavigationHeader
+          user={user}
+          onSignOut={signOut}
+          onSignIn={() => setShowAuthModal(true)}
+        />
+
+        <AuthModal
+          open={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSignIn={signIn}
+          onSignUp={signUp}
+        />
+      </div>
+
       {/* Header */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden">
-        <div className="container mx-auto px-4 py-8">
-          <div className="relative">
-            {/* Logo in top left */}
-            <div className="absolute top-1/2 -translate-y-1/2 left-0">
+        <div className="container mx-auto px-4 py-4 md:py-8">
+          {/* Mobile: Stack vertically, Desktop: Absolute positioning */}
+          <div className="flex flex-col items-center gap-4 md:relative">
+            {/* Logo */}
+            <div className="md:absolute md:top-1/2 md:-translate-y-1/2 md:left-0">
               <Link href="/" className="block transition-all duration-200 hover:scale-105">
                 <Image
                   src="/images/casanova-study-logo.png"
                   alt="Casanova Study"
                   width={312}
                   height={117}
-                  className="h-20 w-32 sm:h-24 sm:w-40 md:h-28 md:w-48 lg:h-32 lg:w-52 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
+                  className="h-16 w-28 sm:h-20 sm:w-32 md:h-24 md:w-40 lg:h-32 lg:w-52 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
                 />
               </Link>
             </div>
 
             {/* Centered content */}
-            <div className="text-center">
-              <h1 className="text-4xl font-bold mb-2">
+            <div className="text-center w-full">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
                 {studyGuide.title}
               </h1>
-              <p className="mt-4 text-sm opacity-75">
+              <p className="mt-2 md:mt-4 text-xs sm:text-sm opacity-75">
                 Grade Level: {studyGuide.grade_level} • Format: {studyGuide.format.charAt(0).toUpperCase() + studyGuide.format.slice(1)}
               </p>
             </div>

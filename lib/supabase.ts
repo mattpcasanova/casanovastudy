@@ -64,3 +64,30 @@ export interface StudyGuideRecord {
   created_at: string
   updated_at: string
 }
+
+export interface GradingResultRecord {
+  id: string
+  student_name: string
+  answer_sheet_filename?: string
+  student_exam_filename: string
+  total_marks: number
+  total_possible_marks: number
+  percentage: number
+  grade: string
+  content: string
+  grade_breakdown: Array<{
+    questionNumber: string
+    marksAwarded: number
+    marksPossible: number
+    explanation: string
+  }>
+  additional_comments?: string
+  pdf_url?: string
+  token_usage?: {
+    input_tokens: number
+    output_tokens: number
+    total_tokens: number
+  }
+  created_at: string
+  updated_at: string
+}

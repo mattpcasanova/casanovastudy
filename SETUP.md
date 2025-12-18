@@ -35,10 +35,14 @@ npm install
    - Project URL
    - Anon public key
 
-4. Run the database migration:
+4. Run the database migrations:
    - Go to **SQL Editor** in Supabase dashboard
    - Copy the contents of `supabase/migrations/001_create_study_guides.sql`
    - Paste and run the SQL
+   - Copy the contents of `supabase/migrations/002_create_grading_results.sql`
+   - Paste and run the SQL
+
+   Alternatively, run `node scripts/run-migration.js` to check migration status and see the SQL to execute.
 
 ### 3. Configure Environment Variables
 
@@ -125,11 +129,14 @@ Students can generate a PDF **on-demand** by clicking "Download PDF" button on t
 casanovastudy/
 ├── app/
 │   ├── study-guide/[id]/page.tsx    # Dynamic study guide page
+│   ├── grade-exam/page.tsx          # Exam grading page for teachers
 │   ├── api/
 │   │   ├── generate-study-guide/    # Main generation (saves to Supabase)
+│   │   ├── grade-exam/              # Exam grading (saves to Supabase)
 │   │   └── generate-pdf/            # Optional on-demand PDF generation
 ├── components/
 │   ├── study-guide-viewer.tsx       # Main viewer component
+│   ├── generation-progress.tsx      # Streaming progress indicator
 │   └── formats/
 │       ├── outline-format.tsx       # Hierarchical outline
 │       ├── flashcards-format.tsx    # Interactive flashcards
@@ -137,12 +144,18 @@ casanovastudy/
 │       └── summary-format.tsx       # Clean summary
 ├── lib/
 │   └── supabase.ts                  # Supabase client
+├── scripts/
+│   ├── test-supabase.js             # Test Supabase connection
+│   └── run-migration.js             # Check and show migration status
 └── supabase/
-    └── migrations/                  # Database schema
+    └── migrations/
+        ├── 001_create_study_guides.sql   # Study guides table
+        └── 002_create_grading_results.sql # Grading results table
 ```
 
 ## Database Schema
 
+### study_guides Table
 ```sql
 study_guides (
   id UUID PRIMARY KEY,
@@ -155,6 +168,27 @@ study_guides (
   difficulty_level TEXT,
   additional_instructions TEXT,
   file_count INTEGER,
+  token_usage JSONB,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+)
+```
+
+### grading_results Table
+```sql
+grading_results (
+  id UUID PRIMARY KEY,
+  student_name TEXT,
+  answer_sheet_filename TEXT,
+  student_exam_filename TEXT,
+  total_marks INTEGER,
+  total_possible_marks INTEGER,
+  percentage NUMERIC(5, 2),
+  grade TEXT,
+  content TEXT,
+  grade_breakdown JSONB,
+  additional_comments TEXT,
+  pdf_url TEXT,
   token_usage JSONB,
   created_at TIMESTAMP,
   updated_at TIMESTAMP

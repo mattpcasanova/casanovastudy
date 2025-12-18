@@ -2,18 +2,23 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import UploadPage from "@/components/upload-page"
+import UploadPageRedesigned from "@/components/upload-page-redesigned"
+import NavigationHeader from "@/components/navigation-header"
+import AuthModal from "@/components/auth-modal"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import { Toaster } from "@/components/ui/toaster"
 import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
+import { useAuth } from "@/lib/auth"
 
 export default function Home() {
   const router = useRouter()
+  const { user, signIn, signUp, signOut } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [isComplete, setIsComplete] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
@@ -111,8 +116,21 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
+      <NavigationHeader
+        user={user}
+        onSignOut={signOut}
+        onSignIn={() => setShowAuthModal(true)}
+      />
+
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSignIn={signIn}
+        onSignUp={signUp}
+      />
+
       {!isGenerating ? (
-        <UploadPage onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
+        <UploadPageRedesigned onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
       ) : (
         <div className="min-h-screen bg-gradient-to-r from-primary via-secondary to-accent relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">

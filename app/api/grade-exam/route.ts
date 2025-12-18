@@ -3,6 +3,7 @@ import { FileProcessor } from '@/lib/file-processing'
 import { ClaudeService } from '@/lib/claude-api'
 import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { storePDF } from '@/app/api/pdf/[filename]/route'
+import { supabase } from '@/lib/supabase'
 
 interface GradingResult {
   pdfUrl: string
@@ -246,12 +247,54 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Store PDF - store without .pdf extension (route strips it)
     storePDF(gradingId, pdfBuffer)
     console.log('✅ PDF stored with key:', gradingId)
-    
+
     // Create base64 data URL as fallback (for serverless environments where in-memory storage may not persist)
     const pdfBase64 = pdfBuffer.toString('base64')
     const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`
-    
+
     const pdfUrl = `/api/pdf/${gradingId}.pdf`
+
+    // Calculate percentage and grade
+    const percentage = totalPossibleMarks > 0 ? (totalMarks / totalPossibleMarks) * 100 : 0
+    let grade = 'F'
+    if (percentage >= 90) grade = 'A*'
+    else if (percentage >= 80) grade = 'A'
+    else if (percentage >= 70) grade = 'B'
+    else if (percentage >= 60) grade = 'C'
+    else if (percentage >= 50) grade = 'D'
+    else if (percentage >= 40) grade = 'E'
+
+    // Extract student name from filename
+    const studentName = studentExamFile.name.replace(/\.(pdf|docx|pptx|txt)$/i, '').replace(/_/g, ' ')
+
+    // Save to Supabase
+    console.log('💾 Saving grading results to database...')
+    const { data: savedGrading, error: supabaseError } = await supabase
+      .from('grading_results')
+      .insert({
+        student_name: studentName,
+        answer_sheet_filename: markSchemeFile?.name || null,
+        student_exam_filename: studentExamFile.name,
+        total_marks: totalMarks,
+        total_possible_marks: totalPossibleMarks,
+        percentage: parseFloat(percentage.toFixed(2)),
+        grade: grade,
+        content: gradingContent,
+        grade_breakdown: gradeBreakdown,
+        additional_comments: additionalComments || null,
+        pdf_url: pdfUrl,
+        token_usage: claudeResponse.usage
+      })
+      .select()
+      .single()
+
+    if (supabaseError || !savedGrading) {
+      console.error('⚠️ Failed to save to database:', supabaseError?.message)
+      // Don't fail the request if database save fails - still return the result
+      // But log the error for debugging
+    } else {
+      console.log('✅ Grading results saved to database with ID:', savedGrading.id)
+    }
 
     const result: GradingResult = {
       pdfUrl,
