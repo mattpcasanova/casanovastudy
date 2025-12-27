@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronDown, ChevronUp, CheckCircle, Circle, BookOpen } from 'lucide-react'
 
@@ -28,7 +27,6 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
   const [expandedSections, setExpandedSections] = useState<string[]>(allSectionIds)
   const [completedSections, setCompletedSections] = useState<string[]>([])
   const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({})
-  const [notes, setNotes] = useState<Record<string, string>>({})
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev =>
@@ -49,32 +47,27 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
   const progressPercentage = (completedSections.length / allSectionIds.length) * 100
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Progress Card */}
-      <Card className="print:hidden">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Study Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                Progress: {completedSections.length}/{allSectionIds.length} sections
+    <div className="space-y-6">
+      {/* Progress Bar - Simple sticky bar */}
+      <div className="sticky top-20 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 py-3 px-4 print:hidden">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">
+                {completedSections.length} of {allSectionIds.length} sections complete
               </span>
-              <Badge variant={progressPercentage === 100 ? "default" : "secondary"}>
-                {Math.round(progressPercentage)}%
-              </Badge>
             </div>
-            <Progress value={progressPercentage} className="h-2" />
+            <Badge variant={progressPercentage === 100 ? "default" : "secondary"}>
+              {Math.round(progressPercentage)}%
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
+          <Progress value={progressPercentage} className="h-2" />
+        </div>
+      </div>
 
       {/* Outline Sections */}
-      <div className="space-y-4">
+      <div className="max-w-5xl mx-auto space-y-4 px-4">
         {sections.map(section => (
           <OutlineSection
             key={section.id}
@@ -85,8 +78,6 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
             toggleCompleted={toggleCompleted}
             checklistItems={checklistItems}
             setChecklistItems={setChecklistItems}
-            notes={notes}
-            setNotes={setNotes}
             level={0}
           />
         ))}
@@ -103,8 +94,6 @@ function OutlineSection({
   toggleCompleted,
   checklistItems,
   setChecklistItems,
-  notes,
-  setNotes,
   level
 }: {
   section: OutlineSection
@@ -114,8 +103,6 @@ function OutlineSection({
   toggleCompleted: (id: string) => void
   checklistItems: Record<string, boolean>
   setChecklistItems: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-  notes: Record<string, string>
-  setNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>
   level: number
 }) {
   const isExpanded = expandedSections.includes(section.id)
@@ -180,8 +167,6 @@ function OutlineSection({
               sectionId={section.id}
               checklistItems={checklistItems}
               setChecklistItems={setChecklistItems}
-              notes={notes}
-              setNotes={setNotes}
             />
           )}
           {hasChildren && (
@@ -196,8 +181,6 @@ function OutlineSection({
                   toggleCompleted={toggleCompleted}
                   checklistItems={checklistItems}
                   setChecklistItems={setChecklistItems}
-                  notes={notes}
-                  setNotes={setNotes}
                   level={level + 1}
                 />
               ))}
@@ -213,19 +196,15 @@ function InteractiveContent({
   content,
   sectionId,
   checklistItems,
-  setChecklistItems,
-  notes,
-  setNotes
+  setChecklistItems
 }: {
   content: string
   sectionId: string
   checklistItems: Record<string, boolean>
   setChecklistItems: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-  notes: Record<string, string>
-  setNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>
 }) {
-  // Split content by CHECKLIST: and NOTES: sections
-  const parts = content.split(/(?=(?:CHECKLIST:|NOTES:))/gi)
+  // Split content by CHECKLIST: sections (NOTES sections are ignored)
+  const parts = content.split(/(?=CHECKLIST:)/gi)
 
   return (
     <div className="prose prose-sm max-w-none space-y-4">
@@ -272,27 +251,9 @@ function InteractiveContent({
           )
         }
 
-        // Handle NOTES section
+        // Skip NOTES sections (removed per user request)
         if (trimmed.match(/^NOTES:/i)) {
-          const notesId = `${sectionId}-notes-${partIndex}`
-
-          return (
-            <div key={partIndex} className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50/50">
-              <h4 className="font-semibold text-gray-900 mb-3">Notes</h4>
-              <Textarea
-                id={notesId}
-                value={notes[notesId] || ''}
-                onChange={(e) => {
-                  setNotes(prev => ({
-                    ...prev,
-                    [notesId]: e.target.value
-                  }))
-                }}
-                placeholder="Add your notes here..."
-                className="min-h-[100px] resize-y bg-white"
-              />
-            </div>
-          )
+          return null
         }
 
         // Regular content
@@ -382,10 +343,47 @@ function getAllSectionIds(sections: OutlineSection[]): string[] {
 }
 
 function formatContent(content: string): string {
-  return content
+  // First, handle markdown tables
+  const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
+  let processedContent = content.replace(tableRegex, (match) => {
+    const lines = match.trim().split('\n')
+    if (lines.length < 2) return match
+
+    const headerCells = lines[0].split('|').filter(cell => cell.trim())
+    const bodyRows = lines.slice(2) // Skip header and separator
+
+    let tableHtml = '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse border border-gray-300 rounded-lg overflow-hidden">'
+    tableHtml += '<thead class="bg-blue-50"><tr>'
+    headerCells.forEach(cell => {
+      tableHtml += `<th class="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-900">${cell.trim()}</th>`
+    })
+    tableHtml += '</tr></thead><tbody>'
+
+    bodyRows.forEach((row, index) => {
+      const cells = row.split('|').filter(cell => cell.trim())
+      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+      tableHtml += `<tr class="${bgClass}">`
+      cells.forEach(cell => {
+        tableHtml += `<td class="border border-gray-300 px-4 py-2 text-gray-700">${cell.trim()}</td>`
+      })
+      tableHtml += '</tr>'
+    })
+
+    tableHtml += '</tbody></table></div>'
+    return tableHtml
+  })
+
+  return processedContent
+    // Handle markdown headers (#### first, then ###, then ##)
+    .replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-gray-800 mt-4 mb-2">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-gray-900 mt-4 mb-2">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-gray-900 mt-6 mb-3">$1</h2>')
+    // Handle bold and italic
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Handle lists
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 space-y-1">$&</ul>')
-    .replace(/\n/g, '<br>')
+    // Handle line breaks (but not after headers or tables)
+    .replace(/(?<!<\/h[2-4]>|<\/table>|<\/div>)\n/g, '<br>')
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -122,6 +122,21 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
     setShortAnswerScores({})
     setIsScoring(false)
   }
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (submitted) return
+    if (e.key === 'ArrowLeft') {
+      handlePrevious()
+    } else if (e.key === 'ArrowRight') {
+      handleNext()
+    }
+  }, [submitted, currentQuestionIndex, questions.length])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   const calculateScore = () => {
     let correct = 0
@@ -290,18 +305,12 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
                 placeholder="Type your answer here..."
                 rows={5}
                 disabled={submitted}
-                className="resize-none"
+                className="resize-none text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic"
               />
-              {!submitted && (
-                <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4">
-                  <p className="font-semibold text-gray-900 mb-2">Sample Answer:</p>
-                  <p className="text-gray-700 text-sm italic">{currentQuestion.sampleAnswer}</p>
-                </div>
-              )}
               {submitted && isScoring && (
                 <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
                   <p className="font-semibold text-yellow-900 mb-2">Scoring your answer...</p>
-                  <p className="text-gray-700 text-sm">Using Claude to evaluate your response</p>
+                  <p className="text-gray-700 text-sm">Quiz is being graded</p>
                 </div>
               )}
               {submitted && !isScoring && shortAnswerScores[currentQuestion.id] && (
@@ -359,7 +368,7 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
             onClick={handleSubmit}
             disabled={Object.keys(answers).length === 0}
             size="lg"
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 hover:scale-105 transition-all"
           >
             Submit Quiz
           </Button>
@@ -368,6 +377,7 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
             onClick={handleNext}
             disabled={currentQuestionIndex === questions.length - 1 || submitted}
             size="lg"
+            className="bg-blue-600 hover:bg-blue-700 hover:scale-105 transition-all text-white"
           >
             Next
           </Button>
@@ -574,46 +584,98 @@ function parseQuizContent(content: string): Question[] {
     // Multiple choice questions
     if (line.includes('MC_QUESTION:')) {
       const questionText = line.replace(/\*\*MC_QUESTION:\*\*/, '').replace('MC_QUESTION:', '').trim()
-      const options: string[] = []
 
-      // Collect options
-      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+      // Skip blank questions
+      if (!questionText) continue
+
+      const options: string[] = []
+      let correctAnswer = ''
+
+      // Collect options and find correct answer
+      for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
         const optionLine = lines[j].trim()
         if (optionLine.match(/^[A-D]\)/)) {
-          options.push(optionLine.substring(3).trim())
+          const optionText = optionLine.substring(3).trim()
+          options.push(optionText)
+        } else if (optionLine.toLowerCase().includes('correct answer:') || optionLine.toLowerCase().includes('answer:')) {
+          const answerMatch = optionLine.match(/(?:correct )?answer:\s*([A-D])/i)
+          if (answerMatch && options.length > 0) {
+            const answerIndex = answerMatch[1].charCodeAt(0) - 65
+            if (answerIndex >= 0 && answerIndex < options.length) {
+              correctAnswer = options[answerIndex]
+            }
+          }
         } else if (optionLine.includes('_QUESTION:')) {
           break
         }
       }
 
-      if (options.length > 0) {
+      if (options.length > 0 && questionText) {
         questions.push({
           type: 'mc',
           id: `q-${questions.length}`,
           question: questionText,
           options,
-          correctAnswer: options[0] // First option as default, should be parsed from answer key
+          correctAnswer: correctAnswer || options[0]
         })
       }
     }
     // True/False questions
     else if (line.includes('TF_QUESTION:')) {
       const questionText = line.replace(/\*\*TF_QUESTION:\*\*/, '').replace('TF_QUESTION:', '').trim()
+
+      // Skip blank questions
+      if (!questionText) continue
+
+      // Look for correct answer in next few lines
+      let correctAnswer = true
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        const answerLine = lines[j].trim().toLowerCase()
+        if (answerLine.includes('answer:')) {
+          correctAnswer = answerLine.includes('true')
+          break
+        } else if (answerLine.includes('_QUESTION:')) {
+          break
+        }
+      }
+
       questions.push({
         type: 'tf',
         id: `q-${questions.length}`,
         question: questionText,
-        correctAnswer: true // Default, should be parsed from answer key
+        correctAnswer
       })
     }
     // Short answer questions
     else if (line.includes('SA_QUESTION:')) {
       const questionText = line.replace(/\*\*SA_QUESTION:\*\*/, '').replace('SA_QUESTION:', '').trim()
+
+      // Skip blank questions
+      if (!questionText) continue
+
+      // Look for sample answer in next few lines
+      let sampleAnswer = ''
+      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+        const answerLine = lines[j].trim()
+        if (answerLine.toLowerCase().includes('sample answer:') || answerLine.toLowerCase().includes('answer:')) {
+          sampleAnswer = answerLine.replace(/^(?:sample )?answer:\s*/i, '').trim()
+          // Also collect multi-line answers
+          for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
+            const nextLine = lines[k].trim()
+            if (nextLine.includes('_QUESTION:') || nextLine === '') break
+            sampleAnswer += ' ' + nextLine
+          }
+          break
+        } else if (answerLine.includes('_QUESTION:')) {
+          break
+        }
+      }
+
       questions.push({
         type: 'sa',
         id: `q-${questions.length}`,
         question: questionText,
-        sampleAnswer: 'Review the study materials for guidance on this topic.'
+        sampleAnswer: sampleAnswer || 'A comprehensive answer covering the key concepts from the study material.'
       })
     }
   }

@@ -201,18 +201,18 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <span className="block text-yellow-300 mt-2">Interactive Study Guides</span>
             </h1>
 
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/90">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-300" />
-                <span>3x faster generation</span>
+            <div className="flex flex-wrap items-center justify-center gap-8 text-sm">
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                <Zap className="h-5 w-5 text-yellow-300" />
+                <span className="text-white font-medium">3x faster generation</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-blue-300" />
-                <span>Always accessible</span>
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                <Globe className="h-5 w-5 text-cyan-300" />
+                <span className="text-white font-medium">Always accessible</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-300" />
-                <span>4 interactive formats</span>
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                <Sparkles className="h-5 w-5 text-purple-300" />
+                <span className="text-white font-medium">4 interactive formats</span>
               </div>
             </div>
           </div>
@@ -344,7 +344,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                       value={studyGuideName}
                       onChange={(e) => setStudyGuideName(e.target.value)}
                       disabled={isGenerating}
-                      className={`h-12 text-base ${errors.studyGuideName ? "border-red-500" : ""}`}
+                      className={`h-12 text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic ${errors.studyGuideName ? "border-red-500" : ""}`}
                     />
                     {errors.studyGuideName && <p className="text-sm text-red-600 mt-1">{errors.studyGuideName}</p>}
                   </div>
@@ -355,8 +355,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         Subject
                       </Label>
                       <Select value={subject} onValueChange={setSubject} disabled={isGenerating}>
-                        <SelectTrigger className={`h-12 ${errors.subject ? "border-red-500" : ""}`}>
-                          <SelectValue placeholder="Select subject" />
+                        <SelectTrigger className={`h-12 bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm ${errors.subject ? "border-red-500" : ""}`}>
+                          <SelectValue placeholder="Select subject" className="text-gray-400 italic" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="mathematics">Mathematics</SelectItem>
@@ -375,8 +375,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         Grade Level
                       </Label>
                       <Select value={gradeLevel} onValueChange={setGradeLevel} disabled={isGenerating}>
-                        <SelectTrigger className={`h-12 ${errors.gradeLevel ? "border-red-500" : ""}`}>
-                          <SelectValue placeholder="Select grade level" />
+                        <SelectTrigger className={`h-12 bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm ${errors.gradeLevel ? "border-red-500" : ""}`}>
+                          <SelectValue placeholder="Select grade level" className="text-gray-400 italic" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="9th">9th Grade</SelectItem>
@@ -449,7 +449,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         value={topicFocus}
                         onChange={(e) => setTopicFocus(e.target.value)}
                         disabled={isGenerating}
-                        className="h-11"
+                        className="h-12 text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic"
                       />
                     </div>
 
@@ -458,8 +458,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         Difficulty Level
                       </Label>
                       <Select value={difficultyLevel} onValueChange={setDifficultyLevel} disabled={isGenerating}>
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select difficulty" />
+                        <SelectTrigger className="h-12 bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm">
+                          <SelectValue placeholder="Select difficulty" className="text-gray-400 italic" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="beginner">Beginner</SelectItem>
@@ -481,7 +481,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                       onChange={(e) => setAdditionalInstructions(e.target.value)}
                       rows={4}
                       disabled={isGenerating}
-                      className="resize-none"
+                      className="resize-none text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic"
                     />
                   </div>
                 </div>

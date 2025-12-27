@@ -13,12 +13,12 @@ export default function SummaryFormat({ content, subject }: SummaryFormatProps) 
   const sections = parseSummaryContent(content)
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto px-4">
       {/* Introduction Card */}
       <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <BookOpen className="h-8 w-8 text-blue-600 mt-1" />
+        <CardContent className="py-6">
+          <div className="flex items-center gap-4">
+            <BookOpen className="h-8 w-8 text-blue-600 shrink-0" />
             <div>
               <h2 className="text-2xl font-bold text-blue-900 mb-2">Comprehensive Summary</h2>
               <p className="text-gray-700">
@@ -39,27 +39,27 @@ export default function SummaryFormat({ content, subject }: SummaryFormatProps) 
 
       {/* Study Tips */}
       <Card className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 print:break-before-page">
-        <CardContent className="pt-6">
+        <CardContent className="py-6">
           <div className="flex items-start gap-4">
-            <Star className="h-6 w-6 text-green-600 mt-1" />
+            <Star className="h-6 w-6 text-green-600 shrink-0 mt-1" />
             <div>
-              <h3 className="text-xl font-bold text-green-900 mb-3">Study Tips</h3>
+              <h3 className="text-xl font-bold text-green-900 mb-3">Study Tips for {subject}</h3>
               <ul className="space-y-2 text-gray-700">
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 mt-1">•</span>
-                  <span>Focus on understanding the main concepts and their relationships</span>
+                  <span>Review each section above and identify the main concepts in {subject}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 mt-1">•</span>
-                  <span>Create your own examples to reinforce learning</span>
+                  <span>Pay special attention to the key terms - understanding vocabulary is crucial for {subject}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 mt-1">•</span>
-                  <span>Practice explaining concepts in your own words</span>
+                  <span>Try explaining each section to someone else or write a brief summary in your own words</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-600 mt-1">•</span>
-                  <span>Review regularly to strengthen memory retention</span>
+                  <span>Connect the concepts from different sections - look for relationships and patterns</span>
                 </li>
               </ul>
             </div>
@@ -152,40 +152,55 @@ function parseSummaryContent(content: string): ParsedSection[] {
 
   let currentSection: ParsedSection | null = null
   let inKeyTerms = false
+  let skipSection = false
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
 
     // Check for section headers
-    if (line.startsWith('# ')) {
-      if (currentSection) {
+    if (line.startsWith('# ') || line.startsWith('## ')) {
+      const title = line.replace(/^##?\s+/, '')
+
+      // Skip Student Notes sections
+      if (title.toLowerCase().includes('student notes') ||
+          title.toLowerCase().includes('notes section') ||
+          title.toLowerCase().includes('your notes')) {
+        skipSection = true
+        continue
+      }
+
+      // Skip empty title sections
+      if (!title || title === '—') {
+        skipSection = true
+        continue
+      }
+
+      skipSection = false
+
+      if (currentSection && currentSection.content.trim()) {
         sections.push(currentSection)
       }
       currentSection = {
-        title: line.replace(/^#\s+/, ''),
+        title,
         content: '',
         keyTerms: []
       }
       inKeyTerms = false
-    } else if (line.startsWith('## ')) {
-      if (currentSection) {
-        sections.push(currentSection)
-      }
-      currentSection = {
-        title: line.replace(/^##\s+/, ''),
-        content: '',
-        keyTerms: []
-      }
-      inKeyTerms = false
+    } else if (skipSection) {
+      // Skip content in skipped sections
+      continue
     } else if (line.toLowerCase().includes('key terms') || line.toLowerCase().includes('vocabulary')) {
       inKeyTerms = true
     } else if (currentSection) {
+      // Filter out placeholder content
+      if (line === '—' || line === '--' || line === '---') continue
+
       if (inKeyTerms && line.includes(':')) {
         const colonIndex = line.indexOf(':')
         const term = line.substring(0, colonIndex).trim().replace(/^[-•*]\s*/, '')
         const definition = line.substring(colonIndex + 1).trim()
-        if (term && definition) {
+        if (term && definition && definition !== '—') {
           currentSection.keyTerms!.push({ term, definition })
         }
       } else {
@@ -194,30 +209,85 @@ function parseSummaryContent(content: string): ParsedSection[] {
     }
   }
 
-  if (currentSection) {
+  if (currentSection && currentSection.content.trim()) {
     sections.push(currentSection)
   }
 
+  // Filter out sections with only placeholder content
+  const filteredSections = sections.filter(s =>
+    s.content.trim() &&
+    s.content.trim() !== '—' &&
+    s.title.trim() !== '—'
+  )
+
   // If no sections found, create one from all content
-  if (sections.length === 0) {
-    sections.push({
+  if (filteredSections.length === 0) {
+    filteredSections.push({
       title: 'Summary',
-      content: content,
+      content: content.replace(/^—$/gm, '').trim(),
       keyTerms: []
     })
   }
 
-  return sections
+  return filteredSections
 }
 
 function formatContent(content: string): string {
-  return content
+  // Filter out empty placeholder content
+  const cleanContent = content
+    .replace(/^—$/gm, '')
+    .replace(/^-{2,}$/gm, '')
+    .trim()
+
+  if (!cleanContent) return ''
+
+  // Handle markdown tables first
+  const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
+  let processedContent = cleanContent.replace(tableRegex, (match) => {
+    const lines = match.trim().split('\n')
+    if (lines.length < 2) return match
+
+    const headerCells = lines[0].split('|').filter(cell => cell.trim())
+    const bodyRows = lines.slice(2) // Skip header and separator
+
+    let tableHtml = '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse border border-gray-300 rounded-lg overflow-hidden">'
+    tableHtml += '<thead class="bg-blue-50"><tr>'
+    headerCells.forEach(cell => {
+      tableHtml += `<th class="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-900">${cell.trim()}</th>`
+    })
+    tableHtml += '</tr></thead><tbody>'
+
+    bodyRows.forEach((row, index) => {
+      const cells = row.split('|').filter(cell => cell.trim())
+      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+      tableHtml += `<tr class="${bgClass}">`
+      cells.forEach(cell => {
+        tableHtml += `<td class="border border-gray-300 px-4 py-2 text-gray-700">${cell.trim()}</td>`
+      })
+      tableHtml += '</tr>'
+    })
+
+    tableHtml += '</tbody></table></div>'
+    return tableHtml
+  })
+
+  return processedContent
+    // Handle markdown headers (#### first, then ###, then ##)
+    .replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-gray-800 mt-4 mb-2">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-gray-900 mt-4 mb-2">$1</h3>')
+    // Handle bold and italic
     .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+    // Handle lists
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 space-y-2 my-4">$&</ul>')
+    // Handle paragraphs
     .split('\n\n')
-    .map(para => `<p class="mb-4 text-gray-700 leading-relaxed">${para}</p>`)
+    .filter(para => para.trim() && para.trim() !== '—')
+    .map(para => {
+      if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<div')) return para
+      return `<p class="mb-4 text-gray-700 leading-relaxed">${para}</p>`
+    })
     .join('')
 }
 
@@ -229,7 +299,17 @@ function formatContentWithKeyPoints(content: string): string {
   for (const line of lines) {
     const trimmed = line.trim()
 
-    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+    // Skip placeholder content
+    if (trimmed === '—' || trimmed === '--' || trimmed === '---') continue
+
+    // Handle headers
+    if (trimmed.startsWith('#### ')) {
+      if (inList) { html += '</ul>'; inList = false }
+      html += `<h4 class="text-base font-semibold text-gray-800 mt-4 mb-2">${trimmed.substring(5)}</h4>`
+    } else if (trimmed.startsWith('### ')) {
+      if (inList) { html += '</ul>'; inList = false }
+      html += `<h3 class="text-lg font-semibold text-gray-900 mt-4 mb-2">${trimmed.substring(4)}</h3>`
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
       if (!inList) {
         html += '<ul class="space-y-3 my-4">'
         inList = true

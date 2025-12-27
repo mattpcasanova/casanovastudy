@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase } from './supabase'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -34,6 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const isSigningOutRef = useRef(false)
 
   // Fetch user profile data with timeout
   const fetchUserProfile = async (supabaseUser: SupabaseUser): Promise<User | null> => {
@@ -126,24 +127,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      console.log('🔐 Auth state changed:', event)
+      console.log('🔐 Auth state changed:', event, '| isSigningOut:', isSigningOutRef.current)
 
-      // Handle sign out immediately without fetching profile
-      if (event === 'SIGNED_OUT') {
+      // Skip all profile fetches if we're signing out
+      if (isSigningOutRef.current) {
+        console.log('🔐 Skipping auth event during sign out')
+        return
+      }
+
+      // Handle sign out and no-session events immediately
+      if (event === 'SIGNED_OUT' || !session?.user) {
         if (isMounted) {
           setUser(null)
         }
         return
       }
 
-      if (session?.user) {
+      // Only fetch profile for events that actually need it
+      // Skip TOKEN_REFRESHED if we already have user state (prevents unnecessary fetches)
+      const shouldFetchProfile =
+        event === 'SIGNED_IN' ||
+        event === 'USER_UPDATED' ||
+        (event === 'TOKEN_REFRESHED' && !user) // Only fetch on token refresh if we don't have user
+
+      if (shouldFetchProfile && session?.user) {
         const userProfile = await fetchUserProfile(session.user)
         if (userProfile && isMounted) {
           setUser(userProfile)
-        }
-      } else {
-        if (isMounted) {
-          setUser(null)
         }
       }
     })
@@ -274,9 +284,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    setUser(null)
+    isSigningOutRef.current = true
+    setUser(null) // Clear user immediately to prevent stale state
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+    } finally {
+      isSigningOutRef.current = false
+    }
   }
 
   return (

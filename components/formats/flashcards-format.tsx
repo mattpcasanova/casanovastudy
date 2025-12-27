@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -63,6 +63,26 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
     setIsFlipped(false)
   }
 
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') {
+      prevCard()
+    } else if (e.key === 'ArrowRight') {
+      nextCard()
+    } else if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      setIsFlipped(f => !f)
+    }
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
+  // Clean question text (remove ** markers)
+  const cleanQuestion = (text: string) => text.replace(/^\*\*|\*\*$/g, '').trim()
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Card */}
@@ -122,7 +142,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
             <CardContent className="flex flex-col items-center justify-center h-[calc(500px-5rem)] p-8 bg-white">
               <div className="text-center space-y-4">
                 <p className="text-2xl font-semibold text-gray-800 leading-relaxed">
-                  {currentCard.question}
+                  {cleanQuestion(currentCard.question)}
                 </p>
                 <p className="text-sm text-gray-500 mt-8">
                   Click to flip
@@ -138,7 +158,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
                 ? 'border-green-500'
                 : difficultCards.has(currentCard.id)
                 ? 'border-red-500'
-                : 'border-indigo-500'
+                : 'border-blue-500'
             }`}
           >
             <div className={`h-20 flex items-center justify-center rounded-t-lg ${
@@ -146,7 +166,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
                 ? 'bg-green-500'
                 : difficultCards.has(currentCard.id)
                 ? 'bg-red-500'
-                : 'bg-indigo-500'
+                : 'bg-blue-500'
             }`}>
               <Badge className="bg-white/20 text-white border-white/30">Answer</Badge>
             </div>
@@ -229,7 +249,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
           <div key={card.id} className="border-2 border-gray-300 rounded-lg p-6 break-inside-avoid">
             <div className="mb-4">
               <Badge className="bg-blue-600 text-white">Question {index + 1}</Badge>
-              <p className="text-lg font-semibold mt-2">{card.question}</p>
+              <p className="text-lg font-semibold mt-2">{cleanQuestion(card.question)}</p>
             </div>
             <div className="border-t-2 border-gray-200 pt-4">
               <Badge className="bg-indigo-600 text-white">Answer</Badge>
@@ -301,8 +321,38 @@ function parseFlashcards(content: string): Flashcard[] {
 }
 
 function formatContent(content: string): string {
-  return content
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-700">$1</strong>')
+  // Handle markdown tables first
+  const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
+  let processedContent = content.replace(tableRegex, (match) => {
+    const lines = match.trim().split('\n')
+    if (lines.length < 2) return match
+
+    const headerCells = lines[0].split('|').filter(cell => cell.trim())
+    const bodyRows = lines.slice(2)
+
+    let tableHtml = '<div class="overflow-x-auto my-2"><table class="min-w-full border-collapse border border-gray-300 rounded text-sm">'
+    tableHtml += '<thead class="bg-blue-50"><tr>'
+    headerCells.forEach(cell => {
+      tableHtml += `<th class="border border-gray-300 px-2 py-1 text-left font-semibold">${cell.trim()}</th>`
+    })
+    tableHtml += '</tr></thead><tbody>'
+
+    bodyRows.forEach((row, index) => {
+      const cells = row.split('|').filter(cell => cell.trim())
+      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+      tableHtml += `<tr class="${bgClass}">`
+      cells.forEach(cell => {
+        tableHtml += `<td class="border border-gray-300 px-2 py-1">${cell.trim()}</td>`
+      })
+      tableHtml += '</tr>'
+    })
+
+    tableHtml += '</tbody></table></div>'
+    return tableHtml
+  })
+
+  return processedContent
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 space-y-1">$&</ul>')

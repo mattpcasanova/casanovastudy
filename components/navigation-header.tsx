@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, User, LogOut } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,13 +18,30 @@ interface NavigationHeaderProps {
     id: string
     email: string
     user_type: 'student' | 'teacher'
+    first_name?: string
+    last_name?: string
   } | null
   onSignOut?: () => void
-  onSignIn?: () => void
 }
 
-export default function NavigationHeader({ user, onSignOut, onSignIn }: NavigationHeaderProps) {
+// Get user initials from name or email
+function getUserInitials(user: NavigationHeaderProps['user']): string {
+  if (!user) return '?'
+
+  if (user.first_name && user.last_name) {
+    return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
+  }
+  if (user.first_name) {
+    return user.first_name.substring(0, 2).toUpperCase()
+  }
+  // Fall back to email
+  const emailName = user.email.split('@')[0]
+  return emailName.substring(0, 2).toUpperCase()
+}
+
+export default function NavigationHeader({ user, onSignOut }: NavigationHeaderProps) {
   const pathname = usePathname()
+  const initials = getUserInitials(user)
 
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/'
@@ -81,7 +97,7 @@ export default function NavigationHeader({ user, onSignOut, onSignIn }: Navigati
                 </Link>
               )}
 
-              {user?.user_type === 'teacher' && (
+              {user && (
                 <Link href="/grade-exam">
                   <Button
                     variant={isActive('/grade-exam') ? 'secondary' : 'ghost'}
@@ -98,39 +114,35 @@ export default function NavigationHeader({ user, onSignOut, onSignIn }: Navigati
               )}
             </nav>
 
-            {/* User Menu / Sign In */}
-            <div>
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" className="bg-white/90 hover:bg-white text-gray-800">
-                      <User className="h-4 w-4 mr-2" />
-                      {user.email}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-2">
-                      <p className="text-sm font-medium">{user.email}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{user.user_type}</p>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={onSignOut} className="text-red-600 cursor-pointer">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  variant="secondary"
-                  onClick={onSignIn}
-                  className="bg-white/90 hover:bg-white text-gray-800"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Sign In
-                </Button>
-              )}
-            </div>
+            {/* User Menu */}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-10 h-10 rounded-full bg-white text-primary font-bold text-sm flex items-center justify-center hover:ring-2 hover:ring-white/50 transition-all duration-200 shadow-md"
+                    aria-label="User menu"
+                  >
+                    {initials}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-medium">
+                      {user.first_name && user.last_name
+                        ? `${user.first_name} ${user.last_name}`
+                        : user.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onSignOut} className="text-red-600 cursor-pointer">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>

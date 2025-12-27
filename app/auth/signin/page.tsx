@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Loader2, AlertCircle, GraduationCap } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/hooks/use-toast'
 
@@ -70,9 +70,9 @@ export default function SignInPage() {
             <Image
               src="/images/casanova-study-logo.png"
               alt="Casanova Study"
-              width={280}
-              height={105}
-              className="h-20 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer"
+              width={350}
+              height={131}
+              className="h-24 md:h-28 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer"
             />
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mt-6">Welcome Back!</h1>
@@ -168,13 +168,41 @@ export default function SignInPage() {
             </Button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-500">or</span>
+            </div>
+          </div>
+
+          {/* Clever SSO Login */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isLoading}
+            onClick={() => {
+              // Redirect to Clever OAuth
+              const cleverClientId = process.env.NEXT_PUBLIC_CLEVER_CLIENT_ID
+              const redirectUri = `${window.location.origin}/auth/clever/callback`
+              const cleverAuthUrl = `https://clever.com/oauth/authorize?response_type=code&client_id=${cleverClientId}&redirect_uri=${encodeURIComponent(redirectUri)}`
+              window.location.href = cleverAuthUrl
+            }}
+            className="w-full h-12 text-base font-semibold border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 text-blue-700"
+          >
+            <GraduationCap className="h-5 w-5 mr-2" />
+            Log in with Colegia
+          </Button>
+
           {/* Sign Up Link */}
           <div className="mt-8 text-center">
             <p className="text-gray-600 mb-4">Don't have an account?</p>
             <Button
               asChild
               variant="outline"
-              className="w-full h-12 text-base font-semibold border-2 hover:bg-gray-50"
+              className="w-full h-12 text-base font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400"
             >
               <Link href="/auth/signup">
                 Sign up here
