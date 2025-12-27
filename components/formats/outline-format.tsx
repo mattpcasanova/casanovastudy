@@ -28,6 +28,10 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
   const [completedSections, setCompletedSections] = useState<string[]>([])
   const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({})
 
+  // Build parent-child relationships for auto-checking
+  const parentMap = buildParentMap(sections)
+  const childrenMap = buildChildrenMap(sections)
+
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev =>
       prev.includes(sectionId)
@@ -36,34 +40,74 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
     )
   }
 
+  // Check if all children of a section are completed
+  const areAllChildrenCompleted = (sectionId: string, currentCompleted: string[]): boolean => {
+    const children = childrenMap[sectionId] || []
+    if (children.length === 0) return true
+    return children.every(childId => currentCompleted.includes(childId))
+  }
+
+  // Get all ancestors of a section (parent, grandparent, etc.)
+  const getAncestors = (sectionId: string): string[] => {
+    const ancestors: string[] = []
+    let current = parentMap[sectionId]
+    while (current) {
+      ancestors.push(current)
+      current = parentMap[current]
+    }
+    return ancestors
+  }
+
   const toggleCompleted = (sectionId: string) => {
-    setCompletedSections(prev =>
-      prev.includes(sectionId)
-        ? prev.filter(id => id !== sectionId)
-        : [...prev, sectionId]
-    )
+    setCompletedSections(prev => {
+      const isCurrentlyCompleted = prev.includes(sectionId)
+      let newCompleted: string[]
+
+      if (isCurrentlyCompleted) {
+        // Unchecking: remove this section and all its ancestors
+        const ancestors = getAncestors(sectionId)
+        newCompleted = prev.filter(id => id !== sectionId && !ancestors.includes(id))
+      } else {
+        // Checking: add this section
+        newCompleted = [...prev, sectionId]
+
+        // Auto-check parents if all their children are now completed
+        const ancestors = getAncestors(sectionId)
+        for (const ancestorId of ancestors) {
+          if (areAllChildrenCompleted(ancestorId, newCompleted) && !newCompleted.includes(ancestorId)) {
+            newCompleted.push(ancestorId)
+          }
+        }
+      }
+
+      return newCompleted
+    })
   }
 
   const progressPercentage = (completedSections.length / allSectionIds.length) * 100
 
   return (
     <div className="space-y-6">
-      {/* Progress Bar - Simple sticky bar */}
-      <div className="sticky top-20 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 py-3 px-4 print:hidden">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-gray-700">
-                {completedSections.length} of {allSectionIds.length} sections complete
-              </span>
+      {/* Progress Card - Rounded like Flashcards */}
+      <div className="max-w-5xl mx-auto px-4 print:hidden">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {completedSections.length} of {allSectionIds.length} sections complete
+                  </span>
+                </div>
+                <Badge variant={progressPercentage === 100 ? "default" : "secondary"}>
+                  {Math.round(progressPercentage)}%
+                </Badge>
+              </div>
+              <Progress value={progressPercentage} className="h-2" />
             </div>
-            <Badge variant={progressPercentage === 100 ? "default" : "secondary"}>
-              {Math.round(progressPercentage)}%
-            </Badge>
-          </div>
-          <Progress value={progressPercentage} className="h-2" />
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Outline Sections */}
@@ -84,6 +128,35 @@ export default function OutlineFormat({ content, subject }: OutlineFormatProps) 
       </div>
     </div>
   )
+}
+
+// Build a map of child -> parent relationships
+function buildParentMap(sections: OutlineSection[], parentId?: string): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const section of sections) {
+    if (parentId) {
+      map[section.id] = parentId
+    }
+    if (section.children) {
+      Object.assign(map, buildParentMap(section.children, section.id))
+    }
+  }
+  return map
+}
+
+// Build a map of parent -> children relationships
+function buildChildrenMap(sections: OutlineSection[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {}
+
+  function traverse(section: OutlineSection) {
+    if (section.children && section.children.length > 0) {
+      map[section.id] = section.children.map(child => child.id)
+      section.children.forEach(traverse)
+    }
+  }
+
+  sections.forEach(traverse)
+  return map
 }
 
 function OutlineSection({
@@ -121,34 +194,92 @@ function OutlineSection({
     return 'text-gray-800'
   }
 
+  // Check if this section should show a checkbox
+  const shouldShowCheckbox = () => {
+    // Never show checkbox for level 0 (main title)
+    if (level === 0) return false
+    // Don't show checkbox for Learning Objectives or Exam Focus Points
+    const titleLower = section.title.toLowerCase()
+    if (titleLower.includes('learning objectives') || titleLower.includes('exam focus')) return false
+    return true
+  }
+
+  const showCheckbox = shouldShowCheckbox()
+
+  // Level 0 sections render without a Card wrapper (no outer box)
+  if (level === 0) {
+    return (
+      <div className="print:break-inside-avoid">
+        {/* Title as a heading without box - no checkbox */}
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-600">
+          <h2 className="text-2xl font-bold text-blue-900">{section.title}</h2>
+        </div>
+
+        {/* Content */}
+        {section.content && (
+          <div className="mb-4">
+            <InteractiveContent
+              content={section.content}
+              sectionId={section.id}
+              checklistItems={checklistItems}
+              setChecklistItems={setChecklistItems}
+            />
+          </div>
+        )}
+
+        {/* Children sections (these get Card wrappers) */}
+        {hasChildren && (
+          <div className="space-y-4">
+            {section.children!.map(child => (
+              <OutlineSection
+                key={child.id}
+                section={child}
+                expandedSections={expandedSections}
+                completedSections={completedSections}
+                toggleSection={toggleSection}
+                toggleCompleted={toggleCompleted}
+                checklistItems={checklistItems}
+                setChecklistItems={setChecklistItems}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Level 1+ sections use Card wrappers
   return (
     <Card className={`${getBgColor()} print:break-inside-avoid`}>
       <CardHeader
-        className={level === 0 ? "print:cursor-default" : "cursor-pointer hover:bg-gray-50/50 transition-colors print:cursor-default"}
-        onClick={level === 0 ? undefined : () => toggleSection(section.id)}
+        className="cursor-pointer hover:bg-gray-50/50 transition-colors print:cursor-default"
+        onClick={() => toggleSection(section.id)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleCompleted(section.id)
-              }}
-              className="p-1 h-auto print:hidden"
-            >
-              {isCompleted ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <Circle className="h-5 w-5" />
-              )}
-            </Button>
-            <CardTitle className={`${getTitleColor()} text-${level === 0 ? 'xl' : level === 1 ? 'lg' : 'base'}`}>
+            {showCheckbox && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleCompleted(section.id)
+                }}
+                className="p-1 h-auto print:hidden"
+              >
+                {isCompleted ? (
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : (
+                  <Circle className="h-5 w-5" />
+                )}
+              </Button>
+            )}
+            <CardTitle className={`${getTitleColor()} ${level === 1 ? 'text-lg' : 'text-base'}`}>
               {section.title}
             </CardTitle>
           </div>
-          {hasChildren && level !== 0 && (
+          {hasChildren && (
             <div className="print:hidden">
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5" />
@@ -159,7 +290,7 @@ function OutlineSection({
           )}
         </div>
       </CardHeader>
-      {((level === 0 || isExpanded) || !hasChildren) && (
+      {(isExpanded || !hasChildren) && (
         <CardContent className="print:block">
           {section.content && (
             <InteractiveContent
@@ -331,19 +462,32 @@ function parseOutlineContent(content: string): OutlineSection[] {
   return sections
 }
 
-function getAllSectionIds(sections: OutlineSection[]): string[] {
+// Helper to check if a section should have a checkbox
+function sectionHasCheckbox(section: OutlineSection, level: number): boolean {
+  // Never show checkbox for level 0 (main title)
+  if (level === 0) return false
+  // Don't show checkbox for Learning Objectives or Exam Focus Points
+  const titleLower = section.title.toLowerCase()
+  if (titleLower.includes('learning objectives') || titleLower.includes('exam focus')) return false
+  return true
+}
+
+function getAllSectionIds(sections: OutlineSection[], level: number = 0): string[] {
   const ids: string[] = []
   for (const section of sections) {
-    ids.push(section.id)
+    // Only include sections that have checkboxes
+    if (sectionHasCheckbox(section, level)) {
+      ids.push(section.id)
+    }
     if (section.children) {
-      ids.push(...getAllSectionIds(section.children))
+      ids.push(...getAllSectionIds(section.children, level + 1))
     }
   }
   return ids
 }
 
 function formatContent(content: string): string {
-  // First, handle markdown tables
+  // First, handle markdown tables with separator row
   const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
   let processedContent = content.replace(tableRegex, (match) => {
     const lines = match.trim().split('\n')
@@ -361,6 +505,48 @@ function formatContent(content: string): string {
 
     bodyRows.forEach((row, index) => {
       const cells = row.split('|').filter(cell => cell.trim())
+      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+      tableHtml += `<tr class="${bgClass}">`
+      cells.forEach(cell => {
+        tableHtml += `<td class="border border-gray-300 px-4 py-2 text-gray-700">${cell.trim()}</td>`
+      })
+      tableHtml += '</tr>'
+    })
+
+    tableHtml += '</tbody></table></div>'
+    return tableHtml
+  })
+
+  // Handle simpler tables without separator row (consecutive lines with pipes)
+  const simpleTableRegex = /(\|[^|\n]+\|[^|\n]*\|?\n?){2,}/gm
+  processedContent = processedContent.replace(simpleTableRegex, (match) => {
+    // Check if already processed (contains HTML)
+    if (match.includes('<table') || match.includes('<div')) return match
+
+    const lines = match.trim().split('\n').filter(l => l.includes('|'))
+    if (lines.length < 2) return match
+
+    // First line is header
+    const headerCells = lines[0].split('|').filter(cell => cell.trim())
+    if (headerCells.length < 2) return match // Not a real table
+
+    // Check if second line is a separator (skip it if so)
+    let startRow = 1
+    if (lines[1] && /^[\s|:-]+$/.test(lines[1])) {
+      startRow = 2
+    }
+    const bodyRows = lines.slice(startRow)
+
+    let tableHtml = '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse border border-gray-300 rounded-lg overflow-hidden">'
+    tableHtml += '<thead class="bg-blue-50"><tr>'
+    headerCells.forEach(cell => {
+      tableHtml += `<th class="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-900">${cell.trim()}</th>`
+    })
+    tableHtml += '</tr></thead><tbody>'
+
+    bodyRows.forEach((row, index) => {
+      const cells = row.split('|').filter(cell => cell.trim())
+      if (cells.length === 0) return
       const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
       tableHtml += `<tr class="${bgClass}">`
       cells.forEach(cell => {

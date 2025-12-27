@@ -321,7 +321,7 @@ function parseFlashcards(content: string): Flashcard[] {
 }
 
 function formatContent(content: string): string {
-  // Handle markdown tables first
+  // Handle markdown tables with separator row
   const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
   let processedContent = content.replace(tableRegex, (match) => {
     const lines = match.trim().split('\n')
@@ -339,6 +339,48 @@ function formatContent(content: string): string {
 
     bodyRows.forEach((row, index) => {
       const cells = row.split('|').filter(cell => cell.trim())
+      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+      tableHtml += `<tr class="${bgClass}">`
+      cells.forEach(cell => {
+        tableHtml += `<td class="border border-gray-300 px-2 py-1">${cell.trim()}</td>`
+      })
+      tableHtml += '</tr>'
+    })
+
+    tableHtml += '</tbody></table></div>'
+    return tableHtml
+  })
+
+  // Handle simpler tables without separator row (consecutive lines with pipes)
+  const simpleTableRegex = /(\|[^|\n]+\|[^|\n]*\|?\n?){2,}/gm
+  processedContent = processedContent.replace(simpleTableRegex, (match) => {
+    // Check if already processed (contains HTML)
+    if (match.includes('<table') || match.includes('<div')) return match
+
+    const lines = match.trim().split('\n').filter(l => l.includes('|'))
+    if (lines.length < 2) return match
+
+    // First line is header
+    const headerCells = lines[0].split('|').filter(cell => cell.trim())
+    if (headerCells.length < 2) return match // Not a real table
+
+    // Check if second line is a separator (skip it if so)
+    let startRow = 1
+    if (lines[1] && /^[\s|:-]+$/.test(lines[1])) {
+      startRow = 2
+    }
+    const bodyRows = lines.slice(startRow)
+
+    let tableHtml = '<div class="overflow-x-auto my-2"><table class="min-w-full border-collapse border border-gray-300 rounded text-sm">'
+    tableHtml += '<thead class="bg-blue-50"><tr>'
+    headerCells.forEach(cell => {
+      tableHtml += `<th class="border border-gray-300 px-2 py-1 text-left font-semibold">${cell.trim()}</th>`
+    })
+    tableHtml += '</tr></thead><tbody>'
+
+    bodyRows.forEach((row, index) => {
+      const cells = row.split('|').filter(cell => cell.trim())
+      if (cells.length === 0) return
       const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
       tableHtml += `<tr class="${bgClass}">`
       cells.forEach(cell => {

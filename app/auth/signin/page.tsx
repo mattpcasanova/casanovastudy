@@ -184,10 +184,16 @@ export default function SignInPage() {
             variant="outline"
             disabled={isLoading}
             onClick={() => {
-              // Redirect to Clever OAuth
+              // Redirect to Clever OAuth with optional district_id for instant login
               const cleverClientId = process.env.NEXT_PUBLIC_CLEVER_CLIENT_ID
+              const cleverDistrictId = process.env.NEXT_PUBLIC_CLEVER_DISTRICT_ID
               const redirectUri = `${window.location.origin}/auth/clever/callback`
-              const cleverAuthUrl = `https://clever.com/oauth/authorize?response_type=code&client_id=${cleverClientId}&redirect_uri=${encodeURIComponent(redirectUri)}`
+
+              // Use instant-login if district ID is configured, otherwise use standard OAuth
+              const cleverAuthUrl = cleverDistrictId
+                ? `https://clever.com/oauth/instant-login?client_id=${cleverClientId}&district_id=${cleverDistrictId}&redirect_uri=${encodeURIComponent(redirectUri)}`
+                : `https://clever.com/oauth/authorize?response_type=code&client_id=${cleverClientId}&redirect_uri=${encodeURIComponent(redirectUri)}`
+
               window.location.href = cleverAuthUrl
             }}
             className="w-full h-12 text-base font-semibold border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 text-blue-700"
