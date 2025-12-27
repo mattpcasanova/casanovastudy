@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import Image from "next/image"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
+import NavigationHeader from "@/components/navigation-header"
+import { useAuth } from "@/lib/auth"
 
 interface GradingResult {
   pdfUrl: string
@@ -26,6 +26,7 @@ interface GradingResult {
 }
 
 export default function GradeExamPage() {
+  const { user, signOut } = useAuth()
   const [answerSheetFile, setAnswerSheetFile] = useState<File | null>(null)
   const [studentExamFile, setStudentExamFile] = useState<File | null>(null)
   const [additionalComments, setAdditionalComments] = useState<string>("")
@@ -182,32 +183,22 @@ export default function GradeExamPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header - matching study guide style */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
-        <div className="container mx-auto px-4 py-4 md:py-8">
-          <div className="flex flex-col items-center gap-4 md:relative">
-            {/* Logo */}
-            <div className="md:absolute md:top-1/2 md:-translate-y-1/2 md:left-0">
-              <Link href="/" className="block transition-all duration-200 hover:scale-105">
-                <Image
-                  src="/images/casanova-study-logo.png"
-                  alt="Casanova Study"
-                  width={312}
-                  height={117}
-                  className="h-16 w-28 sm:h-20 sm:w-32 md:h-24 md:w-40 lg:h-32 lg:w-52 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
-                />
-              </Link>
-            </div>
+      {/* Navigation Header */}
+      <NavigationHeader
+        user={user}
+        onSignOut={signOut}
+      />
 
-            {/* Centered content */}
-            <div className="text-center w-full">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-                Exam Grading Assistant
-              </h1>
-              <p className="mt-2 md:mt-4 text-xs sm:text-sm opacity-75">
-                Upload student exams to receive detailed grading with marks and feedback
-              </p>
-            </div>
+      {/* Title Banner */}
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+              Exam Grading Assistant
+            </h1>
+            <p className="text-xs sm:text-sm opacity-75">
+              Upload student exams to receive detailed grading with marks and feedback
+            </p>
           </div>
         </div>
       </div>
