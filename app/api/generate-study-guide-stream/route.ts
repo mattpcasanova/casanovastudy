@@ -2,11 +2,15 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
-import { supabase } from '@/lib/supabase'
+import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
   const startTime = Date.now()
+
+  // Get authenticated user (if any)
+  const user = await getAuthenticatedUser(request)
+  const supabase = createRouteHandlerClient(request)
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -91,7 +95,8 @@ export async function POST(request: NextRequest) {
             difficulty_level: body.difficultyLevel,
             additional_instructions: body.additionalInstructions,
             file_count: body.cloudinaryFiles?.length || body.files?.length || 0,
-            token_usage: usage
+            token_usage: usage,
+            user_id: user?.id || null  // Associate with authenticated user
           })
           .select()
           .single()

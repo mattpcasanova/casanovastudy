@@ -45,8 +45,20 @@ export const supabase = new Proxy({} as SupabaseClient, {
   }
 })
 
+export interface UserProfileRecord {
+  id: string
+  email: string
+  user_type: 'student' | 'teacher'
+  first_name?: string
+  last_name?: string
+  birth_date?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface StudyGuideRecord {
   id: string
+  user_id?: string | null
   title: string
   subject: string
   grade_level: string

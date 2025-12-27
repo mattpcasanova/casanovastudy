@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import UploadPageRedesigned from "@/components/upload-page-redesigned"
 import NavigationHeader from "@/components/navigation-header"
-import AuthModal from "@/components/auth-modal"
+import AuthGate from "@/components/auth-gate"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import { Toaster } from "@/components/ui/toaster"
 import { StudyGuideData } from "@/types"
@@ -13,12 +13,11 @@ import { useAuth } from "@/lib/auth"
 
 export default function Home() {
   const router = useRouter()
-  const { user, signIn, signUp, signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [isComplete, setIsComplete] = useState(false)
-  const [showAuthModal, setShowAuthModal] = useState(false)
 
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
@@ -115,48 +114,42 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <NavigationHeader
-        user={user}
-        onSignOut={signOut}
-        onSignIn={() => setShowAuthModal(true)}
-      />
+    <AuthGate>
+      <main className="min-h-screen bg-background">
+        <NavigationHeader
+          user={user}
+          onSignOut={signOut}
+        />
 
-      <AuthModal
-        open={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSignIn={signIn}
-        onSignUp={signUp}
-      />
-
-      {!isGenerating ? (
-        <UploadPageRedesigned onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
-      ) : (
-        <div className="min-h-screen bg-gradient-to-r from-primary via-secondary to-accent relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
-                backgroundSize: "20px 20px",
-              }}
-            ></div>
-          </div>
-          <div className="container mx-auto px-4 max-w-4xl relative z-10 py-20">
-            <div className="text-center mb-12 text-white">
-              <h1 className="text-4xl font-bold mb-2">Generating Your Study Guide</h1>
-              <p className="text-blue-100">Sit back and relax while we create your personalized study materials</p>
+        {!isGenerating ? (
+          <UploadPageRedesigned onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
+        ) : (
+          <div className="min-h-screen bg-gradient-to-r from-primary via-secondary to-accent relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+                  backgroundSize: "20px 20px",
+                }}
+              ></div>
             </div>
-            <StreamingGenerationProgress
-              content={streamingContent}
-              statusMessage={statusMessage}
-              isComplete={isComplete}
-            />
+            <div className="container mx-auto px-4 max-w-4xl relative z-10 py-20">
+              <div className="text-center mb-12 text-white">
+                <h1 className="text-4xl font-bold mb-2">Generating Your Study Guide</h1>
+                <p className="text-blue-100">Sit back and relax while we create your personalized study materials</p>
+              </div>
+              <StreamingGenerationProgress
+                content={streamingContent}
+                statusMessage={statusMessage}
+                isComplete={isComplete}
+              />
+            </div>
           </div>
-        </div>
-      )}
-      <Toaster />
-    </main>
+        )}
+        <Toaster />
+      </main>
+    </AuthGate>
   )
 }

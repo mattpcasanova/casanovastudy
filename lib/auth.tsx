@@ -8,14 +8,25 @@ export interface User {
   id: string
   email: string
   user_type: 'student' | 'teacher'
+  first_name?: string
+  last_name?: string
+  birth_date?: string
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, userType: 'student' | 'teacher') => Promise<void>
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>
+  signUp: (
+    email: string,
+    password: string,
+    userType: 'student' | 'teacher',
+    firstName: string,
+    lastName: string,
+    birthDate?: string
+  ) => Promise<void>
   signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,93 +35,242 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Fetch user profile data
+  // Fetch user profile data with timeout
   const fetchUserProfile = async (supabaseUser: SupabaseUser): Promise<User | null> => {
+    console.log('🔍 Fetching profile for user ID:', supabaseUser.id)
+
     try {
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging forever
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      })
+
+      const fetchPromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('id', supabaseUser.id)
         .single()
 
-      if (error) throw error
-      if (!data) return null
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any
+
+      if (error) {
+        console.error('❌ Error fetching user profile:', error.message || error)
+        return null
+      }
+
+      if (!data) {
+        console.warn('⚠️ No profile data returned')
+        return null
+      }
+
+      console.log('✅ Profile data found:', data.email)
 
       return {
         id: data.id,
         email: data.email,
-        user_type: data.user_type
+        user_type: data.user_type,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        birth_date: data.birth_date
       }
-    } catch (error) {
-      console.error('Error fetching user profile:', error)
+    } catch (error: any) {
+      console.error('❌ Profile fetch error:', error.message || error)
       return null
     }
   }
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user).then(setUser)
-      }
-      setLoading(false)
-    })
+    let isMounted = true
+    let isInitialized = false
 
-    // Listen for changes on auth state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Initialize auth state from existing session
+    const initializeAuth = async () => {
+      try {
+        console.log('📱 Initializing auth...')
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!isMounted) return
+
+        if (session?.user) {
+          console.log('✅ Session found for user:', session.user.id)
+          const userProfile = await fetchUserProfile(session.user)
+
+          if (!isMounted) return
+
+          if (userProfile) {
+            setUser(userProfile)
+            console.log('✅ User restored from session')
+          } else {
+            console.warn('⚠️ Session exists but no profile found')
+          }
+        } else {
+          console.log('📱 No existing session')
+        }
+      } catch (error) {
+        console.error('❌ Error initializing auth:', error)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+          isInitialized = true
+        }
+      }
+    }
+
+    initializeAuth()
+
+    // Listen for auth state changes AFTER initialization (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Skip all events during initialization - initializeAuth handles the initial state
+      if (!isInitialized) {
+        console.log('🔐 Skipping auth event during init:', event)
+        return
+      }
+
+      console.log('🔐 Auth state changed:', event)
+
+      // Handle sign out immediately without fetching profile
+      if (event === 'SIGNED_OUT') {
+        if (isMounted) {
+          setUser(null)
+        }
+        return
+      }
+
       if (session?.user) {
         const userProfile = await fetchUserProfile(session.user)
-        setUser(userProfile)
+        if (userProfile && isMounted) {
+          setUser(userProfile)
+        }
       } else {
-        setUser(null)
+        if (isMounted) {
+          setUser(null)
+        }
       }
-      setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean = true) => {
+    console.log('🔐 Starting sign in...')
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ Sign in error:', error)
+      throw error
+    }
+
+    console.log('✅ Authentication successful')
+
+    // Note: Supabase automatically persists sessions to localStorage by default.
+    // The "remember me" parameter is kept for future use if we need to implement
+    // session-only storage (sessionStorage) for users who don't check "remember me".
+    // For now, all sessions persist across browser sessions.
 
     if (data.user) {
+      console.log('👤 Fetching user profile for:', data.user.id)
       const userProfile = await fetchUserProfile(data.user)
+      console.log('📋 User profile fetched:', userProfile)
+
+      if (!userProfile) {
+        console.error('⚠️ No user profile found - profile may not have been created during signup')
+        throw new Error('User profile not found. Please contact support.')
+      }
+
       setUser(userProfile)
+      console.log('✅ Sign in complete')
     }
   }
 
-  const signUp = async (email: string, password: string, userType: 'student' | 'teacher') => {
-    // Sign up the user
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    })
+    if (error) throw error
+  }
+
+  const signUp = async (
+    email: string,
+    password: string,
+    userType: 'student' | 'teacher',
+    firstName: string,
+    lastName: string,
+    birthDate?: string
+  ) => {
+    console.log('🔐 Starting sign up...')
+
+    // Sign up the user with email confirmation required
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      }
     })
 
     if (error) throw error
     if (!data.user) throw new Error('Failed to create user')
 
-    // Create user profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .insert({
-        id: data.user.id,
-        email: data.user.email!,
-        user_type: userType
-      })
+    console.log('✅ User created in auth.users:', data.user.id)
 
-    if (profileError) throw profileError
+    // Create user profile with exponential backoff retry logic
+    // Try immediately first, then retry with increasing delays if needed
+    const delays = [0, 100, 250, 500] // Exponential backoff: 0ms, 100ms, 250ms, 500ms
+    let profileError: any = null
 
-    // Set the user state
-    setUser({
-      id: data.user.id,
-      email: data.user.email!,
-      user_type: userType
-    })
+    for (let i = 0; i < delays.length; i++) {
+      // Wait for the specified delay (0ms on first attempt)
+      if (delays[i] > 0) {
+        console.log(`⏳ Waiting ${delays[i]}ms before retry ${i}...`)
+        await new Promise(resolve => setTimeout(resolve, delays[i]))
+      }
+
+      console.log(`📝 Attempting to create profile (attempt ${i + 1}/${delays.length})...`)
+      const { error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: data.user.id,
+          email: data.user.email!,
+          user_type: userType,
+          first_name: firstName,
+          last_name: lastName,
+          birth_date: birthDate
+        })
+
+      if (!error) {
+        console.log('✅ Profile created successfully')
+        profileError = null
+        break
+      }
+
+      profileError = error
+
+      // If it's a foreign key constraint error, retry (unless this was the last attempt)
+      if (error.message?.includes('foreign key constraint') || error.message?.includes('violates')) {
+        console.log(`⚠️ Foreign key error: ${error.message}`)
+        if (i < delays.length - 1) {
+          console.log('🔄 Will retry...')
+        }
+      } else {
+        // Other errors, don't retry
+        console.error('❌ Non-retryable error:', error)
+        break
+      }
+    }
+
+    if (profileError) {
+      console.error('❌ Failed to create user profile after all retries:', profileError)
+      throw new Error(`Failed to create profile: ${profileError.message}`)
+    }
+
+    console.log('✅ Sign up complete')
+    // Don't set user state - they need to confirm email first
   }
 
   const signOut = async () => {
@@ -120,7 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )
