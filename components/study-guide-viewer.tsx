@@ -2,15 +2,28 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { StudyGuideRecord } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Download, Share2, Home, Printer } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
 import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
+import EmailShareDialog from '@/components/email-share-dialog'
 
 interface StudyGuideViewerProps {
   studyGuide: StudyGuideRecord
@@ -18,7 +31,64 @@ interface StudyGuideViewerProps {
 
 export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
   const { user, signOut } = useAuth()
+  const router = useRouter()
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const isOwner = user?.id === studyGuide.user_id
+  const canSave = user && !isOwner && studyGuide.user_id !== null
+
+  const handleSaveToMyGuides = async () => {
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/study-guides/copy', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studyGuideId: studyGuide.id,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save study guide')
+      }
+
+      const data = await response.json()
+      alert('Study guide saved to your collection!')
+      router.push(data.studyGuideUrl)
+    } catch (error) {
+      console.error('Save error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save study guide')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/study-guides/${studyGuide.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete study guide')
+      }
+
+      router.push('/my-guides')
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete study guide')
+      setIsDeleting(false)
+    }
+  }
 
   const handlePrintToPDF = () => {
     window.print()
@@ -116,6 +186,17 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       {/* Action Buttons - Floating */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50 print:hidden">
+        {canSave && (
+          <Button
+            onClick={handleSaveToMyGuides}
+            disabled={isSaving}
+            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
+            size="lg"
+          >
+            <BookmarkPlus className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save to My Guides'}
+          </Button>
+        )}
         <Button
           onClick={handlePrintToPDF}
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
@@ -140,8 +221,23 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
           size="lg"
         >
           <Share2 className="h-4 w-4 mr-2" />
-          Share
+          Share Link
         </Button>
+        <EmailShareDialog
+          studyGuideTitle={studyGuide.title}
+          studyGuideUrl={typeof window !== 'undefined' ? window.location.href : ''}
+          senderName={user?.first_name || undefined}
+          trigger={
+            <Button
+              variant="outline"
+              className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
+              size="lg"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Email
+            </Button>
+          }
+        />
         <Button
           asChild
           variant="outline"
@@ -153,6 +249,38 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             Home
           </Link>
         </Button>
+        {isOwner && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border-red-300 shadow-lg"
+                size="lg"
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{studyGuide.title}"? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {/* Content */}

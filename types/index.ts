@@ -34,6 +34,7 @@ export interface StudyGuideRequest {
   topicFocus?: string
   difficultyLevel?: string
   additionalInstructions?: string
+  userId?: string  // User ID to associate with the study guide
 }
 
 export interface StudyGuideResponse {

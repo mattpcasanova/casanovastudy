@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
             additional_instructions: body.additionalInstructions,
             file_count: body.cloudinaryFiles?.length || body.files?.length || 0,
             token_usage: usage,
-            user_id: user?.id || null  // Associate with authenticated user
+            user_id: body.userId || user?.id || null  // Use passed userId, fallback to cookie auth
           })
           .select()
           .single()

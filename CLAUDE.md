@@ -73,7 +73,7 @@ SUPABASE_SERVICE_ROLE_KEY=    # Required for Clever SSO admin operations
 
 # AI
 ANTHROPIC_API_KEY=
-
+11
 # File Storage
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
@@ -88,6 +88,9 @@ NEXT_PUBLIC_APP_URL=              # Production URL for redirects
 
 # PDF Generation
 PDFSHIFT_API_KEY=
+
+# Email (for sharing study guides)
+GMAIL_APP_PASSWORD=              # Gmail app password for mattpcasanova@gmail.com
 ```
 
 ## User Types
@@ -99,5 +102,51 @@ PDFSHIFT_API_KEY=
 - `/auth/signin` - Sign in page (email + Clever SSO)
 - `/auth/signup` - Sign up page
 - `/auth/clever/callback` - Clever OAuth callback handler
-- `/my-guides` - User's saved study guides
+- `/my-guides` - User's saved study guides (with search, filter, sort, delete)
 - `/grade-exam` - Exam grading feature
+- `/study-guide/[id]` - View a specific study guide
+
+## Study Guide Management
+
+### My Guides Page Features
+- **Search**: Filter guides by title (text search)
+- **Filter**: By subject and format (dropdown filters)
+- **Sort**: By date (newest/oldest) or title (A-Z/Z-A)
+- **Delete**: Hover over card to reveal delete button with confirmation dialog
+
+### Study Guide Viewer Actions
+Floating action bar (bottom-right) with:
+- **Save to My Guides**: Shows for logged-in users viewing someone else's guide (creates a copy)
+- **Print to PDF**: Browser print dialog
+- **Download PDF**: Generates PDF via PDFShift service
+- **Share Link**: Native share or copy to clipboard
+- **Email**: Opens dialog to send study guide link via email
+- **Home**: Navigate back to home
+- **Delete**: Only shown for guide owner, with confirmation
+
+### API Routes for Study Guides
+- `DELETE /api/study-guides/[id]` - Delete a study guide (owner only)
+- `POST /api/study-guides/copy` - Copy a shared guide to user's collection
+- `POST /api/share-study-guide` - Send study guide link via email
+
+## Navigation Header
+The global `NavigationHeader` component (`components/navigation-header.tsx`) is used on:
+- Home page (`app/page.tsx` via `upload-page-redesigned.tsx`)
+- Study guide viewer (`components/study-guide-viewer.tsx`)
+- My Guides (`app/my-guides/page.tsx`)
+- Grade Exam (`app/grade-exam/page.tsx`)
+
+Shows: logo, "My Guides" button (logged-in only), "Grade Exam" button (logged-in only), and user avatar dropdown.
+
+## Study Guide Formats
+Format components in `components/formats/`:
+- `outline-format.tsx` - Hierarchical outline with collapsible sections and checkboxes
+- `flashcards-format.tsx` - Interactive flip cards with mastered/difficult tracking
+- `quiz-format.tsx` - Multiple choice, true/false, and short answer questions
+- `summary-format.tsx` - Sectioned summary with key terms
+
+### Outline Format Checkbox Behavior
+- Level 0 sections (main title) have no checkbox
+- Sections with "learning objectives" or "exam focus" in title have no checkbox
+- Auto-checks parent when all children are checked
+- Progress bar only counts sections that have checkboxes

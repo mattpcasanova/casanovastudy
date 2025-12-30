@@ -49,11 +49,13 @@ export default function Home() {
         format: data.format,
         topicFocus: data.topicFocus,
         difficultyLevel: data.difficultyLevel,
-        additionalInstructions: data.additionalInstructions
+        additionalInstructions: data.additionalInstructions,
+        userId: user?.id  // Pass user ID to associate study guide with user
       }
 
       const response = await fetch('/api/generate-study-guide-stream', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },

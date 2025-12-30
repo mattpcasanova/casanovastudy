@@ -17,6 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import {
   BookOpen,
   FileText,
@@ -28,7 +40,9 @@ import {
   ListChecks,
   AlignLeft,
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  Search,
+  Trash2
 } from 'lucide-react'
 
 const formatIcons = {
@@ -54,10 +68,35 @@ export default function MyGuidesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filter and sort state
+  // Filter, sort, and search state
   const [subjectFilter, setSubjectFilter] = useState<string>('all')
   const [formatFilter, setFormatFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'>('date-desc')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDeleteGuide = async (guideId: string) => {
+    setDeletingId(guideId)
+    try {
+      const response = await fetch(`/api/study-guides/${guideId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete study guide')
+      }
+
+      // Remove from local state
+      setStudyGuides(prev => prev.filter(guide => guide.id !== guideId))
+    } catch (err) {
+      console.error('Error deleting study guide:', err)
+      alert(err instanceof Error ? err.message : 'Failed to delete study guide')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   useEffect(() => {
     async function fetchMyGuides() {
@@ -107,6 +146,14 @@ export default function MyGuidesPage() {
   const filteredAndSortedGuides = useMemo(() => {
     let filtered = [...studyGuides]
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(guide =>
+        guide.title.toLowerCase().includes(query)
+      )
+    }
+
     // Apply subject filter
     if (subjectFilter !== 'all') {
       filtered = filtered.filter(guide => guide.subject === subjectFilter)
@@ -134,7 +181,7 @@ export default function MyGuidesPage() {
     })
 
     return filtered
-  }, [studyGuides, subjectFilter, formatFilter, sortBy])
+  }, [studyGuides, subjectFilter, formatFilter, sortBy, searchQuery])
 
   // Get unique subjects from study guides
   const availableSubjects = useMemo(() => {
@@ -169,6 +216,20 @@ export default function MyGuidesPage() {
         {!loading && studyGuides.length > 0 && (
           <Card className="mb-6 border-2">
             <CardContent className="pt-6">
+              {/* Search Input */}
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search by title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Subject Filter */}
                 <div>
@@ -232,9 +293,14 @@ export default function MyGuidesPage() {
               </div>
 
               {/* Active filters summary */}
-              {(subjectFilter !== 'all' || formatFilter !== 'all') && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+              {(subjectFilter !== 'all' || formatFilter !== 'all' || searchQuery.trim()) && (
+                <div className="mt-4 flex items-center gap-2 flex-wrap text-sm text-gray-600">
                   <span>Active filters:</span>
+                  {searchQuery.trim() && (
+                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
+                      Search: "{searchQuery}" ✕
+                    </Badge>
+                  )}
                   {subjectFilter !== 'all' && (
                     <Badge variant="secondary" className="cursor-pointer" onClick={() => setSubjectFilter('all')}>
                       {formatSubject(subjectFilter)} ✕
@@ -252,6 +318,7 @@ export default function MyGuidesPage() {
                     onClick={() => {
                       setSubjectFilter('all')
                       setFormatFilter('all')
+                      setSearchQuery('')
                     }}
                   >
                     Clear all
@@ -344,49 +411,83 @@ export default function MyGuidesPage() {
                 const subjectColor = subjectColors[guide.subject as keyof typeof subjectColors] || subjectColors.other
 
                 return (
-                  <Link key={guide.id} href={`/study-guide/${guide.id}`}>
-                    <Card className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300">
-                      <CardHeader>
-                        <div className="flex items-start justify-between mb-2">
-                          <Badge className={`${subjectColor} border`}>
-                            {formatSubject(guide.subject)}
-                          </Badge>
-                          <FormatIcon className="h-5 w-5 text-gray-400" />
+                  <Card
+                    key={guide.id}
+                    className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300 relative group"
+                    onClick={() => router.push(`/study-guide/${guide.id}`)}
+                  >
+                    {/* Delete Button */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 z-10"
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={deletingId === guide.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{guide.title}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => handleDeleteGuide(guide.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    <CardHeader>
+                      <div className="flex items-start justify-between mb-2">
+                        <Badge className={`${subjectColor} border`}>
+                          {formatSubject(guide.subject)}
+                        </Badge>
+                        <FormatIcon className="h-5 w-5 text-gray-400 mr-8" />
+                      </div>
+                      <CardTitle className="text-xl line-clamp-2">
+                        {guide.title}
+                      </CardTitle>
+                      <CardDescription className="flex items-center gap-4 mt-2">
+                        <span className="flex items-center gap-1">
+                          <GraduationCap className="h-3 w-3" />
+                          {guide.grade_level}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          {guide.format}
+                        </span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(guide.created_at)}
                         </div>
-                        <CardTitle className="text-xl line-clamp-2">
-                          {guide.title}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1">
-                            <GraduationCap className="h-3 w-3" />
-                            {guide.grade_level}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FileText className="h-3 w-3" />
-                            {guide.format}
-                          </span>
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(guide.created_at)}
-                          </div>
-                          {guide.file_count > 0 && (
-                            <div className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {guide.file_count} {guide.file_count === 1 ? 'file' : 'files'}
-                            </div>
-                          )}
-                        </div>
-                        {guide.topic_focus && (
-                          <div className="mt-3 text-sm text-gray-600 line-clamp-2">
-                            <span className="font-medium">Focus:</span> {guide.topic_focus}
+                        {guide.file_count > 0 && (
+                          <div className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {guide.file_count} {guide.file_count === 1 ? 'file' : 'files'}
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
-                  </Link>
+                      </div>
+                      {guide.topic_focus && (
+                        <div className="mt-3 text-sm text-gray-600 line-clamp-2">
+                          <span className="font-medium">Focus:</span> {guide.topic_focus}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )
               })}
               </div>
