@@ -366,6 +366,100 @@ Remember: Grade strictly and consistently according to the mark scheme. Do not b
   }
 
   /**
+   * Grade exam for students - tutoring/learning focused
+   * Uses encouraging tone and higher temperature for conversational feedback
+   */
+  async gradeExamForStudent(params: {
+    studentExamText: string
+    markSchemeText?: string
+    studentExamFile?: { buffer: Buffer; name: string; type: string }
+    markSchemeFile?: { buffer: Buffer; name: string; type: string }
+  }): Promise<ClaudeApiResponse> {
+    const { studentExamText, markSchemeText, studentExamFile, markSchemeFile } = params
+
+    console.log('📚 Starting student tutoring feedback...')
+
+    // Build content array with PDFs as documents (same approach as teacher grading)
+    const content: any[] = []
+
+    // Add tutoring-focused instruction
+    const instructionText = `You are a helpful tutor reviewing a student's practice work. Your goal is to help them learn and improve.
+
+TUTORING PRINCIPLES:
+1. **Be Encouraging**: Start with what they did well - highlight their strengths
+2. **Be Educational**: Explain why answers are right or wrong, teach the underlying concepts
+3. **Be Constructive**: Suggest specific ways to improve their thinking and approach
+4. **Be Patient**: Assume they're trying their best and want to learn
+5. **Focus on Learning**: Emphasize understanding over just getting the right score
+
+I've attached the student's practice work${markSchemeFile ? ' and an answer key' : ''}.
+
+Please format your response as follows:
+- For each question, provide: Question [number], Mark: X/Y - [encouraging feedback that explains the concept and how to approach this type of problem]
+- Focus on explaining WHY answers are correct or incorrect, not just stating they are
+- Give hints and tips for similar problems in the future
+- At the end, provide total marks, genuine encouragement, and specific learning tips
+
+Remember: This is a learning opportunity. Be supportive and help them understand the material better!`
+
+    content.push({
+      type: 'text',
+      text: instructionText
+    })
+
+    // Add answer key if provided
+    if (markSchemeFile) {
+      content.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: markSchemeFile.buffer.toString('base64')
+        }
+      })
+    }
+
+    // Add student exam
+    if (studentExamFile) {
+      content.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: studentExamFile.buffer.toString('base64')
+        }
+      })
+    }
+
+    console.log('📤 Sending to Claude API with tutoring mode')
+
+    const response = await this.anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      temperature: 0.5, // Higher temperature for more conversational, varied responses
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ]
+    })
+
+    const responseContent = response.content[0]
+    if (responseContent.type !== 'text') {
+      throw new Error('Unexpected response type from Claude API')
+    }
+
+    return {
+      content: responseContent.text,
+      usage: {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens
+      }
+    }
+  }
+
+  /**
    * Grade an exam with support for vision API when text extraction fails
    * For image-based PDFs, converts PDF pages to images and sends them to Claude's vision API
    * @deprecated Use gradeExamWithImages instead

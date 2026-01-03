@@ -4,6 +4,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { storePDF } from '@/app/api/pdf/[filename]/route'
 import { supabase } from '@/lib/supabase'
+import { getAuthenticatedUser, createRouteHandlerClient } from '@/lib/supabase-server'
 
 interface GradingResult {
   pdfUrl: string
@@ -21,10 +22,39 @@ interface GradingResult {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now()
-  
+
   try {
     console.log('📝 Starting exam grading process...')
-    
+
+    // STEP 1: Authentication check - require user to be logged in
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      console.error('❌ Unauthenticated grading attempt')
+      return NextResponse.json({
+        success: false,
+        error: 'You must be logged in to use the grading feature'
+      }, { status: 401 })
+    }
+
+    // STEP 2: Get user profile to check user_type (teacher or student)
+    const serverSupabase = createRouteHandlerClient(request)
+    const { data: userProfile, error: profileError } = await serverSupabase
+      .from('user_profiles')
+      .select('user_type')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !userProfile) {
+      console.error('❌ Failed to fetch user profile:', profileError)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to verify user profile'
+      }, { status: 500 })
+    }
+
+    const userType = userProfile.user_type as 'teacher' | 'student'
+    console.log(`👤 User type: ${userType}`)
+
     const formData = await request.formData()
     const markSchemeFile = formData.get('markScheme') as File | null
     const studentExamFile = formData.get('studentExam') as File | null
@@ -32,26 +62,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     console.log('Additional comments received:', additionalComments ? `"${additionalComments}"` : 'None')
 
-    if (!markSchemeFile || !studentExamFile) {
-      console.error('❌ Missing files:', {
-        hasMarkScheme: !!markSchemeFile,
-        hasStudentExam: !!studentExamFile
-      })
+    // Student exam is always required, but mark scheme is optional
+    if (!studentExamFile) {
+      console.error('❌ Missing student exam file')
       return NextResponse.json({
         success: false,
-        error: 'Both mark scheme and student exam PDFs are required'
+        error: 'Student exam file is required'
       }, { status: 400 })
     }
 
     // Validate file types
     const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    if (!validTypes.includes(markSchemeFile.type)) {
+
+    // Validate mark scheme if provided
+    if (markSchemeFile && !validTypes.includes(markSchemeFile.type)) {
       console.error('❌ Invalid mark scheme file type:', markSchemeFile.type)
       return NextResponse.json({
         success: false,
         error: `Invalid mark scheme file type: ${markSchemeFile.type}. Please upload a PDF or DOCX file.`
       }, { status: 400 })
     }
+
+    // Validate student exam (required)
     if (!validTypes.includes(studentExamFile.type)) {
       console.error('❌ Invalid student exam file type:', studentExamFile.type)
       return NextResponse.json({
@@ -60,17 +92,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 })
     }
 
-    // Process both files - extract text first (same as study guide generator)
-    console.log('📄 Processing mark scheme file...')
-    const markSchemeProcessed = await FileProcessor.processFile(markSchemeFile)
-    console.log('Mark scheme processing result:', {
-      name: markSchemeProcessed.name,
-      type: markSchemeProcessed.type,
-      contentLength: markSchemeProcessed.content.length,
-      originalSize: markSchemeProcessed.originalSize,
-      processedSize: markSchemeProcessed.processedSize
-    })
-    
+    // Process files - extract text first (same as study guide generator)
+    let markSchemeProcessed = null
+    let markSchemeContent = ''
+    let markSchemeNeedsVision = false
+
+    if (markSchemeFile) {
+      console.log('📄 Processing mark scheme file...')
+      markSchemeProcessed = await FileProcessor.processFile(markSchemeFile)
+      console.log('Mark scheme processing result:', {
+        name: markSchemeProcessed.name,
+        type: markSchemeProcessed.type,
+        contentLength: markSchemeProcessed.content.length,
+        originalSize: markSchemeProcessed.originalSize,
+        processedSize: markSchemeProcessed.processedSize
+      })
+      markSchemeContent = markSchemeProcessed.content.trim()
+      markSchemeNeedsVision = markSchemeFile.type === 'application/pdf'
+    }
+
     console.log('📄 Processing student exam file...')
     const studentExamProcessed = await FileProcessor.processFile(studentExamFile)
     console.log('Student exam processing result:', {
@@ -80,53 +120,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       originalSize: studentExamProcessed.originalSize,
       processedSize: studentExamProcessed.processedSize
     })
-    
-    // Check if content extraction was successful
-    const markSchemeContent = markSchemeProcessed.content.trim()
+
     const studentExamContent = studentExamProcessed.content.trim()
-    
-    // Check if we got the fallback message (indicates extraction failed)
-    const isFallbackMessage = (content: string) => {
-      return content.includes('PDF Document:') && 
-             content.includes('Content:') && 
-             content.includes('Status: Text extraction completed')
-    }
-    
-    // For exam grading, ALWAYS use vision API if we have PDFs
-    // Student exams are often handwritten, so we need to read images
-    const markSchemeNeedsVision = markSchemeFile.type === 'application/pdf'
     const studentExamNeedsVision = studentExamFile.type === 'application/pdf'
-    
-    console.log('📸 Using Claude Vision API for exam grading')
-    console.log('Mark scheme will use images:', markSchemeNeedsVision)
-    console.log('Student exam will use images:', studentExamNeedsVision)
+
+    console.log('📸 Using Claude API for exam grading')
+    console.log('Mark scheme provided:', !!markSchemeFile)
     console.log('Text content lengths:', {
       markScheme: markSchemeContent.length,
       studentExam: studentExamContent.length
     })
 
-    // Use Claude to analyze and grade
-    console.log('🤖 Calling Claude API for grading analysis...')
+    // STEP 3: Call Claude API - choose method based on user type
+    console.log(`🤖 Calling Claude API with ${userType} mode...`)
     const claudeService = new ClaudeService()
-    
-    // Call Claude - use images if text extraction was insufficient
-    const claudeResponse = await claudeService.gradeExamWithImages({
-      markSchemeText: markSchemeContent,
-      studentExamText: studentExamContent,
-      markSchemeImages: undefined, // Will be converted on server if needed
-      studentExamImages: undefined, // Will be converted on server if needed
-      markSchemeFile: markSchemeNeedsVision ? {
-        buffer: Buffer.from(await markSchemeFile.arrayBuffer()),
-        name: markSchemeFile.name,
-        type: markSchemeFile.type
-      } : undefined,
-      studentExamFile: studentExamNeedsVision ? {
-        buffer: Buffer.from(await studentExamFile.arrayBuffer()),
-        name: studentExamFile.name,
-        type: studentExamFile.type
-      } : undefined,
-      additionalComments: additionalComments || undefined
-    })
+
+    let claudeResponse
+    if (userType === 'teacher') {
+      // Teacher mode: strict grading with temperature 0.1
+      claudeResponse = await claudeService.gradeExamWithImages({
+        markSchemeText: markSchemeContent,
+        studentExamText: studentExamContent,
+        markSchemeImages: undefined,
+        studentExamImages: undefined,
+        markSchemeFile: markSchemeFile ? {
+          buffer: Buffer.from(await markSchemeFile.arrayBuffer()),
+          name: markSchemeFile.name,
+          type: markSchemeFile.type
+        } : undefined,
+        studentExamFile: {
+          buffer: Buffer.from(await studentExamFile.arrayBuffer()),
+          name: studentExamFile.name,
+          type: studentExamFile.type
+        },
+        additionalComments: additionalComments || undefined
+      })
+    } else {
+      // Student mode: tutoring/learning focused with temperature 0.5
+      claudeResponse = await claudeService.gradeExamForStudent({
+        studentExamText: studentExamContent,
+        markSchemeText: markSchemeContent,
+        studentExamFile: {
+          buffer: Buffer.from(await studentExamFile.arrayBuffer()),
+          name: studentExamFile.name,
+          type: studentExamFile.type
+        },
+        markSchemeFile: markSchemeFile ? {
+          buffer: Buffer.from(await markSchemeFile.arrayBuffer()),
+          name: markSchemeFile.name,
+          type: markSchemeFile.type
+        } : undefined
+      })
+    }
 
     // Parse Claude's response to extract grading information
     const gradingContent = claudeResponse.content
@@ -267,11 +312,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Extract student name from filename
     const studentName = studentExamFile.name.replace(/\.(pdf|docx|pptx|txt)$/i, '').replace(/_/g, ' ')
 
-    // Save to Supabase
+    // STEP 4: Save to Supabase with user_id
     console.log('💾 Saving grading results to database...')
-    const { data: savedGrading, error: supabaseError } = await supabase
+    const { data: savedGrading, error: supabaseError } = await serverSupabase
       .from('grading_results')
       .insert({
+        user_id: user.id, // Link to authenticated user
         student_name: studentName,
         answer_sheet_filename: markSchemeFile?.name || null,
         student_exam_filename: studentExamFile.name,

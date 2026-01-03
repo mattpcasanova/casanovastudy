@@ -1,15 +1,29 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { ChevronLeft, ChevronRight, RotateCw, CheckCircle, X, BookOpen } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 interface FlashcardsFormatProps {
   content: string
   subject: string
+  studyGuideId?: string
+  userId?: string
 }
 
 interface Flashcard {
@@ -18,15 +32,155 @@ interface Flashcard {
   answer: string
 }
 
-export default function FlashcardsFormat({ content, subject }: FlashcardsFormatProps) {
+export default function FlashcardsFormat({ content, subject, studyGuideId, userId }: FlashcardsFormatProps) {
   const flashcards = parseFlashcards(content)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set())
   const [difficultCards, setDifficultCards] = useState<Set<string>>(new Set())
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false)
+  const [isSavingProgress, setIsSavingProgress] = useState(false)
+  const hasLoadedProgressRef = useRef(false)
 
   const currentCard = flashcards[currentIndex]
   const progress = ((currentIndex + 1) / flashcards.length) * 100
+
+  // Helper to get auth headers
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    return headers
+  }
+
+  // Load progress from database on mount
+  useEffect(() => {
+    const loadProgress = async () => {
+      // Only load if we have both studyGuideId and userId
+      if (!studyGuideId || !userId) {
+        console.log('Skipping progress load - missing studyGuideId or userId')
+        // Reset ref so it can try again when userId becomes available
+        hasLoadedProgressRef.current = false
+        return
+      }
+
+      // Only load once per userId change
+      if (hasLoadedProgressRef.current) {
+        console.log('Progress already loaded, skipping')
+        return
+      }
+
+      hasLoadedProgressRef.current = true
+      setIsLoadingProgress(true)
+      console.log('Loading flashcard progress for guide:', studyGuideId)
+
+      try {
+        const headers = await getAuthHeaders()
+        const response = await fetch(
+          `/api/flashcard-progress?studyGuideId=${studyGuideId}`,
+          { headers }
+        )
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Failed to load progress:', response.status, response.statusText)
+          console.error('Error details:', errorData)
+          return
+        }
+
+        const data = await response.json()
+        console.log('Loaded progress data:', data)
+        const { progress } = data
+
+        if (progress && typeof progress === 'object') {
+          const mastered = new Set<string>()
+          const difficult = new Set<string>()
+
+          Object.entries(progress).forEach(([cardId, status]) => {
+            if (status === 'mastered') mastered.add(cardId)
+            else if (status === 'difficult') difficult.add(cardId)
+          })
+
+          console.log(`Restored progress: ${mastered.size} mastered, ${difficult.size} difficult`)
+          setMasteredCards(mastered)
+          setDifficultCards(difficult)
+        }
+      } catch (error) {
+        console.error('Error loading flashcard progress:', error)
+      } finally {
+        setIsLoadingProgress(false)
+      }
+    }
+
+    loadProgress()
+  }, [studyGuideId, userId])
+
+  // Save progress to database
+  const saveProgress = async (cardId: string, status: 'mastered' | 'difficult') => {
+    if (!studyGuideId || !userId) {
+      console.log('Not saving - user not logged in')
+      return
+    }
+
+    setIsSavingProgress(true)
+    console.log(`Saving progress: ${cardId} -> ${status}`)
+
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch('/api/flashcard-progress', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          studyGuideId,
+          cardId,
+          status,
+          userId
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Failed to save progress:', response.status, response.statusText)
+        console.error('Error details:', errorData)
+      } else {
+        console.log('Progress saved successfully')
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error)
+    } finally {
+      setIsSavingProgress(false)
+    }
+  }
+
+  // Reset all progress
+  const resetProgress = async () => {
+    if (!studyGuideId || !userId) {
+      // If not logged in, just clear local state
+      setMasteredCards(new Set())
+      setDifficultCards(new Set())
+      return
+    }
+
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(
+        `/api/flashcard-progress?studyGuideId=${studyGuideId}`,
+        {
+          method: 'DELETE',
+          headers
+        }
+      )
+
+      if (response.ok) {
+        setMasteredCards(new Set())
+        setDifficultCards(new Set())
+      }
+    } catch (error) {
+      console.error('Error resetting progress:', error)
+    }
+  }
 
   const nextCard = () => {
     setIsFlipped(false)
@@ -45,6 +199,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
       updated.delete(currentCard.id)
       return updated
     })
+    saveProgress(currentCard.id, 'mastered')
     nextCard()
   }
 
@@ -55,6 +210,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
       updated.delete(currentCard.id)
       return updated
     })
+    saveProgress(currentCard.id, 'difficult')
     nextCard()
   }
 
@@ -231,7 +387,7 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
         </Button>
       </div>
 
-      <div className="flex justify-center print:hidden">
+      <div className="flex justify-center gap-3 print:hidden">
         <Button
           onClick={shuffleCards}
           variant="outline"
@@ -241,6 +397,36 @@ export default function FlashcardsFormat({ content, subject }: FlashcardsFormatP
           <RotateCw className="h-4 w-4 mr-2" />
           Shuffle Cards
         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-gray-100 hover:bg-red-500 hover:text-white hover:border-red-500 border-gray-300"
+              disabled={masteredCards.size === 0 && difficultCards.size === 0}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Reset Progress
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset All Progress?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will clear all mastered and difficult markings for this study guide. You'll start fresh with no cards marked. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={resetProgress}
+              >
+                Reset Progress
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Print version - all cards */}

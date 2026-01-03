@@ -70,48 +70,48 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
               <Link href="/">
                 <Button
                   variant={isActive('/') ? 'secondary' : 'ghost'}
-                  className={`${
+                  className={`h-10 ${
                     isActive('/')
                       ? 'bg-white/20 text-white hover:bg-white/30'
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                   suppressHydrationWarning
                 >
-                  <FileText className="h-4 w-4 mr-2" />
+                  <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
                   Create Guide
                 </Button>
               </Link>
 
               {user && (
-                <Link href="/my-guides">
+                <Link href="/my-guides" suppressHydrationWarning>
                   <Button
                     variant={isActive('/my-guides') ? 'secondary' : 'ghost'}
-                    className={`${
+                    className={`h-10 ${
                       isActive('/my-guides')
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
                     suppressHydrationWarning
                   >
-                    <BookOpen className="h-4 w-4 mr-2" />
+                    <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
                     My Guides
                   </Button>
                 </Link>
               )}
 
               {user && (
-                <Link href="/grade-exam">
+                <Link href="/grade-exam" suppressHydrationWarning>
                   <Button
                     variant={isActive('/grade-exam') ? 'secondary' : 'ghost'}
-                    className={`${
+                    className={`h-10 ${
                       isActive('/grade-exam')
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
                     suppressHydrationWarning
                   >
-                    <GraduationCap className="h-4 w-4 mr-2" />
-                    Grade Exam
+                    <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
+                    {user.user_type === 'teacher' ? 'Grade Exam' : 'Check My Work'}
                   </Button>
                 </Link>
               )}
@@ -140,7 +140,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onSignOut} className="text-red-600 cursor-pointer">
-                    <LogOut className="h-4 w-4 mr-2" />
+                    <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>

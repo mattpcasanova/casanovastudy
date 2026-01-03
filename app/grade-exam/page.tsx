@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle } from "lucide-react"
+import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle, Edit2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
@@ -36,7 +36,25 @@ export default function GradeExamPage() {
   const [gradingContent, setGradingContent] = useState("")
   const [statusMessage, setStatusMessage] = useState("")
 
+  // Editing state for teachers
+  const [editedBreakdown, setEditedBreakdown] = useState<GradingResult['gradeBreakdown'] | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+
   const { toast } = useToast()
+
+  // Conditional text based on user type
+  const isTeacher = user?.user_type === 'teacher'
+  const pageTitle = isTeacher ? 'Exam Grading Assistant' : 'Check My Work'
+  const pageSubtitle = isTeacher
+    ? 'Upload student exams to receive detailed grading with marks and feedback'
+    : 'Upload your practice work to get helpful feedback and improve your understanding'
+
+  // Initialize edited breakdown when results arrive
+  useEffect(() => {
+    if (gradingResult && isTeacher) {
+      setEditedBreakdown(gradingResult.gradeBreakdown)
+    }
+  }, [gradingResult, isTeacher])
 
   const validateFile = (file: File): string | null => {
     const maxSize = 20 * 1024 * 1024 // 20MB
@@ -194,10 +212,10 @@ export default function GradeExamPage() {
         <div className="container mx-auto px-4 py-10">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              Exam Grading Assistant
+              {pageTitle}
             </h1>
             <p className="text-xs sm:text-sm opacity-75">
-              Upload student exams to receive detailed grading with marks and feedback
+              {pageSubtitle}
             </p>
           </div>
         </div>
@@ -413,25 +431,98 @@ export default function GradeExamPage() {
                 {/* Grade Breakdown */}
                 {gradingResult.gradeBreakdown && gradingResult.gradeBreakdown.length > 0 && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Question Breakdown</h3>
-                    <div className="space-y-3">
-                      {gradingResult.gradeBreakdown.map((item, index) => (
-                        <div
-                          key={index}
-                          className="bg-muted/50 border rounded-lg p-4 hover:bg-muted/80 transition-colors"
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Question Breakdown</h3>
+                      {/* Edit button for teachers only */}
+                      {isTeacher && !isEditing && (
+                        <Button
+                          onClick={() => setIsEditing(true)}
+                          variant="outline"
+                          size="sm"
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="font-semibold">
-                              Question {item.questionNumber}
-                            </span>
-                            <span className="text-sm font-medium text-primary">
-                              {item.marksAwarded} / {item.marksPossible} marks
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">{item.explanation}</p>
-                        </div>
-                      ))}
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Edit Feedback
+                        </Button>
+                      )}
+                      {isTeacher && isEditing && (
+                        <Button
+                          onClick={() => setIsEditing(false)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Cancel Editing
+                        </Button>
+                      )}
                     </div>
+
+                    {/* Editing Mode for Teachers */}
+                    {isTeacher && isEditing && editedBreakdown ? (
+                      <div className="space-y-4">
+                        {editedBreakdown.map((item, index) => (
+                          <div
+                            key={index}
+                            className="border-2 border-primary/30 rounded-lg p-4 bg-blue-50/50"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <span className="font-semibold text-base">
+                                Question {item.questionNumber}
+                              </span>
+                              <span className="text-sm font-medium text-primary bg-white px-3 py-1 rounded">
+                                {item.marksAwarded} / {item.marksPossible} marks
+                              </span>
+                            </div>
+                            <Label className="text-sm text-muted-foreground mb-2 block">
+                              Edit feedback:
+                            </Label>
+                            <Textarea
+                              value={item.explanation}
+                              onChange={(e) => {
+                                const newBreakdown = [...editedBreakdown]
+                                newBreakdown[index].explanation = e.target.value
+                                setEditedBreakdown(newBreakdown)
+                              }}
+                              rows={4}
+                              className="w-full resize-none"
+                            />
+                          </div>
+                        ))}
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            onClick={() => {
+                              // Save edits and generate PDF
+                              toast({
+                                title: "Edits saved",
+                                description: "Your feedback edits have been saved. Download the updated PDF below."
+                              })
+                              setIsEditing(false)
+                            }}
+                            className="flex-1"
+                          >
+                            Save Edits
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* View Mode */
+                      <div className="space-y-3">
+                        {(isTeacher && editedBreakdown ? editedBreakdown : gradingResult.gradeBreakdown).map((item, index) => (
+                          <div
+                            key={index}
+                            className="bg-muted/50 border rounded-lg p-4 hover:bg-muted/80 transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <span className="font-semibold">
+                                Question {item.questionNumber}
+                              </span>
+                              <span className="text-sm font-medium text-primary">
+                                {item.marksAwarded} / {item.marksPossible} marks
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">{item.explanation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

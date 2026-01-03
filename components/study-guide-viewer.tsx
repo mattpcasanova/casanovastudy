@@ -181,7 +181,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'outline':
         return <OutlineFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'flashcards':
-        return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} />
+        return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
         return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'summary':
