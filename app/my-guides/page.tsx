@@ -62,10 +62,10 @@ const subjectColors = {
 }
 
 export default function MyGuidesPage() {
-  const { user, signOut } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const [studyGuides, setStudyGuides] = useState<StudyGuideRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [guidesLoading, setGuidesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Filter, sort, and search state
@@ -76,11 +76,16 @@ export default function MyGuidesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const handleDeleteGuide = async (guideId: string) => {
+    if (!user) return
     setDeletingId(guideId)
     try {
       const response = await fetch(`/api/study-guides/${guideId}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
       })
 
       if (!response.ok) {
@@ -100,13 +105,17 @@ export default function MyGuidesPage() {
 
   useEffect(() => {
     async function fetchMyGuides() {
+      // Wait for auth to finish loading before checking user
+      if (authLoading) return
+
+      // Only redirect to signin after auth has finished loading and user is null
       if (!user) {
         router.push('/auth/signin')
         return
       }
 
       try {
-        setLoading(true)
+        setGuidesLoading(true)
         const { data, error: fetchError } = await supabase
           .from('study_guides')
           .select('*')
@@ -120,12 +129,12 @@ export default function MyGuidesPage() {
         console.error('Error fetching study guides:', err)
         setError(err instanceof Error ? err.message : 'Failed to load study guides')
       } finally {
-        setLoading(false)
+        setGuidesLoading(false)
       }
     }
 
     fetchMyGuides()
-  }, [user, router])
+  }, [user, authLoading, router])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -193,17 +202,23 @@ export default function MyGuidesPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <NavigationHeader user={user} onSignOut={signOut} />
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">My Study Guides</h1>
-              <p className="text-gray-600">
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+        <div className="container mx-auto px-4 py-10">
+          <div className="relative">
+            <div className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Study Guides</h1>
+              <p className="text-sm sm:text-base opacity-75">
                 All your personalized study materials in one place
               </p>
             </div>
-            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 absolute top-0 right-0 hidden sm:flex">
+              <Link href="/">
+                <Plus className="h-5 w-5 mr-2" />
+                Create New Guide
+              </Link>
+            </Button>
+            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 mt-4 sm:hidden w-full">
               <Link href="/">
                 <Plus className="h-5 w-5 mr-2" />
                 Create New Guide
@@ -211,9 +226,12 @@ export default function MyGuidesPage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8">
 
         {/* Filters and Sort - Only show if there are guides */}
-        {!loading && studyGuides.length > 0 && (
+        {!authLoading && !guidesLoading && studyGuides.length > 0 && (
           <Card className="mb-6 border-2">
             <CardContent className="pt-6">
               {/* Search Input */}
@@ -330,7 +348,7 @@ export default function MyGuidesPage() {
         )}
 
         {/* Loading State */}
-        {loading && (
+        {(authLoading || guidesLoading) && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="h-64">
@@ -357,7 +375,7 @@ export default function MyGuidesPage() {
         )}
 
         {/* Empty State */}
-        {!loading && !error && studyGuides.length === 0 && (
+        {!authLoading && !guidesLoading && !error && studyGuides.length === 0 && (
           <Card className="border-2 border-dashed border-gray-300">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <BookOpen className="h-16 w-16 text-gray-400 mb-4" />
@@ -378,7 +396,7 @@ export default function MyGuidesPage() {
         )}
 
         {/* Study Guides Grid */}
-        {!loading && !error && studyGuides.length > 0 && (
+        {!authLoading && !guidesLoading && !error && studyGuides.length > 0 && (
           <div>
             <div className="mb-4 text-sm text-gray-600">
               Showing {filteredAndSortedGuides.length} of {studyGuides.length} {studyGuides.length === 1 ? 'guide' : 'guides'}
@@ -413,47 +431,48 @@ export default function MyGuidesPage() {
                 return (
                   <Card
                     key={guide.id}
-                    className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300 relative group"
+                    className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300 group"
                     onClick={() => router.push(`/study-guide/${guide.id}`)}
                   >
-                    {/* Delete Button */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 z-10"
-                          onClick={(e) => e.stopPropagation()}
-                          disabled={deletingId === guide.id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{guide.title}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => handleDeleteGuide(guide.id)}
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
                     <CardHeader>
                       <div className="flex items-start justify-between mb-2">
                         <Badge className={`${subjectColor} border`}>
                           {formatSubject(guide.subject)}
                         </Badge>
-                        <FormatIcon className="h-5 w-5 text-gray-400 mr-8" />
+                        <div className="flex items-center gap-2">
+                          <FormatIcon className="h-5 w-5 text-gray-400" />
+                          {/* Delete Button - Aligned with format icon */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300 bg-white"
+                                onClick={(e) => e.stopPropagation()}
+                                disabled={deletingId === guide.id}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{guide.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => handleDeleteGuide(guide.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
                       <CardTitle className="text-xl line-clamp-2">
                         {guide.title}

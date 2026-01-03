@@ -75,6 +75,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                       ? 'bg-white/20 text-white hover:bg-white/30'
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
+                  suppressHydrationWarning
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Create Guide
@@ -90,6 +91,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
+                    suppressHydrationWarning
                   >
                     <BookOpen className="h-4 w-4 mr-2" />
                     My Guides
@@ -106,6 +108,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
+                    suppressHydrationWarning
                   >
                     <GraduationCap className="h-4 w-4 mr-2" />
                     Grade Exam

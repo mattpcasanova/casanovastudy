@@ -7,9 +7,22 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const user = await getAuthenticatedUser(request)
 
-    if (!user) {
+    // Get userId from request body or fall back to cookie auth
+    let userId: string | null = null
+    try {
+      const body = await request.json()
+      userId = body.userId
+    } catch {
+      // No body provided, try cookie auth
+    }
+
+    if (!userId) {
+      const cookieUser = await getAuthenticatedUser(request)
+      userId = cookieUser?.id || null
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -32,7 +45,7 @@ export async function DELETE(
       )
     }
 
-    if (guide.user_id !== user.id) {
+    if (guide.user_id !== userId) {
       return NextResponse.json(
         { error: 'You do not have permission to delete this study guide' },
         { status: 403 }

@@ -28,7 +28,14 @@ function getSupabaseClient(): SupabaseClient {
     return supabaseClient
   }
 
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  })
   return supabaseClient
 }
 

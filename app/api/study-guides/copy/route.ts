@@ -3,20 +3,27 @@ import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-s
 
 interface CopyRequest {
   studyGuideId: string
+  userId?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request)
+    const body: CopyRequest = await request.json()
 
-    if (!user) {
+    // Get userId from request body or fall back to cookie auth
+    let userId: string | null = body.userId || null
+
+    if (!userId) {
+      const cookieUser = await getAuthenticatedUser(request)
+      userId = cookieUser?.id || null
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'You must be logged in to save a study guide' },
         { status: 401 }
       )
     }
-
-    const body: CopyRequest = await request.json()
 
     if (!body.studyGuideId) {
       return NextResponse.json(
@@ -42,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already owns this guide
-    if (originalGuide.user_id === user.id) {
+    if (originalGuide.user_id === userId) {
       return NextResponse.json(
         { error: 'You already own this study guide' },
         { status: 400 }
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
         difficulty_level: originalGuide.difficulty_level,
         additional_instructions: originalGuide.additional_instructions,
         file_count: originalGuide.file_count,
-        user_id: user.id,
+        user_id: userId,
       })
       .select()
       .single()

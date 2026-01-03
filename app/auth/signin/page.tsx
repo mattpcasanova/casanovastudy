@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, Lock, Loader2, AlertCircle, GraduationCap } from 'lucide-react'
+import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/hooks/use-toast'
 
@@ -198,7 +198,13 @@ export default function SignInPage() {
             }}
             className="w-full h-12 text-base font-semibold border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 text-blue-700"
           >
-            <GraduationCap className="h-5 w-5 mr-2" />
+            <Image
+              src="/images/colegia-logo.png"
+              alt="Colegia"
+              width={32}
+              height={32}
+              className="h-10 w-10 mr-2 object-contain"
+            />
             Log in with Colegia
           </Button>
 

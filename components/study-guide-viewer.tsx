@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus } from 'lucide-react'
+import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -24,6 +24,8 @@ import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
 import EmailShareDialog from '@/components/email-share-dialog'
+import { useToast } from '@/hooks/use-toast'
+import { Toaster } from '@/components/ui/toaster'
 
 interface StudyGuideViewerProps {
   studyGuide: StudyGuideRecord
@@ -32,14 +34,19 @@ interface StudyGuideViewerProps {
 export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const isOwner = user?.id === studyGuide.user_id
-  const canSave = user && !isOwner && studyGuide.user_id !== null
+  // Allow saving if user is logged in and doesn't own the guide
+  // This includes anonymous guides (user_id is null) and other users' guides
+  const canSave = user && !isOwner
 
   const handleSaveToMyGuides = async () => {
+    if (!user) return
     setIsSaving(true)
     try {
       const response = await fetch('/api/study-guides/copy', {
@@ -50,6 +57,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         },
         body: JSON.stringify({
           studyGuideId: studyGuide.id,
+          userId: user.id,
         }),
       })
 
@@ -59,22 +67,34 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       }
 
       const data = await response.json()
-      alert('Study guide saved to your collection!')
+      toast({
+        title: "Success!",
+        description: "Study guide saved to your collection.",
+      })
       router.push(data.studyGuideUrl)
     } catch (error) {
       console.error('Save error:', error)
-      alert(error instanceof Error ? error.message : 'Failed to save study guide')
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to save study guide',
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDelete = async () => {
+    if (!user) return
     setIsDeleting(true)
     try {
       const response = await fetch(`/api/study-guides/${studyGuide.id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
       })
 
       if (!response.ok) {
@@ -85,7 +105,11 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       router.push('/my-guides')
     } catch (error) {
       console.error('Delete error:', error)
-      alert(error instanceof Error ? error.message : 'Failed to delete study guide')
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to delete study guide',
+        variant: "destructive",
+      })
       setIsDeleting(false)
     }
   }
@@ -122,7 +146,11 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('PDF generation error:', error)
-      alert('Failed to generate PDF. Please try again.')
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsGeneratingPDF(false)
     }
@@ -141,7 +169,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       }
     } else {
       await navigator.clipboard.writeText(window.location.href)
-      alert('Link copied to clipboard!')
+      toast({
+        title: "Success!",
+        description: "Link copied to clipboard!",
+      })
     }
   }
 
@@ -172,7 +203,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       {/* Title Banner */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-10">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
               {studyGuide.title}
@@ -184,103 +215,139 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         </div>
       </div>
 
-      {/* Action Buttons - Floating */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50 print:hidden">
-        {canSave && (
-          <Button
-            onClick={handleSaveToMyGuides}
-            disabled={isSaving}
-            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
-            size="lg"
-          >
-            <BookmarkPlus className="h-4 w-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save to My Guides'}
-          </Button>
-        )}
-        <Button
-          onClick={handlePrintToPDF}
-          className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-          size="lg"
-        >
-          <Printer className="h-4 w-4 mr-2" />
-          Print to PDF
-        </Button>
-        <Button
-          onClick={handleGeneratePDF}
-          disabled={isGeneratingPDF}
-          className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-          size="lg"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
-        </Button>
-        <Button
-          onClick={handleShare}
-          variant="outline"
-          className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
-          size="lg"
-        >
-          <Share2 className="h-4 w-4 mr-2" />
-          Share Link
-        </Button>
-        <EmailShareDialog
-          studyGuideTitle={studyGuide.title}
-          studyGuideUrl={typeof window !== 'undefined' ? window.location.href : ''}
-          senderName={user?.first_name || undefined}
-          trigger={
+      {/* Save Banner - Show for logged-in users viewing someone else's guide */}
+      {canSave && (
+        <div className="bg-blue-50 border-b-2 border-blue-200 print:hidden">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-blue-800">
+                <BookmarkPlus className="h-5 w-5" />
+                <span className="text-sm sm:text-base font-medium">
+                  Like this study guide? Save it to your collection!
+                </span>
+              </div>
+              <Button
+                onClick={handleSaveToMyGuides}
+                disabled={isSaving}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <BookmarkPlus className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save to My Guides'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Menu */}
+      <div className="fixed bottom-6 right-6 z-50 print:hidden">
+        {/* Expandable Menu */}
+        <div className={`flex flex-col gap-2 mb-3 transition-all duration-300 ${isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+          {canSave && (
             <Button
-              variant="outline"
-              className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
+              onClick={() => { handleSaveToMyGuides(); setIsMenuOpen(false); }}
+              disabled={isSaving}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
               size="lg"
             >
-              <Mail className="h-4 w-4 mr-2" />
-              Email
+              <BookmarkPlus className="h-4 w-4 mr-2" />
+              {isSaving ? 'Saving...' : 'Save to My Guides'}
             </Button>
-          }
-        />
-        <Button
-          asChild
-          variant="outline"
-          className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
-          size="lg"
-        >
-          <Link href="/">
-            <Home className="h-4 w-4 mr-2" />
-            Home
-          </Link>
-        </Button>
-        {isOwner && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          )}
+          <Button
+            onClick={() => { handlePrintToPDF(); setIsMenuOpen(false); }}
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+            size="lg"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print to PDF
+          </Button>
+          <Button
+            onClick={() => { handleGeneratePDF(); setIsMenuOpen(false); }}
+            disabled={isGeneratingPDF}
+            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
+            size="lg"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+          </Button>
+          <Button
+            onClick={() => { handleShare(); setIsMenuOpen(false); }}
+            variant="outline"
+            className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
+            size="lg"
+          >
+            <Share2 className="h-4 w-4 mr-2" />
+            Share Link
+          </Button>
+          <EmailShareDialog
+            studyGuideTitle={studyGuide.title}
+            studyGuideUrl={typeof window !== 'undefined' ? window.location.href : ''}
+            senderName={user?.first_name || undefined}
+            trigger={
               <Button
                 variant="outline"
-                className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border-red-300 shadow-lg"
+                className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
                 size="lg"
-                disabled={isDeleting}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                <Mail className="h-4 w-4 mr-2" />
+                Email
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete "{studyGuide.title}"? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={handleDelete}
+            }
+          />
+          <Button
+            asChild
+            variant="outline"
+            className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
+            size="lg"
+          >
+            <Link href="/">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Link>
+          </Button>
+          {isOwner && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border-red-300 shadow-lg"
+                  size="lg"
+                  disabled={isDeleting}
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{studyGuide.title}"? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+
+        {/* Toggle Button */}
+        <Button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isMenuOpen ? 'bg-gray-700 hover:bg-gray-800' : 'bg-blue-600 hover:bg-blue-700'}`}
+          size="icon"
+        >
+          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
       </div>
 
       {/* Content */}
@@ -296,6 +363,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
           <p className="text-sm text-gray-500 mt-2">Generated with CasanovaStudy</p>
         </div>
       </div>
+
+      <Toaster />
     </div>
   )
 }

@@ -191,7 +191,7 @@ export default function GradeExamPage() {
 
       {/* Title Banner */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-10">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
               Exam Grading Assistant
