@@ -38,7 +38,8 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
   const [isFlipped, setIsFlipped] = useState(false)
   const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set())
   const [difficultCards, setDifficultCards] = useState<Set<string>>(new Set())
-  const [isLoadingProgress, setIsLoadingProgress] = useState(false)
+  // Start loading if user is logged in (we'll need to fetch their progress)
+  const [isLoadingProgress, setIsLoadingProgress] = useState(!!userId)
   const [isSavingProgress, setIsSavingProgress] = useState(false)
   const hasLoadedProgressRef = useRef(false)
 
@@ -60,21 +61,19 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
     const loadProgress = async () => {
       // Only load if we have both studyGuideId and userId
       if (!studyGuideId || !userId) {
-        console.log('Skipping progress load - missing studyGuideId or userId')
         // Reset ref so it can try again when userId becomes available
         hasLoadedProgressRef.current = false
+        setIsLoadingProgress(false)
         return
       }
 
       // Only load once per userId change
       if (hasLoadedProgressRef.current) {
-        console.log('Progress already loaded, skipping')
         return
       }
 
       hasLoadedProgressRef.current = true
       setIsLoadingProgress(true)
-      console.log('Loading flashcard progress for guide:', studyGuideId)
 
       try {
         const headers = await getAuthHeaders()
@@ -84,14 +83,10 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
         )
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error('Failed to load progress:', response.status, response.statusText)
-          console.error('Error details:', errorData)
           return
         }
 
         const data = await response.json()
-        console.log('Loaded progress data:', data)
         const { progress } = data
 
         if (progress && typeof progress === 'object') {
@@ -103,7 +98,6 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
             else if (status === 'difficult') difficult.add(cardId)
           })
 
-          console.log(`Restored progress: ${mastered.size} mastered, ${difficult.size} difficult`)
           setMasteredCards(mastered)
           setDifficultCards(difficult)
         }
@@ -119,17 +113,12 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
 
   // Save progress to database
   const saveProgress = async (cardId: string, status: 'mastered' | 'difficult') => {
-    if (!studyGuideId || !userId) {
-      console.log('Not saving - user not logged in')
-      return
-    }
+    if (!studyGuideId || !userId) return
 
     setIsSavingProgress(true)
-    console.log(`Saving progress: ${cardId} -> ${status}`)
-
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch('/api/flashcard-progress', {
+      await fetch('/api/flashcard-progress', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -139,14 +128,6 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
           userId
         })
       })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Failed to save progress:', response.status, response.statusText)
-        console.error('Error details:', errorData)
-      } else {
-        console.log('Progress saved successfully')
-      }
     } catch (error) {
       console.error('Error saving progress:', error)
     } finally {
@@ -270,6 +251,15 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
 
       {/* Flashcard */}
       <div className="relative h-[500px] perspective-1000">
+        {/* Loading overlay */}
+        {isLoadingProgress && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+              <span className="text-sm text-gray-600">Loading your progress...</span>
+            </div>
+          </div>
+        )}
         <div
           className={`relative w-full h-full transition-transform duration-500 transform-style-3d cursor-pointer ${
             isFlipped ? 'rotate-y-180' : ''

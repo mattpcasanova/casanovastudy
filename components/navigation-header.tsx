@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -43,6 +44,12 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
   const pathname = usePathname()
   const initials = getUserInitials(user)
 
+  // Prevent hydration mismatch by only rendering user-dependent UI after mount
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/'
     return pathname?.startsWith(path)
@@ -75,15 +82,14 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                       ? 'bg-white/20 text-white hover:bg-white/30'
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
-                  suppressHydrationWarning
                 >
                   <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
                   Create Guide
                 </Button>
               </Link>
 
-              {user && (
-                <Link href="/my-guides" suppressHydrationWarning>
+              {mounted && user && (
+                <Link href="/my-guides">
                   <Button
                     variant={isActive('/my-guides') ? 'secondary' : 'ghost'}
                     className={`h-10 ${
@@ -91,7 +97,6 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
-                    suppressHydrationWarning
                   >
                     <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
                     My Guides
@@ -99,8 +104,8 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                 </Link>
               )}
 
-              {user && (
-                <Link href="/grade-exam" suppressHydrationWarning>
+              {mounted && user && (
+                <Link href="/grade-exam">
                   <Button
                     variant={isActive('/grade-exam') ? 'secondary' : 'ghost'}
                     className={`h-10 ${
@@ -108,7 +113,6 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
-                    suppressHydrationWarning
                   >
                     <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
                     {user.user_type === 'teacher' ? 'Grade Exam' : 'Check My Work'}
@@ -118,7 +122,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
             </nav>
 
             {/* User Menu */}
-            {user && (
+            {mounted && user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

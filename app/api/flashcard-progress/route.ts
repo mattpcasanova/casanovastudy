@@ -52,10 +52,10 @@ export async function GET(request: NextRequest) {
 
     // Create Supabase client with the auth token
     const token = authHeader.replace('Bearer ', '')
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAuthenticatedClient(token)
 
-    // Set the auth token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Verify the auth token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Invalid or expired session' },
@@ -110,10 +110,10 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAuthenticatedClient(token)
 
     // Verify the auth token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Invalid or expired session' },
@@ -194,10 +194,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAuthenticatedClient(token)
 
     // Verify the auth token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Invalid or expired session' },
