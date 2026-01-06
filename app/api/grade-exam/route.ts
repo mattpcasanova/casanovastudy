@@ -4,9 +4,10 @@ import { ClaudeService } from '@/lib/claude-api'
 import { PDFShiftPDFGenerator } from '@/lib/pdfshift-pdf-generator'
 import { storePDF } from '@/app/api/pdf/[filename]/route'
 import { supabase } from '@/lib/supabase'
-import { getAuthenticatedUser, createRouteHandlerClient } from '@/lib/supabase-server'
+import { getAuthenticatedUser, createRouteHandlerClient, createAdminClient } from '@/lib/supabase-server'
 
 interface GradingResult {
+  id?: string
   pdfUrl: string
   pdfDataUrl?: string // Base64 data URL as fallback for downloads
   totalMarks: number
@@ -26,9 +27,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     console.log('📝 Starting exam grading process...')
 
-    // STEP 1: Authentication check - require user to be logged in
-    const user = await getAuthenticatedUser(request)
-    if (!user) {
+    const formData = await request.formData()
+
+    // STEP 1: Authentication check - try cookie auth first, fall back to userId from FormData
+    // This is needed because the client uses localStorage for Supabase sessions, not cookies
+    let userId: string | null = null
+    const cookieUser = await getAuthenticatedUser(request)
+    if (cookieUser) {
+      userId = cookieUser.id
+    } else {
+      // Fall back to userId from FormData (client passes this from their auth context)
+      const formUserId = formData.get('userId') as string | null
+      if (formUserId) {
+        userId = formUserId
+      }
+    }
+
+    if (!userId) {
       console.error('❌ Unauthenticated grading attempt')
       return NextResponse.json({
         success: false,
@@ -36,12 +51,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 401 })
     }
 
+    console.log(`✅ Authenticated user: ${userId}`)
+
     // STEP 2: Get user profile to check user_type (teacher or student)
-    const serverSupabase = createRouteHandlerClient(request)
+    // Use admin client when authenticating via FormData (no cookies), otherwise use route handler client
+    const serverSupabase = cookieUser ? createRouteHandlerClient(request) : createAdminClient()
     const { data: userProfile, error: profileError } = await serverSupabase
       .from('user_profiles')
       .select('user_type')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     if (profileError || !userProfile) {
@@ -55,15 +73,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const userType = userProfile.user_type as 'teacher' | 'student'
     console.log(`👤 User type: ${userType}`)
 
-    const formData = await request.formData()
     const markSchemeFile = formData.get('markScheme') as File | null
-    const studentExamFile = formData.get('studentExam') as File | null
+    // Support multiple student exam files (for multi-page handwritten exams)
+    const studentExamFiles = formData.getAll('studentExam') as File[]
     const additionalComments = formData.get('additionalComments') as string | null
 
     console.log('Additional comments received:', additionalComments ? `"${additionalComments}"` : 'None')
+    console.log(`📁 Received ${studentExamFiles.length} student exam file(s)`)
 
     // Student exam is always required, but mark scheme is optional
-    if (!studentExamFile) {
+    if (studentExamFiles.length === 0) {
       console.error('❌ Missing student exam file')
       return NextResponse.json({
         success: false,
@@ -72,10 +91,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Validate file types
-    const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    const validDocTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    const validTypes = [...validDocTypes, ...validImageTypes]
+
+    // Helper to check if file is an image
+    const isImageFile = (file: File) => {
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      return validImageTypes.includes(file.type) || (extension && imageExtensions.includes(extension))
+    }
 
     // Validate mark scheme if provided
-    if (markSchemeFile && !validTypes.includes(markSchemeFile.type)) {
+    if (markSchemeFile && !validDocTypes.includes(markSchemeFile.type)) {
       console.error('❌ Invalid mark scheme file type:', markSchemeFile.type)
       return NextResponse.json({
         success: false,
@@ -83,19 +111,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 })
     }
 
-    // Validate student exam (required)
-    if (!validTypes.includes(studentExamFile.type)) {
-      console.error('❌ Invalid student exam file type:', studentExamFile.type)
-      return NextResponse.json({
-        success: false,
-        error: `Invalid student exam file type: ${studentExamFile.type}. Please upload a PDF or DOCX file.`
-      }, { status: 400 })
+    // Validate all student exam files
+    for (const file of studentExamFiles) {
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      const validExtensions = ['pdf', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      const isValidType = validTypes.includes(file.type) || (extension && validExtensions.includes(extension))
+
+      if (!isValidType) {
+        console.error('❌ Invalid student exam file type:', file.type, file.name)
+        return NextResponse.json({
+          success: false,
+          error: `Invalid file type: ${file.name}. Please upload PDF, DOCX, or image files.`
+        }, { status: 400 })
+      }
     }
+
+    // Check if we have images (for multi-page handwritten exams)
+    const hasImages = studentExamFiles.some(f => isImageFile(f))
 
     // Process files - extract text first (same as study guide generator)
     let markSchemeProcessed = null
     let markSchemeContent = ''
-    let markSchemeNeedsVision = false
 
     if (markSchemeFile) {
       console.log('📄 Processing mark scheme file...')
@@ -108,24 +144,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         processedSize: markSchemeProcessed.processedSize
       })
       markSchemeContent = markSchemeProcessed.content.trim()
-      markSchemeNeedsVision = markSchemeFile.type === 'application/pdf'
     }
 
-    console.log('📄 Processing student exam file...')
-    const studentExamProcessed = await FileProcessor.processFile(studentExamFile)
-    console.log('Student exam processing result:', {
-      name: studentExamProcessed.name,
-      type: studentExamProcessed.type,
-      contentLength: studentExamProcessed.content.length,
-      originalSize: studentExamProcessed.originalSize,
-      processedSize: studentExamProcessed.processedSize
-    })
+    // Process student exam files
+    console.log(`📄 Processing ${studentExamFiles.length} student exam file(s)...`)
+    let studentExamContent = ''
+    const studentExamBuffers: Array<{ buffer: Buffer; name: string; type: string }> = []
 
-    const studentExamContent = studentExamProcessed.content.trim()
-    const studentExamNeedsVision = studentExamFile.type === 'application/pdf'
+    // Use the first file for the primary reference (student name extraction)
+    const primaryStudentFile = studentExamFiles[0]
+
+    for (const file of studentExamFiles) {
+      // Get buffer for each file
+      const buffer = Buffer.from(await file.arrayBuffer())
+      studentExamBuffers.push({
+        buffer,
+        name: file.name,
+        type: file.type
+      })
+
+      // Only extract text from documents, not images
+      if (!isImageFile(file)) {
+        try {
+          const processed = await FileProcessor.processFile(file)
+          studentExamContent += processed.content.trim() + '\n\n'
+          console.log(`Processed ${file.name}: ${processed.content.length} chars`)
+        } catch (err) {
+          console.log(`Skipping text extraction for ${file.name}:`, err)
+        }
+      } else {
+        console.log(`📸 Image file: ${file.name} (will use vision API)`)
+      }
+    }
 
     console.log('📸 Using Claude API for exam grading')
     console.log('Mark scheme provided:', !!markSchemeFile)
+    console.log('Has images:', hasImages)
+    console.log('File count:', studentExamFiles.length)
     console.log('Text content lengths:', {
       markScheme: markSchemeContent.length,
       studentExam: studentExamContent.length
@@ -148,11 +203,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           name: markSchemeFile.name,
           type: markSchemeFile.type
         } : undefined,
-        studentExamFile: {
-          buffer: Buffer.from(await studentExamFile.arrayBuffer()),
-          name: studentExamFile.name,
-          type: studentExamFile.type
-        },
+        // Pass all student exam files for multi-page support
+        studentExamFile: studentExamBuffers[0], // Primary file
+        studentExamFiles: studentExamBuffers.length > 1 ? studentExamBuffers : undefined, // Additional files
         additionalComments: additionalComments || undefined
       })
     } else {
@@ -160,11 +213,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       claudeResponse = await claudeService.gradeExamForStudent({
         studentExamText: studentExamContent,
         markSchemeText: markSchemeContent,
-        studentExamFile: {
-          buffer: Buffer.from(await studentExamFile.arrayBuffer()),
-          name: studentExamFile.name,
-          type: studentExamFile.type
-        },
+        studentExamFile: studentExamBuffers[0],
+        studentExamFiles: studentExamBuffers.length > 1 ? studentExamBuffers : undefined,
         markSchemeFile: markSchemeFile ? {
           buffer: Buffer.from(await markSchemeFile.arrayBuffer()),
           name: markSchemeFile.name,
@@ -172,6 +222,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         } : undefined
       })
     }
+
+    // Use primary file for student name extraction
+    const studentExamFile = primaryStudentFile
 
     // Parse Claude's response to extract grading information
     const gradingContent = claudeResponse.content
@@ -187,10 +240,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('❌ Claude is indicating it cannot read the PDF content!')
       console.error('Full Claude response:', gradingContent)
       console.error('Debug info:', {
-        hasMarkSchemeImages: !!markSchemeNeedsVision,
-        hasStudentExamImages: !!studentExamNeedsVision,
+        hasImages,
         markSchemeFileProvided: !!markSchemeFile,
-        studentExamFileProvided: !!studentExamFile
+        studentExamFilesCount: studentExamFiles.length
       })
       return NextResponse.json({
         success: false,
@@ -299,15 +351,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const pdfUrl = `/api/pdf/${gradingId}.pdf`
 
-    // Calculate percentage and grade
+    // Calculate percentage and grade (American grading scale)
     const percentage = totalPossibleMarks > 0 ? (totalMarks / totalPossibleMarks) * 100 : 0
     let grade = 'F'
-    if (percentage >= 90) grade = 'A*'
-    else if (percentage >= 80) grade = 'A'
-    else if (percentage >= 70) grade = 'B'
-    else if (percentage >= 60) grade = 'C'
-    else if (percentage >= 50) grade = 'D'
-    else if (percentage >= 40) grade = 'E'
+    if (percentage >= 90) grade = 'A'
+    else if (percentage >= 80) grade = 'B'
+    else if (percentage >= 70) grade = 'C'
+    else if (percentage >= 60) grade = 'D'
 
     // Extract student name from filename
     const studentName = studentExamFile.name.replace(/\.(pdf|docx|pptx|txt)$/i, '').replace(/_/g, ' ')
@@ -317,7 +367,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: savedGrading, error: supabaseError } = await serverSupabase
       .from('grading_results')
       .insert({
-        user_id: user.id, // Link to authenticated user
+        user_id: userId, // Link to authenticated user
         student_name: studentName,
         answer_sheet_filename: markSchemeFile?.name || null,
         student_exam_filename: studentExamFile.name,
@@ -343,6 +393,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const result: GradingResult = {
+      id: savedGrading?.id,
       pdfUrl,
       pdfDataUrl, // Add base64 fallback for reliable downloads
       totalMarks,
@@ -623,16 +674,14 @@ function generateGradingPDFContent(
   const percentage = totalPossibleMarks > 0 ? ((totalMarks / totalPossibleMarks) * 100).toFixed(1) : '0'
   const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-  // Determine grade
+  // Determine grade (American grading scale)
   let grade = 'F'
   let gradeColor = '#dc2626'
   const percentNum = parseFloat(percentage)
-  if (percentNum >= 90) { grade = 'A*'; gradeColor = '#059669'; }
-  else if (percentNum >= 80) { grade = 'A'; gradeColor = '#10b981'; }
-  else if (percentNum >= 70) { grade = 'B'; gradeColor = '#3b82f6'; }
-  else if (percentNum >= 60) { grade = 'C'; gradeColor = '#f59e0b'; }
-  else if (percentNum >= 50) { grade = 'D'; gradeColor = '#f97316'; }
-  else if (percentNum >= 40) { grade = 'E'; gradeColor = '#ef4444'; }
+  if (percentNum >= 90) { grade = 'A'; gradeColor = '#059669'; }
+  else if (percentNum >= 80) { grade = 'B'; gradeColor = '#3b82f6'; }
+  else if (percentNum >= 70) { grade = 'C'; gradeColor = '#f59e0b'; }
+  else if (percentNum >= 60) { grade = 'D'; gradeColor = '#f97316'; }
 
   const studentName = studentExamName.replace(/\.(pdf|docx)$/i, '').replace(/_/g, ' ')
 

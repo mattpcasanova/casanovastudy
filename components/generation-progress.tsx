@@ -101,6 +101,8 @@ interface StreamingGenerationProgressProps {
   content: string
   statusMessage: string
   isComplete: boolean
+  loadingText?: string // Customizable loading text, defaults to "Preparing your study guide..."
+  completeText?: string // Customizable completion text, defaults to "Study guide generated successfully!"
 }
 
 const streamingThinkingVerbs = [
@@ -126,7 +128,13 @@ const streamingThinkingVerbs = [
   "Conjuring",
 ]
 
-export function StreamingGenerationProgress({ content, statusMessage, isComplete }: StreamingGenerationProgressProps) {
+export function StreamingGenerationProgress({
+  content,
+  statusMessage,
+  isComplete,
+  loadingText = "Preparing your study guide...",
+  completeText = "Study guide generated successfully!"
+}: StreamingGenerationProgressProps) {
   const [currentVerb, setCurrentVerb] = useState(0)
   const [wavePosition, setWavePosition] = useState(0)
 
@@ -230,7 +238,7 @@ export function StreamingGenerationProgress({ content, statusMessage, isComplete
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
                   <Sparkles className="h-12 w-12 text-blue-400 animate-pulse mx-auto" />
-                  <p className="text-gray-500 font-medium">Preparing your study guide...</p>
+                  <p className="text-gray-500 font-medium">{loadingText}</p>
                 </div>
               </div>
             )}
@@ -242,7 +250,7 @@ export function StreamingGenerationProgress({ content, statusMessage, isComplete
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
-                Study guide generated successfully!
+                {completeText}
               </div>
             </div>
           )}

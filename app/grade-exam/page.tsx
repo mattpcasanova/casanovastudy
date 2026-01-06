@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -12,6 +13,7 @@ import NavigationHeader from "@/components/navigation-header"
 import { useAuth } from "@/lib/auth"
 
 interface GradingResult {
+  id?: string
   pdfUrl: string
   pdfDataUrl?: string
   totalMarks: number
@@ -26,9 +28,10 @@ interface GradingResult {
 }
 
 export default function GradeExamPage() {
+  const router = useRouter()
   const { user, signOut } = useAuth()
   const [answerSheetFile, setAnswerSheetFile] = useState<File | null>(null)
-  const [studentExamFile, setStudentExamFile] = useState<File | null>(null)
+  const [studentExamFiles, setStudentExamFiles] = useState<File[]>([])
   const [additionalComments, setAdditionalComments] = useState<string>("")
   const [isGrading, setIsGrading] = useState(false)
   const [gradingResult, setGradingResult] = useState<GradingResult | null>(null)
@@ -39,6 +42,11 @@ export default function GradeExamPage() {
   // Editing state for teachers
   const [editedBreakdown, setEditedBreakdown] = useState<GradingResult['gradeBreakdown'] | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Drag and drop state
+  const [dragActive, setDragActive] = useState(false)
+  const [answerSheetDragActive, setAnswerSheetDragActive] = useState(false)
 
   const { toast } = useToast()
 
@@ -58,15 +66,27 @@ export default function GradeExamPage() {
 
   const validateFile = (file: File): string | null => {
     const maxSize = 20 * 1024 * 1024 // 20MB
-    const allowedTypes = [
+    const allowedDocTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "text/plain"
     ]
+    const allowedImageTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif"
+    ]
+    const allowedExtensions = ['pdf', 'docx', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
 
-    if (!allowedTypes.includes(file.type)) {
-      return "Only PDF, DOCX, PPTX, or TXT files are supported."
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    const isValidType = allowedDocTypes.includes(file.type) || allowedImageTypes.includes(file.type)
+    const isValidExtension = extension && allowedExtensions.includes(extension)
+
+    if (!isValidType && !isValidExtension) {
+      return "Only PDF, DOCX, PPTX, TXT, JPG, PNG, HEIC, or WebP files are supported."
     }
     if (file.size > maxSize) {
       return "File size too large. Please upload files smaller than 20MB"
@@ -96,23 +116,41 @@ export default function GradeExamPage() {
   }
 
   const handleStudentExamUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      const error = validateFile(file)
-      if (error) {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files)
+      const validFiles: File[] = []
+      const invalidFiles: string[] = []
+
+      for (const file of newFiles) {
+        const error = validateFile(file)
+        if (error) {
+          invalidFiles.push(`${file.name}: ${error}`)
+        } else {
+          validFiles.push(file)
+        }
+      }
+
+      if (invalidFiles.length > 0) {
         toast({
-          title: "Invalid file",
-          description: error,
+          title: `${invalidFiles.length} file(s) skipped`,
+          description: invalidFiles[0],
           variant: "destructive",
         })
-        return
       }
-      setStudentExamFile(file)
-      setErrors((prev) => ({ ...prev, studentExam: "" }))
-      toast({
-        title: "Student exam uploaded",
-        description: `${file.name} has been uploaded successfully.`,
-      })
+
+      if (validFiles.length > 0) {
+        setStudentExamFiles(prev => [...prev, ...validFiles])
+        setErrors((prev) => ({ ...prev, studentExam: "" }))
+        toast({
+          title: `${validFiles.length} file(s) added`,
+          description: validFiles.length === 1
+            ? validFiles[0].name
+            : `Total: ${studentExamFiles.length + validFiles.length} files`,
+        })
+      }
+
+      // Reset input so same file can be added again if removed
+      e.target.value = ''
     }
   }
 
@@ -124,18 +162,119 @@ export default function GradeExamPage() {
     })
   }
 
-  const removeStudentExam = () => {
-    setStudentExamFile(null)
+  const removeStudentExam = (index?: number) => {
+    if (index !== undefined) {
+      const removedFile = studentExamFiles[index]
+      setStudentExamFiles(prev => prev.filter((_, i) => i !== index))
+      toast({
+        title: "File removed",
+        description: `${removedFile.name} has been removed.`,
+      })
+    } else {
+      setStudentExamFiles([])
+      toast({
+        title: "All files removed",
+        description: "All student exam files have been removed.",
+      })
+    }
+  }
+
+  // Drag and drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (isGrading) return
+
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    const validFiles: File[] = []
+    const invalidFiles: string[] = []
+
+    for (const file of droppedFiles) {
+      const error = validateFile(file)
+      if (error) {
+        invalidFiles.push(`${file.name}: ${error}`)
+      } else {
+        validFiles.push(file)
+      }
+    }
+
+    if (invalidFiles.length > 0) {
+      toast({
+        title: `${invalidFiles.length} file(s) skipped`,
+        description: invalidFiles[0],
+        variant: "destructive",
+      })
+    }
+
+    if (validFiles.length > 0) {
+      setStudentExamFiles(prev => [...prev, ...validFiles])
+      setErrors(prev => ({ ...prev, studentExam: "" }))
+      toast({
+        title: `${validFiles.length} file(s) added`,
+        description: validFiles.length === 1
+          ? validFiles[0].name
+          : `Total: ${studentExamFiles.length + validFiles.length} files`,
+      })
+    }
+  }
+
+  // Answer sheet drag and drop handlers
+  const handleAnswerSheetDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setAnswerSheetDragActive(true)
+    } else if (e.type === "dragleave") {
+      setAnswerSheetDragActive(false)
+    }
+  }
+
+  const handleAnswerSheetDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setAnswerSheetDragActive(false)
+
+    if (isGrading) return
+
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    if (droppedFiles.length === 0) return
+
+    const file = droppedFiles[0] // Only take first file for answer sheet
+    const error = validateFile(file)
+
+    if (error) {
+      toast({
+        title: "Invalid file",
+        description: error,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setAnswerSheetFile(file)
+    setErrors(prev => ({ ...prev, answerSheet: "" }))
     toast({
-      title: "Student exam removed",
-      description: "Student exam file has been removed.",
+      title: "Answer sheet uploaded",
+      description: `${file.name} has been uploaded successfully.`,
     })
   }
 
   const handleGradeExam = async () => {
     // Validate - only student exam is required
     const newErrors: Record<string, string> = {}
-    if (!studentExamFile) {
+    if (studentExamFiles.length === 0) {
       newErrors.studentExam = "Please upload a student exam"
     }
 
@@ -152,7 +291,7 @@ export default function GradeExamPage() {
     setIsGrading(true)
     setGradingResult(null)
     setGradingContent("")
-    setStatusMessage("Analyzing exam...")
+    setStatusMessage("Processing exam files...")
     setErrors({})
 
     try {
@@ -161,32 +300,119 @@ export default function GradeExamPage() {
       if (answerSheetFile) {
         formData.append("markScheme", answerSheetFile)
       }
-      formData.append("studentExam", studentExamFile!)
+      // Append all student exam files
+      for (const file of studentExamFiles) {
+        formData.append("studentExam", file)
+      }
       if (additionalComments.trim()) {
         formData.append("additionalComments", additionalComments.trim())
       }
-
-      // Call API
-      setStatusMessage("Grading exam...")
-      const response = await fetch("/api/grade-exam", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        const errorMessage = errorData.error || "Failed to grade exam"
-        throw new Error(errorMessage)
+      // Pass userId for authentication (needed because client uses localStorage, not cookies)
+      if (user?.id) {
+        formData.append("userId", user.id)
       }
 
-      const result = await response.json()
-      setGradingResult(result.data)
-      setStatusMessage("Grading complete!")
+      // Use streaming endpoint for teachers
+      if (isTeacher) {
+        const response = await fetch("/api/grade-exam-stream", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        })
 
-      toast({
-        title: "Grading complete!",
-        description: `Exam graded successfully. Total: ${result.data.totalMarks}/${result.data.totalPossibleMarks} marks.`,
-      })
+        if (!response.ok) {
+          throw new Error("Failed to start grading")
+        }
+
+        const reader = response.body?.getReader()
+        const decoder = new TextDecoder()
+
+        if (!reader) {
+          throw new Error("Failed to read response stream")
+        }
+
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'error') {
+                throw new Error(data.message)
+              }
+
+              if (data.type === 'progress') {
+                setStatusMessage(data.message)
+              }
+
+              if (data.type === 'content') {
+                setGradingContent(prev => prev + data.chunk)
+              }
+
+              if (data.type === 'complete') {
+                setStatusMessage("Grading complete!")
+                toast({
+                  title: "Grading complete!",
+                  description: `Exam graded successfully. Total: ${data.totalMarks}/${data.totalPossibleMarks} marks.`,
+                })
+
+                // Redirect to persistent grade report page if we have an ID
+                if (data.id) {
+                  router.push(`/grade-report/${data.id}`)
+                } else {
+                  // Fall back to showing result inline if no ID
+                  setGradingResult({
+                    totalMarks: data.totalMarks,
+                    totalPossibleMarks: data.totalPossibleMarks,
+                    gradeBreakdown: data.gradeBreakdown,
+                    pdfUrl: '',
+                  })
+                }
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError)
+            }
+          }
+        }
+      } else {
+        // Non-streaming fallback for students
+        setStatusMessage("Grading exam...")
+        const response = await fetch("/api/grade-exam", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          const errorMessage = errorData.error || "Failed to grade exam"
+          throw new Error(errorMessage)
+        }
+
+        const result = await response.json()
+        setGradingResult(result.data)
+        setStatusMessage("Grading complete!")
+
+        toast({
+          title: "Grading complete!",
+          description: `Exam graded successfully. Total: ${result.data.totalMarks}/${result.data.totalPossibleMarks} marks.`,
+        })
+
+        // Redirect to persistent grade report page if we have an ID
+        if (result.data.id) {
+          router.push(`/grade-report/${result.data.id}`)
+        }
+      }
     } catch (error) {
       console.error("Grading error:", error)
       toast({
@@ -235,60 +461,80 @@ export default function GradeExamPage() {
                 {/* Student Exam Upload - NOW FIRST */}
                 <div className="space-y-3">
                   <Label htmlFor="studentExam" className="font-medium flex items-center gap-2">
-                    Student Exam *
+                    Student Exam * {studentExamFiles.length > 0 && <span className="text-xs text-muted-foreground">({studentExamFiles.length} file{studentExamFiles.length !== 1 ? 's' : ''})</span>}
                   </Label>
+
+                  {/* Upload area with drag-and-drop */}
                   <div
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
-                      errors.studentExam
+                      isGrading
+                        ? "opacity-50 cursor-not-allowed border-gray-300"
+                        : dragActive
+                        ? "border-primary bg-primary/10 scale-[1.01]"
+                        : errors.studentExam
                         ? "border-destructive bg-destructive/5"
                         : "border-border hover:border-primary/50 hover:bg-primary/5"
                     }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
                   >
-                    {studentExamFile ? (
-                      <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{studentExamFile.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {(studentExamFile.size / 1024 / 1024).toFixed(1)} MB
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={removeStudentExam}
-                          className="text-muted-foreground hover:text-red-500"
+                    <Upload className={`h-12 w-12 mx-auto mb-3 ${dragActive ? "text-primary scale-110" : "text-muted-foreground"} transition-all`} />
+                    <p className="text-base mb-2 font-medium">
+                      Drag and drop your files here, or{" "}
+                      <label className="text-primary hover:text-primary/80 cursor-pointer underline underline-offset-2 font-semibold">
+                        browse
+                        <input
+                          type="file"
+                          id="studentExam"
+                          accept=".pdf,.docx,.pptx,.txt,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                          onChange={handleStudentExamUpload}
+                          className="hidden"
                           disabled={isGrading}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-lg mb-3 font-medium">
-                          <label className="text-primary hover:text-primary/80 cursor-pointer underline underline-offset-2 font-semibold">
-                            Click to upload student exam
-                            <input
-                              type="file"
-                              id="studentExam"
-                              accept=".pdf,.docx,.pptx,.txt"
-                              onChange={handleStudentExamUpload}
-                              className="hidden"
-                              disabled={isGrading}
-                            />
-                          </label>
-                        </p>
-                        <p className="text-sm text-muted-foreground">PDF, DOCX, PPTX, or TXT format (max 20MB)</p>
-                      </>
-                    )}
+                          multiple
+                        />
+                      </label>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, DOCX, images (JPG, PNG, HEIC) • Max 20MB per file
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      For handwritten exams: upload multiple page photos
+                    </p>
                   </div>
                   {errors.studentExam && (
                     <p className="text-sm text-destructive animate-in slide-in-from-top-1">
                       {errors.studentExam}
                     </p>
+                  )}
+
+                  {/* Show uploaded files list BELOW upload area */}
+                  {studentExamFiles.length > 0 && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {studentExamFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-muted/50 p-3 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-medium truncate">{file.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(1)} MB
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeStudentExam(index)}
+                            className="text-muted-foreground hover:text-red-500 flex-shrink-0"
+                            disabled={isGrading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -305,10 +551,18 @@ export default function GradeExamPage() {
                   </p>
                   <div
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
-                      errors.answerSheet
+                      isGrading
+                        ? "opacity-50 cursor-not-allowed border-gray-300"
+                        : answerSheetDragActive
+                        ? "border-primary bg-primary/10 scale-[1.01]"
+                        : errors.answerSheet
                         ? "border-destructive bg-destructive/5"
                         : "border-border hover:border-primary/50 hover:bg-primary/5"
                     }`}
+                    onDragEnter={handleAnswerSheetDrag}
+                    onDragLeave={handleAnswerSheetDrag}
+                    onDragOver={handleAnswerSheetDrag}
+                    onDrop={handleAnswerSheetDrop}
                   >
                     {answerSheetFile ? (
                       <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg border">
@@ -333,10 +587,11 @@ export default function GradeExamPage() {
                       </div>
                     ) : (
                       <>
-                        <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-lg mb-3 font-medium">
+                        <Upload className={`h-12 w-12 mx-auto mb-4 ${answerSheetDragActive ? "text-primary scale-110" : "text-muted-foreground"} transition-all`} />
+                        <p className="text-base mb-2 font-medium">
+                          Drag and drop your answer sheet here, or{" "}
                           <label className="text-primary hover:text-primary/80 cursor-pointer underline underline-offset-2 font-semibold">
-                            Click to upload answer sheet
+                            browse
                             <input
                               type="file"
                               id="answerSheet"
@@ -347,7 +602,7 @@ export default function GradeExamPage() {
                             />
                           </label>
                         </p>
-                        <p className="text-sm text-muted-foreground">PDF, DOCX, PPTX, or TXT format (max 20MB)</p>
+                        <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, or TXT format (max 20MB)</p>
                       </>
                     )}
                   </div>
@@ -382,13 +637,13 @@ export default function GradeExamPage() {
                 <div className="pt-6 border-t">
                   <Button
                     onClick={handleGradeExam}
-                    disabled={!studentExamFile || isGrading}
+                    disabled={studentExamFiles.length === 0 || isGrading}
                     className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white py-6 text-lg font-semibold transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 shadow-lg hover:shadow-xl"
                     size="lg"
                   >
                     <div className="flex items-center gap-2">
                       <FileCheck className="h-5 w-5" />
-                      Grade Exam
+                      Grade Exam {studentExamFiles.length > 1 && `(${studentExamFiles.length} pages)`}
                     </div>
                   </Button>
                 </div>
@@ -402,6 +657,8 @@ export default function GradeExamPage() {
               content={gradingContent}
               statusMessage={statusMessage}
               isComplete={false}
+              loadingText="Grading exam..."
+              completeText="Exam graded successfully!"
             />
           )}
 
@@ -467,9 +724,25 @@ export default function GradeExamPage() {
                               <span className="font-semibold text-base">
                                 Question {item.questionNumber}
                               </span>
-                              <span className="text-sm font-medium text-primary bg-white px-3 py-1 rounded">
-                                {item.marksAwarded} / {item.marksPossible} marks
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={item.marksPossible}
+                                  value={item.marksAwarded}
+                                  onChange={(e) => {
+                                    const newBreakdown = [...editedBreakdown]
+                                    const newValue = Math.min(
+                                      Math.max(0, parseInt(e.target.value) || 0),
+                                      item.marksPossible
+                                    )
+                                    newBreakdown[index].marksAwarded = newValue
+                                    setEditedBreakdown(newBreakdown)
+                                  }}
+                                  className="w-16 px-2 py-1 text-center border rounded text-sm font-medium"
+                                />
+                                <span className="text-sm text-muted-foreground">/ {item.marksPossible} marks</span>
+                              </div>
                             </div>
                             <Label className="text-sm text-muted-foreground mb-2 block">
                               Edit feedback:
@@ -486,19 +759,71 @@ export default function GradeExamPage() {
                             />
                           </div>
                         ))}
+                        {/* Edited totals preview */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-amber-800">Updated Total:</span>
+                            <span className="text-lg font-bold text-amber-900">
+                              {editedBreakdown.reduce((sum, item) => sum + item.marksAwarded, 0)} / {editedBreakdown.reduce((sum, item) => sum + item.marksPossible, 0)} marks
+                              <span className="text-sm font-normal ml-2">
+                                ({((editedBreakdown.reduce((sum, item) => sum + item.marksAwarded, 0) / editedBreakdown.reduce((sum, item) => sum + item.marksPossible, 0)) * 100).toFixed(1)}%)
+                              </span>
+                            </span>
+                          </div>
+                        </div>
                         <div className="flex gap-3 pt-4">
                           <Button
-                            onClick={() => {
-                              // Save edits and generate PDF
-                              toast({
-                                title: "Edits saved",
-                                description: "Your feedback edits have been saved. Download the updated PDF below."
-                              })
-                              setIsEditing(false)
+                            onClick={async () => {
+                              if (!gradingResult?.id || !editedBreakdown) {
+                                toast({
+                                  title: "Cannot save",
+                                  description: "Grading result ID is missing. Please try grading again.",
+                                  variant: "destructive"
+                                })
+                                return
+                              }
+
+                              setIsSaving(true)
+                              try {
+                                const response = await fetch(`/api/grade-exam/${gradingResult.id}`, {
+                                  method: 'PATCH',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ gradeBreakdown: editedBreakdown, userId: user?.id })
+                                })
+
+                                const result = await response.json()
+                                if (!result.success) {
+                                  throw new Error(result.error || 'Failed to save edits')
+                                }
+
+                                // Update local state with recalculated values
+                                setGradingResult(prev => prev ? {
+                                  ...prev,
+                                  totalMarks: result.data.totalMarks,
+                                  totalPossibleMarks: result.data.totalPossibleMarks,
+                                  gradeBreakdown: result.data.gradeBreakdown
+                                } : null)
+
+                                toast({
+                                  title: "Edits saved",
+                                  description: `Total score updated to ${result.data.totalMarks}/${result.data.totalPossibleMarks} (${result.data.percentage}%)`
+                                })
+                                setIsEditing(false)
+                              } catch (error) {
+                                toast({
+                                  title: "Failed to save",
+                                  description: error instanceof Error ? error.message : "An error occurred while saving",
+                                  variant: "destructive"
+                                })
+                              } finally {
+                                setIsSaving(false)
+                              }
                             }}
                             className="flex-1"
+                            disabled={isSaving}
                           >
-                            Save Edits
+                            {isSaving ? "Saving..." : "Save Edits"}
                           </Button>
                         </div>
                       </div>
@@ -551,9 +876,11 @@ export default function GradeExamPage() {
                   <Button
                     onClick={() => {
                       setGradingResult(null)
-                      setStudentExamFile(null)
+                      setStudentExamFiles([])
                       setAnswerSheetFile(null)
                       setAdditionalComments("")
+                      setEditedBreakdown(null)
+                      setIsEditing(false)
                     }}
                     variant="outline"
                     className="w-full"

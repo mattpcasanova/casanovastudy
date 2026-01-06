@@ -266,53 +266,136 @@ Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (
     studentExamImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
     markSchemeFile?: { buffer: Buffer; name: string; type: string }
     studentExamFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFiles?: Array<{ buffer: Buffer; name: string; type: string }> // Multiple files support
     additionalComments?: string
   }): Promise<ClaudeApiResponse> {
-    const { markSchemeText, studentExamText, markSchemeImages: providedMarkSchemeImages, studentExamImages: providedStudentExamImages, markSchemeFile, studentExamFile, additionalComments } = params
-    
+    const { markSchemeText, studentExamText, markSchemeFile, studentExamFile, studentExamFiles, additionalComments } = params
+
+    // Helper to check if file is an image
+    const isImageFile = (type: string, name: string) => {
+      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      const extension = name.split('.').pop()?.toLowerCase()
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
+    }
+
+    // Helper to get correct MIME type for images
+    const getImageMimeType = (type: string, name: string): string => {
+      const extension = name.split('.').pop()?.toLowerCase()
+      // Map common extensions to MIME types Claude supports
+      const mimeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'heic': 'image/jpeg', // HEIC needs conversion, fallback to JPEG
+        'heif': 'image/jpeg'
+      }
+      if (extension && mimeMap[extension]) {
+        return mimeMap[extension]
+      }
+      // Return a supported type if the original isn't recognized
+      if (type.startsWith('image/')) {
+        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
+      }
+      return 'image/jpeg'
+    }
+
+    // Combine all student exam files
+    const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
+      ? studentExamFiles
+      : studentExamFile
+        ? [studentExamFile]
+        : []
+
+    const hasMultipleFiles = allStudentFiles.length > 1
+    const hasImages = allStudentFiles.some(f => isImageFile(f.type, f.name))
+
     // SIMPLE APPROACH: Send PDFs directly to Claude (like Claude Chat does)
-    console.log('📤 Sending PDFs directly to Claude API...')
+    console.log('📤 Sending files directly to Claude API...')
     console.log('Mark scheme file:', {
       name: markSchemeFile?.name,
       size: markSchemeFile?.buffer.length,
       type: markSchemeFile?.type
     })
-    console.log('Student exam file:', {
-      name: studentExamFile?.name,
-      size: studentExamFile?.buffer.length,
-      type: studentExamFile?.type
-    })
-    
+    console.log('Student exam files:', allStudentFiles.length, 'files')
+    console.log('Has images:', hasImages)
+
     // Build content array with PDFs as documents
     const content: any[] = []
-    
+
     // Add instruction (with optional teacher comments)
-    let instructionText = `You are an expert exam grader. Grade this exam against the mark scheme with STRICT CONSISTENCY.
+    const hasTeacherInstructions = additionalComments && additionalComments.trim()
+
+    let instructionText = `You are an expert exam grader. Grade this exam against the mark scheme with consistency and fairness.
 
 CRITICAL GRADING PRINCIPLES:
 1. **Be Consistent**: Apply the same standards to all similar responses
-2. **Follow the Mark Scheme Exactly**: Award marks only when criteria are clearly met
-3. **No Assumptions**: If the answer doesn't explicitly show understanding, don't award the mark
-4. **Partial Marks**: Award partial marks fairly based on the mark scheme breakdown
-5. **Be Fair but Strict**: Maintain the same level of strictness throughout
+2. **Follow the Mark Scheme**: Award marks based on the criteria provided
+3. **Partial Marks**: Award partial marks fairly based on the mark scheme breakdown
+4. **Clear Explanations**: Provide brief, constructive feedback for each question
+5. **GRADE EVERY QUESTION**: You MUST grade EVERY question and sub-question listed in the mark scheme. Do not skip any questions.
+6. **COMPLETE ALL SECTIONS**: Grade ALL sections (A, B, C, etc.) including essay/extended response sections. NEVER stop early.`
 
-I've attached the mark scheme and student exam.`
-    
-    if (additionalComments && additionalComments.trim()) {
-      instructionText += `\n\n**Teacher's Special Instructions:**\n${additionalComments}`
+    if (hasMultipleFiles) {
+      instructionText += `\n\n**NOTE**: This student's exam consists of ${allStudentFiles.length} pages/images. Please analyze ALL pages in order to grade the complete exam.`
     }
-    
-    instructionText += `\n\nPlease format your response as follows:
-- For each question, provide: Question [number], Mark: X/Y - [brief explanation]
-- At the end, provide total marks, percentage, and brief feedback on strengths/areas for improvement.
 
-Remember: Grade strictly and consistently according to the mark scheme. Do not be overly generous or harsh - just follow the criteria precisely.`
-    
+    instructionText += `\n\nI've attached the ${markSchemeFile ? 'mark scheme and ' : ''}student exam.`
+
+    if (hasTeacherInstructions) {
+      instructionText += `\n\n**IMPORTANT - Teacher's Instructions (follow these):**\n${additionalComments}\n\nApply these instructions when grading. They take priority over default grading strictness.`
+    }
+
+    instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
+
+For EACH question in the mark scheme, use this EXACT format on its own line:
+**Question [number]**, Mark: X/Y - [brief explanation]
+
+QUESTION NAMING RULES (VERY IMPORTANT):
+- Use EXACTLY the question number/label as it appears in the mark scheme
+- If mark scheme says "1a" just use "1a", NOT "Question 1a" or "Section A Q1a"
+- If mark scheme says "1(a)(i)" use "1(a)(i)"
+- DO NOT duplicate questions - each question should appear ONLY ONCE
+- DO NOT add Section prefixes unless the mark scheme specifically uses them
+- IMPORTANT: If different sections have the same question numbers (e.g., Section A has "2a" AND Section C has "2a"), you MUST prefix with the section to distinguish them (e.g., "Section A 2a" and "Section C 2a")
+
+Examples of correct format:
+**Question 1**, Mark: 5/6 - Good understanding but missed one key point.
+**Question 1a**, Mark: 2/2 - Correct calculation.
+**Question 1b**, Mark: 3/5 - Partial credit for method.
+**Question 2(a)(i)**, Mark: 1/2 - Partial credit.
+**Question Section C 2a**, Mark: 6/8 - (use this format when sections have duplicate numbers)
+
+ILLEGIBLE HANDWRITING:
+- If you cannot read or understand a student's handwriting for a question, award 0 marks
+- Use explanation: "Answer could not be read/understood due to illegible handwriting"
+- Do NOT skip questions - always include them with 0 marks if illegible
+
+CRITICAL REQUIREMENTS:
+- Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
+- NEVER stop early - you MUST grade through ALL sections including essay questions
+- Each question appears only ONCE in your response - no duplicates
+- Output questions in the SAME ORDER they appear in the mark scheme (chronological order)
+- If the student didn't attempt a question, award 0 marks
+- Use the exact marks available from the mark scheme for the denominator (Y)
+- The total of all Y values should equal the EXACT total marks possible from the mark scheme
+- For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
+
+At the end, provide:
+**Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
+**Percentage: Z%**
+**Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
+
+Brief feedback on strengths and areas for improvement.
+
+${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
+
     content.push({
       type: 'text',
       text: instructionText
     })
-    
+
     // Add mark scheme as document
     if (markSchemeFile) {
       content.push({
@@ -324,24 +407,42 @@ Remember: Grade strictly and consistently according to the mark scheme. Do not b
         }
       })
     }
-    
-    // Add student exam as document
-    if (studentExamFile) {
-      content.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: studentExamFile.buffer.toString('base64')
-        }
-      })
+
+    // Add all student exam files (documents or images)
+    for (let i = 0; i < allStudentFiles.length; i++) {
+      const file = allStudentFiles[i]
+
+      if (isImageFile(file.type, file.name)) {
+        // Add as image for Claude's vision API
+        const mimeType = getImageMimeType(file.type, file.name)
+        console.log(`📸 Adding image ${i + 1}: ${file.name} as ${mimeType}`)
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        // Add as document (PDF, DOCX)
+        console.log(`📄 Adding document ${i + 1}: ${file.name}`)
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
     }
-    
+
     console.log('📤 Sending to Claude API with', content.length, 'content items')
-    
+
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
+      max_tokens: 16384,
       temperature: 0.1, // Lower temperature for more consistent grading (was 0.3)
       messages: [
         {
@@ -366,6 +467,211 @@ Remember: Grade strictly and consistently according to the mark scheme. Do not b
   }
 
   /**
+   * Streaming version of gradeExamWithImages
+   * Yields text chunks as they are generated
+   */
+  async *gradeExamWithImagesStream(params: {
+    markSchemeText: string
+    studentExamText: string
+    markSchemeImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
+    studentExamImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
+    markSchemeFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFiles?: Array<{ buffer: Buffer; name: string; type: string }>
+    additionalComments?: string
+  }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
+    const { markSchemeFile, studentExamFile, studentExamFiles, additionalComments } = params
+
+    // Helper to check if file is an image
+    const isImageFile = (type: string, name: string) => {
+      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      const extension = name.split('.').pop()?.toLowerCase()
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
+    }
+
+    // Helper to get correct MIME type for images
+    const getImageMimeType = (type: string, name: string): string => {
+      const extension = name.split('.').pop()?.toLowerCase()
+      const mimeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'heic': 'image/jpeg',
+        'heif': 'image/jpeg'
+      }
+      if (extension && mimeMap[extension]) {
+        return mimeMap[extension]
+      }
+      if (type.startsWith('image/')) {
+        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
+      }
+      return 'image/jpeg'
+    }
+
+    // Combine all student exam files
+    const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
+      ? studentExamFiles
+      : studentExamFile
+        ? [studentExamFile]
+        : []
+
+    const hasMultipleFiles = allStudentFiles.length > 1
+    const hasTeacherInstructions = additionalComments && additionalComments.trim()
+
+    // Build content array
+    const content: any[] = []
+
+    let instructionText = `You are an expert exam grader. Grade this exam against the mark scheme with consistency and fairness.
+
+CRITICAL GRADING PRINCIPLES:
+1. **Be Consistent**: Apply the same standards to all similar responses
+2. **Follow the Mark Scheme**: Award marks based on the criteria provided
+3. **Partial Marks**: Award partial marks fairly based on the mark scheme breakdown
+4. **Clear Explanations**: Provide brief, constructive feedback for each question
+5. **GRADE EVERY QUESTION**: You MUST grade EVERY question and sub-question listed in the mark scheme. Do not skip any questions.
+6. **COMPLETE ALL SECTIONS**: Grade ALL sections (A, B, C, etc.) including essay/extended response sections. NEVER stop early.`
+
+    if (hasMultipleFiles) {
+      instructionText += `\n\n**NOTE**: This student's exam consists of ${allStudentFiles.length} pages/images. Please analyze ALL pages in order to grade the complete exam.`
+    }
+
+    instructionText += `\n\nI've attached the ${markSchemeFile ? 'mark scheme and ' : ''}student exam.`
+
+    if (hasTeacherInstructions) {
+      instructionText += `\n\n**IMPORTANT - Teacher's Instructions (follow these):**\n${additionalComments}\n\nApply these instructions when grading. They take priority over default grading strictness.`
+    }
+
+    instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
+
+For EACH question in the mark scheme, use this EXACT format on its own line:
+**Question [number]**, Mark: X/Y - [brief explanation]
+
+QUESTION NAMING RULES (VERY IMPORTANT):
+- Use EXACTLY the question number/label as it appears in the mark scheme
+- If mark scheme says "1a" just use "1a", NOT "Question 1a" or "Section A Q1a"
+- If mark scheme says "1(a)(i)" use "1(a)(i)"
+- DO NOT duplicate questions - each question should appear ONLY ONCE
+- DO NOT add Section prefixes unless the mark scheme specifically uses them
+- IMPORTANT: If different sections have the same question numbers (e.g., Section A has "2a" AND Section C has "2a"), you MUST prefix with the section to distinguish them (e.g., "Section A 2a" and "Section C 2a")
+
+Examples of correct format:
+**Question 1**, Mark: 5/6 - Good understanding but missed one key point.
+**Question 1a**, Mark: 2/2 - Correct calculation.
+**Question 1b**, Mark: 3/5 - Partial credit for method.
+**Question 2(a)(i)**, Mark: 1/2 - Partial credit.
+**Question Section C 2a**, Mark: 6/8 - (use this format when sections have duplicate numbers)
+
+ILLEGIBLE HANDWRITING:
+- If you cannot read or understand a student's handwriting for a question, award 0 marks
+- Use explanation: "Answer could not be read/understood due to illegible handwriting"
+- Do NOT skip questions - always include them with 0 marks if illegible
+
+CRITICAL REQUIREMENTS:
+- Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
+- NEVER stop early - you MUST grade through ALL sections including essay questions
+- Each question appears only ONCE in your response - no duplicates
+- Output questions in the SAME ORDER they appear in the mark scheme (chronological order)
+- If the student didn't attempt a question, award 0 marks
+- Use the exact marks available from the mark scheme for the denominator (Y)
+- The total of all Y values should equal the EXACT total marks possible from the mark scheme
+- For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
+
+At the end, provide:
+**Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
+**Percentage: Z%**
+**Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
+
+Brief feedback on strengths and areas for improvement.
+
+${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
+
+    content.push({
+      type: 'text',
+      text: instructionText
+    })
+
+    // Add mark scheme as document
+    if (markSchemeFile) {
+      content.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: markSchemeFile.buffer.toString('base64')
+        }
+      })
+    }
+
+    // Add all student exam files (documents or images)
+    for (let i = 0; i < allStudentFiles.length; i++) {
+      const file = allStudentFiles[i]
+
+      if (isImageFile(file.type, file.name)) {
+        const mimeType = getImageMimeType(file.type, file.name)
+        console.log(`📸 [Stream] Adding image ${i + 1}: ${file.name} as ${mimeType}`)
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        console.log(`📄 [Stream] Adding document ${i + 1}: ${file.name}`)
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
+    }
+
+    console.log('📤 Starting streaming grading with', content.length, 'content items')
+
+    const stream = await this.anthropic.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16384,
+      temperature: 0.1,
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ]
+    })
+
+    let fullContent = ''
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+        const text = chunk.delta.text
+        fullContent += text
+        yield text
+      }
+    }
+
+    const finalMessage = await stream.finalMessage()
+    const actualUsage = {
+      input_tokens: finalMessage.usage.input_tokens,
+      output_tokens: finalMessage.usage.output_tokens,
+      total_tokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens
+    }
+
+    console.log('✅ Streaming grading complete - Token Usage:', actualUsage)
+
+    return {
+      content: fullContent,
+      usage: actualUsage
+    }
+  }
+
+  /**
    * Grade exam for students - tutoring/learning focused
    * Uses encouraging tone and higher temperature for conversational feedback
    */
@@ -373,26 +679,69 @@ Remember: Grade strictly and consistently according to the mark scheme. Do not b
     studentExamText: string
     markSchemeText?: string
     studentExamFile?: { buffer: Buffer; name: string; type: string }
+    studentExamFiles?: Array<{ buffer: Buffer; name: string; type: string }> // Multiple files support
     markSchemeFile?: { buffer: Buffer; name: string; type: string }
   }): Promise<ClaudeApiResponse> {
-    const { studentExamText, markSchemeText, studentExamFile, markSchemeFile } = params
+    const { studentExamText, markSchemeText, studentExamFile, studentExamFiles, markSchemeFile } = params
+
+    // Helper to check if file is an image
+    const isImageFile = (type: string, name: string) => {
+      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      const extension = name.split('.').pop()?.toLowerCase()
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
+    }
+
+    // Helper to get correct MIME type for images
+    const getImageMimeType = (type: string, name: string): string => {
+      const extension = name.split('.').pop()?.toLowerCase()
+      const mimeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'heic': 'image/jpeg',
+        'heif': 'image/jpeg'
+      }
+      if (extension && mimeMap[extension]) {
+        return mimeMap[extension]
+      }
+      if (type.startsWith('image/')) {
+        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
+      }
+      return 'image/jpeg'
+    }
+
+    // Combine all student exam files
+    const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
+      ? studentExamFiles
+      : studentExamFile
+        ? [studentExamFile]
+        : []
+
+    const hasMultipleFiles = allStudentFiles.length > 1
 
     console.log('📚 Starting student tutoring feedback...')
+    console.log('Student exam files:', allStudentFiles.length, 'files')
 
     // Build content array with PDFs as documents (same approach as teacher grading)
     const content: any[] = []
 
     // Add tutoring-focused instruction
-    const instructionText = `You are a helpful tutor reviewing a student's practice work. Your goal is to help them learn and improve.
+    let instructionText = `You are a helpful tutor reviewing a student's practice work. Your goal is to help them learn and improve.
 
 TUTORING PRINCIPLES:
 1. **Be Encouraging**: Start with what they did well - highlight their strengths
 2. **Be Educational**: Explain why answers are right or wrong, teach the underlying concepts
 3. **Be Constructive**: Suggest specific ways to improve their thinking and approach
 4. **Be Patient**: Assume they're trying their best and want to learn
-5. **Focus on Learning**: Emphasize understanding over just getting the right score
+5. **Focus on Learning**: Emphasize understanding over just getting the right score`
 
-I've attached the student's practice work${markSchemeFile ? ' and an answer key' : ''}.
+    if (hasMultipleFiles) {
+      instructionText += `\n\n**NOTE**: This practice work consists of ${allStudentFiles.length} pages/images. Please analyze ALL pages in order.`
+    }
+
+    instructionText += `\n\nI've attached the student's practice work${markSchemeFile ? ' and an answer key' : ''}.
 
 Please format your response as follows:
 - For each question, provide: Question [number], Mark: X/Y - [encouraging feedback that explains the concept and how to approach this type of problem]
@@ -419,16 +768,32 @@ Remember: This is a learning opportunity. Be supportive and help them understand
       })
     }
 
-    // Add student exam
-    if (studentExamFile) {
-      content.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: studentExamFile.buffer.toString('base64')
-        }
-      })
+    // Add all student exam files (documents or images)
+    for (let i = 0; i < allStudentFiles.length; i++) {
+      const file = allStudentFiles[i]
+
+      if (isImageFile(file.type, file.name)) {
+        const mimeType = getImageMimeType(file.type, file.name)
+        console.log(`📸 Adding image ${i + 1}: ${file.name} as ${mimeType}`)
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        console.log(`📄 Adding document ${i + 1}: ${file.name}`)
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
     }
 
     console.log('📤 Sending to Claude API with tutoring mode')
