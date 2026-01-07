@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Download, FileCheck, CheckCircle, Edit2, ArrowLeft, Loader2, Printer } from "lucide-react"
+import { Download, FileCheck, CheckCircle, Edit2, ArrowLeft, Loader2, Printer, ChevronUp, ChevronDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import NavigationHeader from "@/components/navigation-header"
 import { useAuth } from "@/lib/auth"
@@ -234,7 +234,21 @@ export default function GradeReportPage() {
                           {/^(Question|Section|Q\d)/i.test(item.questionNumber) ? item.questionNumber : `Question ${item.questionNumber}`}
                         </span>
                         {isEditing && editedBreakdown ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBreakdown = [...editedBreakdown]
+                                if (newBreakdown[index].marksAwarded > 0) {
+                                  newBreakdown[index].marksAwarded -= 1
+                                  setEditedBreakdown(newBreakdown)
+                                }
+                              }}
+                              className="p-1.5 rounded hover:bg-gray-100 border border-gray-200 transition-colors"
+                              title="Decrease mark"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
                             <input
                               type="number"
                               min={0}
@@ -254,9 +268,23 @@ export default function GradeReportPage() {
                                   handleSaveQuestion(index)
                                 }
                               }}
-                              className="w-16 px-2 py-1 text-center border rounded text-sm font-medium"
+                              className="w-14 px-1 py-1 text-center border rounded text-sm font-medium"
                             />
-                            <span className="text-sm text-muted-foreground">/ {item.marksPossible}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBreakdown = [...editedBreakdown]
+                                if (newBreakdown[index].marksAwarded < item.marksPossible) {
+                                  newBreakdown[index].marksAwarded += 1
+                                  setEditedBreakdown(newBreakdown)
+                                }
+                              }}
+                              className="p-1.5 rounded hover:bg-gray-100 border border-gray-200 transition-colors"
+                              title="Increase mark"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                            <span className="text-sm text-muted-foreground ml-1">/ {item.marksPossible}</span>
                             <Button
                               size="sm"
                               variant="outline"

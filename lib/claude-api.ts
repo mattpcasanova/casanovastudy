@@ -350,7 +350,16 @@ CRITICAL GRADING PRINCIPLES:
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
 For EACH question in the mark scheme, use this EXACT format on its own line:
-**Question [number]**, Mark: X/Y - [brief explanation]
+**Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
+
+FEEDBACK REQUIREMENTS (VERY IMPORTANT):
+- For PARTIAL marks: Explain SPECIFICALLY what the student got right AND what was missing/wrong
+- Reference the mark scheme criteria when explaining lost marks
+- Tell students WHAT they needed to include to earn full marks
+- NEVER use vague phrases like "Partial credit" or "lacks depth" without specifics
+- BAD: "Partial points awarded" or "Answer mentions X but lacks depth"
+- GOOD: "Correctly identified photosynthesis but missed that it requires chlorophyll. Needed to mention light-dependent reactions for full marks."
+- GOOD: "Got 2/3 marks for correct formula and method. Lost 1 mark for arithmetic error in final step (wrote 24 instead of 42)."
 
 QUESTION NAMING RULES (VERY IMPORTANT):
 - Use EXACTLY the question number/label as it appears in the mark scheme
@@ -546,7 +555,16 @@ CRITICAL GRADING PRINCIPLES:
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
 For EACH question in the mark scheme, use this EXACT format on its own line:
-**Question [number]**, Mark: X/Y - [brief explanation]
+**Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
+
+FEEDBACK REQUIREMENTS (VERY IMPORTANT):
+- For PARTIAL marks: Explain SPECIFICALLY what the student got right AND what was missing/wrong
+- Reference the mark scheme criteria when explaining lost marks
+- Tell students WHAT they needed to include to earn full marks
+- NEVER use vague phrases like "Partial credit" or "lacks depth" without specifics
+- BAD: "Partial points awarded" or "Answer mentions X but lacks depth"
+- GOOD: "Correctly identified photosynthesis but missed that it requires chlorophyll. Needed to mention light-dependent reactions for full marks."
+- GOOD: "Got 2/3 marks for correct formula and method. Lost 1 mark for arithmetic error in final step (wrote 24 instead of 42)."
 
 QUESTION NAMING RULES (VERY IMPORTANT):
 - Use EXACTLY the question number/label as it appears in the mark scheme

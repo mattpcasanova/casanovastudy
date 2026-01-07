@@ -52,7 +52,7 @@ function parseGradingResponse(content: string) {
       questionNumber: rawQuestionNum,
       marksAwarded: parseFloat(match[2]),
       marksPossible: parseFloat(match[3]),
-      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ').substring(0, 500)
+      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ')
     })
   }
 
