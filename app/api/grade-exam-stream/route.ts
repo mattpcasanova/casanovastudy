@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
 
+// Vercel config for longer timeout and larger body size (for image uploads)
+export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
+export const dynamic = 'force-dynamic'
+
 // Helper to normalize question numbers for deduplication
 function normalizeQuestionNumber(qNum: string): string {
   // Normalize for comparison but KEEP section prefixes to distinguish
@@ -176,7 +180,6 @@ export async function POST(request: NextRequest) {
         // Generate grading with streaming
         const claudeService = new ClaudeService()
         let fullContent = ''
-        let usage: any = null
 
         const streamGenerator = isTeacher
           ? claudeService.gradeExamWithImagesStream({
@@ -199,17 +202,12 @@ export async function POST(request: NextRequest) {
         }
 
         for await (const chunk of streamGenerator) {
-          if (typeof chunk === 'string') {
-            fullContent += chunk
-            // Send content chunk
-            controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-              type: 'content',
-              chunk
-            }) + '\n\n'))
-          } else {
-            // Final result with usage
-            usage = chunk.usage
-          }
+          fullContent += chunk
+          // Send content chunk
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({
+            type: 'content',
+            chunk
+          }) + '\n\n'))
         }
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
@@ -235,8 +233,7 @@ export async function POST(request: NextRequest) {
             grade: grade,
             content: fullContent,
             grade_breakdown: breakdown,
-            additional_comments: additionalComments || null,
-            token_usage: usage
+            additional_comments: additionalComments || null
           })
           .select()
           .single()
