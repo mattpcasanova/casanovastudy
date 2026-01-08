@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle, Edit2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
@@ -48,6 +49,13 @@ export default function GradeExamPage() {
   // Drag and drop state
   const [dragActive, setDragActive] = useState(false)
   const [answerSheetDragActive, setAnswerSheetDragActive] = useState(false)
+
+  // Optional metadata fields for organization
+  const [studentFirstName, setStudentFirstName] = useState("")
+  const [studentLastName, setStudentLastName] = useState("")
+  const [className, setClassName] = useState("")
+  const [classPeriod, setClassPeriod] = useState("")
+  const [examTitle, setExamTitle] = useState("")
 
   const { toast } = useToast()
 
@@ -332,6 +340,15 @@ export default function GradeExamPage() {
       if (user?.id) {
         formData.append("userId", user.id)
       }
+      // Pass original filename (before PDF-to-image conversion) for proper naming
+      const originalFilenames = studentExamFiles.map(f => f.name).join(', ')
+      formData.append("originalFilename", originalFilenames)
+      // Pass optional metadata fields
+      if (studentFirstName.trim()) formData.append("studentFirstName", studentFirstName.trim())
+      if (studentLastName.trim()) formData.append("studentLastName", studentLastName.trim())
+      if (className.trim()) formData.append("className", className.trim())
+      if (classPeriod.trim()) formData.append("classPeriod", classPeriod.trim())
+      if (examTitle.trim()) formData.append("examTitle", examTitle.trim())
 
       // Use streaming endpoint for teachers
       if (isTeacher) {
@@ -653,6 +670,78 @@ export default function GradeExamPage() {
                     💡 These instructions guide the grader but won't appear in the report
                   </p>
                 </div>
+
+                {/* Optional Metadata Fields for Organization */}
+                {isTeacher && (
+                  <div className="space-y-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label className="font-semibold text-base">Report Details (Optional)</Label>
+                      <span className="text-xs text-muted-foreground">- helps organize your reports</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="studentFirstName" className="text-sm">Student First Name</Label>
+                        <Input
+                          id="studentFirstName"
+                          placeholder="e.g., John"
+                          value={studentFirstName}
+                          onChange={(e) => setStudentFirstName(e.target.value)}
+                          disabled={isGrading}
+                          className="border-gray-300"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="studentLastName" className="text-sm">Student Last Name</Label>
+                        <Input
+                          id="studentLastName"
+                          placeholder="e.g., Smith"
+                          value={studentLastName}
+                          onChange={(e) => setStudentLastName(e.target.value)}
+                          disabled={isGrading}
+                          className="border-gray-300"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="examTitle" className="text-sm">Exam Title</Label>
+                      <Input
+                        id="examTitle"
+                        placeholder="e.g., Chapter 3 Test, Midterm Exam"
+                        value={examTitle}
+                        onChange={(e) => setExamTitle(e.target.value)}
+                        disabled={isGrading}
+                        className="border-gray-300"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="className" className="text-sm">Class</Label>
+                        <Input
+                          id="className"
+                          placeholder="e.g., AP Biology, Marine Science"
+                          value={className}
+                          onChange={(e) => setClassName(e.target.value)}
+                          disabled={isGrading}
+                          className="border-gray-300"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="classPeriod" className="text-sm">Period</Label>
+                        <Input
+                          id="classPeriod"
+                          placeholder="e.g., 1, 2A, Morning"
+                          value={classPeriod}
+                          onChange={(e) => setClassPeriod(e.target.value)}
+                          disabled={isGrading}
+                          className="border-gray-300"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Grade Button */}
                 <div className="pt-6 border-t">

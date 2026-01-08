@@ -383,15 +383,18 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
+- **START WITH QUESTION 1**: Always begin grading with Question 1 (or 1a if subdivided). Never skip the first question.
 - Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
 - NEVER stop early - you MUST grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
-- Output questions in the SAME ORDER they appear in the mark scheme (chronological order)
-- If the student didn't attempt a question, award 0 marks
+- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc. (same order as mark scheme)
+- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
 - Use the exact marks available from the mark scheme for the denominator (Y)
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
-- For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
-- **ESSAY QUESTIONS ARE MANDATORY**: If the mark scheme includes an essay section (usually Section C worth 15-25 marks), you MUST grade it. Do NOT skip essay questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
+- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
+- **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
@@ -399,6 +402,8 @@ At the end, provide:
 **Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
 
 Brief feedback on strengths and areas for improvement.
+
+**IMPORTANT**: Start your response immediately with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble or introduction before the first question grade.
 
 ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
 
@@ -598,15 +603,18 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
+- **START WITH QUESTION 1**: Always begin grading with Question 1 (or 1a if subdivided). Never skip the first question.
 - Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
 - NEVER stop early - you MUST grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
-- Output questions in the SAME ORDER they appear in the mark scheme (chronological order)
-- If the student didn't attempt a question, award 0 marks
+- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc. (same order as mark scheme)
+- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
 - Use the exact marks available from the mark scheme for the denominator (Y)
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
-- For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
-- **ESSAY QUESTIONS ARE MANDATORY**: If the mark scheme includes an essay section (usually Section C worth 15-25 marks), you MUST grade it. Do NOT skip essay questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
+- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
+- **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
@@ -614,6 +622,8 @@ At the end, provide:
 **Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
 
 Brief feedback on strengths and areas for improvement.
+
+**IMPORTANT**: Start your response immediately with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble or introduction before the first question grade.
 
 ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
 

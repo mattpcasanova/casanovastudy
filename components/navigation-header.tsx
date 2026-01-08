@@ -133,7 +133,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                     <DropdownMenuItem asChild>
                       <Link href="/graded-exams" className="flex items-center cursor-pointer">
                         <ClipboardList className="h-4 w-4 mr-2" />
-                        Graded Exams
+                        My Reports
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

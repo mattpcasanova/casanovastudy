@@ -35,9 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const isSigningOutRef = useRef(false)
+  const isFetchingProfileRef = useRef(false)
+  const currentUserIdRef = useRef<string | null>(null)
 
-  // Fetch user profile data with timeout
-  const fetchUserProfile = async (supabaseUser: SupabaseUser): Promise<User | null> => {
+  // Fetch user profile data with timeout and concurrency protection
+  const fetchUserProfile = async (supabaseUser: SupabaseUser, skipIfLoaded: boolean = false): Promise<User | null> => {
+    // Skip if we already have this user loaded (prevents redundant fetches)
+    if (skipIfLoaded && currentUserIdRef.current === supabaseUser.id) {
+      console.log('📋 User already loaded, skipping profile fetch')
+      return null
+    }
+
+    // Prevent concurrent fetches (causes timeouts in local dev)
+    if (isFetchingProfileRef.current) {
+      console.log('⏳ Profile fetch already in progress, skipping duplicate')
+      return null
+    }
+
+    isFetchingProfileRef.current = true
     console.log('🔍 Fetching profile for user ID:', supabaseUser.id)
 
     try {
@@ -66,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('✅ Profile data found:', data.email)
 
-      return {
+      const userProfile: User = {
         id: data.id,
         email: data.email,
         user_type: data.user_type,
@@ -74,9 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         last_name: data.last_name,
         birth_date: data.birth_date
       }
+
+      // Track that we've loaded this user
+      currentUserIdRef.current = userProfile.id
+
+      return userProfile
     } catch (error: any) {
       console.error('❌ Profile fetch error:', error.message || error)
       return null
+    } finally {
+      isFetchingProfileRef.current = false
     }
   }
 
@@ -139,19 +161,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_OUT' || !session?.user) {
         if (isMounted) {
           setUser(null)
+          currentUserIdRef.current = null
         }
         return
       }
 
       // Only fetch profile for events that actually need it
-      // Skip TOKEN_REFRESHED if we already have user state (prevents unnecessary fetches)
       const shouldFetchProfile =
         event === 'SIGNED_IN' ||
         event === 'USER_UPDATED' ||
-        (event === 'TOKEN_REFRESHED' && !user) // Only fetch on token refresh if we don't have user
+        event === 'TOKEN_REFRESHED'
 
       if (shouldFetchProfile && session?.user) {
-        const userProfile = await fetchUserProfile(session.user)
+        // Pass skipIfLoaded=true to prevent redundant fetches for already-loaded users
+        // This fixes stale closure issue where `user` state is always null in this callback
+        const userProfile = await fetchUserProfile(session.user, true)
         if (userProfile && isMounted) {
           setUser(userProfile)
         }
@@ -286,6 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     isSigningOutRef.current = true
     setUser(null) // Clear user immediately to prevent stale state
+    currentUserIdRef.current = null // Reset so next sign-in fetches profile
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error

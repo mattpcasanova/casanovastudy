@@ -32,24 +32,41 @@ function parseGradingResponse(content: string) {
   // Remove markdown formatting for easier parsing
   const cleanContent = content.replace(/\*\*/g, '')
 
-  // Primary pattern: "Question [number], Mark: X/Y - [explanation]"
-  // This matches the format we instruct Claude to use
-  // Changed from ([^\s,]+) to (.+?) to capture multi-word identifiers like "Section C 2a"
-  const primaryPattern = /Question\s+(.+?)[,:\s]+Mark[s]?[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*[-–—:]?\s*(.*?)(?=Question\s+\S|Total[:\s]|Percentage[:\s]|Grade[:\s]|Feedback|Strengths|Areas|$)/gis
+  // Highly flexible pattern that captures ANY question-like entry with marks
+  // Matches: "Question X", "Section A 1(a)", "1a", "1(a)(i)", "Part A 1", "Option 1", etc. followed by Mark: X/Y
+  // The lookahead handles many boundary patterns for versatility across different exam formats:
+  // - "Question X" (standard)
+  // - "Section [A-Z]" (UK A-level style)
+  // - "Part [A-Z0-9]" (some US exams)
+  // - "Option [0-9]" (choice questions)
+  // - "[number][letter], Mark:" (bare numbered questions like "2b, Mark:")
+  // - Standard endings: Total, Percentage, Grade, Feedback, Strengths, Areas
+  const questionPattern = /(?:Question\s+)?([A-Za-z0-9\s()]+?)[,:\s]+Mark[s]?[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*[-–—:]?\s*(.*?)(?=(?:Question\s+\S)|(?:Section\s+[A-Z])|(?:Part\s+[A-Z0-9])|(?:Option\s+[0-9])|(?:\d+[a-z]?\s*[),:\s]+Mark)|Total[:\s]|Percentage[:\s]|Grade[:\s]|Feedback|Strengths|Areas|$)/gis
 
   const seenQuestions = new Set<string>()
+  const results: Array<{
+    questionNumber: string
+    marksAwarded: number
+    marksPossible: number
+    explanation: string
+    index: number
+  }> = []
 
   let match
-  while ((match = primaryPattern.exec(cleanContent)) !== null) {
+  while ((match = questionPattern.exec(cleanContent)) !== null) {
     const rawQuestionNum = match[1].trim()
 
     // Validate question number format:
-    // - Should be short (real question numbers are < 30 chars)
+    // - Should be short (real question numbers are < 50 chars to allow "Section C Option 2(a)")
     // - Should not contain instruction-like phrases
     // - Should start with digit, letter, or "Section"
-    if (rawQuestionNum.length > 30 ||
-        /according|scheme|grading|instruct|evaluat|systematic/i.test(rawQuestionNum) ||
-        !/^(\d|[a-z]|section|part)/i.test(rawQuestionNum)) continue
+    if (rawQuestionNum.length > 50 ||
+        /according|scheme|grading|instruct|evaluat|systematic|shows|correct|identified|explained/i.test(rawQuestionNum) ||
+        !/^(\d|[a-z]|section|part|option)/i.test(rawQuestionNum)) continue
+
+    // Additional validation: must look like a question identifier
+    // Should contain at least one digit or be a section reference
+    if (!/\d/.test(rawQuestionNum) && !/^section/i.test(rawQuestionNum)) continue
 
     const normalizedNum = normalizeQuestionNumber(rawQuestionNum)
 
@@ -57,11 +74,25 @@ function parseGradingResponse(content: string) {
     if (seenQuestions.has(normalizedNum)) continue
     seenQuestions.add(normalizedNum)
 
-    breakdown.push({
+    results.push({
       questionNumber: rawQuestionNum,
       marksAwarded: parseFloat(match[2]),
       marksPossible: parseFloat(match[3]),
-      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ').substring(0, 500)
+      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ').substring(0, 2000),
+      index: match.index
+    })
+  }
+
+  // Sort by index to maintain order in which they appeared
+  results.sort((a, b) => a.index - b.index)
+
+  // Add to breakdown without the index
+  for (const r of results) {
+    breakdown.push({
+      questionNumber: r.questionNumber,
+      marksAwarded: r.marksAwarded,
+      marksPossible: r.marksPossible,
+      explanation: r.explanation
     })
   }
 
@@ -143,6 +174,14 @@ export async function POST(request: NextRequest) {
         const markSchemeFiles = formData.getAll('markScheme') as File[]
         const studentExamFiles = formData.getAll('studentExam') as File[]
         const additionalComments = formData.get('additionalComments') as string | null
+
+        // Get optional metadata fields
+        const originalFilename = formData.get('originalFilename') as string | null
+        const studentFirstName = formData.get('studentFirstName') as string | null
+        const studentLastName = formData.get('studentLastName') as string | null
+        const className = formData.get('className') as string | null
+        const classPeriod = formData.get('classPeriod') as string | null
+        const examTitle = formData.get('examTitle') as string | null
 
         if (!studentExamFiles || studentExamFiles.length === 0) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({
@@ -228,21 +267,39 @@ export async function POST(request: NextRequest) {
         const { breakdown, totalMarks, totalPossible, grade } = parseGradingResponse(fullContent)
         const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
 
+        // Determine student name: use metadata if provided, otherwise extract from original filename
+        let studentName = 'Student'
+        if (studentFirstName || studentLastName) {
+          studentName = [studentFirstName, studentLastName].filter(Boolean).join(' ')
+        } else if (originalFilename) {
+          // Extract name from original filename (remove extension and _page_X suffix)
+          studentName = originalFilename.split(',')[0] // Take first file if multiple
+            .replace(/\.[^.]+$/, '') // Remove extension
+            .replace(/_page_\d+$/, '') // Remove _page_X suffix
+            .trim()
+        }
+
         // Save to database
         const { data: savedGrading, error: saveError } = await supabase
           .from('grading_results')
           .insert({
             user_id: userId,
-            student_name: studentExamFiles[0]?.name?.split('.')[0] || 'Student',
+            student_name: studentName,
+            student_first_name: studentFirstName || null,
+            student_last_name: studentLastName || null,
             answer_sheet_filename: markSchemeFiles[0]?.name || null,
-            student_exam_filename: studentExamFiles.map(f => f.name).join(', '),
+            student_exam_filename: originalFilename || studentExamFiles.map(f => f.name).join(', '),
+            original_filename: originalFilename || null,
             total_marks: totalMarks,
             total_possible_marks: totalPossible,
             percentage: percentage,
             grade: grade,
             content: fullContent,
             grade_breakdown: breakdown,
-            additional_comments: additionalComments || null
+            additional_comments: additionalComments || null,
+            class_name: className || null,
+            class_period: classPeriod || null,
+            exam_title: examTitle || null
           })
           .select()
           .single()

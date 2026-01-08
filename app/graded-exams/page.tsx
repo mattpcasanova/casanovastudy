@@ -27,39 +27,47 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
   Calendar,
-  GraduationCap,
+  ClipboardList,
   Plus,
   Filter,
   ArrowUpDown,
   Search,
   Trash2,
-  FileText,
-  User
+  User,
+  BookOpen,
+  Clock,
+  Download,
+  X,
+  Check,
+  Loader2
 } from 'lucide-react'
 
 interface GradingResult {
   id: string
   student_name: string
+  student_first_name: string | null
+  student_last_name: string | null
   answer_sheet_filename: string | null
   student_exam_filename: string
+  original_filename: string | null
   total_marks: number
   total_possible_marks: number
   percentage: number
   grade: string
   created_at: string
   user_id: string
-}
-
-const gradeColors: Record<string, string> = {
-  'A': 'bg-green-100 text-green-800 border-green-300',
-  'B': 'bg-blue-100 text-blue-800 border-blue-300',
-  'C': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'D': 'bg-orange-100 text-orange-800 border-orange-300',
-  'F': 'bg-red-100 text-red-800 border-red-300',
+  class_name: string | null
+  class_period: string | null
+  exam_title: string | null
+  grade_breakdown?: Array<{
+    questionNumber: string
+    marksAwarded: number
+    marksPossible: number
+    explanation: string
+  }>
 }
 
 export default function GradedExamsPage() {
@@ -70,45 +78,198 @@ export default function GradedExamsPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Filter, sort, and search state
-  const [gradeFilter, setGradeFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'grade-asc' | 'grade-desc'>('date-desc')
+  const [classFilter, setClassFilter] = useState<string>('all')
+  const [periodFilter, setPeriodFilter] = useState<string>('all')
+  const [examTitleFilter, setExamTitleFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'>('date-desc')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
-  const handleDeleteResult = async (resultId: string) => {
-    if (!user) return
-    setDeletingId(resultId)
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleBulkDelete = async () => {
+    if (!user || selectedIds.size === 0) return
+
+    const idsToDelete = Array.from(selectedIds)
+    setDeletingIds(new Set(idsToDelete))
+
     try {
-      const response = await fetch(`/api/grading-results/${resultId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id }),
-      })
+      const results = await Promise.allSettled(
+        idsToDelete.map(id =>
+          fetch(`/api/grading-results/${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id }),
+          })
+        )
+      )
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to delete grading result')
+      const successfulDeletes = idsToDelete.filter((_, index) =>
+        results[index].status === 'fulfilled' &&
+        (results[index] as PromiseFulfilledResult<Response>).value.ok
+      )
+
+      setGradingResults(prev => prev.filter(result => !successfulDeletes.includes(result.id)))
+      setSelectedIds(new Set())
+      setShowBulkDeleteDialog(false)
+
+      const failedCount = idsToDelete.length - successfulDeletes.length
+      if (failedCount > 0) {
+        alert(`${successfulDeletes.length} reports deleted. ${failedCount} failed to delete.`)
+      }
+    } catch (err) {
+      console.error('Error bulk deleting:', err)
+      alert('Failed to delete some reports')
+    } finally {
+      setDeletingIds(new Set())
+    }
+  }
+
+  const handleBulkDownload = async () => {
+    if (selectedIds.size === 0) return
+    setIsDownloading(true)
+
+    try {
+      // Fetch full data for selected reports
+      const selectedResults = gradingResults.filter(r => selectedIds.has(r.id))
+
+      // Fetch grade_breakdown for each selected report
+      const { data: fullResults, error: fetchError } = await supabase
+        .from('grading_results')
+        .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_breakdown, created_at')
+        .in('id', Array.from(selectedIds))
+
+      if (fetchError) throw fetchError
+
+      // Create a single printable document with all reports
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        alert('Please allow pop-ups for this site to download reports')
+        return
       }
 
-      // Remove from local state
-      setGradingResults(prev => prev.filter(result => result.id !== resultId))
+      const reportsHtml = (fullResults || []).map(result => {
+        const breakdown = result.grade_breakdown || []
+        return `
+          <div class="report" style="page-break-after: always;">
+            <div class="header">
+              <h1>Exam Grading Report</h1>
+              <p>${result.student_name} - ${new Date(result.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+
+            <div class="summary">
+              <div class="summary-item">
+                <div class="value">${result.total_marks}/${result.total_possible_marks}</div>
+                <div class="label">Total Marks</div>
+              </div>
+              <div class="summary-item">
+                <div class="value">${result.percentage.toFixed(1)}%</div>
+                <div class="label">Percentage</div>
+              </div>
+              <div class="summary-item">
+                <div class="value">${result.grade}</div>
+                <div class="label">Grade</div>
+              </div>
+            </div>
+
+            <div class="section-title">Question Breakdown</div>
+            ${breakdown.map((item: { questionNumber: string; marksAwarded: number; marksPossible: number; explanation: string }) => {
+              const pct = item.marksPossible > 0 ? (item.marksAwarded / item.marksPossible) * 100 : 0
+              const marksClass = pct === 100 ? 'marks-full' : pct >= 70 ? 'marks-good' : pct >= 50 ? 'marks-ok' : 'marks-low'
+              const displayNum = /^(Question|Section|Q\d)/i.test(item.questionNumber) ? item.questionNumber : 'Question ' + item.questionNumber
+              return `
+                <div class="question">
+                  <div class="question-header">
+                    <span class="question-num">${displayNum}</span>
+                    <span class="question-marks ${marksClass}">${item.marksAwarded}/${item.marksPossible} marks</span>
+                  </div>
+                  <p class="explanation">${item.explanation}</p>
+                </div>
+              `
+            }).join('')}
+          </div>
+        `
+      }).join('')
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Grade Reports - Batch Download</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 30px 40px; color: #1f2937; line-height: 1.5; }
+            .report { max-width: 900px; margin: 0 auto 40px; }
+            .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+            .header h1 { font-size: 28px; color: #111827; margin-bottom: 8px; }
+            .header p { color: #6b7280; font-size: 14px; }
+            .summary { display: flex; justify-content: space-around; margin: 30px 0; padding: 24px; background: #f9fafb; border-radius: 8px; }
+            .summary-item { text-align: center; flex: 1; }
+            .summary-item .value { font-size: 32px; font-weight: bold; color: #3b82f6; }
+            .summary-item .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
+            .section-title { font-size: 18px; font-weight: 600; margin: 28px 0 16px; color: #374151; }
+            .question { padding: 18px 20px; margin-bottom: 14px; border: 1px solid #e5e7eb; border-radius: 8px; page-break-inside: avoid; }
+            .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+            .question-num { font-weight: 600; font-size: 15px; }
+            .question-marks { font-size: 14px; padding: 5px 14px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+            .marks-full { background: #dcfce7; color: #166534; }
+            .marks-good { background: #dbeafe; color: #1e40af; }
+            .marks-ok { background: #fef3c7; color: #92400e; }
+            .marks-low { background: #fee2e2; color: #991b1b; }
+            .explanation { font-size: 14px; color: #4b5563; line-height: 1.6; }
+            @media print {
+              body { padding: 15px 20px; }
+              .report { page-break-after: always; }
+              .question { break-inside: avoid; }
+            }
+            @page { margin: 0.5in; size: letter; }
+          </style>
+        </head>
+        <body>
+          ${reportsHtml}
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+        </html>
+      `)
+      printWindow.document.close()
     } catch (err) {
-      console.error('Error deleting grading result:', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete grading result')
+      console.error('Error downloading reports:', err)
+      alert('Failed to download reports')
     } finally {
-      setDeletingId(null)
+      setIsDownloading(false)
+    }
+  }
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredAndSortedResults.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredAndSortedResults.map(r => r.id)))
     }
   }
 
   useEffect(() => {
     async function fetchMyResults() {
-      // Wait for auth to finish loading before checking user
       if (authLoading) return
 
-      // Only redirect to signin after auth has finished loading and user is null
       if (!user) {
         router.push('/auth/signin')
         return
@@ -118,7 +279,7 @@ export default function GradedExamsPage() {
         setResultsLoading(true)
         const { data, error: fetchError } = await supabase
           .from('grading_results')
-          .select('id, student_name, answer_sheet_filename, student_exam_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id')
+          .select('id, student_name, student_first_name, student_last_name, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 
@@ -145,25 +306,52 @@ export default function GradedExamsPage() {
     })
   }
 
-  // Filtered and sorted grading results
+  const getDisplayName = (result: GradingResult) => {
+    if (result.student_first_name || result.student_last_name) {
+      return [result.student_first_name, result.student_last_name].filter(Boolean).join(' ')
+    }
+    return result.student_name
+  }
+
+  const getFilenameTitle = (result: GradingResult) => {
+    const filename = result.original_filename || result.student_exam_filename
+    return filename.replace(/\.(pdf|jpg|jpeg|png|heic|heif|webp)$/i, '')
+  }
+
+  const getSortName = (result: GradingResult) => {
+    if (result.student_last_name) {
+      return result.student_last_name
+    }
+    return result.student_name
+  }
+
   const filteredAndSortedResults = useMemo(() => {
     let filtered = [...gradingResults]
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(result =>
         result.student_name.toLowerCase().includes(query) ||
-        result.student_exam_filename.toLowerCase().includes(query)
+        (result.student_first_name && result.student_first_name.toLowerCase().includes(query)) ||
+        (result.student_last_name && result.student_last_name.toLowerCase().includes(query)) ||
+        result.student_exam_filename.toLowerCase().includes(query) ||
+        (result.original_filename && result.original_filename.toLowerCase().includes(query)) ||
+        (result.exam_title && result.exam_title.toLowerCase().includes(query))
       )
     }
 
-    // Apply grade filter
-    if (gradeFilter !== 'all') {
-      filtered = filtered.filter(result => result.grade === gradeFilter)
+    if (classFilter !== 'all') {
+      filtered = filtered.filter(result => result.class_name === classFilter)
     }
 
-    // Apply sorting
+    if (periodFilter !== 'all') {
+      filtered = filtered.filter(result => result.class_period === periodFilter)
+    }
+
+    if (examTitleFilter !== 'all') {
+      filtered = filtered.filter(result => result.exam_title === examTitleFilter)
+    }
+
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'date-desc':
@@ -171,26 +359,33 @@ export default function GradedExamsPage() {
         case 'date-asc':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         case 'name-asc':
-          return a.student_name.localeCompare(b.student_name)
+          return getSortName(a).localeCompare(getSortName(b))
         case 'name-desc':
-          return b.student_name.localeCompare(a.student_name)
-        case 'grade-asc':
-          return a.grade.localeCompare(b.grade)
-        case 'grade-desc':
-          return b.grade.localeCompare(a.grade)
+          return getSortName(b).localeCompare(getSortName(a))
         default:
           return 0
       }
     })
 
     return filtered
-  }, [gradingResults, gradeFilter, sortBy, searchQuery])
+  }, [gradingResults, classFilter, periodFilter, examTitleFilter, sortBy, searchQuery])
 
-  // Get unique grades from results
-  const availableGrades = useMemo(() => {
-    const grades = new Set(gradingResults.map(result => result.grade))
-    return Array.from(grades).sort()
+  const availableClasses = useMemo(() => {
+    const classes = new Set(gradingResults.map(result => result.class_name).filter(Boolean) as string[])
+    return Array.from(classes).sort()
   }, [gradingResults])
+
+  const availablePeriods = useMemo(() => {
+    const periods = new Set(gradingResults.map(result => result.class_period).filter(Boolean) as string[])
+    return Array.from(periods).sort()
+  }, [gradingResults])
+
+  const availableExamTitles = useMemo(() => {
+    const titles = new Set(gradingResults.map(result => result.exam_title).filter(Boolean) as string[])
+    return Array.from(titles).sort()
+  }, [gradingResults])
+
+  const hasActiveFilters = classFilter !== 'all' || periodFilter !== 'all' || examTitleFilter !== 'all' || searchQuery.trim()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -201,9 +396,9 @@ export default function GradedExamsPage() {
         <div className="container mx-auto px-4 py-10">
           <div className="relative">
             <div className="text-center">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">Graded Exams</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Reports</h1>
               <p className="text-sm sm:text-base opacity-75">
-                View and manage all your graded exam results
+                View and manage all your graded exam reports
               </p>
             </div>
             <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 absolute top-0 right-0 hidden sm:flex">
@@ -224,7 +419,7 @@ export default function GradedExamsPage() {
 
       <div className="container mx-auto px-4 py-8">
 
-        {/* Filters and Sort - Only show if there are results */}
+        {/* Filters and Sort */}
         {!authLoading && !resultsLoading && gradingResults.length > 0 && (
           <Card className="mb-6 border-2">
             <CardContent className="pt-6">
@@ -234,7 +429,7 @@ export default function GradedExamsPage() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Search by student name or filename..."
+                    placeholder="Search by student name, exam title, or filename..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -242,22 +437,64 @@ export default function GradedExamsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Grade Filter */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Class Filter */}
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <Filter className="h-4 w-4" />
-                    Filter by Grade
+                    Filter by Class
                   </label>
-                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                  <Select value={classFilter} onValueChange={setClassFilter}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All grades" />
+                      <SelectValue placeholder="All classes" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Grades</SelectItem>
-                      {availableGrades.map(grade => (
-                        <SelectItem key={grade} value={grade}>
-                          Grade {grade}
+                      <SelectItem value="all">All Classes</SelectItem>
+                      {availableClasses.map(className => (
+                        <SelectItem key={className} value={className}>
+                          {className}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Period Filter */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Filter by Period
+                  </label>
+                  <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All periods" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Periods</SelectItem>
+                      {availablePeriods.map(period => (
+                        <SelectItem key={period} value={period}>
+                          Period {period}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Exam Title Filter */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Filter by Exam
+                  </label>
+                  <Select value={examTitleFilter} onValueChange={setExamTitleFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All exams" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Exams</SelectItem>
+                      {availableExamTitles.map(title => (
+                        <SelectItem key={title} value={title}>
+                          {title}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -277,17 +514,15 @@ export default function GradedExamsPage() {
                     <SelectContent>
                       <SelectItem value="date-desc">Newest First</SelectItem>
                       <SelectItem value="date-asc">Oldest First</SelectItem>
-                      <SelectItem value="name-asc">Student Name (A-Z)</SelectItem>
-                      <SelectItem value="name-desc">Student Name (Z-A)</SelectItem>
-                      <SelectItem value="grade-asc">Grade (A-F)</SelectItem>
-                      <SelectItem value="grade-desc">Grade (F-A)</SelectItem>
+                      <SelectItem value="name-asc">Last Name (A-Z)</SelectItem>
+                      <SelectItem value="name-desc">Last Name (Z-A)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               {/* Active filters summary */}
-              {(gradeFilter !== 'all' || searchQuery.trim()) && (
+              {hasActiveFilters && (
                 <div className="mt-4 flex items-center gap-2 flex-wrap text-sm text-gray-600">
                   <span>Active filters:</span>
                   {searchQuery.trim() && (
@@ -295,9 +530,19 @@ export default function GradedExamsPage() {
                       Search: "{searchQuery}" ✕
                     </Badge>
                   )}
-                  {gradeFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setGradeFilter('all')}>
-                      Grade {gradeFilter} ✕
+                  {classFilter !== 'all' && (
+                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setClassFilter('all')}>
+                      Class: {classFilter} ✕
+                    </Badge>
+                  )}
+                  {periodFilter !== 'all' && (
+                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setPeriodFilter('all')}>
+                      Period: {periodFilter} ✕
+                    </Badge>
+                  )}
+                  {examTitleFilter !== 'all' && (
+                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setExamTitleFilter('all')}>
+                      Exam: {examTitleFilter} ✕
                     </Badge>
                   )}
                   <Button
@@ -305,7 +550,9 @@ export default function GradedExamsPage() {
                     size="sm"
                     className="text-blue-600 h-auto p-0"
                     onClick={() => {
-                      setGradeFilter('all')
+                      setClassFilter('all')
+                      setPeriodFilter('all')
+                      setExamTitleFilter('all')
                       setSearchQuery('')
                     }}
                   >
@@ -348,9 +595,9 @@ export default function GradedExamsPage() {
         {!authLoading && !resultsLoading && !error && gradingResults.length === 0 && (
           <Card className="border-2 border-dashed border-gray-300">
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <GraduationCap className="h-16 w-16 text-gray-400 mb-4" />
+              <ClipboardList className="h-16 w-16 text-gray-400 mb-4" />
               <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                No graded exams yet
+                No reports yet
               </h3>
               <p className="text-gray-500 mb-6 text-center max-w-md">
                 Start grading your first exam! Upload a mark scheme and student exam to get AI-powered grading.
@@ -368,15 +615,34 @@ export default function GradedExamsPage() {
         {/* Grading Results Grid */}
         {!authLoading && !resultsLoading && !error && gradingResults.length > 0 && (
           <div>
-            <div className="mb-4 text-sm text-gray-600">
-              Showing {filteredAndSortedResults.length} of {gradingResults.length} {gradingResults.length === 1 ? 'result' : 'results'}
+            {/* Results header with select all */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {filteredAndSortedResults.length} of {gradingResults.length} {gradingResults.length === 1 ? 'report' : 'reports'}
+                {selectedIds.size > 0 && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    ({selectedIds.size} selected)
+                  </span>
+                )}
+              </div>
+              {filteredAndSortedResults.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  className="text-gray-600"
+                >
+                  {selectedIds.size === filteredAndSortedResults.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              )}
             </div>
+
             {filteredAndSortedResults.length === 0 ? (
               <Card className="border-2 border-dashed border-gray-300">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Filter className="h-12 w-12 text-gray-400 mb-3" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No results match your filters
+                    No reports match your filters
                   </h3>
                   <p className="text-gray-500 mb-4">
                     Try adjusting your filters to see more results
@@ -384,7 +650,9 @@ export default function GradedExamsPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setGradeFilter('all')
+                      setClassFilter('all')
+                      setPeriodFilter('all')
+                      setExamTitleFilter('all')
                       setSearchQuery('')
                     }}
                   >
@@ -395,64 +663,77 @@ export default function GradedExamsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredAndSortedResults.map((result) => {
-                  const gradeColor = gradeColors[result.grade] || gradeColors['F']
+                  const displayName = getDisplayName(result)
+                  const filenameTitle = getFilenameTitle(result)
+                  const isSelected = selectedIds.has(result.id)
+                  const isDeleting = deletingIds.has(result.id)
 
                   return (
                     <Card
                       key={result.id}
-                      className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300 group"
-                      onClick={() => router.push(`/grade-report/${result.id}`)}
+                      className={`h-full hover:shadow-xl transition-all cursor-pointer border-2 group relative ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-200'
+                          : 'hover:border-blue-300'
+                      } ${isDeleting ? 'opacity-50' : ''}`}
+                      onClick={() => {
+                        // Click opens the report
+                        router.push(`/grade-report/${result.id}`)
+                      }}
                     >
-                      <CardHeader>
-                        <div className="flex items-start justify-between mb-2">
-                          <Badge className={`${gradeColor} border text-lg px-3 py-1`}>
-                            {result.grade}
-                          </Badge>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-bold text-blue-600">
-                              {result.percentage.toFixed(0)}%
-                            </span>
-                            {/* Delete Button */}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300 bg-white"
-                                  onClick={(e) => e.stopPropagation()}
-                                  disabled={deletingId === result.id}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Grading Result</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete the grading result for "{result.student_name}"? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-red-600 hover:bg-red-700"
-                                    onClick={() => handleDeleteResult(result.id)}
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
+                      {/* Selection checkbox - click this area to toggle selection */}
+                      <div
+                        className={`absolute top-2 right-2 w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer z-10 ${
+                          isSelected
+                            ? 'bg-blue-100'
+                            : 'bg-transparent hover:bg-gray-100'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleSelection(result.id)
+                        }}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'bg-blue-500 border-blue-500 shadow-md'
+                              : 'bg-white border-gray-300 shadow-sm group-hover:border-gray-400'
+                          }`}
+                        >
+                          {isSelected && <Check className="h-4 w-4 text-white" />}
                         </div>
-                        <CardTitle className="text-xl line-clamp-1 flex items-center gap-2">
-                          <User className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                          {result.student_name}
+                      </div>
+
+                      <CardHeader className="pb-2 pr-12">
+                        <CardTitle className="text-lg line-clamp-2 leading-tight">
+                          {filenameTitle}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-2">
-                          <span className="font-medium text-blue-600">
-                            {result.total_marks}/{result.total_possible_marks} marks
-                          </span>
+                        <CardDescription className="space-y-2 mt-2">
+                          {/* Student name */}
+                          <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="font-medium">{displayName}</span>
+                          </div>
+                          {/* Metadata badges */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {result.exam_title && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
+                                <BookOpen className="h-3 w-3 mr-1" />
+                                {result.exam_title}
+                              </Badge>
+                            )}
+                            {result.class_name && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 border-purple-200 text-purple-700">
+                                {result.class_name}
+                              </Badge>
+                            )}
+                            {result.class_period && (
+                              <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Period {result.class_period}
+                              </Badge>
+                            )}
+                          </div>
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -461,10 +742,9 @@ export default function GradedExamsPage() {
                             <Calendar className="h-3 w-3" />
                             {formatDate(result.created_at)}
                           </div>
-                        </div>
-                        <div className="mt-2 text-sm text-gray-600 line-clamp-1 flex items-center gap-1">
-                          <FileText className="h-3 w-3 flex-shrink-0" />
-                          {result.student_exam_filename}
+                          <span className="font-medium text-blue-600">
+                            {result.total_marks}/{result.total_possible_marks} marks
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -472,9 +752,80 @@ export default function GradedExamsPage() {
                 })}
               </div>
             )}
+
+            {/* Hint text */}
+            {filteredAndSortedResults.length > 0 && (
+              <p className="text-center text-sm text-gray-500 mt-6">
+                Click a report to open it. Use the checkbox to select multiple.
+              </p>
+            )}
           </div>
         )}
       </div>
+
+      {/* Floating action bar when items are selected */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-gray-900 text-white rounded-lg shadow-2xl px-4 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium">
+              {selectedIds.size} {selectedIds.size === 1 ? 'report' : 'reports'} selected
+            </span>
+            <div className="h-6 w-px bg-gray-600" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-gray-700"
+              onClick={handleBulkDownload}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download All
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:bg-red-900/50 hover:text-red-300"
+              onClick={() => setShowBulkDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-400 hover:bg-gray-700 hover:text-white h-8 w-8"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} Reports</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedIds.size} {selectedIds.size === 1 ? 'report' : 'reports'}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleBulkDelete}
+            >
+              Delete {selectedIds.size} {selectedIds.size === 1 ? 'Report' : 'Reports'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
