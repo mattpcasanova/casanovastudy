@@ -42,8 +42,12 @@ import {
   Download,
   X,
   Check,
-  Loader2
+  Loader2,
+  Pencil,
+  Eye,
+  EyeOff
 } from 'lucide-react'
+import { EditReportDialog } from '@/components/edit-report-dialog'
 
 interface GradingResult {
   id: string
@@ -88,7 +92,9 @@ export default function GradedExamsPage() {
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [privacyMode, setPrivacyMode] = useState(false)
 
   const handleBulkDelete = async () => {
     if (!user || selectedIds.size === 0) return
@@ -264,6 +270,18 @@ export default function GradedExamsPage() {
     } else {
       setSelectedIds(new Set(filteredAndSortedResults.map(r => r.id)))
     }
+  }
+
+  const handleEditSave = (updatedReports: GradingResult[]) => {
+    // Update local state with edited reports
+    setGradingResults(prev => {
+      const updatedMap = new Map(updatedReports.map(r => [r.id, r]))
+      return prev.map(result =>
+        updatedMap.has(result.id) ? updatedMap.get(result.id)! : result
+      )
+    })
+    // Clear selection after edit
+    setSelectedIds(new Set())
   }
 
   useEffect(() => {
@@ -625,16 +643,32 @@ export default function GradedExamsPage() {
                   </span>
                 )}
               </div>
-              {filteredAndSortedResults.length > 0 && (
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={toggleSelectAll}
-                  className="text-gray-600"
+                  onClick={() => setPrivacyMode(!privacyMode)}
+                  className={`text-gray-600 ${privacyMode ? 'bg-gray-100' : ''}`}
+                  title={privacyMode ? 'Show scores' : 'Hide scores'}
                 >
-                  {selectedIds.size === filteredAndSortedResults.length ? 'Deselect All' : 'Select All'}
+                  {privacyMode ? (
+                    <EyeOff className="h-4 w-4 mr-1.5" />
+                  ) : (
+                    <Eye className="h-4 w-4 mr-1.5" />
+                  )}
+                  {privacyMode ? 'Privacy On' : 'Privacy Off'}
                 </Button>
-              )}
+                {filteredAndSortedResults.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                    className="text-gray-600"
+                  >
+                    {selectedIds.size === filteredAndSortedResults.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {filteredAndSortedResults.length === 0 ? (
@@ -742,9 +776,15 @@ export default function GradedExamsPage() {
                             <Calendar className="h-3 w-3" />
                             {formatDate(result.created_at)}
                           </div>
-                          <span className="font-medium text-blue-600">
-                            {result.total_marks}/{result.total_possible_marks} marks
-                          </span>
+                          {privacyMode ? (
+                            <span className="font-medium text-gray-400 italic">
+                              Hidden
+                            </span>
+                          ) : (
+                            <span className="font-medium text-blue-600">
+                              {result.total_marks}/{result.total_possible_marks} marks · {result.percentage.toFixed(1)}%
+                            </span>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -788,6 +828,15 @@ export default function GradedExamsPage() {
             <Button
               variant="ghost"
               size="sm"
+              className="text-white hover:bg-gray-700"
+              onClick={() => setShowEditDialog(true)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-red-400 hover:bg-red-900/50 hover:text-red-300"
               onClick={() => setShowBulkDeleteDialog(true)}
             >
@@ -826,6 +875,15 @@ export default function GradedExamsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit report dialog */}
+      <EditReportDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        selectedReports={gradingResults.filter(r => selectedIds.has(r.id))}
+        onSave={handleEditSave}
+        userId={user?.id ?? null}
+      />
     </div>
   )
 }

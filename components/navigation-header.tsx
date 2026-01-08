@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Rss } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +50,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
     setMounted(true)
   }, [])
 
-  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
+  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide') || pathname?.startsWith('/following') || pathname?.startsWith('/teacher')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
 
   return (
@@ -96,12 +96,20 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                     </Link>
                   </DropdownMenuItem>
                   {mounted && user && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/my-guides" className="flex items-center cursor-pointer">
-                        <FileText className="h-4 w-4 mr-2" />
-                        My Guides
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/my-guides" className="flex items-center cursor-pointer">
+                          <FileText className="h-4 w-4 mr-2" />
+                          My Guides
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/following" className="flex items-center cursor-pointer">
+                          <Rss className="h-4 w-4 mr-2" />
+                          Following
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

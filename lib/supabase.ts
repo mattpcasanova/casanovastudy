@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import type { CustomGuideContent } from './types/custom-guide'
 
 let supabaseClient: SupabaseClient | null = null
 
@@ -59,6 +60,9 @@ export interface UserProfileRecord {
   first_name?: string
   last_name?: string
   birth_date?: string
+  display_name?: string
+  bio?: string
+  is_profile_public?: boolean
   created_at: string
   updated_at: string
 }
@@ -69,7 +73,7 @@ export interface StudyGuideRecord {
   title: string
   subject: string
   grade_level: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'custom'
   content: string
   topic_focus?: string
   difficulty_level?: string
@@ -80,6 +84,31 @@ export interface StudyGuideRecord {
     output_tokens: number
     total_tokens: number
   }
+  is_published?: boolean
+  published_at?: string
+  custom_content?: CustomGuideContent
+  created_at: string
+  updated_at: string
+}
+
+export interface TeacherFollowRecord {
+  id: string
+  follower_id: string
+  teacher_id: string
+  created_at: string
+}
+
+export interface GuideProgressRecord {
+  id: string
+  user_id: string
+  study_guide_id: string
+  progress_data: {
+    completedSections?: string[]
+    checklistItems?: Record<string, boolean>
+    quizAnswers?: Record<string, string>
+  }
+  completion_percentage: number
+  last_accessed_at: string
   created_at: string
   updated_at: string
 }
