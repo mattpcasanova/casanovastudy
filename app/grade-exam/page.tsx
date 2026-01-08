@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle, Edit2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
+import { AutocompleteInput } from "@/components/autocomplete-input"
 import { useAuth } from "@/lib/auth"
 import { processFile } from "@/lib/pdf-to-images"
 
@@ -359,7 +359,22 @@ export default function GradeExamPage() {
         })
 
         if (!response.ok) {
-          throw new Error("Failed to start grading")
+          // Try to get error details from response
+          let errorMessage = "Failed to start grading"
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorData.message || errorMessage
+          } catch {
+            // Response might not be JSON
+            if (response.status === 413) {
+              errorMessage = "File too large. Try reducing the number of pages or image quality."
+            } else if (response.status === 504 || response.status === 502) {
+              errorMessage = "Server timeout. The grading is taking too long. Try with fewer pages."
+            } else if (response.status === 500) {
+              errorMessage = "Server error. Please try again in a moment."
+            }
+          }
+          throw new Error(errorMessage)
         }
 
         const reader = response.body?.getReader()
@@ -370,6 +385,9 @@ export default function GradeExamPage() {
         }
 
         let buffer = ''
+        let receivedComplete = false
+        let lastError: Error | null = null
+        const startTime = Date.now()
 
         while (true) {
           const { done, value } = await reader.read()
@@ -386,7 +404,7 @@ export default function GradeExamPage() {
               const data = JSON.parse(line.slice(6))
 
               if (data.type === 'error') {
-                throw new Error(data.message)
+                lastError = new Error(data.message)
               }
 
               if (data.type === 'progress') {
@@ -398,6 +416,7 @@ export default function GradeExamPage() {
               }
 
               if (data.type === 'complete') {
+                receivedComplete = true
                 setStatusMessage("Grading complete!")
                 toast({
                   title: "Grading complete!",
@@ -420,6 +439,29 @@ export default function GradeExamPage() {
             } catch (parseError) {
               console.error('Failed to parse SSE data:', parseError)
             }
+          }
+        }
+
+        // If stream closed without completing, determine the cause
+        if (!receivedComplete) {
+          if (lastError) {
+            throw lastError
+          }
+
+          const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
+
+          // Check for common timeout scenarios
+          if (elapsedSeconds < 15) {
+            // Stream closed too quickly - likely a server error or bad request
+            throw new Error("Connection closed unexpectedly. The server may have encountered an error processing the files.")
+          } else if (elapsedSeconds >= 55 && elapsedSeconds <= 65) {
+            // Around 60 seconds - likely Vercel Pro timeout
+            throw new Error("Grading timed out after ~60 seconds. Try reducing the number of pages or contact support if this persists.")
+          } else if (elapsedSeconds >= 9 && elapsedSeconds <= 12) {
+            // Around 10 seconds - likely Vercel Hobby timeout
+            throw new Error("Grading timed out. Your Vercel plan may not support long-running functions. Consider upgrading to Vercel Pro for exam grading.")
+          } else {
+            throw new Error(`Grading was interrupted after ${elapsedSeconds} seconds. Please try again.`)
           }
         }
       } else {
@@ -682,61 +724,71 @@ export default function GradeExamPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="studentFirstName" className="text-sm">Student First Name</Label>
-                        <Input
+                        <AutocompleteInput
                           id="studentFirstName"
                           placeholder="e.g., John"
                           value={studentFirstName}
-                          onChange={(e) => setStudentFirstName(e.target.value)}
+                          onChange={setStudentFirstName}
                           disabled={isGrading}
                           className="border-gray-300"
+                          fieldName="studentFirstName"
+                          userId={user?.id}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="studentLastName" className="text-sm">Student Last Name</Label>
-                        <Input
+                        <AutocompleteInput
                           id="studentLastName"
                           placeholder="e.g., Smith"
                           value={studentLastName}
-                          onChange={(e) => setStudentLastName(e.target.value)}
+                          onChange={setStudentLastName}
                           disabled={isGrading}
                           className="border-gray-300"
+                          fieldName="studentLastName"
+                          userId={user?.id}
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="examTitle" className="text-sm">Exam Title</Label>
-                      <Input
+                      <AutocompleteInput
                         id="examTitle"
                         placeholder="e.g., Chapter 3 Test, Midterm Exam"
                         value={examTitle}
-                        onChange={(e) => setExamTitle(e.target.value)}
+                        onChange={setExamTitle}
                         disabled={isGrading}
                         className="border-gray-300"
+                        userId={user?.id}
+                        fieldName="examTitle"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="className" className="text-sm">Class</Label>
-                        <Input
+                        <AutocompleteInput
                           id="className"
                           placeholder="e.g., AP Biology, Marine Science"
                           value={className}
-                          onChange={(e) => setClassName(e.target.value)}
+                          onChange={setClassName}
                           disabled={isGrading}
                           className="border-gray-300"
+                          fieldName="className"
+                          userId={user?.id}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="classPeriod" className="text-sm">Period</Label>
-                        <Input
+                        <AutocompleteInput
                           id="classPeriod"
                           placeholder="e.g., 1, 2A, Morning"
                           value={classPeriod}
-                          onChange={(e) => setClassPeriod(e.target.value)}
+                          onChange={setClassPeriod}
                           disabled={isGrading}
                           className="border-gray-300"
+                          fieldName="classPeriod"
+                          userId={user?.id}
                         />
                       </div>
                     </div>

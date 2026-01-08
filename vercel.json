@@ -9,6 +9,13 @@
     "app/api/grade-exam-stream/route.ts": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "app/api/grade-exam/route.ts": {
+      "maxDuration": 120,
+      "memory": 1024
+    },
+    "app/api/grading-suggestions/route.ts": {
+      "maxDuration": 10
     }
   },
   "headers": [
