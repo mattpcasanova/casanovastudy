@@ -2,8 +2,7 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
 
-// Vercel config for longer timeout and larger body size (for image uploads)
-export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
+// Note: maxDuration is set in vercel.json (300s for Pro, capped at 10s for Hobby)
 export const dynamic = 'force-dynamic'
 
 // Helper to normalize question numbers for deduplication
