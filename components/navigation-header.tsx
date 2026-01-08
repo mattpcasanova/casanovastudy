@@ -41,8 +41,10 @@ export default function NavigationHeader() {
     setMounted(true)
   }, [])
 
-  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide') || pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
+  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
+  const isMyTeachersActive = pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
+  const isTeacher = user?.user_type === 'teacher'
 
   return (
     <header className="bg-gradient-to-r from-primary via-secondary to-accent text-white shadow-lg sticky top-0 z-50">
@@ -87,26 +89,36 @@ export default function NavigationHeader() {
                     </Link>
                   </DropdownMenuItem>
                   {mounted && user && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/my-guides" className="flex items-center cursor-pointer">
-                          <FileText className="h-4 w-4 mr-2" />
-                          My Guides
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/my-teachers" className="flex items-center cursor-pointer">
-                          <Users className="h-4 w-4 mr-2" />
-                          My Teachers
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-guides" className="flex items-center cursor-pointer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        My Guides
+                      </Link>
+                    </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Grading Dropdown - Only for logged-in users */}
-              {mounted && user && (
+              {/* My Teachers Button - For logged-in students */}
+              {mounted && user && !isTeacher && (
+                <Button
+                  variant={isMyTeachersActive ? 'secondary' : 'ghost'}
+                  className={`h-10 ${
+                    isMyTeachersActive
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href="/my-teachers">
+                    <Users className="h-4 w-4 mr-2 flex-shrink-0" />
+                    My Teachers
+                  </Link>
+                </Button>
+              )}
+
+              {/* Grading Dropdown - Only for teachers */}
+              {mounted && user && isTeacher && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -126,7 +138,7 @@ export default function NavigationHeader() {
                     <DropdownMenuItem asChild>
                       <Link href="/grade-exam" className="flex items-center cursor-pointer">
                         <Plus className="h-4 w-4 mr-2" />
-                        {user.user_type === 'teacher' ? 'Grade Exam' : 'Check My Work'}
+                        Grade Exam
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
