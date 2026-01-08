@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
 
-// Note: maxDuration is set in vercel.json (300s for Pro, capped at 10s for Hobby)
+// Vercel config for longer timeout and larger body size (for image uploads)
+export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
 export const dynamic = 'force-dynamic'
 
 // Helper to normalize question numbers for deduplication
@@ -51,7 +52,7 @@ function parseGradingResponse(content: string) {
       questionNumber: rawQuestionNum,
       marksAwarded: parseFloat(match[2]),
       marksPossible: parseFloat(match[3]),
-      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ')
+      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ').substring(0, 500)
     })
   }
 
