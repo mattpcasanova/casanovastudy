@@ -37,7 +37,7 @@ interface GradingResult {
 export default function GradeReportPage() {
   const params = useParams()
   const router = useRouter()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const id = params.id as string
 
@@ -133,7 +133,7 @@ export default function GradeReportPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <NavigationHeader user={user} onSignOut={signOut} />
+        <NavigationHeader />
         <div className="container mx-auto px-4 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -147,7 +147,7 @@ export default function GradeReportPage() {
   if (error || !gradingResult) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <NavigationHeader user={user} onSignOut={signOut} />
+        <NavigationHeader />
         <div className="container mx-auto px-4 py-16">
           <Card className="max-w-md mx-auto">
             <CardContent className="pt-6 text-center">
@@ -165,7 +165,7 @@ export default function GradeReportPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <NavigationHeader user={user} onSignOut={signOut} />
+      <NavigationHeader />
 
       {/* Title Banner */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">

@@ -30,7 +30,7 @@ export function FollowButton({
     if (!user) {
       toast({
         title: "Sign in required",
-        description: "Please sign in to follow teachers",
+        description: "Please sign in to add teachers",
         variant: "destructive"
       })
       return
@@ -40,24 +40,24 @@ export function FollowButton({
 
     try {
       if (isFollowing) {
-        // Unfollow
+        // Remove
         const response = await fetch(`/api/follows/${teacherId}`, {
           method: "DELETE"
         })
 
         if (!response.ok) {
           const data = await response.json()
-          throw new Error(data.error || "Failed to unfollow")
+          throw new Error(data.error || "Failed to remove teacher")
         }
 
         setIsFollowing(false)
         onFollowChange?.(false)
         toast({
-          title: "Unfollowed",
-          description: "You will no longer see this teacher's guides in your feed"
+          title: "Removed",
+          description: "Teacher removed from your list"
         })
       } else {
-        // Follow
+        // Add
         const response = await fetch("/api/follows", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -66,14 +66,14 @@ export function FollowButton({
 
         if (!response.ok) {
           const data = await response.json()
-          throw new Error(data.error || "Failed to follow")
+          throw new Error(data.error || "Failed to add teacher")
         }
 
         setIsFollowing(true)
         onFollowChange?.(true)
         toast({
-          title: "Following",
-          description: "You will now see this teacher's published guides in your feed"
+          title: "Added",
+          description: "Teacher added to your list"
         })
       }
     } catch (error) {
@@ -104,12 +104,12 @@ export function FollowButton({
       ) : isFollowing ? (
         <>
           <UserMinus className="h-4 w-4 mr-2" />
-          Following
+          Remove
         </>
       ) : (
         <>
           <UserPlus className="h-4 w-4 mr-2" />
-          Follow
+          Add
         </>
       )}
     </Button>

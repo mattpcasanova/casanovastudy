@@ -21,8 +21,7 @@ import {
   ListChecks,
   AlignLeft,
   Search,
-  UserPlus,
-  Rss
+  UserPlus
 } from "lucide-react"
 
 interface StudyGuide {
@@ -46,7 +45,7 @@ interface StudyGuide {
   }
 }
 
-interface FollowedTeacher {
+interface SavedTeacher {
   id: string
   created_at: string
   teacher: {
@@ -76,11 +75,11 @@ const subjectColors: Record<string, string> = {
   other: "bg-gray-100 text-gray-800 border-gray-300"
 }
 
-export default function FollowingPage() {
+export default function MyTeachersPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [guides, setGuides] = useState<StudyGuide[]>([])
-  const [followedTeachers, setFollowedTeachers] = useState<FollowedTeacher[]>([])
+  const [savedTeachers, setSavedTeachers] = useState<SavedTeacher[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("feed")
 
@@ -97,16 +96,16 @@ export default function FollowingPage() {
     }
   }, [])
 
-  const fetchFollowedTeachers = useCallback(async () => {
+  const fetchSavedTeachers = useCallback(async () => {
     try {
       const response = await fetch("/api/follows")
       const data = await response.json()
 
       if (response.ok) {
-        setFollowedTeachers(data.follows || [])
+        setSavedTeachers(data.follows || [])
       }
     } catch (error) {
-      console.error("Error fetching followed teachers:", error)
+      console.error("Error fetching saved teachers:", error)
     }
   }, [])
 
@@ -117,42 +116,50 @@ export default function FollowingPage() {
     }
 
     if (user) {
-      Promise.all([fetchFeed(), fetchFollowedTeachers()]).finally(() => {
+      Promise.all([fetchFeed(), fetchSavedTeachers()]).finally(() => {
         setLoading(false)
       })
     }
-  }, [user, authLoading, router, fetchFeed, fetchFollowedTeachers])
+  }, [user, authLoading, router, fetchFeed, fetchSavedTeachers])
 
-  const handleFollowChange = (teacherId: string, isFollowing: boolean) => {
-    if (!isFollowing) {
-      setFollowedTeachers((prev) =>
+  const handleTeacherChange = (teacherId: string, isAdded: boolean) => {
+    if (!isAdded) {
+      setSavedTeachers((prev) =>
         prev.filter((f) => f.teacher.id !== teacherId)
       )
-      // Also refresh the feed to remove guides from unfollowed teacher
+      // Also refresh the feed to remove guides from removed teacher
       fetchFeed()
     } else {
       // Refresh both lists
-      fetchFollowedTeachers()
+      fetchSavedTeachers()
       fetchFeed()
     }
   }
 
-  const followedTeacherIds = followedTeachers.map((f) => f.teacher.id)
+  const savedTeacherIds = savedTeachers.map((f) => f.teacher.id)
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <NavigationHeader />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            <Skeleton className="h-10 w-48 mb-8" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-40 w-full rounded-lg" />
-              ))}
+        {/* Hero Banner */}
+        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+          <div className="container mx-auto px-4 py-10">
+            <div className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Teachers</h1>
+              <p className="text-sm sm:text-base opacity-75">
+                View study guides from teachers you follow
+              </p>
             </div>
           </div>
-        </main>
+        </div>
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -173,27 +180,44 @@ export default function FollowingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <NavigationHeader />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <Rss className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold text-gray-900">Following</h1>
+
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+        <div className="container mx-auto px-4 py-10">
+          <div className="relative">
+            <div className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Teachers</h1>
+              <p className="text-sm sm:text-base opacity-75">
+                View study guides from teachers you follow
+              </p>
             </div>
             <TeacherSearchDialog
               trigger={
-                <Button>
-                  <Search className="h-4 w-4 mr-2" />
+                <Button size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 absolute top-0 right-0 hidden sm:flex">
+                  <Search className="h-5 w-5 mr-2" />
                   Find Teachers
                 </Button>
               }
-              followedTeacherIds={followedTeacherIds}
-              onFollowChange={handleFollowChange}
+              followedTeacherIds={savedTeacherIds}
+              onFollowChange={handleTeacherChange}
+            />
+            <TeacherSearchDialog
+              trigger={
+                <Button size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 mt-4 sm:hidden w-full">
+                  <Search className="h-5 w-5 mr-2" />
+                  Find Teachers
+                </Button>
+              }
+              followedTeacherIds={savedTeacherIds}
+              onFollowChange={handleTeacherChange}
             />
           </div>
+        </div>
+      </div>
 
+      <div className="container mx-auto px-4 py-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
             <TabsList>
               <TabsTrigger value="feed" className="flex items-center gap-2">
@@ -208,34 +232,34 @@ export default function FollowingPage() {
               <TabsTrigger value="teachers" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Teachers
-                {followedTeachers.length > 0 && (
+                {savedTeachers.length > 0 && (
                   <Badge variant="secondary" className="ml-1">
-                    {followedTeachers.length}
+                    {savedTeachers.length}
                   </Badge>
                 )}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="feed" className="mt-6">
-              {followedTeachers.length === 0 ? (
+              {savedTeachers.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <UserPlus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Follow teachers to see their guides
+                      Add teachers to see their guides
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      When you follow teachers, their published study guides will appear here.
+                      When you add teachers, their published study guides will appear here.
                     </p>
                     <TeacherSearchDialog
                       trigger={
                         <Button>
                           <Search className="h-4 w-4 mr-2" />
-                          Find Teachers to Follow
+                          Find Teachers
                         </Button>
                       }
-                      followedTeacherIds={followedTeacherIds}
-                      onFollowChange={handleFollowChange}
+                      followedTeacherIds={savedTeacherIds}
+                      onFollowChange={handleTeacherChange}
                     />
                   </CardContent>
                 </Card>
@@ -247,7 +271,7 @@ export default function FollowingPage() {
                       No published guides yet
                     </h3>
                     <p className="text-muted-foreground">
-                      Teachers you follow haven&apos;t published any study guides yet.
+                      Your teachers haven&apos;t published any study guides yet.
                     </p>
                   </CardContent>
                 </Card>
@@ -305,15 +329,15 @@ export default function FollowingPage() {
             </TabsContent>
 
             <TabsContent value="teachers" className="mt-6">
-              {followedTeachers.length === 0 ? (
+              {savedTeachers.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Not following anyone yet
+                      No teachers added yet
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      Find teachers to follow and get their study guides in your feed.
+                      Find and add teachers to get their study guides.
                     </p>
                     <TeacherSearchDialog
                       trigger={
@@ -322,15 +346,15 @@ export default function FollowingPage() {
                           Find Teachers
                         </Button>
                       }
-                      followedTeacherIds={followedTeacherIds}
-                      onFollowChange={handleFollowChange}
+                      followedTeacherIds={savedTeacherIds}
+                      onFollowChange={handleTeacherChange}
                     />
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {followedTeachers.map((follow) => {
-                    const teacher = follow.teacher
+                  {savedTeachers.map((saved) => {
+                    const teacher = saved.teacher
                     const displayName =
                       teacher.display_name ||
                       (teacher.first_name && teacher.last_name
@@ -346,7 +370,7 @@ export default function FollowingPage() {
 
                     return (
                       <Card
-                        key={follow.id}
+                        key={saved.id}
                         className="hover:shadow-sm transition-shadow"
                       >
                         <CardContent className="p-4">
@@ -372,9 +396,9 @@ export default function FollowingPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleFollowChange(teacher.id, false)}
+                              onClick={() => handleTeacherChange(teacher.id, false)}
                             >
-                              Unfollow
+                              Remove
                             </Button>
                           </div>
                         </CardContent>
@@ -385,8 +409,7 @@ export default function FollowingPage() {
               )}
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

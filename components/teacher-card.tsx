@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { FollowButton } from "@/components/follow-button"
-import { BookOpen, Users } from "lucide-react"
+import { BookOpen } from "lucide-react"
 
 interface TeacherCardProps {
   teacher: {
@@ -16,7 +16,6 @@ interface TeacherCardProps {
     display_name?: string
     bio?: string
     guideCount?: number
-    followerCount?: number
   }
   isFollowing?: boolean
   onFollowChange?: (isFollowing: boolean) => void
@@ -62,20 +61,12 @@ export function TeacherCard({
                 >
                   {displayName}
                 </Link>
-                <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                  {teacher.guideCount !== undefined && (
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="h-3.5 w-3.5" />
-                      {teacher.guideCount} {teacher.guideCount === 1 ? "guide" : "guides"}
-                    </span>
-                  )}
-                  {teacher.followerCount !== undefined && (
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {teacher.followerCount} {teacher.followerCount === 1 ? "follower" : "followers"}
-                    </span>
-                  )}
-                </div>
+                {teacher.guideCount !== undefined && (
+                  <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    {teacher.guideCount} {teacher.guideCount === 1 ? "guide" : "guides"}
+                  </div>
+                )}
               </div>
 
               {showFollowButton && (

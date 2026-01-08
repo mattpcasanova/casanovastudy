@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Rss } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,20 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-interface NavigationHeaderProps {
-  user?: {
-    id: string
-    email: string
-    user_type: 'student' | 'teacher'
-    first_name?: string
-    last_name?: string
-  } | null
-  onSignOut?: () => void
-}
+import { useAuth } from '@/lib/auth'
 
 // Get user initials from name or email
-function getUserInitials(user: NavigationHeaderProps['user']): string {
+function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
   if (!user) return '?'
 
   if (user.first_name && user.last_name) {
@@ -40,8 +30,9 @@ function getUserInitials(user: NavigationHeaderProps['user']): string {
   return emailName.substring(0, 2).toUpperCase()
 }
 
-export default function NavigationHeader({ user, onSignOut }: NavigationHeaderProps) {
+export default function NavigationHeader() {
   const pathname = usePathname()
+  const { user, signOut } = useAuth()
   const initials = getUserInitials(user)
 
   // Prevent hydration mismatch by only rendering user-dependent UI after mount
@@ -50,7 +41,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
     setMounted(true)
   }, [])
 
-  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide') || pathname?.startsWith('/following') || pathname?.startsWith('/teacher')
+  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide') || pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
 
   return (
@@ -104,9 +95,9 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/following" className="flex items-center cursor-pointer">
-                          <Rss className="h-4 w-4 mr-2" />
-                          Following
+                        <Link href="/my-teachers" className="flex items-center cursor-pointer">
+                          <Users className="h-4 w-4 mr-2" />
+                          My Teachers
                         </Link>
                       </DropdownMenuItem>
                     </>
@@ -171,7 +162,7 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onSignOut} className="text-red-600 cursor-pointer">
+                  <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
                     Sign Out
                   </DropdownMenuItem>

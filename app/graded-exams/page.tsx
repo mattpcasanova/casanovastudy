@@ -75,7 +75,7 @@ interface GradingResult {
 }
 
 export default function GradedExamsPage() {
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [gradingResults, setGradingResults] = useState<GradingResult[]>([])
   const [resultsLoading, setResultsLoading] = useState(true)
@@ -407,7 +407,7 @@ export default function GradedExamsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <NavigationHeader user={user} onSignOut={signOut} />
+      <NavigationHeader />
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">

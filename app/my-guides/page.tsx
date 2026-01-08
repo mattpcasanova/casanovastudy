@@ -27,7 +27,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
   BookOpen,
@@ -42,14 +41,21 @@ import {
   Filter,
   ArrowUpDown,
   Search,
-  Trash2
+  Trash2,
+  Check,
+  Loader2,
+  Globe,
+  Lock,
+  X
 } from 'lucide-react'
+import { PublishToggle } from '@/components/publish-toggle'
 
-const formatIcons = {
+const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   outline: AlignLeft,
   flashcards: Layers,
   quiz: ListChecks,
-  summary: Brain
+  summary: Brain,
+  custom: BookOpen
 }
 
 const subjectColors = {
@@ -62,7 +68,7 @@ const subjectColors = {
 }
 
 export default function MyGuidesPage() {
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [studyGuides, setStudyGuides] = useState<StudyGuideRecord[]>([])
   const [guidesLoading, setGuidesLoading] = useState(true)
@@ -73,33 +79,68 @@ export default function MyGuidesPage() {
   const [formatFilter, setFormatFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'>('date-desc')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleDeleteGuide = async (guideId: string) => {
-    if (!user) return
-    setDeletingId(guideId)
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+
+  const handleBulkDelete = async () => {
+    if (!user || selectedIds.size === 0) return
+
+    const idsToDelete = Array.from(selectedIds)
+    setDeletingIds(new Set(idsToDelete))
+
     try {
-      const response = await fetch(`/api/study-guides/${guideId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id }),
-      })
+      const results = await Promise.allSettled(
+        idsToDelete.map(id =>
+          fetch(`/api/study-guides/${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id }),
+          })
+        )
+      )
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to delete study guide')
+      const successfulDeletes = idsToDelete.filter((_, index) =>
+        results[index].status === 'fulfilled' &&
+        (results[index] as PromiseFulfilledResult<Response>).value.ok
+      )
+
+      setStudyGuides(prev => prev.filter(guide => !successfulDeletes.includes(guide.id)))
+      setSelectedIds(new Set())
+      setShowBulkDeleteDialog(false)
+
+      const failedCount = idsToDelete.length - successfulDeletes.length
+      if (failedCount > 0) {
+        alert(`${successfulDeletes.length} guides deleted. ${failedCount} failed to delete.`)
       }
-
-      // Remove from local state
-      setStudyGuides(prev => prev.filter(guide => guide.id !== guideId))
     } catch (err) {
-      console.error('Error deleting study guide:', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete study guide')
+      console.error('Error bulk deleting:', err)
+      alert('Failed to delete some guides')
     } finally {
-      setDeletingId(null)
+      setDeletingIds(new Set())
+    }
+  }
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredAndSortedGuides.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredAndSortedGuides.map(g => g.id)))
     }
   }
 
@@ -200,7 +241,7 @@ export default function MyGuidesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <NavigationHeader user={user} onSignOut={signOut} />
+      <NavigationHeader />
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
@@ -398,8 +439,26 @@ export default function MyGuidesPage() {
         {/* Study Guides Grid */}
         {!authLoading && !guidesLoading && !error && studyGuides.length > 0 && (
           <div>
-            <div className="mb-4 text-sm text-gray-600">
-              Showing {filteredAndSortedGuides.length} of {studyGuides.length} {studyGuides.length === 1 ? 'guide' : 'guides'}
+            {/* Results header with select all */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {filteredAndSortedGuides.length} of {studyGuides.length} {studyGuides.length === 1 ? 'guide' : 'guides'}
+                {selectedIds.size > 0 && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    ({selectedIds.size} selected)
+                  </span>
+                )}
+              </div>
+              {filteredAndSortedGuides.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  className="text-gray-600"
+                >
+                  {selectedIds.size === filteredAndSortedGuides.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              )}
             </div>
             {filteredAndSortedGuides.length === 0 ? (
               <Card className="border-2 border-dashed border-gray-300">
@@ -423,97 +482,191 @@ export default function MyGuidesPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAndSortedGuides.map((guide) => {
-                const FormatIcon = formatIcons[guide.format]
-                const subjectColor = subjectColors[guide.subject as keyof typeof subjectColors] || subjectColors.other
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredAndSortedGuides.map((guide) => {
+                    const FormatIcon = formatIcons[guide.format]
+                    const subjectColor = subjectColors[guide.subject as keyof typeof subjectColors] || subjectColors.other
+                    const isSelected = selectedIds.has(guide.id)
+                    const isDeleting = deletingIds.has(guide.id)
 
-                return (
-                  <Card
-                    key={guide.id}
-                    className="h-full hover:shadow-xl transition-shadow cursor-pointer border-2 hover:border-blue-300 group"
-                    onClick={() => router.push(`/study-guide/${guide.id}`)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-2">
-                        <Badge className={`${subjectColor} border`}>
-                          {formatSubject(guide.subject)}
-                        </Badge>
-                        <div className="flex items-center gap-2">
-                          <FormatIcon className="h-5 w-5 text-gray-400" />
-                          {/* Delete Button - Aligned with format icon */}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300 bg-white"
-                                onClick={(e) => e.stopPropagation()}
-                                disabled={deletingId === guide.id}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{guide.title}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-red-600 hover:bg-red-700"
-                                  onClick={() => handleDeleteGuide(guide.id)}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                    return (
+                      <Card
+                      key={guide.id}
+                      className={`h-full hover:shadow-xl transition-all cursor-pointer border-2 group relative ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-200'
+                          : 'hover:border-blue-300'
+                      } ${isDeleting ? 'opacity-50' : ''}`}
+                      onClick={() => router.push(`/study-guide/${guide.id}`)}
+                    >
+                      {/* Format icon and selection checkbox */}
+                      <div className="absolute top-2 right-2 flex items-center gap-3 z-10">
+                        <FormatIcon className="h-6 w-6 text-gray-400" />
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-100'
+                              : 'bg-transparent hover:bg-gray-100'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleSelection(guide.id)
+                          }}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'bg-blue-500 border-blue-500 shadow-md'
+                                : 'bg-white border-gray-300 shadow-sm group-hover:border-gray-400'
+                            }`}
+                          >
+                            {isSelected && <Check className="h-4 w-4 text-white" />}
+                          </div>
                         </div>
                       </div>
-                      <CardTitle className="text-xl line-clamp-2">
-                        {guide.title}
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-2">
-                        <span className="flex items-center gap-1">
-                          <GraduationCap className="h-3 w-3" />
-                          {guide.grade_level}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          {guide.format}
-                        </span>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(guide.created_at)}
+
+                      <CardHeader className="pr-16">
+                        <div className="flex items-start justify-between mb-2">
+                          <Badge className={`${subjectColor} border`}>
+                            {formatSubject(guide.subject)}
+                          </Badge>
                         </div>
-                        {guide.file_count > 0 && (
-                          <div className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {guide.file_count} {guide.file_count === 1 ? 'file' : 'files'}
+                        <CardTitle className="text-xl line-clamp-2">
+                          {guide.title}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-4 mt-2">
+                          <span className="flex items-center gap-1">
+                            <GraduationCap className="h-3 w-3" />
+                            {guide.grade_level}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            {guide.format}
+                          </span>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(guide.created_at)}
+                          </div>
+                          {guide.file_count > 0 && (
+                            <div className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {guide.file_count} {guide.file_count === 1 ? 'file' : 'files'}
+                            </div>
+                          )}
+                        </div>
+                        {guide.topic_focus && (
+                          <div className="mt-3 text-sm text-gray-600 line-clamp-2">
+                            <span className="font-medium">Focus:</span> {guide.topic_focus}
                           </div>
                         )}
-                      </div>
-                      {guide.topic_focus && (
-                        <div className="mt-3 text-sm text-gray-600 line-clamp-2">
-                          <span className="font-medium">Focus:</span> {guide.topic_focus}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-              </div>
+
+                        {/* Publish status for teachers */}
+                        {user?.user_type === 'teacher' && (
+                          <div
+                            className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              {guide.is_published ? (
+                                <>
+                                  <Globe className="h-3 w-3 text-green-600" />
+                                  <span className="text-green-600">Published</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="h-3 w-3" />
+                                  <span>Private</span>
+                                </>
+                              )}
+                            </div>
+                            <PublishToggle
+                              guideId={guide.id}
+                              initialIsPublished={guide.is_published}
+                              onPublishChange={(isPublished) => {
+                                setStudyGuides(prev =>
+                                  prev.map(g =>
+                                    g.id === guide.id
+                                      ? { ...g, is_published: isPublished }
+                                      : g
+                                  )
+                                )
+                              }}
+                              variant="switch"
+                              showLabel={false}
+                            />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                  })}
+                </div>
+
+                {/* Hint text */}
+                {filteredAndSortedGuides.length > 0 && (
+                  <p className="text-center text-sm text-gray-500 mt-6">
+                    Click a guide to open it. Use the checkbox to select multiple.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
       </div>
+
+      {/* Floating action bar when items are selected */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-gray-900 text-white rounded-lg shadow-2xl px-4 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium">
+              {selectedIds.size} {selectedIds.size === 1 ? 'guide' : 'guides'} selected
+            </span>
+            <div className="h-6 w-px bg-gray-600" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:bg-red-900/50 hover:text-red-300"
+              onClick={() => setShowBulkDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-400 hover:bg-gray-700 hover:text-white h-8 w-8"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} {selectedIds.size === 1 ? 'Guide' : 'Guides'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedIds.size} {selectedIds.size === 1 ? 'study guide' : 'study guides'}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleBulkDelete}
+            >
+              Delete {selectedIds.size} {selectedIds.size === 1 ? 'Guide' : 'Guides'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/auth"
 import {
   BookOpen,
-  Users,
   Calendar,
   GraduationCap,
   Layers,
@@ -208,11 +207,6 @@ export default function TeacherProfilePage({
                       <BookOpen className="h-4 w-4" />
                       <strong className="text-foreground">{teacher.guideCount}</strong>
                       {teacher.guideCount === 1 ? " guide" : " guides"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Users className="h-4 w-4" />
-                      <strong className="text-foreground">{teacher.followerCount}</strong>
-                      {teacher.followerCount === 1 ? " follower" : " followers"}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Calendar className="h-4 w-4" />
