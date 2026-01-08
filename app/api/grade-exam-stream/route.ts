@@ -42,6 +42,15 @@ function parseGradingResponse(content: string) {
   let match
   while ((match = primaryPattern.exec(cleanContent)) !== null) {
     const rawQuestionNum = match[1].trim()
+
+    // Validate question number format:
+    // - Should be short (real question numbers are < 30 chars)
+    // - Should not contain instruction-like phrases
+    // - Should start with digit, letter, or "Section"
+    if (rawQuestionNum.length > 30 ||
+        /according|scheme|grading|instruct|evaluat|systematic/i.test(rawQuestionNum) ||
+        !/^(\d|[a-z]|section|part)/i.test(rawQuestionNum)) continue
+
     const normalizedNum = normalizeQuestionNumber(rawQuestionNum)
 
     // Skip duplicates
@@ -130,8 +139,8 @@ export async function POST(request: NextRequest) {
 
         const isTeacher = profile.user_type === 'teacher'
 
-        // Get form data
-        const markSchemeFile = formData.get('markScheme') as File | null
+        // Get form data - mark scheme can be multiple files (if PDF was converted to images)
+        const markSchemeFiles = formData.getAll('markScheme') as File[]
         const studentExamFiles = formData.getAll('studentExam') as File[]
         const additionalComments = formData.get('additionalComments') as string | null
 
@@ -150,15 +159,15 @@ export async function POST(request: NextRequest) {
           message: 'Processing exam files...'
         }) + '\n\n'))
 
-        // Process mark scheme file
-        let markSchemeBuffer: { buffer: Buffer; name: string; type: string } | undefined
-        if (markSchemeFile) {
-          const bytes = await markSchemeFile.arrayBuffer()
-          markSchemeBuffer = {
+        // Process mark scheme files (may be multiple images from PDF conversion)
+        const markSchemeBuffers: Array<{ buffer: Buffer; name: string; type: string }> = []
+        for (const file of markSchemeFiles) {
+          const bytes = await file.arrayBuffer()
+          markSchemeBuffers.push({
             buffer: Buffer.from(bytes),
-            name: markSchemeFile.name,
-            type: markSchemeFile.type
-          }
+            name: file.name,
+            type: file.type
+          })
         }
 
         // Process student exam files
@@ -185,7 +194,7 @@ export async function POST(request: NextRequest) {
           ? claudeService.gradeExamWithImagesStream({
               markSchemeText: '',
               studentExamText: '',
-              markSchemeFile: markSchemeBuffer,
+              markSchemeFiles: markSchemeBuffers,
               studentExamFiles: studentExamBuffers,
               additionalComments: additionalComments || undefined
             })
@@ -225,7 +234,7 @@ export async function POST(request: NextRequest) {
           .insert({
             user_id: userId,
             student_name: studentExamFiles[0]?.name?.split('.')[0] || 'Student',
-            answer_sheet_filename: markSchemeFile?.name || null,
+            answer_sheet_filename: markSchemeFiles[0]?.name || null,
             student_exam_filename: studentExamFiles.map(f => f.name).join(', '),
             total_marks: totalMarks,
             total_possible_marks: totalPossible,

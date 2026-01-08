@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
 import { useAuth } from "@/lib/auth"
+import { processFile } from "@/lib/pdf-to-images"
 
 interface GradingResult {
   id?: string
@@ -65,7 +66,7 @@ export default function GradeExamPage() {
   }, [gradingResult, isTeacher])
 
   const validateFile = (file: File): string | null => {
-    const maxSize = 20 * 1024 * 1024 // 20MB
+    const maxSize = 100 * 1024 * 1024 // 100MB - PDFs are converted to compressed images before upload
     const allowedDocTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -89,7 +90,7 @@ export default function GradeExamPage() {
       return "Only PDF, DOCX, PPTX, TXT, JPG, PNG, HEIC, or WebP files are supported."
     }
     if (file.size > maxSize) {
-      return "File size too large. Please upload files smaller than 20MB"
+      return "File size too large. Please upload files smaller than 100MB"
     }
     return null
   }
@@ -295,13 +296,33 @@ export default function GradeExamPage() {
     setErrors({})
 
     try {
-      // Create FormData
-      const formData = new FormData()
+      // Process files: convert PDFs to images and compress large images
+      let processedMarkScheme: File[] = []
+      let processedStudentExams: File[] = []
+
+      // Process mark scheme if provided
       if (answerSheetFile) {
-        formData.append("markScheme", answerSheetFile)
+        setStatusMessage("Processing mark scheme...")
+        processedMarkScheme = await processFile(answerSheetFile, setStatusMessage)
       }
-      // Append all student exam files
-      for (const file of studentExamFiles) {
+
+      // Process all student exam files
+      for (let i = 0; i < studentExamFiles.length; i++) {
+        setStatusMessage(`Processing student exam file ${i + 1} of ${studentExamFiles.length}...`)
+        const processed = await processFile(studentExamFiles[i], setStatusMessage)
+        processedStudentExams.push(...processed)
+      }
+
+      setStatusMessage("Sending to grading service...")
+
+      // Create FormData with processed files
+      const formData = new FormData()
+      // Append processed mark scheme files (now images)
+      for (const file of processedMarkScheme) {
+        formData.append("markScheme", file)
+      }
+      // Append all processed student exam files (now images)
+      for (const file of processedStudentExams) {
         formData.append("studentExam", file)
       }
       if (additionalComments.trim()) {
@@ -497,7 +518,7 @@ export default function GradeExamPage() {
                       </label>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      PDF, DOCX, images (JPG, PNG, HEIC) • Max 20MB per file
+                      PDF, DOCX, images (JPG, PNG, HEIC) • Max 100MB per file
                     </p>
                     <p className="text-xs text-blue-600 mt-1">
                       For handwritten exams: upload multiple page photos
@@ -602,7 +623,7 @@ export default function GradeExamPage() {
                             />
                           </label>
                         </p>
-                        <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, or TXT format (max 20MB)</p>
+                        <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, or TXT format (max 100MB)</p>
                       </>
                     )}
                   </div>

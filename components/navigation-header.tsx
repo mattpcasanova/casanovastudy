@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,10 +50,8 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
     setMounted(true)
   }, [])
 
-  const isActive = (path: string) => {
-    if (path === '/') return pathname === '/'
-    return pathname?.startsWith(path)
-  }
+  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
+  const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
 
   return (
     <header className="bg-gradient-to-r from-primary via-secondary to-accent text-white shadow-lg sticky top-0 z-50">
@@ -72,52 +70,74 @@ export default function NavigationHeader({ user, onSignOut }: NavigationHeaderPr
 
           {/* Right side - Navigation and User Menu */}
           <div className="flex items-center gap-3">
-            {/* Navigation Tabs */}
+            {/* Navigation Dropdowns */}
             <nav className="flex items-center gap-2">
-              <Link href="/">
-                <Button
-                  variant={isActive('/') ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
-                    isActive('/')
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-                  Create Guide
-                </Button>
-              </Link>
-
-              {mounted && user && (
-                <Link href="/my-guides">
+              {/* Study Guides Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    variant={isActive('/my-guides') ? 'secondary' : 'ghost'}
+                    variant={isStudyGuidesActive ? 'secondary' : 'ghost'}
                     className={`h-10 ${
-                      isActive('/my-guides')
+                      isStudyGuidesActive
                         ? 'bg-white/20 text-white hover:bg-white/30'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
                   >
                     <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
-                    My Guides
+                    Study Guides
+                    <ChevronDown className="h-4 w-4 ml-1" />
                   </Button>
-                </Link>
-              )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href="/" className="flex items-center cursor-pointer">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Guide
+                    </Link>
+                  </DropdownMenuItem>
+                  {mounted && user && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-guides" className="flex items-center cursor-pointer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        My Guides
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
+              {/* Grading Dropdown - Only for logged-in users */}
               {mounted && user && (
-                <Link href="/grade-exam">
-                  <Button
-                    variant={isActive('/grade-exam') ? 'secondary' : 'ghost'}
-                    className={`h-10 ${
-                      isActive('/grade-exam')
-                        ? 'bg-white/20 text-white hover:bg-white/30'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
-                    {user.user_type === 'teacher' ? 'Grade Exam' : 'Check My Work'}
-                  </Button>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={isGradingActive ? 'secondary' : 'ghost'}
+                      className={`h-10 ${
+                        isGradingActive
+                          ? 'bg-white/20 text-white hover:bg-white/30'
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Grading
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/grade-exam" className="flex items-center cursor-pointer">
+                        <Plus className="h-4 w-4 mr-2" />
+                        {user.user_type === 'teacher' ? 'Grade Exam' : 'Check My Work'}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/graded-exams" className="flex items-center cursor-pointer">
+                        <ClipboardList className="h-4 w-4 mr-2" />
+                        Graded Exams
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </nav>
 

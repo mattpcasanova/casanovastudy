@@ -308,6 +308,7 @@ Include: 1) Multiple choice questions (5-7 questions), 2) True/False questions (
         ? [studentExamFile]
         : []
 
+    const hasMarkScheme = !!markSchemeFile
     const hasMultipleFiles = allStudentFiles.length > 1
     const hasImages = allStudentFiles.some(f => isImageFile(f.type, f.name))
 
@@ -341,7 +342,7 @@ CRITICAL GRADING PRINCIPLES:
       instructionText += `\n\n**NOTE**: This student's exam consists of ${allStudentFiles.length} pages/images. Please analyze ALL pages in order to grade the complete exam.`
     }
 
-    instructionText += `\n\nI've attached the ${markSchemeFile ? 'mark scheme and ' : ''}student exam.`
+    instructionText += `\n\nI've attached the ${hasMarkScheme ? 'mark scheme and ' : ''}student exam.`
 
     if (hasTeacherInstructions) {
       instructionText += `\n\n**IMPORTANT - Teacher's Instructions (follow these):**\n${additionalComments}\n\nApply these instructions when grading. They take priority over default grading strictness.`
@@ -390,6 +391,7 @@ CRITICAL REQUIREMENTS:
 - Use the exact marks available from the mark scheme for the denominator (Y)
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
 - For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
+- **ESSAY QUESTIONS ARE MANDATORY**: If the mark scheme includes an essay section (usually Section C worth 15-25 marks), you MUST grade it. Do NOT skip essay questions even if the student's response is poor or blank - award 0 marks with explanation.
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
@@ -485,11 +487,12 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     markSchemeImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
     studentExamImages?: Array<{ pageNumber: number; imageData: string; mimeType: string }>
     markSchemeFile?: { buffer: Buffer; name: string; type: string }
+    markSchemeFiles?: Array<{ buffer: Buffer; name: string; type: string }> // Multiple mark scheme files support
     studentExamFile?: { buffer: Buffer; name: string; type: string }
     studentExamFiles?: Array<{ buffer: Buffer; name: string; type: string }>
     additionalComments?: string
   }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
-    const { markSchemeFile, studentExamFile, studentExamFiles, additionalComments } = params
+    const { markSchemeFile, markSchemeFiles, studentExamFile, studentExamFiles, additionalComments } = params
 
     // Helper to check if file is an image
     const isImageFile = (type: string, name: string) => {
@@ -519,6 +522,13 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
       return 'image/jpeg'
     }
 
+    // Combine all mark scheme files
+    const allMarkSchemeFiles = markSchemeFiles && markSchemeFiles.length > 0
+      ? markSchemeFiles
+      : markSchemeFile
+        ? [markSchemeFile]
+        : []
+
     // Combine all student exam files
     const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
       ? studentExamFiles
@@ -526,6 +536,7 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
         ? [studentExamFile]
         : []
 
+    const hasMarkScheme = allMarkSchemeFiles.length > 0
     const hasMultipleFiles = allStudentFiles.length > 1
     const hasTeacherInstructions = additionalComments && additionalComments.trim()
 
@@ -546,7 +557,7 @@ CRITICAL GRADING PRINCIPLES:
       instructionText += `\n\n**NOTE**: This student's exam consists of ${allStudentFiles.length} pages/images. Please analyze ALL pages in order to grade the complete exam.`
     }
 
-    instructionText += `\n\nI've attached the ${markSchemeFile ? 'mark scheme and ' : ''}student exam.`
+    instructionText += `\n\nI've attached the ${hasMarkScheme ? 'mark scheme and ' : ''}student exam.`
 
     if (hasTeacherInstructions) {
       instructionText += `\n\n**IMPORTANT - Teacher's Instructions (follow these):**\n${additionalComments}\n\nApply these instructions when grading. They take priority over default grading strictness.`
@@ -595,6 +606,7 @@ CRITICAL REQUIREMENTS:
 - Use the exact marks available from the mark scheme for the denominator (Y)
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
 - For essay sections (often Section C), grade each sub-part (a, b, c) separately with their marks
+- **ESSAY QUESTIONS ARE MANDATORY**: If the mark scheme includes an essay section (usually Section C worth 15-25 marks), you MUST grade it. Do NOT skip essay questions even if the student's response is poor or blank - award 0 marks with explanation.
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
@@ -610,16 +622,33 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
       text: instructionText
     })
 
-    // Add mark scheme as document
-    if (markSchemeFile) {
-      content.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: markSchemeFile.buffer.toString('base64')
-        }
-      })
+    // Add mark scheme files (may be multiple images from PDF conversion)
+    for (let i = 0; i < allMarkSchemeFiles.length; i++) {
+      const file = allMarkSchemeFiles[i]
+
+      if (isImageFile(file.type, file.name)) {
+        const mimeType = getImageMimeType(file.type, file.name)
+        console.log(`📸 [Stream] Adding mark scheme image ${i + 1}: ${file.name} as ${mimeType}`)
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        // Add as document (PDF)
+        console.log(`📄 [Stream] Adding mark scheme document ${i + 1}: ${file.name}`)
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
     }
 
     // Add all student exam files (documents or images)
@@ -628,7 +657,7 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
 
       if (isImageFile(file.type, file.name)) {
         const mimeType = getImageMimeType(file.type, file.name)
-        console.log(`📸 [Stream] Adding image ${i + 1}: ${file.name} as ${mimeType}`)
+        console.log(`📸 [Stream] Adding student exam image ${i + 1}: ${file.name} as ${mimeType}`)
         content.push({
           type: 'image',
           source: {
@@ -682,6 +711,7 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     }
 
     console.log('✅ Streaming grading complete - Token Usage:', actualUsage)
+    console.log('📋 Stop reason:', finalMessage.stop_reason)
 
     return {
       content: fullContent,
