@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +43,7 @@ export default function NavigationHeader() {
 
   const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
   const isMyTeachersActive = pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
+  const isMyStudentsActive = pathname?.startsWith('/my-students')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
   const isTeacher = user?.user_type === 'teacher'
 
@@ -89,12 +90,20 @@ export default function NavigationHeader() {
                     </Link>
                   </DropdownMenuItem>
                   {mounted && user && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/my-guides" className="flex items-center cursor-pointer">
-                        <FileText className="h-4 w-4 mr-2" />
-                        My Guides
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/create-guide" className="flex items-center cursor-pointer">
+                          <PenSquare className="h-4 w-4 mr-2" />
+                          Create Custom Guide
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/my-guides" className="flex items-center cursor-pointer">
+                          <FileText className="h-4 w-4 mr-2" />
+                          My Guides
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -113,6 +122,24 @@ export default function NavigationHeader() {
                   <Link href="/my-teachers">
                     <Users className="h-4 w-4 mr-2 flex-shrink-0" />
                     My Teachers
+                  </Link>
+                </Button>
+              )}
+
+              {/* My Students Button - For teachers */}
+              {mounted && user && isTeacher && (
+                <Button
+                  variant={isMyStudentsActive ? 'secondary' : 'ghost'}
+                  className={`h-10 ${
+                    isMyStudentsActive
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href="/my-students">
+                    <Users className="h-4 w-4 mr-2 flex-shrink-0" />
+                    My Students
                   </Link>
                 </Button>
               )}

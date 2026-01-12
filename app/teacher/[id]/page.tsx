@@ -29,10 +29,9 @@ interface TeacherProfile {
   last_name?: string
   display_name?: string
   bio?: string
-  is_profile_public?: boolean
   created_at: string
   guideCount: number
-  followerCount: number
+  studentCount: number
 }
 
 interface StudyGuide {
@@ -44,8 +43,6 @@ interface StudyGuide {
   topic_focus?: string
   difficulty_level?: string
   file_count: number
-  is_published: boolean
-  published_at: string
   created_at: string
 }
 
@@ -76,42 +73,49 @@ export default function TeacherProfilePage({
   const router = useRouter()
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null)
   const [guides, setGuides] = useState<StudyGuide[]>([])
-  const [isFollowing, setIsFollowing] = useState(false)
+  const [hasRelationship, setHasRelationship] = useState(false)
   const [isSelf, setIsSelf] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchTeacherProfile = async () => {
-      try {
-        const response = await fetch(`/api/teachers/${teacherId}`)
-        const data = await response.json()
+  const fetchTeacherProfile = async () => {
+    try {
+      const response = await fetch(`/api/teachers/${teacherId}`)
+      const data = await response.json()
 
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch teacher profile")
-        }
-
-        setTeacher(data.teacher)
-        setGuides(data.guides)
-        setIsFollowing(data.isFollowing)
-        setIsSelf(data.isSelf)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong")
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch teacher profile")
       }
-    }
 
+      setTeacher(data.teacher)
+      setGuides(data.guides)
+      setHasRelationship(data.hasRelationship)
+      setIsSelf(data.isSelf)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchTeacherProfile()
   }, [teacherId])
 
   const handleFollowChange = (isNowFollowing: boolean) => {
-    setIsFollowing(isNowFollowing)
+    setHasRelationship(isNowFollowing)
     if (teacher) {
       setTeacher({
         ...teacher,
-        followerCount: teacher.followerCount + (isNowFollowing ? 1 : -1)
+        studentCount: teacher.studentCount + (isNowFollowing ? 1 : -1)
       })
+    }
+    // Re-fetch to get guides if relationship was just established
+    if (isNowFollowing) {
+      fetchTeacherProfile()
+    } else {
+      // Clear guides when relationship is removed
+      setGuides([])
     }
   }
 
@@ -196,7 +200,7 @@ export default function TeacherProfilePage({
                     {!isSelf && (
                       <FollowButton
                         teacherId={teacher.id}
-                        initialIsFollowing={isFollowing}
+                        initialIsFollowing={hasRelationship}
                         onFollowChange={handleFollowChange}
                       />
                     )}
@@ -218,23 +222,42 @@ export default function TeacherProfilePage({
             </CardContent>
           </Card>
 
-          {/* Published Guides */}
+          {/* Study Guides */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">
-              Published Study Guides
+              Study Guides
             </h2>
-            <Badge variant="secondary">{guides.length} guides</Badge>
+            {(isSelf || hasRelationship) && (
+              <Badge variant="secondary">{guides.length} guides</Badge>
+            )}
           </div>
 
-          {guides.length === 0 ? (
+          {!isSelf && !hasRelationship ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No published guides yet
+                  Add this teacher to see their guides
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Once you add {displayName}, you&apos;ll be able to view and study their guides.
+                </p>
+                <FollowButton
+                  teacherId={teacher.id}
+                  initialIsFollowing={false}
+                  onFollowChange={handleFollowChange}
+                />
+              </CardContent>
+            </Card>
+          ) : guides.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No guides yet
                 </h3>
                 <p className="text-muted-foreground">
-                  This teacher hasn&apos;t published any study guides yet.
+                  {isSelf ? "You haven't created any study guides yet." : "This teacher hasn't created any study guides yet."}
                 </p>
               </CardContent>
             </Card>
@@ -269,7 +292,7 @@ export default function TeacherProfilePage({
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
-                            {new Date(guide.published_at || guide.created_at).toLocaleDateString()}
+                            {new Date(guide.created_at).toLocaleDateString()}
                           </span>
                         </div>
                         {guide.topic_focus && (

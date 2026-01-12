@@ -343,14 +343,17 @@ export class FileProcessor {
         return aggressiveText.trim()
       }
       
-          // If nothing worked, return minimal content for Claude to work with
+          // If nothing worked, throw an error - don't return fake content
           const fileSize = Math.round(buffer.length / 1024)
-          return `PDF Document: ${fileSize} KB
-Content: PowerPoint presentation converted to PDF
-Status: Text extraction completed`
+          console.error(`❌ All PDF extraction methods failed for file (${fileSize} KB)`)
+          throw new Error(`Could not extract text from this PDF (${fileSize} KB). The PDF may be a scanned image or have complex encoding. Please try:\n1. Converting the PDF to a Word document (DOCX)\n2. Using a PDF with actual text (not scanned images)\n3. Copy/pasting the text into a TXT file`)
       
     } catch (error) {
       console.error('PDF extraction error:', error)
+      // Preserve our helpful error messages, only wrap unexpected errors
+      if (error instanceof Error && error.message.includes('Could not extract text')) {
+        throw error
+      }
       throw new Error('Failed to process PDF file. Please try converting to DOCX or text format.')
     }
   }

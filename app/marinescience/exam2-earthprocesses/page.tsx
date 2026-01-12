@@ -3,12 +3,15 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator, RefreshCw } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ChevronDown, ChevronUp, BookOpen, Download, Share2, Star, CheckCircle, Circle, AlertTriangle, Calculator, RefreshCw, BookmarkPlus, Loader2, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth"
 
 interface StudyItem {
   id: string
@@ -25,6 +28,11 @@ interface PracticeQuestion {
 }
 
 export default function MarineScienceStudyGuide() {
+  const router = useRouter()
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [saving, setSaving] = useState(false)
+
   const [studyItems, setStudyItems] = useState<StudyItem[]>([
     { id: "earth-layers", completed: false },
     { id: "plate-tectonics", completed: false },
@@ -231,6 +239,62 @@ export default function MarineScienceStudyGuide() {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href)
       alert('Link copied to clipboard!')
+    }
+  }
+
+  const saveToMyGuides = async () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to save guides to your collection.",
+        variant: "destructive"
+      })
+      router.push("/auth/signin")
+      return
+    }
+
+    setSaving(true)
+    try {
+      const response = await fetch("/api/study-guides/save-static", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guideId: "marinescience-exam2-earthprocesses",
+          title: "AICE Marine Science - Chapter 2: Earth Processes",
+          subject: "science",
+          gradeLevel: "high-school",
+          staticRoute: "/marinescience/exam2-earthprocesses",
+          userId: user.id
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.error === "Guide already saved") {
+          toast({
+            title: "Already saved",
+            description: "This guide is already in your collection."
+          })
+        } else {
+          throw new Error(data.error || "Failed to save guide")
+        }
+        return
+      }
+
+      toast({
+        title: "Saved!",
+        description: "Guide added to your collection."
+      })
+    } catch (error) {
+      console.error("Error saving guide:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save guide. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -1230,7 +1294,20 @@ export default function MarineScienceStudyGuide() {
 
       {/* Action Buttons */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-3">
-        <Button 
+        <Button
+          onClick={saveToMyGuides}
+          disabled={saving}
+          className="bg-primary hover:bg-primary/90 text-white shadow-lg"
+          size="lg"
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <BookmarkPlus className="h-4 w-4 mr-2" />
+          )}
+          Save to My Guides
+        </Button>
+        <Button
           onClick={printGuide}
           className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
           size="lg"
@@ -1238,7 +1315,7 @@ export default function MarineScienceStudyGuide() {
           <Download className="h-4 w-4 mr-2" />
           Print Guide
         </Button>
-        <Button 
+        <Button
           onClick={shareGuide}
           variant="outline"
           className="bg-white hover:bg-gray-50 shadow-lg"
@@ -1246,6 +1323,15 @@ export default function MarineScienceStudyGuide() {
         >
           <Share2 className="h-4 w-4 mr-2" />
           Share
+        </Button>
+        <Button
+          onClick={() => router.push("/")}
+          variant="outline"
+          className="bg-white hover:bg-gray-50 shadow-lg"
+          size="lg"
+        >
+          <Home className="h-4 w-4 mr-2" />
+          Home
         </Button>
       </div>
     </div>

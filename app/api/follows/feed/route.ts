@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
-// GET - Get published guides from followed teachers
+// GET - Get guides from teachers the student has a relationship with
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get published guides from followed teachers
+    // Get guides from teachers the student has a relationship with
     const { data: guides, error: guidesError, count } = await supabase
       .from('study_guides')
       .select(`
@@ -57,8 +57,6 @@ export async function GET(request: NextRequest) {
         topic_focus,
         difficulty_level,
         file_count,
-        is_published,
-        published_at,
         created_at,
         user_id,
         user_profiles!study_guides_user_id_fkey (
@@ -69,8 +67,7 @@ export async function GET(request: NextRequest) {
         )
       `, { count: 'exact' })
       .in('user_id', teacherIds)
-      .eq('is_published', true)
-      .order('published_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     if (guidesError) {

@@ -33,8 +33,6 @@ interface StudyGuide {
   topic_focus?: string
   difficulty_level?: string
   file_count: number
-  is_published: boolean
-  published_at: string
   created_at: string
   user_id: string
   user_profiles?: {
@@ -249,7 +247,7 @@ export default function MyTeachersPage() {
                       Add teachers to see their guides
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      When you add teachers, their published study guides will appear here.
+                      When you add teachers, their study guides will appear here.
                     </p>
                     <TeacherSearchDialog
                       trigger={
@@ -268,10 +266,10 @@ export default function MyTeachersPage() {
                   <CardContent className="py-12 text-center">
                     <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      No published guides yet
+                      No guides yet
                     </h3>
                     <p className="text-muted-foreground">
-                      Your teachers haven&apos;t published any study guides yet.
+                      Your teachers haven&apos;t created any study guides yet.
                     </p>
                   </CardContent>
                 </Card>
@@ -314,9 +312,7 @@ export default function MyTeachersPage() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3.5 w-3.5" />
-                                {new Date(
-                                  guide.published_at || guide.created_at
-                                ).toLocaleDateString()}
+                                {new Date(guide.created_at).toLocaleDateString()}
                               </span>
                             </div>
                           </CardContent>

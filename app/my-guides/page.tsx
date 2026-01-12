@@ -44,11 +44,8 @@ import {
   Trash2,
   Check,
   Loader2,
-  Globe,
-  Lock,
   X
 } from 'lucide-react'
-import { PublishToggle } from '@/components/publish-toggle'
 
 const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   outline: AlignLeft,
@@ -142,6 +139,16 @@ export default function MyGuidesPage() {
     } else {
       setSelectedIds(new Set(filteredAndSortedGuides.map(g => g.id)))
     }
+  }
+
+  // Get the correct URL for a guide (handles static guides)
+  const getGuideUrl = (guide: StudyGuideRecord): string => {
+    // Check if this is a static guide with a custom route
+    const customContent = guide.custom_content as { static_route?: string; is_static?: boolean } | undefined
+    if (customContent?.is_static && customContent?.static_route) {
+      return customContent.static_route
+    }
+    return `/study-guide/${guide.id}`
   }
 
   useEffect(() => {
@@ -498,7 +505,7 @@ export default function MyGuidesPage() {
                           ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-200'
                           : 'hover:border-blue-300'
                       } ${isDeleting ? 'opacity-50' : ''}`}
-                      onClick={() => router.push(`/study-guide/${guide.id}`)}
+                      onClick={() => router.push(getGuideUrl(guide))}
                     >
                       {/* Format icon and selection checkbox */}
                       <div className="absolute top-2 right-2 flex items-center gap-3 z-10">
@@ -561,43 +568,6 @@ export default function MyGuidesPage() {
                         {guide.topic_focus && (
                           <div className="mt-3 text-sm text-gray-600 line-clamp-2">
                             <span className="font-medium">Focus:</span> {guide.topic_focus}
-                          </div>
-                        )}
-
-                        {/* Publish status for teachers */}
-                        {user?.user_type === 'teacher' && (
-                          <div
-                            className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                              {guide.is_published ? (
-                                <>
-                                  <Globe className="h-3 w-3 text-green-600" />
-                                  <span className="text-green-600">Published</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="h-3 w-3" />
-                                  <span>Private</span>
-                                </>
-                              )}
-                            </div>
-                            <PublishToggle
-                              guideId={guide.id}
-                              initialIsPublished={guide.is_published}
-                              onPublishChange={(isPublished) => {
-                                setStudyGuides(prev =>
-                                  prev.map(g =>
-                                    g.id === guide.id
-                                      ? { ...g, is_published: isPublished }
-                                      : g
-                                  )
-                                )
-                              }}
-                              variant="switch"
-                              showLabel={false}
-                            />
                           </div>
                         )}
                       </CardContent>

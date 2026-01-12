@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 
-// GET - List teachers with public profiles
+// GET - List all teachers
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -13,9 +13,8 @@ export async function GET(request: NextRequest) {
 
     const { data: teachers, error, count } = await supabase
       .from('user_profiles')
-      .select('id, email, first_name, last_name, display_name, bio, is_profile_public, created_at', { count: 'exact' })
+      .select('id, email, first_name, last_name, display_name, bio, created_at', { count: 'exact' })
       .eq('user_type', 'teacher')
-      .eq('is_profile_public', true)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

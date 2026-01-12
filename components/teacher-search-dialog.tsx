@@ -141,7 +141,7 @@ export function TeacherSearchDialog({
             <div className="text-center py-12 text-muted-foreground">
               {searchQuery
                 ? "No teachers found matching your search"
-                : "No teachers with public profiles yet"}
+                : "No teachers available yet"}
             </div>
           ) : (
             teachers.map((teacher) => (

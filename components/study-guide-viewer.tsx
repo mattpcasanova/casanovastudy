@@ -16,13 +16,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X } from 'lucide-react'
+import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
 import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
+import CustomFormat from '@/components/formats/custom-format'
 import EmailShareDialog from '@/components/email-share-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
@@ -186,6 +187,11 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
+      case 'custom':
+        if (studyGuide.custom_content) {
+          return <CustomFormat content={studyGuide.custom_content} studyGuideId={studyGuide.id} />
+        }
+        return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       default:
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
     }
@@ -306,6 +312,19 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
               Home
             </Link>
           </Button>
+          {isOwner && studyGuide.format === 'custom' && (
+            <Button
+              asChild
+              variant="outline"
+              className="bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 border-blue-300 shadow-lg"
+              size="lg"
+            >
+              <Link href={`/create-guide?edit=${studyGuide.id}`}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Guide
+              </Link>
+            </Button>
+          )}
           {isOwner && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

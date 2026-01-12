@@ -110,7 +110,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       try {
         console.log('📱 Initializing auth...')
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        // Handle invalid refresh token errors by clearing the session
+        if (error) {
+          console.warn('⚠️ Session error, clearing invalid session:', error.message)
+          // Clear the invalid session from localStorage
+          await supabase.auth.signOut()
+          if (isMounted) {
+            setUser(null)
+            currentUserIdRef.current = null
+          }
+          return
+        }
 
         if (!isMounted) return
 
@@ -129,8 +141,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.log('📱 No existing session')
         }
-      } catch (error) {
-        console.error('❌ Error initializing auth:', error)
+      } catch (error: any) {
+        console.warn('⚠️ Auth initialization error, clearing session:', error?.message || error)
+        // If getSession throws (e.g., invalid refresh token), clear the corrupted session
+        try {
+          await supabase.auth.signOut()
+        } catch {
+          // Ignore signOut errors during cleanup
+        }
+        if (isMounted) {
+          setUser(null)
+          currentUserIdRef.current = null
+        }
       } finally {
         if (isMounted) {
           setLoading(false)

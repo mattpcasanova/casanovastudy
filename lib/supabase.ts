@@ -4,6 +4,36 @@ import type { CustomGuideContent } from './types/custom-guide'
 let supabaseClient: SupabaseClient | null = null
 
 /**
+ * Clear corrupted auth data from localStorage before Supabase client tries to use it.
+ * This prevents "Invalid Refresh Token" errors from the auto-refresh mechanism.
+ */
+function clearCorruptedAuthData(supabaseUrl: string): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    // Supabase stores auth data with key format: sb-<project-ref>-auth-token
+    // Extract project ref from URL (e.g., https://abcdef.supabase.co -> abcdef)
+    const projectRef = supabaseUrl.replace('https://', '').split('.')[0]
+    const authKey = `sb-${projectRef}-auth-token`
+
+    const storedData = localStorage.getItem(authKey)
+    if (!storedData) return
+
+    const parsed = JSON.parse(storedData)
+
+    // Check if the stored session is missing critical fields
+    // A valid session should have: access_token, refresh_token, user
+    if (!parsed?.refresh_token || !parsed?.access_token) {
+      console.warn('⚠️ Clearing corrupted auth session from localStorage (missing tokens)')
+      localStorage.removeItem(authKey)
+    }
+  } catch {
+    // If we can't parse the stored data, it's corrupted - clear it
+    // But we need the key, so we'll let Supabase handle it
+  }
+}
+
+/**
  * Get or create the Supabase client instance.
  * This function lazily initializes the client to avoid build-time errors
  * when environment variables are not yet available.
@@ -24,10 +54,14 @@ function getSupabaseClient(): SupabaseClient {
     const buildUrl = supabaseUrl || 'https://placeholder-build-abcdefghijklmnop.supabase.co'
     // Anon keys are typically JWT-like strings, provide a placeholder that matches the format
     const buildKey = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyLWJ1aWxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTIwMDAsImV4cCI6MTk2MDc2ODAwMH0.placeholder-key-for-build-only'
-    
+
     supabaseClient = createClient(buildUrl, buildKey)
     return supabaseClient
   }
+
+  // Clear any corrupted auth data before creating the client
+  // This prevents auto-refresh from trying to use invalid tokens
+  clearCorruptedAuthData(supabaseUrl)
 
   supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {

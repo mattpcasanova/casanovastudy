@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
+import { CustomGuideContent, CustomSection } from '@/lib/types/custom-guide'
 
 export class ClaudeService {
   private anthropic: Anthropic
@@ -1107,6 +1108,311 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
     } catch (error) {
       console.error('Claude API grading error:', error)
       throw new Error(`Failed to grade exam: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Generate custom guide content using AI
+   * Takes a description and generates structured blocks
+   * Supports PDF documents for Claude's native PDF reading when text extraction fails
+   */
+  async *generateCustomGuideStream(params: {
+    description: string
+    subject?: string
+    gradeLevel?: string
+    existingContent?: string
+    sourceContent?: string
+    mode?: 'replace' | 'add'
+    pdfDocuments?: Array<{ buffer: Buffer; filename: string }> // PDFs to send directly to Claude
+  }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
+    const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', pdfDocuments } = params
+
+    const modeInstructions = mode === 'add'
+      ? `IMPORTANT: You are ADDING to an existing study guide.
+
+READ THE USER'S REQUEST CAREFULLY:
+- If they ask to "add X questions to the quiz" or "add more items to Y section", you should INCLUDE THE EXISTING SECTION with the additions in your output. For example, if there's an existing quiz with 3 questions and they want 2 more, output a quiz section with ALL 5 questions.
+- If they ask to create new sections on different topics, create new sections only.
+- NEVER duplicate existing content - either enhance it (add to it) OR create something new.
+- Look at what's already there and complement it.`
+      : `You are creating a new study guide from scratch.`
+
+    // Build source instructions based on whether we have text content, PDF documents, or both
+    let sourceInstructions = ''
+
+    if (pdfDocuments && pdfDocuments.length > 0) {
+      // PDF documents are attached - Claude will read them directly
+      const pdfNames = pdfDocuments.map(d => d.filename).join(', ')
+      sourceInstructions = `
+🚨🚨🚨 MANDATORY - READ THE ATTACHED PDF DOCUMENT(S) 🚨🚨🚨
+
+The teacher uploaded PDF document(s) that you MUST read and use: ${pdfNames}
+
+REQUIREMENTS:
+1. CAREFULLY READ the attached PDF document(s) - they contain the source material
+2. ONLY use information from the PDF(s) - do NOT invent or make up content
+3. Use the EXACT terms, definitions, and concepts from the document(s)
+4. The TOPIC of your guide MUST match what the PDF(s) cover
+5. If the PDF is about marine organisms, create content about marine organisms
+6. If the PDF is about chemistry, create content about chemistry
+7. NEVER substitute different subject matter than what's in the PDF(s)
+8. Quote or paraphrase directly from the PDF content
+
+The user's request tells you HOW to format (sections, quizzes, etc.)
+The ATTACHED PDF(s) tell you WHAT content to include.
+
+${sourceContent ? `
+=== ADDITIONAL TEXT CONTENT ===
+${sourceContent.slice(0, 30000)}
+=== END ADDITIONAL TEXT CONTENT ===
+` : ''}
+
+IMPORTANT: Generate content based on the attached PDF document(s). Do NOT use your general knowledge about other topics.
+`
+    } else if (sourceContent) {
+      // Text content only (normal extraction worked)
+      sourceInstructions = `
+🚨🚨🚨 MANDATORY - READ AND USE THIS SOURCE MATERIAL 🚨🚨🚨
+
+The teacher uploaded SOURCE MATERIAL that you MUST use. Failure to use it is a critical error.
+
+REQUIREMENTS:
+1. READ the source material below BEFORE generating anything
+2. ONLY use information from the source - do NOT invent or make up content
+3. Use the EXACT terms, definitions, and concepts from the source
+4. The TOPIC of your guide MUST match what the source covers
+5. If the source is about marine organisms, create content about marine organisms
+6. If the source is about chemistry, create content about chemistry
+7. NEVER substitute different subject matter than what's in the source
+8. Quote or paraphrase directly from the source
+
+The user's request tells you HOW to format (sections, quizzes, etc.)
+The SOURCE MATERIAL tells you WHAT content to include.
+
+=== BEGIN SOURCE MATERIAL (YOU MUST USE THIS!) ===
+${sourceContent.slice(0, 50000)}
+=== END SOURCE MATERIAL ===
+
+IMPORTANT: Generate content based on the source material above. Do NOT use your general knowledge about other topics.
+`
+    }
+
+    const prompt = `You are an expert educational content creator. Generate a structured study guide.
+
+${sourceInstructions}
+
+${modeInstructions}
+
+USER REQUEST: ${description}
+${subject ? `SUBJECT: ${subject}` : ''}
+${gradeLevel ? `GRADE LEVEL: ${gradeLevel}` : ''}
+${existingContent ? `\nEXISTING GUIDE CONTENT (${mode === 'add' ? 'add to this, do not duplicate' : 'for context'}):\n${existingContent}` : ''}
+
+Generate a JSON object representing a custom study guide. The structure MUST follow this exact format:
+
+{
+  "version": "1.0",
+  "sections": [
+    // Array of section objects
+  ]
+}
+
+SECTION TYPES YOU CAN USE:
+
+1. TEXT SECTION:
+{
+  "id": "unique-id",
+  "type": "text",
+  "title": "Section Title",
+  "content": {
+    "type": "text",
+    "markdown": "**Bold text**, *italic*, lists, etc."
+  }
+}
+
+2. COLLAPSIBLE SECTION (with nested children):
+{
+  "id": "unique-id",
+  "type": "section",
+  "title": "Main Topic",
+  "collapsed": false,
+  "content": { "type": "text", "markdown": "" },
+  "children": [
+    // Array of other sections (text, alert, quiz, etc.)
+  ]
+}
+
+3. ALERT/CALLOUT:
+{
+  "id": "unique-id",
+  "type": "alert",
+  "content": {
+    "type": "alert",
+    "variant": "info" | "warning" | "success" | "exam-tip",
+    "title": "Optional Title",
+    "message": "The alert message content"
+  }
+}
+
+4. DEFINITION:
+{
+  "id": "unique-id",
+  "type": "definition",
+  "content": {
+    "type": "definition",
+    "term": "Key Term",
+    "definition": "The definition of the term",
+    "examples": ["Example 1", "Example 2"]
+  }
+}
+
+5. TABLE:
+{
+  "id": "unique-id",
+  "type": "table",
+  "title": "Comparison Table",
+  "content": {
+    "type": "table",
+    "headers": ["Header 1", "Header 2", "Header 3"],
+    "rows": [
+      ["Row 1 Col 1", "Row 1 Col 2", "Row 1 Col 3"],
+      ["Row 2 Col 1", "Row 2 Col 2", "Row 2 Col 3"]
+    ],
+    "headerStyle": "blue" | "green" | "purple" | "default"
+  }
+}
+
+6. QUIZ:
+{
+  "id": "unique-id",
+  "type": "quiz",
+  "title": "Practice Questions",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "id": "q1",
+        "questionType": "multiple-choice",
+        "question": "What is...?",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": "Option B",
+        "explanation": "Because..."
+      },
+      {
+        "id": "q2",
+        "questionType": "true-false",
+        "question": "Statement to evaluate",
+        "options": ["True", "False"],
+        "correctAnswer": "True",
+        "explanation": "This is true because..."
+      },
+      {
+        "id": "q3",
+        "questionType": "short-answer",
+        "question": "Explain...",
+        "correctAnswer": "Expected answer keywords",
+        "explanation": "A complete answer includes..."
+      }
+    ]
+  }
+}
+
+7. CHECKLIST:
+{
+  "id": "unique-id",
+  "type": "checklist",
+  "title": "Study Checklist",
+  "content": {
+    "type": "checklist",
+    "items": [
+      { "id": "item1", "label": "Review chapter notes" },
+      { "id": "item2", "label": "Complete practice problems" }
+    ]
+  }
+}
+
+GUIDELINES:
+1. Generate unique IDs for all sections (use format like "sec-1", "def-2", "quiz-3")
+2. Create a logical structure with clear hierarchy
+3. Use collapsible sections to organize related content
+4. Include a variety of block types based on what's appropriate for the content
+5. Add exam tips and alerts where helpful
+6. Create quizzes to test understanding
+7. Use tables for comparisons or data
+8. Include definitions for key terms
+9. Add checklists for actionable items
+
+IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON must be valid and parseable.`
+
+    console.log('📊 Starting custom guide generation...')
+    console.log('📄 PDF documents for vision:', pdfDocuments?.length || 0)
+
+    // Build content array - include PDF documents if provided (for complex PDFs that couldn't be text-extracted)
+    let messageContent: any
+
+    if (pdfDocuments && pdfDocuments.length > 0) {
+      // Use multi-part content with PDF documents
+      const contentParts: any[] = []
+
+      // Add PDF documents first so Claude can read them
+      for (const doc of pdfDocuments) {
+        console.log(`📄 Adding PDF document to Claude request: ${doc.filename} (${doc.buffer.length} bytes)`)
+        contentParts.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: doc.buffer.toString('base64')
+          }
+        })
+      }
+
+      // Add the text prompt after the documents
+      contentParts.push({
+        type: 'text',
+        text: prompt
+      })
+
+      messageContent = contentParts
+    } else {
+      // Simple text-only prompt
+      messageContent = prompt
+    }
+
+    const stream = await this.anthropic.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      temperature: 0.7,
+      messages: [
+        {
+          role: 'user',
+          content: messageContent
+        }
+      ]
+    })
+
+    let fullContent = ''
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+        const text = chunk.delta.text
+        fullContent += text
+        yield text
+      }
+    }
+
+    const finalMessage = await stream.finalMessage()
+    const actualUsage = {
+      input_tokens: finalMessage.usage.input_tokens,
+      output_tokens: finalMessage.usage.output_tokens,
+      total_tokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens
+    }
+
+    console.log('✅ Custom guide generation complete - Token Usage:', actualUsage)
+
+    return {
+      content: fullContent,
+      usage: actualUsage
     }
   }
 }
