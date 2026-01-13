@@ -92,6 +92,7 @@ export interface EditorGuideMetadata {
   title: string
   subject: string
   gradeLevel: string
+  className?: string
   estimatedDuration?: number
   difficulty?: 'beginner' | 'intermediate' | 'advanced'
   tags?: string[]

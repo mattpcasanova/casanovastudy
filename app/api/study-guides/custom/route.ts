@@ -5,10 +5,11 @@ import { CustomGuideContent } from '@/lib/types/custom-guide'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { title, subject, gradeLevel, customContent, userId: bodyUserId } = body as {
+    const { title, subject, gradeLevel, className, customContent, userId: bodyUserId } = body as {
       title: string
       subject: string
       gradeLevel: string
+      className?: string
       customContent: CustomGuideContent
       userId?: string
     }
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
         format: 'custom',
         content: `Custom study guide: ${title}`,
         custom_content: customContent,
+        class_name: className || null,
         file_count: 0
       })
       .select('id')

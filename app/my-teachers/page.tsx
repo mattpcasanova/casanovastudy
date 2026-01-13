@@ -21,7 +21,8 @@ import {
   ListChecks,
   AlignLeft,
   Search,
-  UserPlus
+  UserPlus,
+  FileText
 } from "lucide-react"
 
 interface StudyGuide {
@@ -56,6 +57,24 @@ interface SavedTeacher {
   }
 }
 
+interface GradeReport {
+  id: string
+  created_at: string
+  user_id: string
+  exam_title?: string
+  class_name?: string
+  class_period?: string
+  total_marks: number
+  total_possible_marks: number
+  percentage: number
+  grade: string
+  teacher: {
+    first_name?: string
+    last_name?: string
+    email: string
+  }
+}
+
 const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   outline: AlignLeft,
   flashcards: Layers,
@@ -78,6 +97,7 @@ export default function MyTeachersPage() {
   const router = useRouter()
   const [guides, setGuides] = useState<StudyGuide[]>([])
   const [savedTeachers, setSavedTeachers] = useState<SavedTeacher[]>([])
+  const [gradeReports, setGradeReports] = useState<GradeReport[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("feed")
 
@@ -107,6 +127,19 @@ export default function MyTeachersPage() {
     }
   }, [])
 
+  const fetchGradeReports = useCallback(async () => {
+    try {
+      const response = await fetch("/api/my-grade-reports")
+      const data = await response.json()
+
+      if (response.ok) {
+        setGradeReports(data.reports || [])
+      }
+    } catch (error) {
+      console.error("Error fetching grade reports:", error)
+    }
+  }, [])
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth/signin")
@@ -114,11 +147,11 @@ export default function MyTeachersPage() {
     }
 
     if (user) {
-      Promise.all([fetchFeed(), fetchSavedTeachers()]).finally(() => {
+      Promise.all([fetchFeed(), fetchSavedTeachers(), fetchGradeReports()]).finally(() => {
         setLoading(false)
       })
     }
-  }, [user, authLoading, router, fetchFeed, fetchSavedTeachers])
+  }, [user, authLoading, router, fetchFeed, fetchSavedTeachers, fetchGradeReports])
 
   const handleTeacherChange = (teacherId: string, isAdded: boolean) => {
     if (!isAdded) {
@@ -233,6 +266,15 @@ export default function MyTeachersPage() {
                 {savedTeachers.length > 0 && (
                   <Badge variant="secondary" className="ml-1">
                     {savedTeachers.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="grades" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Grade Reports
+                {gradeReports.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {gradeReports.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -399,6 +441,68 @@ export default function MyTeachersPage() {
                           </div>
                         </CardContent>
                       </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="grades" className="mt-6">
+              {gradeReports.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      No grade reports yet
+                    </h3>
+                    <p className="text-muted-foreground">
+                      When teachers grade your exams and link them to your account, they&apos;ll appear here.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {gradeReports.map((report) => {
+                    const teacherName = report.teacher.first_name && report.teacher.last_name
+                      ? `${report.teacher.first_name} ${report.teacher.last_name}`
+                      : report.teacher.first_name || report.teacher.email.split("@")[0]
+
+                    const gradeColor = (() => {
+                      switch (report.grade) {
+                        case "A": return "text-green-600 bg-green-100"
+                        case "B": return "text-blue-600 bg-blue-100"
+                        case "C": return "text-yellow-600 bg-yellow-100"
+                        case "D": return "text-orange-600 bg-orange-100"
+                        default: return "text-red-600 bg-red-100"
+                      }
+                    })()
+
+                    return (
+                      <Link key={report.id} href={`/grade-report/${report.id}`}>
+                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <div className={`h-12 w-12 rounded-lg flex items-center justify-center text-lg font-bold ${gradeColor}`}>
+                                {report.grade}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold truncate">
+                                  {report.exam_title || "Untitled Exam"}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  From {teacherName}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span>{report.total_marks}/{report.total_possible_marks} ({report.percentage.toFixed(1)}%)</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     )
                   })}
                 </div>

@@ -10,10 +10,11 @@ export async function PUT(
     const { id } = await params
 
     const body = await request.json()
-    const { title, subject, gradeLevel, customContent, userId: bodyUserId } = body as {
+    const { title, subject, gradeLevel, className, customContent, userId: bodyUserId } = body as {
       title?: string
       subject?: string
       gradeLevel?: string
+      className?: string
       customContent: CustomGuideContent
       userId?: string
     }
@@ -82,6 +83,10 @@ export async function PUT(
       updates.grade_level = gradeLevel
     }
 
+    if (className !== undefined) {
+      updates.class_name = className || null
+    }
+
     // Update the study guide
     const { error: updateError } = await supabase
       .from('study_guides')
@@ -140,7 +145,7 @@ export async function GET(
     // Fetch the study guide
     const { data: guide, error } = await supabase
       .from('study_guides')
-      .select('id, title, subject, grade_level, format, custom_content, user_id')
+      .select('id, title, subject, grade_level, format, custom_content, class_name, user_id')
       .eq('id', id)
       .single()
 
@@ -164,6 +169,7 @@ export async function GET(
       title: guide.title,
       subject: guide.subject,
       gradeLevel: guide.grade_level,
+      className: guide.class_name,
       format: guide.format,
       customContent: guide.custom_content
     })

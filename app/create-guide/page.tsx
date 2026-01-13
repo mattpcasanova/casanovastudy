@@ -17,6 +17,7 @@ interface EditGuideData {
   title: string
   subject: string
   gradeLevel: string
+  className?: string
   customContent: CustomGuideContent | null
 }
 
@@ -50,6 +51,7 @@ export default function CreateGuidePage() {
           title: data.title,
           subject: data.subject,
           gradeLevel: data.gradeLevel,
+          className: data.className,
           customContent: data.customContent
         })
       } catch (err) {
@@ -74,6 +76,7 @@ export default function CreateGuidePage() {
     title: string
     subject: string
     gradeLevel: string
+    className?: string
     customContent: ReturnType<typeof blocksToCustomContent>
   }) => {
     if (!user) return
@@ -223,7 +226,8 @@ export default function CreateGuidePage() {
     ? {
         title: editData.title,
         subject: editData.subject,
-        gradeLevel: editData.gradeLevel
+        gradeLevel: editData.gradeLevel,
+        className: editData.className
       }
     : undefined
 
@@ -278,6 +282,7 @@ export default function CreateGuidePage() {
           onSave={handleSave}
           onCancel={handleCancel}
           isEditing={!!editId}
+          isTeacher={user?.user_type === 'teacher'}
         />
       </div>
     </div>

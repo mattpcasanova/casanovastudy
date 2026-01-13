@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
         const className = formData.get('className') as string | null
         const classPeriod = formData.get('classPeriod') as string | null
         const examTitle = formData.get('examTitle') as string | null
+        const studentUserId = formData.get('studentUserId') as string | null
 
         if (!studentExamFiles || studentExamFiles.length === 0) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({
@@ -287,6 +288,7 @@ export async function POST(request: NextRequest) {
             student_name: studentName,
             student_first_name: studentFirstName || null,
             student_last_name: studentLastName || null,
+            student_user_id: studentUserId || null,
             answer_sheet_filename: markSchemeFiles[0]?.name || null,
             student_exam_filename: originalFilename || studentExamFiles.map(f => f.name).join(', '),
             original_filename: originalFilename || null,

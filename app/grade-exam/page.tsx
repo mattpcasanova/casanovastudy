@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
 import { AutocompleteInput } from "@/components/autocomplete-input"
+import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
 import { processFile } from "@/lib/pdf-to-images"
 
@@ -55,6 +56,7 @@ export default function GradeExamPage() {
   const [className, setClassName] = useState("")
   const [classPeriod, setClassPeriod] = useState("")
   const [examTitle, setExamTitle] = useState("")
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null)
 
   const { toast } = useToast()
 
@@ -293,6 +295,7 @@ export default function GradeExamPage() {
       if (className.trim()) formData.append("className", className.trim())
       if (classPeriod.trim()) formData.append("classPeriod", classPeriod.trim())
       if (examTitle.trim()) formData.append("examTitle", examTitle.trim())
+      if (selectedStudentUserId) formData.append("studentUserId", selectedStudentUserId)
 
       if (isTeacher) {
         const response = await fetch("/api/grade-exam-stream", {
@@ -658,6 +661,17 @@ export default function GradeExamPage() {
                           <Label htmlFor="classPeriod" className="text-gray-700 font-medium text-sm">Period</Label>
                           <AutocompleteInput id="classPeriod" placeholder="e.g., 1, 2A, Morning" value={classPeriod} onChange={setClassPeriod} disabled={isGrading} className="bg-white border-gray-200" fieldName="classPeriod" userId={user?.id} />
                         </div>
+                      </div>
+
+                      {/* Link to Student Account */}
+                      <div className="pt-4 border-t border-gray-200">
+                        <StudentLinkSelector
+                          firstName={studentFirstName}
+                          lastName={studentLastName}
+                          selectedStudentId={selectedStudentUserId}
+                          onSelect={(studentId) => setSelectedStudentUserId(studentId)}
+                          disabled={isGrading}
+                        />
                       </div>
                     </div>
                   )}

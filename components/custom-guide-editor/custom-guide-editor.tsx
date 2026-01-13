@@ -52,7 +52,8 @@ import { SectionBlock } from "./blocks/section-block"
 import { AIAssistant } from "./ai-assistant"
 import CustomFormat from "@/components/formats/custom-format"
 import { ClientCompression } from "@/lib/client-compression"
-import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp, Palette, ChevronDown } from "lucide-react"
+import { deduplicateBlocks, countDuplicates } from "@/lib/deduplication"
+import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp, Palette, ChevronDown, Sparkles } from "lucide-react"
 
 interface CustomGuideEditorProps {
   initialContent?: EditorBlock[]
@@ -60,15 +61,18 @@ interface CustomGuideEditorProps {
     title: string
     subject: string
     gradeLevel: string
+    className?: string
   }
   onSave: (data: {
     title: string
     subject: string
     gradeLevel: string
+    className?: string
     customContent: ReturnType<typeof blocksToCustomContent>
   }) => Promise<void>
   onCancel?: () => void
   isEditing?: boolean
+  isTeacher?: boolean
 }
 
 const subjects = [
@@ -137,7 +141,7 @@ interface EditorContentProps extends Omit<CustomGuideEditorProps, 'initialConten
   setSourceFiles: React.Dispatch<React.SetStateAction<SourceFile[]>>
 }
 
-function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFiles, setSourceFiles }: EditorContentProps) {
+function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata, sourceFiles, setSourceFiles }: EditorContentProps) {
   const {
     blocks,
     selectedBlockId,
@@ -302,16 +306,23 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
     // Pass regenerateIds=true to ensure unique IDs and avoid React key conflicts
     const newBlock = sectionToBlock(section, true)
 
+    // Deduplicate the block's internal content (e.g., duplicate checklist items within same block)
+    const deduplicatedBlocks = deduplicateBlocks([newBlock])
+    const cleanBlock = deduplicatedBlocks[0]
+
+    if (!cleanBlock) return // Block was entirely duplicate
+
     if (mode === 'replace' && isFirst) {
       // First section in replace mode - clear existing and start fresh
-      initializeBlocks([newBlock])
+      initializeBlocks([cleanBlock])
     } else if (mode === 'replace') {
       // Subsequent sections in replace mode - append using functional update
-      appendBlocks([newBlock])
+      // Also run deduplication against existing blocks
+      appendBlocks([cleanBlock])
     } else {
       // Add mode - use appendBlocks with replaceMatching for quiz/checklist merging
       // This handles cases like "add 3 questions to the quiz"
-      appendBlocks([newBlock], { replaceMatching: true })
+      appendBlocks([cleanBlock], { replaceMatching: true })
     }
   }
 
@@ -332,6 +343,7 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
         title: metadata.title,
         subject: metadata.subject,
         gradeLevel: metadata.gradeLevel,
+        className: metadata.className || undefined,
         customContent: blocksToCustomContent(blocks, metadata)
       })
     } catch (error) {
@@ -354,6 +366,31 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
 
   // Count definitions for showing/hiding the bulk actions menu
   const definitionCount = countDefinitionBlocks(blocks)
+
+  // Deduplicate all blocks
+  const handleDeduplicate = () => {
+    const duplicateInfo = countDuplicates(blocks)
+    if (duplicateInfo.totalDuplicates === 0) {
+      alert('No duplicates found!')
+      return
+    }
+
+    const deduplicatedBlocks = deduplicateBlocks(blocks)
+    reorderBlocks(deduplicatedBlocks)
+
+    const messages: string[] = []
+    if (duplicateInfo.byType.blocks > 0) {
+      messages.push(`${duplicateInfo.byType.blocks} duplicate block(s)`)
+    }
+    if (duplicateInfo.byType.checklistItems > 0) {
+      messages.push(`${duplicateInfo.byType.checklistItems} duplicate checklist item(s)`)
+    }
+    if (duplicateInfo.byType.quizQuestions > 0) {
+      messages.push(`${duplicateInfo.byType.quizQuestions} duplicate quiz question(s)`)
+    }
+
+    alert(`Removed: ${messages.join(', ')}`)
+  }
 
   const renderBlock = (block: EditorBlock) => {
     const isSelected = selectedBlockId === block.id
@@ -494,6 +531,17 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
                 </SelectContent>
               </Select>
             </div>
+            {isTeacher && (
+              <div>
+                <Label htmlFor="className">Class (Optional)</Label>
+                <Input
+                  id="className"
+                  placeholder="e.g., Period 1, Algebra"
+                  value={metadata.className || ''}
+                  onChange={(e) => setMetadata({ className: e.target.value })}
+                />
+              </div>
+            )}
           </div>
 
           {/* Source Material Upload */}
@@ -660,35 +708,44 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
           <div className="flex items-center gap-2 flex-wrap">
             <BlockToolbar onAddBlock={handleAddBlock} />
 
-            {/* Bulk Actions dropdown - only show when there are definition blocks */}
-            {definitionCount > 0 && (
+            {/* Bulk Actions dropdown - show when there are blocks */}
+            {blocks.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
-                    <Palette className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
                     Bulk Actions
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Palette className="h-4 w-4 mr-2" />
-                      Change All Definition Colors
-                      <span className="ml-2 text-xs text-muted-foreground">({definitionCount})</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {definitionColorVariants.map(({ value, label, preview }) => (
-                        <DropdownMenuItem
-                          key={value}
-                          onClick={() => handleBulkUpdateDefinitionColors(value)}
-                        >
-                          <div className={`h-3 w-3 rounded-full ${preview} mr-2`} />
-                          {label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+                  {/* Remove Duplicates option */}
+                  <DropdownMenuItem onClick={handleDeduplicate}>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Remove Duplicates
+                  </DropdownMenuItem>
+
+                  {/* Definition colors - only show if there are definitions */}
+                  {definitionCount > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <Palette className="h-4 w-4 mr-2" />
+                        Change All Definition Colors
+                        <span className="ml-2 text-xs text-muted-foreground">({definitionCount})</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {definitionColorVariants.map(({ value, label, preview }) => (
+                          <DropdownMenuItem
+                            key={value}
+                            onClick={() => handleBulkUpdateDefinitionColors(value)}
+                          >
+                            <div className={`h-3 w-3 rounded-full ${preview} mr-2`} />
+                            {label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -757,7 +814,8 @@ export default function CustomGuideEditor({
   initialMetadata,
   onSave,
   onCancel,
-  isEditing
+  isEditing,
+  isTeacher
 }: CustomGuideEditorProps) {
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([])
 
@@ -771,6 +829,7 @@ export default function CustomGuideEditor({
         onSave={onSave}
         onCancel={onCancel}
         isEditing={isEditing}
+        isTeacher={isTeacher}
         initialMetadata={initialMetadata}
         sourceFiles={sourceFiles}
         setSourceFiles={setSourceFiles}
@@ -785,7 +844,7 @@ function EditorInitializer({
   initialMetadata
 }: {
   initialContent?: EditorBlock[]
-  initialMetadata?: { title: string; subject: string; gradeLevel: string }
+  initialMetadata?: { title: string; subject: string; gradeLevel: string; className?: string }
 }) {
   const { initializeBlocks, setMetadata } = useEditor()
   const initialized = useRef(false)
