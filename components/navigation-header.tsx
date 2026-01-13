@@ -108,6 +108,40 @@ export default function NavigationHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Grading Dropdown - Only for teachers */}
+              {mounted && user && isTeacher && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={isGradingActive ? 'secondary' : 'ghost'}
+                      className={`h-10 ${
+                        isGradingActive
+                          ? 'bg-white/20 text-white hover:bg-white/30'
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Grading
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/grade-exam" className="flex items-center cursor-pointer">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Grade Exam
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/graded-exams" className="flex items-center cursor-pointer">
+                        <ClipboardList className="h-4 w-4 mr-2" />
+                        My Reports
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
               {/* My Teachers Button - For logged-in students */}
               {mounted && user && !isTeacher && (
                 <Button
@@ -142,40 +176,6 @@ export default function NavigationHeader() {
                     My Students
                   </Link>
                 </Button>
-              )}
-
-              {/* Grading Dropdown - Only for teachers */}
-              {mounted && user && isTeacher && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={isGradingActive ? 'secondary' : 'ghost'}
-                      className={`h-10 ${
-                        isGradingActive
-                          ? 'bg-white/20 text-white hover:bg-white/30'
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Grading
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href="/grade-exam" className="flex items-center cursor-pointer">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Grade Exam
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/graded-exams" className="flex items-center cursor-pointer">
-                        <ClipboardList className="h-4 w-4 mr-2" />
-                        My Reports
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               )}
             </nav>
 

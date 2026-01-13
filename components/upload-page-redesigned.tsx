@@ -26,6 +26,13 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type { StudyGuideData } from "@/types"
 
 interface UploadPageProps {
@@ -44,6 +51,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [additionalInstructions, setAdditionalInstructions] = useState("")
   const [dragActive, setDragActive] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showConversionHelp, setShowConversionHelp] = useState(false)
+  const [unsupportedFileName, setUnsupportedFileName] = useState("")
 
   const { toast } = useToast()
 
@@ -53,11 +62,12 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     const validTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint', // Old PPT - will show conversion dialog
+      'application/x-iwork-keynote-sffkey', // Keynote - will show conversion dialog
       '' // Some browsers don't detect MIME type for older Office formats
     ]
-    const validExtensions = ['.pdf', '.ppt', '.pptx', '.docx', '.doc']
+    const validExtensions = ['.pdf', '.pptx', '.docx', '.doc', '.ppt', '.key']
 
     // Debug logging
     console.log('File validation:', {
@@ -72,14 +82,18 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     const hasValidExtension = validExtensions.includes(extension)
     const hasValidType = validTypes.includes(file.type)
 
-    if (!hasValidType && !hasValidExtension) {
-      return `${file.name}: Invalid file type (${file.type || 'unknown'}). Please upload PDF, PPT, PPTX, or DOCX files.`
+    // Check for old .ppt format or Keynote - show helpful dialog
+    const isOldPPT = extension === '.ppt' || file.type === 'application/vnd.ms-powerpoint'
+    const isKeynote = extension === '.key' || file.type === 'application/x-iwork-keynote-sffkey'
+
+    if (isOldPPT || isKeynote) {
+      setUnsupportedFileName(file.name)
+      setShowConversionHelp(true)
+      return `UNSUPPORTED_FORMAT` // Special marker to not show toast
     }
 
-    // Check for old .ppt format - we can't process these client-side
-    const isOldPPT = extension === '.ppt' || file.type === 'application/vnd.ms-powerpoint'
-    if (isOldPPT) {
-      return `${file.name}: Old PowerPoint format (.ppt) cannot be processed. Please open in PowerPoint and Save As → .pptx, or export to PDF.`
+    if (!hasValidType && !hasValidExtension) {
+      return `${file.name}: Invalid file type (${file.type || 'unknown'}). Please upload PDF, PPTX, or DOCX files.`
     }
 
     // For PPTX and DOCX, we can process client-side (no Cloudinary limit)
@@ -126,11 +140,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const handleFiles = (newFiles: File[]) => {
     const validationErrors: string[] = []
     const validFiles: File[] = []
+    let hasUnsupportedFormat = false
 
     newFiles.forEach((file) => {
       const error = validateFile(file)
       if (error) {
-        validationErrors.push(error)
+        if (error === 'UNSUPPORTED_FORMAT') {
+          hasUnsupportedFormat = true // Dialog will be shown by validateFile
+        } else {
+          validationErrors.push(error)
+        }
       } else {
         validFiles.push(file)
       }
@@ -146,11 +165,13 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         description: errorMessage,
         duration: 8000, // Show longer so user sees it
       })
+    } else if (!hasUnsupportedFormat) {
+      // Only clear errors if no unsupported format (dialog handles that case)
+      setErrors((prev) => ({ ...prev, files: "" }))
     }
 
     if (validFiles.length > 0) {
       setFiles((prev) => [...prev, ...validFiles])
-      setErrors((prev) => ({ ...prev, files: "" }))
     }
   }
 
@@ -290,7 +311,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.ppt,.pptx,.docx"
+                      accept=".pdf,.ppt,.pptx,.docx,.key"
                       onChange={handleFileInput}
                       className="hidden"
                       disabled={isGenerating}
@@ -298,7 +319,10 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </label>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Supports PDF, PowerPoint, and Word (max 10MB each)
+                  Supports PDF, PowerPoint (.pptx), and Word (max 50MB)
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Tip: For Keynote or old .ppt files, export to PDF first
                 </p>
               </div>
 
@@ -548,6 +572,66 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           </Button>
         </div>
       </div>
+
+      {/* Conversion Help Dialog for old .ppt files */}
+      <Dialog open={showConversionHelp} onOpenChange={setShowConversionHelp}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertCircle className="h-5 w-5" />
+              File Format Not Supported
+            </DialogTitle>
+            <DialogDescription className="text-left pt-2">
+              <strong>{unsupportedFileName}</strong> cannot be processed directly.
+              {unsupportedFileName.endsWith('.key')
+                ? " Keynote files on Mac are 'bundle' files that browsers cannot read."
+                : " Old PowerPoint format (.ppt) requires conversion."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-700 font-medium">Please export your file as PDF (recommended):</p>
+
+            <div className="space-y-3">
+              <div className="bg-green-50 p-3 rounded-lg">
+                <p className="font-semibold text-green-800 text-sm">Option 1: Export as PDF (Recommended)</p>
+                <ol className="text-sm text-green-700 mt-1 list-decimal list-inside space-y-1">
+                  <li>Open in {unsupportedFileName.endsWith('.key') ? 'Keynote' : 'PowerPoint, Keynote, or Google Slides'}</li>
+                  <li>Go to <strong>File → Export {unsupportedFileName.endsWith('.key') ? 'To → PDF' : 'as PDF'}</strong></li>
+                  <li>Upload the PDF file</li>
+                </ol>
+              </div>
+
+              {!unsupportedFileName.endsWith('.key') && (
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="font-semibold text-blue-800 text-sm">Option 2: Convert to .pptx</p>
+                  <ol className="text-sm text-blue-700 mt-1 list-decimal list-inside space-y-1">
+                    <li>Open the file in Microsoft PowerPoint</li>
+                    <li>Go to <strong>File → Save As</strong></li>
+                    <li>Choose <strong>PowerPoint Presentation (.pptx)</strong></li>
+                    <li>Upload the new .pptx file</li>
+                  </ol>
+                </div>
+              )}
+
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <p className="font-semibold text-purple-800 text-sm">{unsupportedFileName.endsWith('.key') ? 'Option 2' : 'Option 3'}: Use Google Slides (Free)</p>
+                <ol className="text-sm text-purple-700 mt-1 list-decimal list-inside space-y-1">
+                  <li>Go to <a href="https://slides.google.com" target="_blank" rel="noopener noreferrer" className="underline">slides.google.com</a></li>
+                  <li>Upload your file</li>
+                  <li>Download as <strong>PDF</strong></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setShowConversionHelp(false)} className="bg-blue-600 hover:bg-blue-700">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

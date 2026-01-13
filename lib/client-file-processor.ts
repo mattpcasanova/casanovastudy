@@ -14,6 +14,84 @@ export interface ProcessedFileResult {
 }
 
 /**
+ * Extract text from a Keynote (.key) file client-side
+ * Keynote files are zip archives with XML content
+ *
+ * NOTE: On modern macOS, .key files are "bundle" files (directories)
+ * which browsers cannot read directly. This will fail with NotReadableError.
+ */
+export async function extractTextFromKeynote(file: File): Promise<string> {
+  let arrayBuffer: ArrayBuffer
+
+  try {
+    arrayBuffer = await file.arrayBuffer()
+  } catch (error) {
+    // This happens on macOS when .key files are bundle directories
+    if (error instanceof Error && (
+      error.name === 'NotReadableError' ||
+      error.message.includes('could not be read') ||
+      error.message.includes('permission')
+    )) {
+      throw new Error(
+        'Keynote files on Mac cannot be read directly by browsers. ' +
+        'Please open the file in Keynote and go to File → Export To → PDF, then upload the PDF.'
+      )
+    }
+    throw error
+  }
+
+  const buffer = new Uint8Array(arrayBuffer)
+
+  try {
+    const zip = new PizZip(buffer)
+    const slideTexts: string[] = []
+
+    // Keynote stores content in different locations depending on version
+    // Try to find text in various possible locations
+    const possibleTextFiles = Object.keys(zip.files).filter(name =>
+      name.endsWith('.xml') || name.endsWith('.txt') || name.includes('Data')
+    )
+
+    for (const fileName of possibleTextFiles) {
+      try {
+        const content = zip.files[fileName].asText()
+
+        // Extract text from XML tags
+        // Keynote uses various XML formats, try multiple patterns
+        const textMatches = [
+          ...content.matchAll(/<sf:p[^>]*>([^<]*(?:<[^>]+>[^<]*)*)<\/sf:p>/g),
+          ...content.matchAll(/<sfa:s[^>]*>([^<]+)<\/sfa:s>/g),
+          ...content.matchAll(/>([A-Za-z][^<]{10,})</g) // Fallback: any text content > 10 chars
+        ]
+
+        for (const match of textMatches) {
+          const text = match[1]?.replace(/<[^>]+>/g, ' ').trim()
+          if (text && text.length > 5) {
+            slideTexts.push(text)
+          }
+        }
+      } catch {
+        // Skip files that can't be read as text
+      }
+    }
+
+    if (slideTexts.length === 0) {
+      throw new Error('No text content found in Keynote file')
+    }
+
+    // Remove duplicates and join
+    const uniqueTexts = [...new Set(slideTexts)]
+    return uniqueTexts.join('\n\n')
+  } catch (error) {
+    console.error('Keynote extraction error:', error)
+    if (error instanceof Error && error.message.includes('Keynote files on Mac')) {
+      throw error // Re-throw our custom error
+    }
+    throw new Error('Failed to extract text from Keynote file. Try exporting to PDF from Keynote.')
+  }
+}
+
+/**
  * Extract text from a PPTX file client-side
  * Uses PizZip to parse the OOXML format
  */
@@ -113,6 +191,8 @@ export function canProcessClientSide(file: File): boolean {
   const extension = file.name.split('.').pop()?.toLowerCase()
 
   // PPTX and DOCX can be processed with PizZip
+  // Note: Keynote (.key) files are excluded because on macOS they're bundle directories
+  // that browsers cannot read. Users are prompted to convert to PDF instead.
   if (extension === 'pptx' || extension === 'docx') {
     return true
   }
@@ -149,6 +229,17 @@ export async function processFileClientSide(
   if (extension === 'pptx') {
     onProgress?.('Extracting text from PowerPoint...')
     const text = await extractTextFromPPTX(file)
+    return {
+      name: file.name,
+      type: 'text',
+      content: text
+    }
+  }
+
+  // Handle Keynote - extract text
+  if (extension === 'key') {
+    onProgress?.('Extracting text from Keynote presentation...')
+    const text = await extractTextFromKeynote(file)
     return {
       name: file.name,
       type: 'text',
@@ -200,6 +291,7 @@ export function shouldBypassCloudinary(file: File): boolean {
   }
 
   // For PPTX files, we can extract text client-side (more reliable than Cloudinary + server extraction)
+  // Note: Keynote (.key) excluded - users are prompted to convert to PDF instead
   if (extension === 'pptx') {
     return true
   }
