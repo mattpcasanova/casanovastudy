@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 // GET - List teachers the current user follows
 export async function GET(request: NextRequest) {
@@ -12,34 +12,51 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
-    // Get list of teachers the user follows with their profile info
-    const { data: follows, error } = await supabase
+    // Get all follow records for this user
+    const { data: followRecords, error: followsError } = await supabase
       .from('teacher_follows')
-      .select(`
-        id,
-        created_at,
-        teacher:user_profiles!teacher_follows_teacher_id_fkey (
-          id,
-          email,
-          first_name,
-          last_name,
-          display_name,
-          bio,
-          is_profile_public
-        )
-      `)
+      .select('id, created_at, teacher_id')
       .eq('follower_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching follows:', error)
+    if (followsError) {
+      console.error('Error fetching follows:', followsError)
       return NextResponse.json(
         { error: 'Failed to fetch followed teachers' },
         { status: 500 }
       )
     }
+
+    if (!followRecords || followRecords.length === 0) {
+      return NextResponse.json({ follows: [] })
+    }
+
+    // Get the teacher profiles for these teacher IDs
+    const teacherIds = followRecords.map(f => f.teacher_id)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('id, email, first_name, last_name, display_name, bio, is_profile_public')
+      .in('id', teacherIds)
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch teacher profiles' },
+        { status: 500 }
+      )
+    }
+
+    // Create a map of profiles by ID for easy lookup
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
+
+    // Combine follows with teacher profiles
+    const follows = followRecords.map(follow => ({
+      id: follow.id,
+      created_at: follow.created_at,
+      teacher: profileMap.get(follow.teacher_id) || null
+    })).filter(f => f.teacher !== null)
 
     return NextResponse.json({ follows })
   } catch (error) {
@@ -80,7 +97,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Verify the teacher exists and is a teacher with a public profile
     const { data: teacher, error: teacherError } = await supabase

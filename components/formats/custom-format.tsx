@@ -32,7 +32,8 @@ import {
   isQuizContent,
   isChecklistContent,
   isTableContent,
-  QuizQuestion
+  QuizQuestion,
+  DefinitionColorVariant
 } from '@/lib/types/custom-guide'
 
 interface CustomFormatProps {
@@ -218,6 +219,7 @@ function SectionRenderer({
             term={section.content.term}
             definition={section.content.definition}
             examples={section.content.examples}
+            colorVariant={section.content.colorVariant}
           />
         )
       }
@@ -392,18 +394,76 @@ function TextBlock({ content }: { content: string }) {
 function DefinitionBlock({
   term,
   definition,
-  examples
+  examples,
+  colorVariant = 'purple'
 }: {
   term: string
   definition: string
   examples?: string[]
+  colorVariant?: DefinitionColorVariant
 }) {
+  const getDefinitionStyles = () => {
+    switch (colorVariant) {
+      case 'blue':
+        return {
+          border: 'border-blue-500',
+          bg: 'bg-blue-50',
+          title: 'text-blue-900',
+          text: 'text-blue-800',
+          textLight: 'text-blue-700'
+        }
+      case 'teal':
+        return {
+          border: 'border-teal-500',
+          bg: 'bg-teal-50',
+          title: 'text-teal-900',
+          text: 'text-teal-800',
+          textLight: 'text-teal-700'
+        }
+      case 'green':
+        return {
+          border: 'border-green-500',
+          bg: 'bg-green-50',
+          title: 'text-green-900',
+          text: 'text-green-800',
+          textLight: 'text-green-700'
+        }
+      case 'pink':
+        return {
+          border: 'border-pink-500',
+          bg: 'bg-pink-50',
+          title: 'text-pink-900',
+          text: 'text-pink-800',
+          textLight: 'text-pink-700'
+        }
+      case 'orange':
+        return {
+          border: 'border-orange-500',
+          bg: 'bg-orange-50',
+          title: 'text-orange-900',
+          text: 'text-orange-800',
+          textLight: 'text-orange-700'
+        }
+      case 'purple':
+      default:
+        return {
+          border: 'border-purple-500',
+          bg: 'bg-purple-50',
+          title: 'text-purple-900',
+          text: 'text-purple-800',
+          textLight: 'text-purple-700'
+        }
+    }
+  }
+
+  const styles = getDefinitionStyles()
+
   return (
-    <div className="border-l-4 border-purple-500 bg-purple-50 p-4 rounded-r-lg">
-      <h4 className="font-bold text-purple-900 mb-1">{term}</h4>
-      <p className="text-purple-800">{definition}</p>
+    <div className={`border-l-4 ${styles.border} ${styles.bg} p-4 rounded-r-lg`}>
+      <h4 className={`font-bold ${styles.title} mb-1`}>{term}</h4>
+      <p className={styles.text}>{definition}</p>
       {examples && examples.length > 0 && (
-        <div className="mt-2 text-sm text-purple-700">
+        <div className={`mt-2 text-sm ${styles.textLight}`}>
           <span className="font-medium">Examples:</span>
           <ul className="list-disc ml-5 mt-1">
             {examples.map((example, i) => (
@@ -760,19 +820,20 @@ function TableBlock({
   )
 }
 
-// Simple markdown formatter
+// Markdown formatter with improved regex patterns
 function formatMarkdown(content: string): string {
   return content
-    // Headers
+    // Headers (process first, line-based)
     .replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-gray-800 mt-4 mb-2">$1</h4>')
     .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-gray-900 mt-4 mb-2">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-gray-900 mt-6 mb-3">$1</h2>')
-    // Bold and italic
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Bold: use [\s\S] to match across newlines, +? for non-empty non-greedy
+    .replace(/\*\*([\s\S]+?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
+    // Italic: match single * not adjacent to other * (process after bold so ** is already converted)
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>')
     // Lists
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 space-y-1">$&</ul>')
-    // Line breaks
+    // Line breaks (do last)
     .replace(/\n/g, '<br>')
 }

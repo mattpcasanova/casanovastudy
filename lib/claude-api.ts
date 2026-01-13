@@ -1130,20 +1130,32 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
     const modeInstructions = mode === 'add'
       ? `🚨 IMPORTANT: You are MODIFYING an existing study guide. 🚨
 
-READ THE USER'S REQUEST AND THE EXISTING CONTENT CAREFULLY:
+READ THE USER'S REQUEST AND THE EXISTING CONTENT CAREFULLY.
 
-MODIFICATION RULES:
-1. **Adding to existing sections**: If the user asks to "add questions to the quiz", "add items to the checklist", "add definitions", etc., you MUST:
-   - Find the relevant existing section in the EXISTING GUIDE CONTENT below
-   - Create a NEW version of that section with ALL the original content PLUS the new additions
-   - The section you output will REPLACE the original (don't worry about IDs)
-   - Example: Existing quiz has 3 questions, user wants 2 more → Output a quiz section with ALL 5 questions
+DETERMINE WHAT ACTION THE USER WANTS:
 
-2. **Creating new sections**: If the user asks for something that doesn't exist yet (new topics, different section types), create new sections.
+**IF ADDING CONTENT** (user says "add", "include", "create more", etc.):
+1. Find the relevant existing section in the EXISTING GUIDE CONTENT below
+2. Create a NEW version with ALL original content PLUS your additions
+3. The section you output will REPLACE the original
+4. Example: Existing quiz has 3 questions, user wants 2 more → Output quiz with ALL 5 questions
 
-3. **Never duplicate**: Don't create a section that's nearly identical to an existing one. Either enhance the existing section or create something distinctly different.
+**IF REMOVING/FIXING** (user says "remove", "delete", "fix duplicates", "deduplicate", etc.):
+1. Find the section(s) with duplicates or issues
+2. Output a CLEANED version with duplicates removed
+3. Keep only ONE instance of each unique item
+4. Do NOT add new content - only remove the problematic content
+5. Example: Checklist has "Review notes" twice → Output checklist with "Review notes" only ONCE
 
-CRITICAL: When asked to add items to an existing section (like "add 3 more quiz questions"), you MUST include all the original items from that section PLUS your new additions. Look at the EXISTING GUIDE CONTENT section below to see what already exists.`
+**IF MODIFYING** (user says "change", "update", "make shorter", "reword", etc.):
+1. Find the section to modify
+2. Apply the requested changes
+3. Output the modified version
+
+CRITICAL RULES:
+- When fixing duplicates: IDENTIFY duplicates by comparing labels/content, keep only ONE of each
+- When adding: Include ALL original items plus new ones
+- Output the COMPLETE modified section, not just the changes`
       : `You are creating a new study guide from scratch.`
 
     // Build source instructions based on whether we have text content, PDF documents, or both
@@ -1215,6 +1227,13 @@ ${modeInstructions}
 USER REQUEST: ${description}
 ${subject ? `SUBJECT: ${subject}` : ''}
 ${gradeLevel ? `GRADE LEVEL: ${gradeLevel}` : ''}
+
+🎯 FOLLOW THE USER'S INSTRUCTIONS EXACTLY:
+- If they say "concise", "brief", or "short" → Use SHORT explanations (1-2 sentences max per concept)
+- If they say "detailed" or "comprehensive" → Provide thorough coverage
+- If they specify a number (e.g., "5 questions", "3 definitions") → Create EXACTLY that many
+- If they ask to "remove" or "delete" something → Do NOT include that content
+- If they ask for specific topics → Only cover those topics, nothing extra
 ${existingContent && mode === 'add' ? `
 📋 EXISTING GUIDE CONTENT - READ THIS CAREFULLY 📋
 You MUST reference this when adding to existing sections. If the user asks to add questions to a quiz, FIND THE QUIZ BELOW and include ALL its existing questions plus your new ones.
@@ -1357,6 +1376,14 @@ GUIDELINES:
 7. Use tables for comparisons or data
 8. Include definitions for key terms
 9. Add checklists for actionable items
+
+🚫 CRITICAL - NEVER DUPLICATE CONTENT:
+10. **NEVER repeat content** - Each concept, checklist item, definition, or quiz question should appear EXACTLY ONCE
+11. **Check before adding** - Before creating any item, mentally verify it doesn't duplicate existing content
+12. **Consolidate repetition** - If source material repeats information, consolidate it into ONE location
+13. **Unique checklist items** - Every checklist item must have a distinct, unique label - never repeat the same task
+14. **Unique quiz questions** - Every quiz question must test a different concept
+15. **Unique definitions** - Define each term only once, even if mentioned multiple times in source
 
 IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON must be valid and parseable.`
 

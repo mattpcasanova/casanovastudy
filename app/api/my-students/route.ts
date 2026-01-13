@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 // GET - List students who have this teacher (teacher_follows where teacher_id = current user)
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'You must be logged in' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const teacherId = searchParams.get('teacherId')
 
@@ -14,34 +22,62 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    // Verify the authenticated user is the teacher
+    if (user.id !== teacherId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
 
-    // Get all students who have added this teacher (or been added by this teacher)
-    const { data: follows, error } = await supabase
+    const supabase = createAdminClient()
+
+    // Get all follow records for this teacher
+    const { data: follows, error: followsError } = await supabase
       .from('teacher_follows')
-      .select(`
-        id,
-        created_at,
-        follower_id,
-        student:user_profiles!teacher_follows_follower_id_fkey (
-          id,
-          email,
-          first_name,
-          last_name
-        )
-      `)
+      .select('id, created_at, follower_id')
       .eq('teacher_id', teacherId)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching students:', error)
+    if (followsError) {
+      console.error('Error fetching follows:', followsError)
       return NextResponse.json(
         { error: 'Failed to fetch students' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ students: follows || [] })
+    if (!follows || follows.length === 0) {
+      return NextResponse.json({ students: [] })
+    }
+
+    // Get the student profiles for these follower IDs
+    const followerIds = follows.map(f => f.follower_id)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('id, email, first_name, last_name')
+      .in('id', followerIds)
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch student profiles' },
+        { status: 500 }
+      )
+    }
+
+    // Create a map of profiles by ID for easy lookup
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
+
+    // Combine follows with student profiles
+    const students = follows.map(follow => ({
+      id: follow.id,
+      created_at: follow.created_at,
+      follower_id: follow.follower_id,
+      student: profileMap.get(follow.follower_id) || null
+    })).filter(s => s.student !== null)
+
+    return NextResponse.json({ students })
   } catch (error) {
     console.error('List students error:', error)
     return NextResponse.json(
@@ -54,6 +90,14 @@ export async function GET(request: NextRequest) {
 // POST - Teacher adds a student (creates teacher_follows entry)
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'You must be logged in' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { teacherId, studentId } = body
 
@@ -64,7 +108,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    // Verify the authenticated user is the teacher
+    if (user.id !== teacherId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
+
+    const supabase = createAdminClient()
 
     // Verify the teacher exists and is a teacher
     const { data: teacher, error: teacherError } = await supabase

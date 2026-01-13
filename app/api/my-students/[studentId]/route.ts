@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 // DELETE - Remove a student from teacher's list (delete teacher_follows entry)
 export async function DELETE(
@@ -7,6 +7,14 @@ export async function DELETE(
   { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'You must be logged in' },
+        { status: 401 }
+      )
+    }
+
     const { studentId } = await params
     const { searchParams } = new URL(request.url)
     const teacherId = searchParams.get('teacherId')
@@ -18,7 +26,15 @@ export async function DELETE(
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    // Verify the authenticated user is the teacher
+    if (user.id !== teacherId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
+
+    const supabase = createAdminClient()
 
     // Delete the relationship
     const { error } = await supabase

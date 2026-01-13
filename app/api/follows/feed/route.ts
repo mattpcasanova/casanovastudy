@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 // GET - Get guides from teachers the student has a relationship with
 export async function GET(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '12')
     const offset = (page - 1) * limit
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // First, get the list of teacher IDs the user follows
     const { data: follows, error: followsError } = await supabase

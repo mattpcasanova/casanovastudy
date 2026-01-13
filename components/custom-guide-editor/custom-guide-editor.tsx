@@ -29,8 +29,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEditor, EditorProvider } from "@/lib/contexts/editor-context"
-import { BlockType, EditorBlock, blocksToCustomContent, sectionToBlock } from "@/lib/types/editor-blocks"
+import { BlockType, EditorBlock, blocksToCustomContent, sectionToBlock, DefinitionColorVariant, DefinitionBlockData } from "@/lib/types/editor-blocks"
 import { CustomGuideContent, CustomSection } from "@/lib/types/custom-guide"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu"
 import { BlockToolbar } from "./block-toolbar"
 import { BlockWrapper } from "./blocks/block-wrapper"
 import { TextBlock } from "./blocks/text-block"
@@ -43,7 +52,7 @@ import { SectionBlock } from "./blocks/section-block"
 import { AIAssistant } from "./ai-assistant"
 import CustomFormat from "@/components/formats/custom-format"
 import { ClientCompression } from "@/lib/client-compression"
-import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp } from "lucide-react"
+import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp, Palette, ChevronDown } from "lucide-react"
 
 interface CustomGuideEditorProps {
   initialContent?: EditorBlock[]
@@ -79,6 +88,42 @@ const gradeLevels = [
   { value: '12th', label: '12th Grade' },
   { value: 'college', label: 'College' },
 ]
+
+const definitionColorVariants: { value: DefinitionColorVariant; label: string; preview: string }[] = [
+  { value: 'purple', label: 'Purple', preview: 'bg-purple-500' },
+  { value: 'blue', label: 'Blue', preview: 'bg-blue-500' },
+  { value: 'teal', label: 'Teal', preview: 'bg-teal-500' },
+  { value: 'green', label: 'Green', preview: 'bg-green-500' },
+  { value: 'pink', label: 'Pink', preview: 'bg-pink-500' },
+  { value: 'orange', label: 'Orange', preview: 'bg-orange-500' },
+]
+
+// Helper to count definition blocks (including nested in sections)
+function countDefinitionBlocks(blocks: EditorBlock[]): number {
+  let count = 0
+  for (const block of blocks) {
+    if (block.type === 'definition') count++
+    if (block.children) count += countDefinitionBlocks(block.children)
+  }
+  return count
+}
+
+// Helper to update all definition block colors
+function updateAllDefinitionColors(
+  blocks: EditorBlock[],
+  colorVariant: DefinitionColorVariant
+): EditorBlock[] {
+  return blocks.map(block => {
+    const updatedBlock = { ...block }
+    if (block.type === 'definition') {
+      updatedBlock.data = { ...(block.data as DefinitionBlockData), colorVariant }
+    }
+    if (block.children) {
+      updatedBlock.children = updateAllDefinitionColors(block.children, colorVariant)
+    }
+    return updatedBlock
+  })
+}
 
 interface SourceFile {
   name: string
@@ -300,6 +345,15 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
   const handleAddBlock = (type: BlockType) => {
     addBlock(type, selectedBlockId || undefined)
   }
+
+  // Bulk update all definition colors
+  const handleBulkUpdateDefinitionColors = (colorVariant: DefinitionColorVariant) => {
+    const updatedBlocks = updateAllDefinitionColors(blocks, colorVariant)
+    reorderBlocks(updatedBlocks) // Use reorderBlocks to update the entire block array
+  }
+
+  // Count definitions for showing/hiding the bulk actions menu
+  const definitionCount = countDefinitionBlocks(blocks)
 
   const renderBlock = (block: EditorBlock) => {
     const isSelected = selectedBlockId === block.id
@@ -603,7 +657,42 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
         </div>
 
         <TabsContent value="edit" className="space-y-4">
-          <BlockToolbar onAddBlock={handleAddBlock} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <BlockToolbar onAddBlock={handleAddBlock} />
+
+            {/* Bulk Actions dropdown - only show when there are definition blocks */}
+            {definitionCount > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Palette className="h-4 w-4" />
+                    Bulk Actions
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Palette className="h-4 w-4 mr-2" />
+                      Change All Definition Colors
+                      <span className="ml-2 text-xs text-muted-foreground">({definitionCount})</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {definitionColorVariants.map(({ value, label, preview }) => (
+                        <DropdownMenuItem
+                          key={value}
+                          onClick={() => handleBulkUpdateDefinitionColors(value)}
+                        >
+                          <div className={`h-3 w-3 rounded-full ${preview} mr-2`} />
+                          {label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
 
           {blocks.length === 0 ? (
             <Card className="border-dashed">

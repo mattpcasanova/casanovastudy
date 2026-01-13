@@ -1,6 +1,6 @@
 // Editor-specific types for the custom guide block editor
 
-import { CustomGuideContent, CustomSection, SectionContent } from './custom-guide'
+import { CustomGuideContent, CustomSection, SectionContent, DefinitionColorVariant } from './custom-guide'
 
 // Block types that can be created in the editor
 export type BlockType = 'text' | 'section' | 'alert' | 'table' | 'quiz' | 'checklist' | 'definition'
@@ -84,6 +84,7 @@ export interface DefinitionBlockData {
   term: string
   definition: string
   examples?: string[]
+  colorVariant?: DefinitionColorVariant
 }
 
 // Guide metadata for the editor
@@ -186,7 +187,8 @@ export function createEmptyBlock(type: BlockType): EditorBlock {
           type: 'definition',
           term: '',
           definition: '',
-          examples: []
+          examples: [],
+          colorVariant: 'purple'
         }
       }
 
@@ -289,7 +291,8 @@ function blockDataToSectionContent(data: EditorBlockData): SectionContent {
         type: 'definition',
         term: data.term,
         definition: data.definition,
-        examples: data.examples
+        examples: data.examples,
+        colorVariant: data.colorVariant
       }
 
     default:
@@ -393,7 +396,8 @@ function sectionContentToBlockData(type: string, content: SectionContent, regene
           type: 'definition',
           term: content.term,
           definition: content.definition,
-          examples: content.examples
+          examples: content.examples,
+          colorVariant: content.colorVariant || 'purple'
         }
       }
       break
@@ -402,3 +406,6 @@ function sectionContentToBlockData(type: string, content: SectionContent, regene
   // Default fallback
   return { type: 'text', markdown: '' }
 }
+
+// Re-export for convenience
+export type { DefinitionColorVariant } from './custom-guide'

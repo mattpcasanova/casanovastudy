@@ -34,11 +34,14 @@ export interface TextContent {
   markdown: string
 }
 
+export type DefinitionColorVariant = 'purple' | 'blue' | 'teal' | 'green' | 'pink' | 'orange'
+
 export interface DefinitionContent {
   type: 'definition'
   term: string
   definition: string
   examples?: string[]
+  colorVariant?: DefinitionColorVariant
 }
 
 export interface AlertContent {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 
 // DELETE - Unfollow a teacher
 export async function DELETE(
@@ -24,7 +24,7 @@ export async function DELETE(
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Delete the follow relationship
     const { error } = await supabase
@@ -71,7 +71,7 @@ export async function GET(
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     const { data, error } = await supabase
       .from('teacher_follows')
