@@ -12,14 +12,22 @@ import {
 import { Check, ChevronsUpDown, Link2, Link2Off, Loader2, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+interface StudentClass {
+  id: string
+  class_name: string
+  class_period?: string
+}
+
 interface Student {
   id: string
   email: string
   first_name?: string
   last_name?: string
+  classes?: StudentClass[]
 }
 
 interface StudentLinkSelectorProps {
+  teacherId: string
   firstName: string
   lastName: string
   selectedStudentId: string | null
@@ -28,6 +36,7 @@ interface StudentLinkSelectorProps {
 }
 
 export function StudentLinkSelector({
+  teacherId,
   firstName,
   lastName,
   selectedStudentId,
@@ -36,7 +45,6 @@ export function StudentLinkSelector({
 }: StudentLinkSelectorProps) {
   const [open, setOpen] = useState(false)
   const [suggestions, setSuggestions] = useState<Student[]>([])
-  const [loading, setLoading] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [manualSearch, setManualSearch] = useState("")
   const [allStudents, setAllStudents] = useState<Student[]>([])
@@ -50,7 +58,6 @@ export function StudentLinkSelector({
         return
       }
 
-      setLoading(true)
       try {
         const params = new URLSearchParams()
         if (firstName) params.set('firstName', firstName)
@@ -64,8 +71,6 @@ export function StudentLinkSelector({
         }
       } catch (error) {
         console.error('Error fetching suggestions:', error)
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -74,17 +79,40 @@ export function StudentLinkSelector({
   }, [firstName, lastName])
 
   // Fetch all students for manual selection (from teacher's student list)
-  const fetchAllStudents = useCallback(async () => {
-    if (allStudents.length > 0) return // Already loaded
+  const fetchAllStudents = useCallback(async (forceRefresh = false) => {
+    if (!teacherId) return
+    if (!forceRefresh && allStudents.length > 0) return // Already loaded
 
     setLoadingAll(true)
     try {
-      const response = await fetch('/api/my-students')
-      const data = await response.json()
+      // Fetch students and their classes
+      const [studentsRes, classesRes] = await Promise.all([
+        fetch(`/api/my-students?teacherId=${teacherId}`),
+        fetch('/api/student-classes')
+      ])
 
-      if (response.ok) {
-        // Transform the response to match our Student interface
-        const students = (data.students || []).map((follow: { student: Student }) => follow.student)
+      const studentsData = await studentsRes.json()
+      const classesData = await classesRes.json()
+
+      if (studentsRes.ok) {
+        // Create a map of classes by student ID
+        const classMap = new Map<string, StudentClass[]>()
+        if (classesRes.ok && classesData.classes) {
+          classesData.classes.forEach((cls: StudentClass & { student_id: string }) => {
+            const existing = classMap.get(cls.student_id) || []
+            classMap.set(cls.student_id, [...existing, {
+              id: cls.id,
+              class_name: cls.class_name,
+              class_period: cls.class_period
+            }])
+          })
+        }
+
+        // Transform the response to match our Student interface with classes
+        const students = (studentsData.students || []).map((follow: { student: Student }) => ({
+          ...follow.student,
+          classes: classMap.get(follow.student.id) || []
+        }))
         setAllStudents(students)
       }
     } catch (error) {
@@ -92,18 +120,41 @@ export function StudentLinkSelector({
     } finally {
       setLoadingAll(false)
     }
-  }, [allStudents.length])
+  }, [allStudents.length, teacherId])
 
-  // Load all students when popover opens
+  // Load all students on mount to have class data ready for suggestions
   useEffect(() => {
-    if (open) {
+    if (teacherId) {
       fetchAllStudents()
     }
-  }, [open, fetchAllStudents])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherId])
+
+  // Refresh when popover opens (in case new students were added)
+  useEffect(() => {
+    if (open && teacherId) {
+      fetchAllStudents(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, teacherId])
+
+  // Enrich suggestions with class data when allStudents loads
+  const enrichedSuggestions = suggestions.map(sug => {
+    const studentWithClasses = allStudents.find(s => s.id === sug.id)
+    return studentWithClasses || sug
+  })
 
   const handleSelect = (student: Student | null) => {
-    setSelectedStudent(student)
-    onSelect(student?.id || null, student)
+    if (student) {
+      // Try to find the student in allStudents to get class data (most up-to-date)
+      const studentWithClasses = allStudents.find(s => s.id === student.id)
+      const enrichedStudent = studentWithClasses || student
+      setSelectedStudent(enrichedStudent)
+      onSelect(enrichedStudent.id, enrichedStudent)
+    } else {
+      setSelectedStudent(null)
+      onSelect(null, null)
+    }
     setOpen(false)
   }
 
@@ -125,23 +176,24 @@ export function StudentLinkSelector({
     : allStudents
 
   // Combine suggestions with all students, removing duplicates
+  // Use enrichedSuggestions which have class data attached
   const displayStudents = manualSearch
     ? filteredStudents
-    : [...suggestions, ...allStudents.filter(s => !suggestions.find(sug => sug.id === s.id))]
+    : [...enrichedSuggestions, ...allStudents.filter(s => !enrichedSuggestions.find(sug => sug.id === s.id))]
 
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">Link to Student Account</Label>
 
       {/* Auto-suggestions based on name */}
-      {(firstName || lastName) && suggestions.length > 0 && !selectedStudentId && (
+      {(firstName || lastName) && enrichedSuggestions.length > 0 && !selectedStudentId && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
           <p className="text-sm text-blue-700 font-medium flex items-center gap-2">
             <User className="h-4 w-4" />
             Suggested matches for &quot;{[firstName, lastName].filter(Boolean).join(' ')}&quot;
           </p>
           <div className="flex flex-wrap gap-2">
-            {suggestions.slice(0, 3).map((student) => (
+            {enrichedSuggestions.slice(0, 3).map((student) => (
               <Button
                 key={student.id}
                 variant="outline"
@@ -218,7 +270,7 @@ export function StudentLinkSelector({
                 </p>
               ) : (
                 displayStudents.map((student) => {
-                  const isSuggested = suggestions.find(s => s.id === student.id)
+                  const isSuggested = enrichedSuggestions.find(s => s.id === student.id)
                   return (
                     <button
                       key={student.id}

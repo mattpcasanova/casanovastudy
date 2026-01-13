@@ -67,6 +67,34 @@ async function compressImage(
 }
 
 /**
+ * Load PDF.js library from CDN
+ * This avoids Turbopack bundling issues with pdfjs-dist
+ */
+async function loadPdfJs(): Promise<any> {
+  // Check if already loaded
+  if ((window as any).pdfjsLib) {
+    return (window as any).pdfjsLib
+  }
+
+  // Load the UMD build from CDN (more compatible than ES modules)
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    script.onload = () => {
+      const pdfjsLib = (window as any).pdfjsLib
+      if (pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        resolve(pdfjsLib)
+      } else {
+        reject(new Error('PDF.js failed to load'))
+      }
+    }
+    script.onerror = () => reject(new Error('Failed to load PDF.js from CDN'))
+    document.head.appendChild(script)
+  })
+}
+
+/**
  * Convert a PDF file to an array of compressed image blobs
  * Uses dynamic import to avoid server-side rendering issues
  */
@@ -74,11 +102,7 @@ export async function convertPdfToImages(
   file: File,
   onProgress?: (current: number, total: number) => void
 ): Promise<ConvertedImage[]> {
-  // Dynamic import of pdf.js - only runs on client
-  const pdfjsLib = await import('pdfjs-dist')
-
-  // Set worker source to local file in public folder
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+  const pdfjsLib = await loadPdfJs()
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise

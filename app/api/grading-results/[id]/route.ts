@@ -5,6 +5,7 @@ interface MetadataUpdateBody {
   userId?: string
   studentFirstName?: string | null
   studentLastName?: string | null
+  studentUserId?: string | null
   className?: string | null
   classPeriod?: string | null
   examTitle?: string | null
@@ -61,7 +62,7 @@ export async function PATCH(
     // Verify the user owns this grading result
     const { data: result, error: fetchError } = await supabase
       .from('grading_results')
-      .select('user_id, student_first_name, student_last_name, class_name, class_period, exam_title')
+      .select('user_id, student_first_name, student_last_name, student_user_id, class_name, class_period, exam_title')
       .eq('id', id)
       .single()
 
@@ -97,6 +98,9 @@ export async function PATCH(
     if ('examTitle' in body) {
       updateData.exam_title = body.examTitle === '' ? null : body.examTitle ?? null
     }
+    if ('studentUserId' in body) {
+      updateData.student_user_id = body.studentUserId === '' ? null : body.studentUserId ?? null
+    }
 
     // Also update student_name if first/last name changed
     if ('studentFirstName' in body || 'studentLastName' in body) {
@@ -126,7 +130,7 @@ export async function PATCH(
       .from('grading_results')
       .update(updatePayload)
       .eq('id', id)
-      .select('id, student_name, student_first_name, student_last_name, class_name, class_period, exam_title, updated_at')
+      .select('id, student_name, student_first_name, student_last_name, student_user_id, class_name, class_period, exam_title, updated_at')
       .single()
 
     if (updateError) {
@@ -144,6 +148,7 @@ export async function PATCH(
         studentName: updatedResult.student_name,
         studentFirstName: updatedResult.student_first_name,
         studentLastName: updatedResult.student_last_name,
+        studentUserId: updatedResult.student_user_id,
         className: updatedResult.class_name,
         classPeriod: updatedResult.class_period,
         examTitle: updatedResult.exam_title,

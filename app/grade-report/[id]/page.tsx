@@ -6,7 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Download, FileCheck, CheckCircle, Edit2, ArrowLeft, Loader2, Printer, ChevronUp, ChevronDown } from "lucide-react"
+import { Download, FileCheck, CheckCircle, Edit2, ArrowLeft, Loader2, Printer, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import NavigationHeader from "@/components/navigation-header"
 import { useAuth } from "@/lib/auth"
@@ -49,6 +60,18 @@ export default function GradeReportPage() {
   const [editedBreakdown, setEditedBreakdown] = useState<GradingResult['gradeBreakdown'] | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Add question form state
+  const [isAddingQuestion, setIsAddingQuestion] = useState(false)
+  const [newQuestion, setNewQuestion] = useState({
+    questionNumber: '',
+    marksPossible: 1,
+    marksAwarded: 0,
+    explanation: ''
+  })
+
+  // Delete confirmation state
+  const [deleteQuestionIndex, setDeleteQuestionIndex] = useState<number | null>(null)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = isTeacher && gradingResult?.isOwner
@@ -108,6 +131,8 @@ export default function GradeReportPage() {
         grade: result.data.grade,
         gradeBreakdown: result.data.gradeBreakdown
       } : null)
+      // Sync editedBreakdown to saved state
+      setEditedBreakdown(result.data.gradeBreakdown)
 
       toast({
         title: "Saved",
@@ -122,6 +147,55 @@ export default function GradeReportPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleAddQuestion = () => {
+    if (!editedBreakdown || !newQuestion.questionNumber.trim()) return
+
+    // Validate
+    if (newQuestion.marksAwarded > newQuestion.marksPossible) {
+      toast({
+        title: "Invalid marks",
+        description: "Marks awarded cannot exceed marks possible",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const newBreakdown = [...editedBreakdown, {
+      questionNumber: newQuestion.questionNumber.trim(),
+      marksPossible: newQuestion.marksPossible,
+      marksAwarded: newQuestion.marksAwarded,
+      explanation: newQuestion.explanation.trim() || 'No feedback provided'
+    }]
+
+    setEditedBreakdown(newBreakdown)
+    setNewQuestion({
+      questionNumber: '',
+      marksPossible: 1,
+      marksAwarded: 0,
+      explanation: ''
+    })
+    setIsAddingQuestion(false)
+
+    toast({
+      title: "Question added",
+      description: `Question ${newQuestion.questionNumber} added. Don't forget to save your changes.`
+    })
+  }
+
+  const handleRemoveQuestion = (index: number) => {
+    if (!editedBreakdown) return
+
+    const questionNum = editedBreakdown[index].questionNumber
+    const newBreakdown = editedBreakdown.filter((_, i) => i !== index)
+    setEditedBreakdown(newBreakdown)
+    setDeleteQuestionIndex(null)
+
+    toast({
+      title: "Question removed",
+      description: `Question ${questionNum} removed. Don't forget to save your changes.`
+    })
   }
 
   const handleDownload = () => {
@@ -194,7 +268,13 @@ export default function GradeReportPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setIsEditing(!isEditing)}
+                    onClick={() => {
+                      if (!isEditing) {
+                        // Entering edit mode - reset to current saved state
+                        setEditedBreakdown(gradingResult.gradeBreakdown)
+                      }
+                      setIsEditing(!isEditing)
+                    }}
                     className="flex items-center gap-2"
                   >
                     <Edit2 className="h-4 w-4" />
@@ -294,6 +374,16 @@ export default function GradeReportPage() {
                             >
                               {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteQuestionIndex(index)}
+                              disabled={isSaving}
+                              className="ml-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              title="Remove question"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         ) : (
                           <span className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 whitespace-nowrap ${
@@ -330,6 +420,99 @@ export default function GradeReportPage() {
                   ))}
                 </div>
 
+                {/* Add Question Form */}
+                {isEditing && editedBreakdown && (
+                  <div className="mt-4">
+                    {isAddingQuestion ? (
+                      <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 bg-blue-50/30">
+                        <h4 className="font-medium mb-3">Add New Question</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <Label htmlFor="newQuestionNumber" className="text-sm">Question Number</Label>
+                            <Input
+                              id="newQuestionNumber"
+                              value={newQuestion.questionNumber}
+                              onChange={(e) => setNewQuestion(prev => ({ ...prev, questionNumber: e.target.value }))}
+                              placeholder="e.g., 5a or Section B 3"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label htmlFor="newMarksPossible" className="text-sm">Marks Possible</Label>
+                              <Input
+                                id="newMarksPossible"
+                                type="number"
+                                min={1}
+                                value={newQuestion.marksPossible}
+                                onChange={(e) => setNewQuestion(prev => ({ ...prev, marksPossible: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="newMarksAwarded" className="text-sm">Marks Awarded</Label>
+                              <Input
+                                id="newMarksAwarded"
+                                type="number"
+                                min={0}
+                                max={newQuestion.marksPossible}
+                                value={newQuestion.marksAwarded}
+                                onChange={(e) => setNewQuestion(prev => ({ ...prev, marksAwarded: Math.min(Math.max(0, parseInt(e.target.value) || 0), prev.marksPossible) }))}
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mb-3">
+                          <Label htmlFor="newExplanation" className="text-sm">Feedback</Label>
+                          <Textarea
+                            id="newExplanation"
+                            value={newQuestion.explanation}
+                            onChange={(e) => setNewQuestion(prev => ({ ...prev, explanation: e.target.value }))}
+                            placeholder="Explain why marks were awarded/deducted..."
+                            rows={2}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={handleAddQuestion}
+                            disabled={!newQuestion.questionNumber.trim()}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Question
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setIsAddingQuestion(false)
+                              setNewQuestion({
+                                questionNumber: '',
+                                marksPossible: 1,
+                                marksAwarded: 0,
+                                explanation: ''
+                              })
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full border-dashed"
+                        onClick={() => setIsAddingQuestion(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Question
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 {/* Bottom save button when in edit mode */}
                 {isEditing && editedBreakdown && (
                   <div className="flex gap-3 pt-4 border-t mt-4">
@@ -356,6 +539,8 @@ export default function GradeReportPage() {
                             grade: result.data.grade,
                             gradeBreakdown: result.data.gradeBreakdown
                           } : null)
+                          // Sync editedBreakdown to saved state
+                          setEditedBreakdown(result.data.gradeBreakdown)
                           toast({
                             title: "All changes saved",
                             description: `Total score: ${result.data.totalMarks}/${result.data.totalPossibleMarks} (${result.data.percentage.toFixed(1)}%)`
@@ -516,6 +701,34 @@ export default function GradeReportPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Question Confirmation Dialog */}
+      <AlertDialog open={deleteQuestionIndex !== null} onOpenChange={(open) => !open && setDeleteQuestionIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Question?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteQuestionIndex !== null && editedBreakdown && (
+                <>
+                  Are you sure you want to remove <strong>Question {editedBreakdown[deleteQuestionIndex]?.questionNumber}</strong>?
+                  This will remove {editedBreakdown[deleteQuestionIndex]?.marksPossible} marks from the total possible marks.
+                  <br /><br />
+                  This change won&apos;t be saved until you click &quot;Save All Changes&quot;.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteQuestionIndex !== null && handleRemoveQuestion(deleteQuestionIndex)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Remove Question
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

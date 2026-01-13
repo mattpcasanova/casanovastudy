@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { AutocompleteInput } from '@/components/autocomplete-input'
+import { StudentLinkSelector } from '@/components/student-link-selector'
 import { Loader2, Pencil } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -20,6 +21,7 @@ interface GradingResult {
   student_name: string
   student_first_name: string | null
   student_last_name: string | null
+  student_user_id: string | null
   class_name: string | null
   class_period: string | null
   exam_title: string | null
@@ -47,6 +49,7 @@ export function EditReportDialog({
   // Form state - for single edit
   const [studentFirstName, setStudentFirstName] = useState('')
   const [studentLastName, setStudentLastName] = useState('')
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null)
 
   // Form state - shared fields (single and bulk)
   const [className, setClassName] = useState('')
@@ -64,6 +67,7 @@ export function EditReportDialog({
         // Pre-populate with current values for single edit
         setStudentFirstName(singleReport.student_first_name || '')
         setStudentLastName(singleReport.student_last_name || '')
+        setSelectedStudentUserId(singleReport.student_user_id || null)
         setClassName(singleReport.class_name || '')
         setClassPeriod(singleReport.class_period || '')
         setExamTitle(singleReport.exam_title || '')
@@ -71,6 +75,7 @@ export function EditReportDialog({
         // Clear form for bulk edit
         setStudentFirstName('')
         setStudentLastName('')
+        setSelectedStudentUserId(null)
         setClassName('')
         setClassPeriod('')
         setExamTitle('')
@@ -134,6 +139,7 @@ export function EditReportDialog({
             userId,
             studentFirstName,
             studentLastName,
+            studentUserId: selectedStudentUserId,
             className,
             classPeriod,
             examTitle
@@ -152,6 +158,7 @@ export function EditReportDialog({
           student_name: result.data.studentName,
           student_first_name: result.data.studentFirstName,
           student_last_name: result.data.studentLastName,
+          student_user_id: result.data.studentUserId,
           class_name: result.data.className,
           class_period: result.data.classPeriod,
           exam_title: result.data.examTitle
@@ -189,7 +196,7 @@ export function EditReportDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Single edit only: Student name fields */}
+          {/* Single edit only: Student name fields and link */}
           {!isBulkEdit && (
             <>
               <div className="space-y-2">
@@ -214,6 +221,31 @@ export function EditReportDialog({
                   placeholder="Enter last name"
                   fieldName="studentLastName"
                   userId={userId}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Link to Student Account */}
+              <div className="pt-2 border-t">
+                <StudentLinkSelector
+                  teacherId={userId || ''}
+                  firstName={studentFirstName}
+                  lastName={studentLastName}
+                  selectedStudentId={selectedStudentUserId}
+                  onSelect={(studentId, student) => {
+                    setSelectedStudentUserId(studentId)
+                    // Auto-populate fields from student data
+                    if (student) {
+                      if (student.first_name) setStudentFirstName(student.first_name)
+                      if (student.last_name) setStudentLastName(student.last_name)
+                      // Use the first class if available
+                      if (student.classes && student.classes.length > 0) {
+                        const firstClass = student.classes[0]
+                        if (firstClass.class_name) setClassName(firstClass.class_name)
+                        if (firstClass.class_period) setClassPeriod(firstClass.class_period)
+                      }
+                    }
+                  }}
                   disabled={isSaving}
                 />
               </div>

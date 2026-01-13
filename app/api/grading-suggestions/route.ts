@@ -62,12 +62,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch suggestions' }, { status: 500 })
     }
 
-    // Extract unique values and filter by query
-    const uniqueValues = [...new Set(
-      data
-        .map((row: Record<string, string | null>) => row[dbColumn])
-        .filter((val): val is string => val !== null && val.trim() !== '')
-    )]
+    // Extract unique values from grading results
+    const gradingValues = data
+      .map((row: Record<string, string | null>) => row[dbColumn])
+      .filter((val): val is string => val !== null && val.trim() !== '')
+
+    // For className and classPeriod, also fetch from student_classes
+    let studentClassValues: string[] = []
+    if (field === 'className' || field === 'classPeriod') {
+      const studentClassColumn = field === 'className' ? 'class_name' : 'class_period'
+      const { data: classData, error: classError } = await supabase
+        .from('student_classes')
+        .select(studentClassColumn)
+        .eq('teacher_id', userId)
+        .not(studentClassColumn, 'is', null)
+
+      if (!classError && classData) {
+        studentClassValues = classData
+          .map((row: Record<string, string | null>) => row[studentClassColumn])
+          .filter((val): val is string => val !== null && val.trim() !== '')
+      }
+    }
+
+    // Combine and deduplicate values from both sources
+    const uniqueValues = [...new Set([...gradingValues, ...studentClassValues])].sort()
 
     // Filter by query if provided
     const filteredValues = query

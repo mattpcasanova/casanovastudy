@@ -54,6 +54,7 @@ interface GradingResult {
   student_name: string
   student_first_name: string | null
   student_last_name: string | null
+  student_user_id: string | null
   answer_sheet_filename: string | null
   student_exam_filename: string
   original_filename: string | null

@@ -438,6 +438,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                           <SelectValue placeholder="Select grade level" className="text-gray-400 italic" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="6th-8th">6th-8th Grade</SelectItem>
                           <SelectItem value="9th">9th Grade</SelectItem>
                           <SelectItem value="10th">10th Grade</SelectItem>
                           <SelectItem value="11th">11th Grade</SelectItem>

@@ -666,10 +666,24 @@ export default function GradeExamPage() {
                       {/* Link to Student Account */}
                       <div className="pt-4 border-t border-gray-200">
                         <StudentLinkSelector
+                          teacherId={user?.id || ''}
                           firstName={studentFirstName}
                           lastName={studentLastName}
                           selectedStudentId={selectedStudentUserId}
-                          onSelect={(studentId) => setSelectedStudentUserId(studentId)}
+                          onSelect={(studentId, student) => {
+                            setSelectedStudentUserId(studentId)
+                            // Auto-populate fields from student data
+                            if (student) {
+                              if (student.first_name) setStudentFirstName(student.first_name)
+                              if (student.last_name) setStudentLastName(student.last_name)
+                              // Use the first class if available
+                              if (student.classes && student.classes.length > 0) {
+                                const firstClass = student.classes[0]
+                                if (firstClass.class_name) setClassName(firstClass.class_name)
+                                if (firstClass.class_period) setClassPeriod(firstClass.class_period)
+                              }
+                            }
+                          }}
                           disabled={isGrading}
                         />
                       </div>

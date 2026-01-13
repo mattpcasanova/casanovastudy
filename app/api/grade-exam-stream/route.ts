@@ -20,6 +20,69 @@ function normalizeQuestionNumber(qNum: string): string {
     // Keep section prefixes like "sectiona", "sectionb", "sectionc" intact
 }
 
+// Parse the mark scheme summary from Claude's response
+function parseMarkSchemeSummary(content: string): { questions: Array<{num: string, marks: number}>, total: number } | null {
+  const match = content.match(/\[MARK SCHEME SUMMARY\]([\s\S]*?)\[END SUMMARY\]/i)
+  if (!match) return null
+
+  const summaryText = match[1]
+  const questions: Array<{num: string, marks: number}> = []
+
+  // Parse entries like "1a(2)" or "Section A 2b(5)" - supports various formats
+  // Match patterns: "1a(2)", "1(a)(3)", "Section A 2b(5)", "2 (4)", etc.
+  const entryPattern = /([A-Za-z0-9\s()]+?)\s*\((\d+)\)/g
+  let entry
+  while ((entry = entryPattern.exec(summaryText)) !== null) {
+    const questionNum = entry[1].trim()
+    const marks = parseInt(entry[2])
+    // Skip if it looks like "Total" or other non-question entries
+    if (!/total|marks|summary/i.test(questionNum) && marks > 0) {
+      questions.push({ num: questionNum, marks })
+    }
+  }
+
+  const totalMatch = summaryText.match(/Total:\s*(\d+)/i)
+  const total = totalMatch ? parseInt(totalMatch[1]) : questions.reduce((s, q) => s + q.marks, 0)
+
+  return { questions, total }
+}
+
+// Find questions that were expected but not graded
+function findMissingQuestions(
+  expected: Array<{num: string, marks: number}>,
+  graded: Array<{questionNumber: string, marksPossible: number}>
+): Array<{num: string, marks: number}> {
+  const normalizedGraded = new Set(graded.map(q => normalizeQuestionNumber(q.questionNumber)))
+  return expected.filter(q => !normalizedGraded.has(normalizeQuestionNumber(q.num)))
+}
+
+// Filter out questions that weren't in the mark scheme (phantom questions)
+function filterToMarkSchemeQuestions(
+  graded: Array<{questionNumber: string, marksAwarded: number, marksPossible: number, explanation: string}>,
+  expected: Array<{num: string, marks: number}>
+): Array<{questionNumber: string, marksAwarded: number, marksPossible: number, explanation: string}> {
+  const normalizedExpected = new Set(expected.map(q => normalizeQuestionNumber(q.num)))
+
+  return graded.filter(q => {
+    const normalized = normalizeQuestionNumber(q.questionNumber)
+    // Check if this question matches any expected question
+    if (normalizedExpected.has(normalized)) return true
+
+    // Also check partial matches for complex question numbers
+    // e.g., "Section B 1a(i)" should match "1a(i)" if section prefix differs
+    for (const exp of expected) {
+      const expNorm = normalizeQuestionNumber(exp.num)
+      // Check if one contains the other (for section prefix variations)
+      if (normalized.includes(expNorm) || expNorm.includes(normalized)) {
+        return true
+      }
+    }
+
+    console.log(`⚠️ Filtering out unexpected question: "${q.questionNumber}" (not in mark scheme summary)`)
+    return false
+  })
+}
+
 // Helper to parse the grading response into structured breakdown
 function parseGradingResponse(content: string) {
   const breakdown: Array<{
@@ -41,7 +104,9 @@ function parseGradingResponse(content: string) {
   // - "Option [0-9]" (choice questions)
   // - "[number][letter], Mark:" (bare numbered questions like "2b, Mark:")
   // - Standard endings: Total, Percentage, Grade, Feedback, Strengths, Areas
-  const questionPattern = /(?:Question\s+)?([A-Za-z0-9\s()]+?)[,:\s]+Mark[s]?[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*[-–—:]?\s*(.*?)(?=(?:Question\s+\S)|(?:Section\s+[A-Z])|(?:Part\s+[A-Z0-9])|(?:Option\s+[0-9])|(?:\d+[a-z]?\s*[),:\s]+Mark)|Total[:\s]|Percentage[:\s]|Grade[:\s]|Feedback|Strengths|Areas|$)/gis
+  // NOTE: The pattern `\d+[a-z]?\s*[),:]+\s*Mark` requires punctuation (comma, colon, or paren) before "Mark"
+  // to avoid false matches on phrases like "Lost 3 marks" which would truncate feedback
+  const questionPattern = /(?:Question\s+)?([A-Za-z0-9\s()]+?)[,:\s]+Mark[s]?[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*[-–—:]?\s*(.*?)(?=(?:Question\s+\S)|(?:Section\s+[A-Z])|(?:Part\s+[A-Z0-9])|(?:Option\s+[0-9])|(?:\d+[a-z]?\s*[),:]+\s*Mark)|Total[:\s]|Percentage[:\s]|Grade[:\s]|Feedback\s*:|Strengths\s*:|Areas\s*:|$)/gis
 
   const seenQuestions = new Set<string>()
   const results: Array<{
@@ -259,13 +324,87 @@ export async function POST(request: NextRequest) {
           }) + '\n\n'))
         }
 
+        // Parse the grading response
+        let { breakdown, totalMarks, totalPossible, grade } = parseGradingResponse(fullContent)
+
+        // Check for missing questions using the mark scheme summary
+        const markSchemeSummary = parseMarkSchemeSummary(fullContent)
+        if (markSchemeSummary) {
+          // First, filter out any "phantom" questions not in the mark scheme
+          const originalCount = breakdown.length
+          breakdown = filterToMarkSchemeQuestions(breakdown, markSchemeSummary.questions)
+          if (breakdown.length < originalCount) {
+            console.log(`🔍 Filtered out ${originalCount - breakdown.length} phantom question(s) not in mark scheme`)
+            // Recalculate totals after filtering
+            totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
+            totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
+          }
+
+          const missingQuestions = findMissingQuestions(markSchemeSummary.questions, breakdown)
+
+          if (missingQuestions.length > 0) {
+            console.log(`⚠️ Missing ${missingQuestions.length} questions, making follow-up call...`)
+            controller.enqueue(encoder.encode('data: ' + JSON.stringify({
+              type: 'progress',
+              message: `Grading ${missingQuestions.length} additional question${missingQuestions.length > 1 ? 's' : ''}...`
+            }) + '\n\n'))
+
+            // Make follow-up call to grade missing questions
+            try {
+              const followUpResult = await claudeService.gradeMissingQuestions({
+                markSchemeFiles: markSchemeBuffers,
+                studentExamFiles: studentExamBuffers,
+                missingQuestions: missingQuestions.map(q => `${q.num}(${q.marks})`),
+                additionalComments: additionalComments || undefined
+              })
+
+              if (followUpResult.content) {
+                // Stream the follow-up content
+                controller.enqueue(encoder.encode('data: ' + JSON.stringify({
+                  type: 'content',
+                  chunk: '\n\n--- Additional Questions ---\n\n' + followUpResult.content
+                }) + '\n\n'))
+
+                fullContent += '\n\n--- Additional Questions ---\n\n' + followUpResult.content
+
+                // Parse the follow-up response and merge
+                const followUpParsed = parseGradingResponse(followUpResult.content)
+                if (followUpParsed.breakdown.length > 0) {
+                  // Add new questions to breakdown (avoiding duplicates)
+                  const existingNormalized = new Set(breakdown.map(q => normalizeQuestionNumber(q.questionNumber)))
+                  for (const item of followUpParsed.breakdown) {
+                    if (!existingNormalized.has(normalizeQuestionNumber(item.questionNumber))) {
+                      breakdown.push(item)
+                    }
+                  }
+
+                  // Recalculate totals
+                  totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
+                  totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
+                  const newPercentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
+                  grade = 'F'
+                  if (newPercentage >= 90) grade = 'A'
+                  else if (newPercentage >= 80) grade = 'B'
+                  else if (newPercentage >= 70) grade = 'C'
+                  else if (newPercentage >= 60) grade = 'D'
+
+                  console.log(`✅ Added ${followUpParsed.breakdown.length} missing questions. New total: ${totalMarks}/${totalPossible}`)
+                }
+              }
+            } catch (followUpError) {
+              console.error('Follow-up grading failed:', followUpError)
+              // Continue with what we have
+            }
+          }
+        } else {
+          console.log('⚠️ No mark scheme summary found in response - cannot verify completeness')
+        }
+
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'progress',
           message: 'Saving results...'
         }) + '\n\n'))
 
-        // Parse the grading response
-        const { breakdown, totalMarks, totalPossible, grade } = parseGradingResponse(fullContent)
         const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
 
         // Determine student name: use metadata if provided, otherwise extract from original filename

@@ -351,6 +351,17 @@ CRITICAL GRADING PRINCIPLES:
 
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
+**STEP 1 - MARK SCHEME SUMMARY (MANDATORY):**
+Before grading, you MUST first analyze the mark scheme and output a complete summary of ALL questions:
+[MARK SCHEME SUMMARY]
+List EVERY question with marks in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
+Where the number in parentheses is the marks possible for that question.
+Total: XX marks
+[END SUMMARY]
+
+This summary ensures you account for ALL questions. After the summary, grade each one.
+
+**STEP 2 - GRADE EACH QUESTION:**
 For EACH question in the mark scheme, use this EXACT format on its own line:
 **Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
 
@@ -384,7 +395,7 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
-- **START WITH QUESTION 1**: Always begin grading with Question 1 (or 1a if subdivided). Never skip the first question.
+- **START WITH MARK SCHEME SUMMARY**: Always begin with [MARK SCHEME SUMMARY] listing all questions and their marks, then start grading with Question 1 (or 1a if subdivided). Never skip the summary or the first question.
 - Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
 - NEVER stop early - you MUST grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
@@ -394,6 +405,7 @@ CRITICAL REQUIREMENTS:
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
 - **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
 - **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **OPTION/CHOICE QUESTIONS**: If a section offers multiple OPTIONS to choose from (e.g., "Option 1" OR "Option 2", "Answer ONE of the following"), students only answer ONE option, not all of them. Look at the student's exam to see which option they actually answered, and ONLY grade that option. Do NOT grade options the student did not attempt - exclude them entirely from your grading and from the mark scheme summary. For example, if Section C offers Option 1 (20 marks) and Option 2 (20 marks), and the student answered Option 1, only include Option 1 in your grading - the total possible marks for that section is 20, not 40.
 - **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
 - **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
 
@@ -404,7 +416,7 @@ At the end, provide:
 
 Brief feedback on strengths and areas for improvement.
 
-**IMPORTANT**: Start your response immediately with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble or introduction before the first question grade.
+**IMPORTANT**: Start your response immediately with "[MARK SCHEME SUMMARY]" then list all questions, then begin grading with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble before the mark scheme summary.
 
 ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
 
@@ -571,6 +583,17 @@ CRITICAL GRADING PRINCIPLES:
 
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
+**STEP 1 - MARK SCHEME SUMMARY (MANDATORY):**
+Before grading, you MUST first analyze the mark scheme and output a complete summary of ALL questions:
+[MARK SCHEME SUMMARY]
+List EVERY question with marks in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
+Where the number in parentheses is the marks possible for that question.
+Total: XX marks
+[END SUMMARY]
+
+This summary ensures you account for ALL questions. After the summary, grade each one.
+
+**STEP 2 - GRADE EACH QUESTION:**
 For EACH question in the mark scheme, use this EXACT format on its own line:
 **Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
 
@@ -604,7 +627,7 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
-- **START WITH QUESTION 1**: Always begin grading with Question 1 (or 1a if subdivided). Never skip the first question.
+- **START WITH MARK SCHEME SUMMARY**: Always begin with [MARK SCHEME SUMMARY] listing all questions and their marks, then start grading with Question 1 (or 1a if subdivided). Never skip the summary or the first question.
 - Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
 - NEVER stop early - you MUST grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
@@ -614,6 +637,7 @@ CRITICAL REQUIREMENTS:
 - The total of all Y values should equal the EXACT total marks possible from the mark scheme
 - **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
 - **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **OPTION/CHOICE QUESTIONS**: If a section offers multiple OPTIONS to choose from (e.g., "Option 1" OR "Option 2", "Answer ONE of the following"), students only answer ONE option, not all of them. Look at the student's exam to see which option they actually answered, and ONLY grade that option. Do NOT grade options the student did not attempt - exclude them entirely from your grading and from the mark scheme summary. For example, if Section C offers Option 1 (20 marks) and Option 2 (20 marks), and the student answered Option 1, only include Option 1 in your grading - the total possible marks for that section is 20, not 40.
 - **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
 - **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
 
@@ -624,7 +648,7 @@ At the end, provide:
 
 Brief feedback on strengths and areas for improvement.
 
-**IMPORTANT**: Start your response immediately with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble or introduction before the first question grade.
+**IMPORTANT**: Start your response immediately with "[MARK SCHEME SUMMARY]" then list all questions, then begin grading with "**Question 1**" (or "**Question 1a**" if subdivided). Do not include any preamble before the mark scheme summary.
 
 ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determining marks.' : 'Grade fairly and consistently according to the mark scheme.'}`
 
@@ -727,6 +751,155 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     return {
       content: fullContent,
       usage: actualUsage
+    }
+  }
+
+  /**
+   * Grade missing questions that were skipped in the initial grading
+   * Used for follow-up calls when questions are detected as missing
+   */
+  async gradeMissingQuestions(params: {
+    markSchemeFiles: Array<{ buffer: Buffer; name: string; type: string }>
+    studentExamFiles: Array<{ buffer: Buffer; name: string; type: string }>
+    missingQuestions: string[]  // Format: ["3b(6)", "6a(3)"]
+    additionalComments?: string
+  }): Promise<{ content: string; usage: any }> {
+    const { markSchemeFiles, studentExamFiles, missingQuestions, additionalComments } = params
+
+    // Helper to check if file is an image
+    const isImageFile = (type: string, name: string) => {
+      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+      const extension = name.split('.').pop()?.toLowerCase()
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
+    }
+
+    // Helper to get correct MIME type for images
+    const getImageMimeType = (type: string, name: string): string => {
+      const extension = name.split('.').pop()?.toLowerCase()
+      const mimeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'heic': 'image/jpeg',
+        'heif': 'image/jpeg'
+      }
+      if (extension && mimeMap[extension]) {
+        return mimeMap[extension]
+      }
+      if (type.startsWith('image/')) {
+        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
+      }
+      return 'image/jpeg'
+    }
+
+    const content: any[] = []
+
+    // Build focused prompt for missing questions
+    const hasTeacherInstructions = additionalComments && additionalComments.trim()
+
+    let instructionText = `You are an expert exam grader. You previously graded this exam but MISSED the following questions.
+
+MISSING QUESTIONS TO GRADE:
+${missingQuestions.join(', ')}
+
+Please grade ONLY these questions now. Do not re-grade questions you already graded.
+
+For each missing question, use this EXACT format:
+**Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
+
+Where Y is the marks possible shown in parentheses above.
+
+CRITICAL RULES:
+- Grade ONLY the missing questions listed above
+- Use the exact question numbers from the list
+- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
+- If handwriting is illegible, award 0 marks with explanation "Answer could not be read due to illegible handwriting"
+- Provide specific feedback on what was correct and what was missing`
+
+    if (hasTeacherInstructions) {
+      instructionText += `\n\n**Teacher's Instructions (apply these when grading):**\n${additionalComments}`
+    }
+
+    content.push({
+      type: 'text',
+      text: instructionText
+    })
+
+    // Add mark scheme files
+    for (const file of markSchemeFiles) {
+      if (isImageFile(file.type, file.name)) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: getImageMimeType(file.type, file.name),
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
+    }
+
+    // Add student exam files
+    for (const file of studentExamFiles) {
+      if (isImageFile(file.type, file.name)) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: getImageMimeType(file.type, file.name),
+            data: file.buffer.toString('base64')
+          }
+        })
+      } else {
+        content.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: file.buffer.toString('base64')
+          }
+        })
+      }
+    }
+
+    console.log(`📤 Grading ${missingQuestions.length} missing questions...`)
+
+    const response = await this.anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      temperature: 0.1,
+      messages: [
+        {
+          role: 'user',
+          content: content
+        }
+      ]
+    })
+
+    const responseContent = response.content[0]
+    if (responseContent.type !== 'text') {
+      throw new Error('Unexpected response type from Claude API')
+    }
+
+    console.log(`✅ Missing questions graded - Output tokens: ${response.usage.output_tokens}`)
+
+    return {
+      content: responseContent.text,
+      usage: {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens
+      }
     }
   }
 
