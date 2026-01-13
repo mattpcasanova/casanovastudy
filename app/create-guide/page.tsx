@@ -8,8 +8,7 @@ import { useAuth } from "@/lib/auth"
 import { customContentToBlocks, EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { CustomGuideContent } from "@/lib/types/custom-guide"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent } from "@/components/ui/card"
-import { AlertCircle, ArrowLeft } from "lucide-react"
+import { AlertCircle, ArrowLeft, PenTool, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -22,7 +21,7 @@ interface EditGuideData {
 }
 
 export default function CreateGuidePage() {
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
@@ -112,11 +111,27 @@ export default function CreateGuidePage() {
   // Loading states
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <NavigationHeader />
+        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+                backgroundSize: "20px 20px",
+              }}
+            ></div>
+          </div>
+          <div className="container mx-auto px-4 relative">
+            <div className="max-w-3xl mx-auto text-center space-y-4">
+              <Skeleton className="h-12 w-80 mx-auto bg-white/20" />
+              <Skeleton className="h-6 w-64 mx-auto bg-white/20" />
+            </div>
+          </div>
+        </div>
         <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-64 mb-6" />
-          <Skeleton className="h-96 w-full rounded-lg" />
+          <Skeleton className="h-[600px] w-full rounded-lg" />
         </div>
       </div>
     )
@@ -128,12 +143,23 @@ export default function CreateGuidePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <NavigationHeader user={user} onSignOut={signOut} />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
-          <div className="container mx-auto px-4 py-8">
-            <Skeleton className="h-8 w-48 bg-white/20" />
-            <Skeleton className="h-4 w-64 mt-2 bg-white/20" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <NavigationHeader />
+        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+                backgroundSize: "20px 20px",
+              }}
+            ></div>
+          </div>
+          <div className="container mx-auto px-4 relative">
+            <div className="max-w-3xl mx-auto text-center space-y-4">
+              <Skeleton className="h-12 w-64 mx-auto bg-white/20" />
+              <Skeleton className="h-6 w-48 mx-auto bg-white/20" />
+            </div>
           </div>
         </div>
         <div className="container mx-auto px-4 py-8">
@@ -145,31 +171,44 @@ export default function CreateGuidePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <NavigationHeader user={user} onSignOut={signOut} />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
-          <div className="container mx-auto px-4 py-8">
-            <h1 className="text-2xl sm:text-3xl font-bold">Error</h1>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <NavigationHeader />
+        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+                backgroundSize: "20px 20px",
+              }}
+            ></div>
+          </div>
+          <div className="container mx-auto px-4 relative">
+            <div className="max-w-3xl mx-auto text-center space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold">
+                Unable to Load Guide
+              </h1>
+            </div>
           </div>
         </div>
-        <div className="container mx-auto px-4 py-8">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {error}
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                The study guide could not be loaded. It may not exist or you may not have permission to edit it.
-              </p>
-              <Button asChild>
-                <Link href="/my-guides">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to My Guides
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-lg mx-auto text-center">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+              {error}
+            </h3>
+            <p className="text-gray-600 mb-8">
+              The study guide could not be loaded. It may not exist or you may not have permission to edit it.
+            </p>
+            <Button asChild className="bg-blue-600 hover:bg-blue-700 rounded-xl h-12 px-6">
+              <Link href="/my-guides">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to My Guides
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -189,26 +228,49 @@ export default function CreateGuidePage() {
     : undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <NavigationHeader user={user} onSignOut={signOut} />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <NavigationHeader />
 
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold">
+      {/* Hero Section - Matching Home Page Style */}
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
+              backgroundSize: "20px 20px",
+            }}
+          ></div>
+        </div>
+
+        <div className="container mx-auto px-4 relative">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <h1 className="text-4xl md:text-5xl font-bold">
               {editId ? 'Edit Study Guide' : 'Create Custom Study Guide'}
             </h1>
-            <p className="text-sm opacity-75 mt-1">
+            <p className="text-lg opacity-90">
               {editId
-                ? 'Make changes to your study guide'
+                ? 'Make changes to your study guide content'
                 : 'Build an interactive study guide with blocks'}
             </p>
+
+            {!editId && (
+              <div className="flex flex-wrap items-center justify-center gap-6 text-sm pt-2">
+                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                  <PenTool className="h-5 w-5 text-yellow-300" />
+                  <span className="text-white font-medium">Block-based editor</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                  <Sparkles className="h-5 w-5 text-purple-300" />
+                  <span className="text-white font-medium">Multiple content types</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Editor */}
+      {/* Editor Section - Full Width */}
       <div className="container mx-auto px-4 py-8">
         <CustomGuideEditor
           initialContent={initialBlocks}
