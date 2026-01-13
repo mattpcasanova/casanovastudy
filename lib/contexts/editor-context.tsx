@@ -29,6 +29,7 @@ interface EditorContextValue {
 
   // Initialization
   initializeBlocks: (blocks: EditorBlock[]) => void
+  appendBlocks: (newBlocks: EditorBlock[], options?: { replaceMatching?: boolean }) => void // For AI streaming
   resetEditor: () => void
   markClean: () => void
 }
@@ -232,6 +233,37 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     setIsDirty(false)
   }, [])
 
+  // Append blocks (for AI streaming - uses functional update to avoid stale closures)
+  const appendBlocks = useCallback((newBlocks: EditorBlock[], options?: { replaceMatching?: boolean }) => {
+    setBlocks(prev => {
+      if (options?.replaceMatching) {
+        // Try to replace matching sections (same type for quiz/checklist)
+        let updated = [...prev]
+        for (const newBlock of newBlocks) {
+          const existingIndex = updated.findIndex(b => {
+            if (b.type === 'quiz' && newBlock.type === 'quiz') return true
+            if (b.type === 'checklist' && newBlock.type === 'checklist') return true
+            if (b.type === newBlock.type && b.title && newBlock.title &&
+                b.title.toLowerCase() === newBlock.title.toLowerCase()) return true
+            return false
+          })
+
+          if (existingIndex !== -1 && (newBlock.type === 'quiz' || newBlock.type === 'checklist')) {
+            updated[existingIndex] = newBlock
+            console.log(`📝 Replaced existing ${newBlock.type} with AI-generated merged version`)
+          } else {
+            updated.push(newBlock)
+          }
+        }
+        return updated
+      } else {
+        // Simple append
+        return [...prev, ...newBlocks]
+      }
+    })
+    setIsDirty(true)
+  }, [])
+
   // Reset the editor to default state
   const resetEditor = useCallback(() => {
     setBlocks([])
@@ -258,6 +290,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     selectBlock,
     setMetadata,
     initializeBlocks,
+    appendBlocks,
     resetEditor,
     markClean
   }

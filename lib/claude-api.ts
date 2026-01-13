@@ -1128,13 +1128,22 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
     const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', pdfDocuments } = params
 
     const modeInstructions = mode === 'add'
-      ? `IMPORTANT: You are ADDING to an existing study guide.
+      ? `🚨 IMPORTANT: You are MODIFYING an existing study guide. 🚨
 
-READ THE USER'S REQUEST CAREFULLY:
-- If they ask to "add X questions to the quiz" or "add more items to Y section", you should INCLUDE THE EXISTING SECTION with the additions in your output. For example, if there's an existing quiz with 3 questions and they want 2 more, output a quiz section with ALL 5 questions.
-- If they ask to create new sections on different topics, create new sections only.
-- NEVER duplicate existing content - either enhance it (add to it) OR create something new.
-- Look at what's already there and complement it.`
+READ THE USER'S REQUEST AND THE EXISTING CONTENT CAREFULLY:
+
+MODIFICATION RULES:
+1. **Adding to existing sections**: If the user asks to "add questions to the quiz", "add items to the checklist", "add definitions", etc., you MUST:
+   - Find the relevant existing section in the EXISTING GUIDE CONTENT below
+   - Create a NEW version of that section with ALL the original content PLUS the new additions
+   - The section you output will REPLACE the original (don't worry about IDs)
+   - Example: Existing quiz has 3 questions, user wants 2 more → Output a quiz section with ALL 5 questions
+
+2. **Creating new sections**: If the user asks for something that doesn't exist yet (new topics, different section types), create new sections.
+
+3. **Never duplicate**: Don't create a section that's nearly identical to an existing one. Either enhance the existing section or create something distinctly different.
+
+CRITICAL: When asked to add items to an existing section (like "add 3 more quiz questions"), you MUST include all the original items from that section PLUS your new additions. Look at the EXISTING GUIDE CONTENT section below to see what already exists.`
       : `You are creating a new study guide from scratch.`
 
     // Build source instructions based on whether we have text content, PDF documents, or both
@@ -1206,7 +1215,14 @@ ${modeInstructions}
 USER REQUEST: ${description}
 ${subject ? `SUBJECT: ${subject}` : ''}
 ${gradeLevel ? `GRADE LEVEL: ${gradeLevel}` : ''}
-${existingContent ? `\nEXISTING GUIDE CONTENT (${mode === 'add' ? 'add to this, do not duplicate' : 'for context'}):\n${existingContent}` : ''}
+${existingContent && mode === 'add' ? `
+📋 EXISTING GUIDE CONTENT - READ THIS CAREFULLY 📋
+You MUST reference this when adding to existing sections. If the user asks to add questions to a quiz, FIND THE QUIZ BELOW and include ALL its existing questions plus your new ones.
+
+${existingContent}
+
+⬆️ END OF EXISTING CONTENT ⬆️
+` : existingContent ? `\nEXISTING GUIDE CONTENT (for context):\n${existingContent}` : ''}
 
 Generate a JSON object representing a custom study guide. The structure MUST follow this exact format:
 

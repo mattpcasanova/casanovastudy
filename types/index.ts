@@ -24,9 +24,15 @@ export interface CloudinaryFile {
   format: string
 }
 
+export interface DirectContent {
+  name: string
+  content: string
+}
+
 export interface StudyGuideRequest {
   files?: ProcessedFile[]
   cloudinaryFiles?: CloudinaryFile[]
+  directContent?: DirectContent[]  // Content processed client-side (bypasses Cloudinary)
   studyGuideName: string
   subject: string
   gradeLevel: string

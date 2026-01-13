@@ -29,7 +29,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEditor, EditorProvider } from "@/lib/contexts/editor-context"
-import { BlockType, EditorBlock, blocksToCustomContent, customContentToBlocks, sectionToBlock } from "@/lib/types/editor-blocks"
+import { BlockType, EditorBlock, blocksToCustomContent, sectionToBlock } from "@/lib/types/editor-blocks"
 import { CustomGuideContent, CustomSection } from "@/lib/types/custom-guide"
 import { BlockToolbar } from "./block-toolbar"
 import { BlockWrapper } from "./blocks/block-wrapper"
@@ -43,7 +43,7 @@ import { SectionBlock } from "./blocks/section-block"
 import { AIAssistant } from "./ai-assistant"
 import CustomFormat from "@/components/formats/custom-format"
 import { ClientCompression } from "@/lib/client-compression"
-import { Eye, Edit3, Save, RotateCcw, FileText, Loader2, Upload, X, FileUp } from "lucide-react"
+import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp } from "lucide-react"
 
 interface CustomGuideEditorProps {
   initialContent?: EditorBlock[]
@@ -106,7 +106,8 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
     selectBlock,
     setMetadata,
     resetEditor,
-    initializeBlocks
+    initializeBlocks,
+    appendBlocks
   } = useEditor()
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
@@ -156,9 +157,10 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint',
       'text/plain'
     ]
-    const allowedExtensions = ['.pdf', '.docx', '.pptx', '.txt']
+    const allowedExtensions = ['.pdf', '.docx', '.pptx', '.ppt', '.txt']
 
     setIsProcessingFile(true)
     setFileError(null)
@@ -171,7 +173,7 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
 
       // Validate file type
       if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-        errors.push(`${file.name}: Unsupported file type. Use PDF, DOCX, PPTX, or TXT.`)
+        errors.push(`${file.name}: Unsupported file type. Use PDF, DOCX, PPT, PPTX, or TXT.`)
         continue
       }
 
@@ -238,10 +240,12 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
 
   // Handle AI-generated content (bulk - fallback if streaming sections didn't work)
   const handleAIContentGenerated = (content: CustomGuideContent, mode: 'replace' | 'add') => {
-    const newBlocks = customContentToBlocks(content)
-    if (mode === 'add' && blocks.length > 0) {
-      // Append new blocks to existing ones
-      initializeBlocks([...blocks, ...newBlocks])
+    // Regenerate IDs for AI-generated content to avoid conflicts
+    const newBlocks = content.sections.map(section => sectionToBlock(section, true))
+
+    if (mode === 'add') {
+      // Use appendBlocks with replaceMatching for quiz/checklist merging
+      appendBlocks(newBlocks, { replaceMatching: true })
     } else {
       // Replace all content
       initializeBlocks(newBlocks)
@@ -250,14 +254,19 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
 
   // Handle incremental section additions (real-time as AI generates)
   const handleSectionAdded = (section: CustomSection, mode: 'replace' | 'add', isFirst: boolean) => {
-    const newBlock = sectionToBlock(section)
+    // Pass regenerateIds=true to ensure unique IDs and avoid React key conflicts
+    const newBlock = sectionToBlock(section, true)
 
     if (mode === 'replace' && isFirst) {
       // First section in replace mode - clear existing and start fresh
       initializeBlocks([newBlock])
+    } else if (mode === 'replace') {
+      // Subsequent sections in replace mode - append using functional update
+      appendBlocks([newBlock])
     } else {
-      // Add mode or subsequent sections in replace mode - append to existing
-      initializeBlocks([...blocks, newBlock])
+      // Add mode - use appendBlocks with replaceMatching for quiz/checklist merging
+      // This handles cases like "add 3 questions to the quiz"
+      appendBlocks([newBlock], { replaceMatching: true })
     }
   }
 
@@ -453,31 +462,47 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
               )}
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              Upload PDF, DOCX, PPTX, or TXT files for the AI assistant to reference when generating content.
+              Upload PDF, DOCX, PPT, PPTX, or TXT files for the AI assistant to reference when generating content.
             </p>
 
             {/* Uploaded files list */}
             {sourceFiles.length > 0 && (
               <div className="space-y-2 mb-3">
-                {sourceFiles.map((file) => (
-                  <div key={file.name} className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                    <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    <span className="flex-1 text-sm font-medium text-green-800 truncate">
-                      {file.name}
-                    </span>
-                    <span className="text-xs text-green-600 flex-shrink-0">
-                      {Math.round(file.content.length / 1000)}k chars
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeSourceFile(file.name)}
-                      className="h-6 w-6 p-0 text-green-600 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+                {sourceFiles.map((file) => {
+                  // Get file icon based on extension
+                  const ext = file.name.split('.').pop()?.toLowerCase()
+                  const getFileIcon = () => {
+                    if (ext === 'pdf') return <FileText className="h-5 w-5 text-red-500" />
+                    if (ext === 'ppt' || ext === 'pptx') return <FileImage className="h-5 w-5 text-orange-500" />
+                    if (ext === 'doc' || ext === 'docx') return <FileText className="h-5 w-5 text-blue-500" />
+                    return <File className="h-5 w-5 text-gray-500" />
+                  }
+
+                  return (
+                    <div
+                      key={file.name}
+                      className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all group"
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3">
+                        {getFileIcon()}
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            {(file.size / 1024 / 1024).toFixed(1)} MB
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSourceFile(file.name)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-600 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
@@ -486,7 +511,7 @@ function EditorContent({ onSave, onCancel, isEditing, initialMetadata, sourceFil
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.docx,.pptx,.txt"
+                accept=".pdf,.docx,.pptx,.ppt,.txt"
                 multiple
                 onChange={handleSourceFileUpload}
                 className="hidden"

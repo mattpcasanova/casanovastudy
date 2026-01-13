@@ -4,22 +4,28 @@ import { CustomGuideContent } from '@/lib/types/custom-guide'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated user
-    const user = await getAuthenticatedUser(request)
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
-    const { title, subject, gradeLevel, customContent } = body as {
+    const { title, subject, gradeLevel, customContent, userId: bodyUserId } = body as {
       title: string
       subject: string
       gradeLevel: string
       customContent: CustomGuideContent
+      userId?: string
+    }
+
+    // Get userId from request body or fall back to cookie auth
+    let userId: string | null = bodyUserId || null
+
+    if (!userId) {
+      const cookieUser = await getAuthenticatedUser(request)
+      userId = cookieUser?.id || null
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     // Validate required fields
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { data: guide, error } = await supabase
       .from('study_guides')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         title: title.trim(),
         subject: subject || 'other',
         grade_level: gradeLevel || '9th-10th',

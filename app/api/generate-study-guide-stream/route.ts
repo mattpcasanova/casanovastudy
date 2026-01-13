@@ -18,8 +18,12 @@ export async function POST(request: NextRequest) {
         console.log('🚀 Study guide streaming generation started')
         const body: StudyGuideRequest = await request.json()
 
-        // Validate request
-        if ((!body.files || body.files.length === 0) && (!body.cloudinaryFiles || body.cloudinaryFiles.length === 0)) {
+        // Validate request - now also accepts directContent
+        const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
+        const hasDirectContent = body.directContent && body.directContent.length > 0
+        const hasLegacyFiles = body.files && body.files.length > 0
+
+        if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: 'No files provided' }) + '\n\n'))
           controller.close()
           return
@@ -34,21 +38,33 @@ export async function POST(request: NextRequest) {
         // Send progress update
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Processing your materials...' }) + '\n\n'))
 
-        // Process files
-        let processedFiles
-        if (body.cloudinaryFiles && body.cloudinaryFiles.length > 0) {
+        // Process files from multiple sources
+        let allContent: Array<{ name: string; content: string }> = []
+
+        // 1. Process Cloudinary files (fetched and text-extracted server-side)
+        if (hasCloudinaryFiles && body.cloudinaryFiles) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your files...' }) + '\n\n'))
-          processedFiles = await Promise.all(
+          const processedFiles = await Promise.all(
             body.cloudinaryFiles.map(async (cloudinaryFile) => {
               return await FileProcessor.processFileFromUrl(cloudinaryFile.url, cloudinaryFile.filename)
             })
           )
-        } else {
-          processedFiles = body.files!
+          allContent.push(...processedFiles.map(f => ({ name: f.name, content: f.content })))
         }
 
-        // Combine content
-        const combinedContent = processedFiles
+        // 2. Add directly processed content (already extracted client-side, bypassed Cloudinary)
+        if (hasDirectContent && body.directContent) {
+          console.log('Adding direct content:', body.directContent.map((c) => c.name))
+          allContent.push(...body.directContent)
+        }
+
+        // 3. Handle legacy files format (if any)
+        if (hasLegacyFiles && !hasCloudinaryFiles && !hasDirectContent) {
+          allContent.push(...body.files!.map((f: { name: string; content: string }) => ({ name: f.name, content: f.content })))
+        }
+
+        // Combine all content
+        const combinedContent = allContent
           .map(file => `--- ${file.name} ---\n${file.content}`)
           .join('\n\n')
 
@@ -94,7 +110,7 @@ export async function POST(request: NextRequest) {
             topic_focus: body.topicFocus,
             difficulty_level: body.difficultyLevel,
             additional_instructions: body.additionalInstructions,
-            file_count: body.cloudinaryFiles?.length || body.files?.length || 0,
+            file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),
             token_usage: usage,
             user_id: body.userId || user?.id || null  // Use passed userId, fallback to cookie auth
           })

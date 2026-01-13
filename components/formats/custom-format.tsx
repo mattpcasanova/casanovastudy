@@ -550,7 +550,11 @@ function QuizBlock({
           <RadioGroup value={userAnswer} onValueChange={setUserAnswer}>
             {currentQuestion.options.map((option, i) => (
               <div key={i} className="flex items-center space-x-2">
-                <RadioGroupItem value={option} id={`${sectionId}-q${currentIndex}-opt${i}`} />
+                <RadioGroupItem
+                  value={option}
+                  id={`${sectionId}-q${currentIndex}-opt${i}`}
+                  className="border-2 border-gray-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
+                />
                 <Label
                   htmlFor={`${sectionId}-q${currentIndex}-opt${i}`}
                   className={`cursor-pointer ${
@@ -572,11 +576,19 @@ function QuizBlock({
         {currentQuestion.questionType === 'true-false' && (
           <RadioGroup value={userAnswer} onValueChange={setUserAnswer}>
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="true" id={`${sectionId}-q${currentIndex}-true`} />
+              <RadioGroupItem
+                value="true"
+                id={`${sectionId}-q${currentIndex}-true`}
+                className="border-2 border-gray-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
+              />
               <Label htmlFor={`${sectionId}-q${currentIndex}-true`}>True</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="false" id={`${sectionId}-q${currentIndex}-false`} />
+              <RadioGroupItem
+                value="false"
+                id={`${sectionId}-q${currentIndex}-false`}
+                className="border-2 border-gray-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
+              />
               <Label htmlFor={`${sectionId}-q${currentIndex}-false`}>False</Label>
             </div>
           </RadioGroup>
@@ -673,7 +685,7 @@ function ChecklistBlock({
                 id={itemId}
                 checked={isChecked}
                 onCheckedChange={() => toggleChecklistItem(itemId)}
-                className="mt-0.5"
+                className="mt-0.5 border-2 border-gray-400 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
               />
               <label
                 htmlFor={itemId}

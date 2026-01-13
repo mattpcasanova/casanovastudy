@@ -9,22 +9,28 @@ export async function PUT(
   try {
     const { id } = await params
 
-    // Get authenticated user
-    const user = await getAuthenticatedUser(request)
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
-    const { title, subject, gradeLevel, customContent } = body as {
+    const { title, subject, gradeLevel, customContent, userId: bodyUserId } = body as {
       title?: string
       subject?: string
       gradeLevel?: string
       customContent: CustomGuideContent
+      userId?: string
+    }
+
+    // Get userId from request body or fall back to cookie auth
+    let userId: string | null = bodyUserId || null
+
+    if (!userId) {
+      const cookieUser = await getAuthenticatedUser(request)
+      userId = cookieUser?.id || null
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     // Validate custom content
@@ -51,7 +57,7 @@ export async function PUT(
       )
     }
 
-    if (guide.user_id !== user.id) {
+    if (guide.user_id !== userId) {
       return NextResponse.json(
         { error: 'You do not have permission to edit this study guide' },
         { status: 403 }
@@ -113,10 +119,16 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Get authenticated user
-    const user = await getAuthenticatedUser(request)
+    // Get userId from query param or fall back to cookie auth
+    const { searchParams } = new URL(request.url)
+    let userId: string | null = searchParams.get('userId')
 
-    if (!user) {
+    if (!userId) {
+      const cookieUser = await getAuthenticatedUser(request)
+      userId = cookieUser?.id || null
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -140,7 +152,7 @@ export async function GET(
     }
 
     // Verify ownership
-    if (guide.user_id !== user.id) {
+    if (guide.user_id !== userId) {
       return NextResponse.json(
         { error: 'You do not have permission to edit this study guide' },
         { status: 403 }

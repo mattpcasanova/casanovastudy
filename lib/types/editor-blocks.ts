@@ -299,21 +299,22 @@ function blockDataToSectionContent(data: EditorBlockData): SectionContent {
 
 // Convert CustomGuideContent to EditorBlock array (for editing existing guides)
 export function customContentToBlocks(content: CustomGuideContent): EditorBlock[] {
-  return content.sections.map(sectionToBlock)
+  return content.sections.map(section => sectionToBlock(section, false))
 }
 
 // Convert CustomSection to EditorBlock (exported for incremental section additions)
-export function sectionToBlock(section: CustomSection): EditorBlock {
+// Use regenerateIds=true when adding AI-generated content to avoid duplicate key errors
+export function sectionToBlock(section: CustomSection, regenerateIds: boolean = false): EditorBlock {
   const block: EditorBlock = {
-    id: section.id,
+    id: regenerateIds ? generateBlockId() : section.id,
     type: section.type as BlockType,
     title: section.title,
-    data: sectionContentToBlockData(section.type, section.content)
+    data: sectionContentToBlockData(section.type, section.content, regenerateIds)
   }
 
   // Convert children for section blocks
   if (section.children && section.children.length > 0) {
-    block.children = section.children.map(sectionToBlock)
+    block.children = section.children.map(child => sectionToBlock(child, regenerateIds))
   }
 
   // Handle collapsed state
@@ -325,7 +326,7 @@ export function sectionToBlock(section: CustomSection): EditorBlock {
 }
 
 // Convert SectionContent to EditorBlockData
-function sectionContentToBlockData(type: string, content: SectionContent): EditorBlockData {
+function sectionContentToBlockData(type: string, content: SectionContent, regenerateIds: boolean = false): EditorBlockData {
   switch (type) {
     case 'text':
       if (content.type === 'text') {
@@ -363,7 +364,7 @@ function sectionContentToBlockData(type: string, content: SectionContent): Edito
         return {
           type: 'quiz',
           questions: content.questions.map(q => ({
-            id: q.id,
+            id: regenerateIds ? generateQuestionId() : q.id,
             questionType: q.questionType,
             question: q.question,
             options: q.options,
@@ -379,7 +380,7 @@ function sectionContentToBlockData(type: string, content: SectionContent): Edito
         return {
           type: 'checklist',
           items: content.items.map(item => ({
-            id: item.id,
+            id: regenerateIds ? generateChecklistItemId() : item.id,
             label: item.label
           }))
         }

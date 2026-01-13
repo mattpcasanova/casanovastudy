@@ -137,16 +137,15 @@ export function AIAssistant({
                   setProgress("Generating content...")
                   break
                 case "complete":
-                  // If we already sent sections incrementally, just close the UI
+                  // If we already sent sections incrementally, just reset the form
                   // Otherwise fall back to bulk update for compatibility
+                  // Note: We intentionally do NOT close the assistant - user can close it manually
                   if (sectionsAdded > 0) {
                     setDescription("")
-                    setIsOpen(false)
                     setProgress("")
                   } else if (data.customContent) {
                     onContentGenerated(data.customContent, mode)
                     setDescription("")
-                    setIsOpen(false)
                     setProgress("")
                   }
                   break
@@ -282,7 +281,7 @@ export function AIAssistant({
                   <span className="text-sm text-blue-700 font-medium block">{progress || "Generating content..."}</span>
                   {sectionsAdded > 0 && (
                     <span className="text-xs text-blue-600">
-                      {sectionsAdded} section{sectionsAdded !== 1 ? 's' : ''} added - watch them appear below!
+                      {sectionsAdded} section{sectionsAdded !== 1 ? 's' : ''} generated
                     </span>
                   )}
                 </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,19 +48,50 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const { toast } = useToast()
 
   const validateFile = (file: File): string | null => {
-    const maxSize = 20 * 1024 * 1024 // 20MB
+    const maxCloudinarySize = 10 * 1024 * 1024 // 10MB (Cloudinary limit)
+    const maxClientProcessSize = 50 * 1024 * 1024 // 50MB for client-side processing
     const validTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '' // Some browsers don't detect MIME type for older Office formats
     ]
+    const validExtensions = ['.pdf', '.ppt', '.pptx', '.docx', '.doc']
 
-    if (!validTypes.includes(file.type)) {
-      return `${file.name}: Invalid file type. Please upload PDF, PPTX, or DOCX files.`
+    // Debug logging
+    console.log('File validation:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      sizeMB: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+    })
+
+    // Check by extension if MIME type is empty or unrecognized
+    const extension = '.' + file.name.split('.').pop()?.toLowerCase()
+    const hasValidExtension = validExtensions.includes(extension)
+    const hasValidType = validTypes.includes(file.type)
+
+    if (!hasValidType && !hasValidExtension) {
+      return `${file.name}: Invalid file type (${file.type || 'unknown'}). Please upload PDF, PPT, PPTX, or DOCX files.`
     }
 
+    // Check for old .ppt format - we can't process these client-side
+    const isOldPPT = extension === '.ppt' || file.type === 'application/vnd.ms-powerpoint'
+    if (isOldPPT) {
+      return `${file.name}: Old PowerPoint format (.ppt) cannot be processed. Please open in PowerPoint and Save As → .pptx, or export to PDF.`
+    }
+
+    // For PPTX and DOCX, we can process client-side (no Cloudinary limit)
+    const canProcessClientSide = extension === '.pptx' || extension === '.docx'
+    const maxSize = canProcessClientSide ? maxClientProcessSize : maxCloudinarySize
+
     if (file.size > maxSize) {
-      return `${file.name}: File size exceeds 20MB limit.`
+      if (canProcessClientSide) {
+        return `${file.name}: File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds 50MB limit.`
+      } else {
+        return `${file.name}: File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds 10MB limit. For large PDFs, try compressing or splitting the file.`
+      }
     }
 
     return null
@@ -106,10 +137,14 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     })
 
     if (validationErrors.length > 0) {
+      // Show error both as toast AND inline for better visibility
+      const errorMessage = validationErrors.join(" | ")
+      setErrors((prev) => ({ ...prev, files: errorMessage }))
       toast({
         variant: "destructive",
         title: "File validation failed",
-        description: validationErrors.join("\n"),
+        description: errorMessage,
+        duration: 8000, // Show longer so user sees it
       })
     }
 
@@ -255,7 +290,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.pptx,.docx"
+                      accept=".pdf,.ppt,.pptx,.docx"
                       onChange={handleFileInput}
                       className="hidden"
                       disabled={isGenerating}
@@ -263,7 +298,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </label>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Supports PDF, PowerPoint, and Word (max 20MB each)
+                  Supports PDF, PowerPoint, and Word (max 10MB each)
                 </p>
               </div>
 

@@ -9,6 +9,7 @@ import { StreamingGenerationProgress } from "@/components/generation-progress"
 import { Toaster } from "@/components/ui/toaster"
 import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
+import { shouldBypassCloudinary, processFileClientSide, isOldPPTFormat } from "@/lib/client-file-processor"
 import { useAuth } from "@/lib/auth"
 
 export default function Home() {
@@ -22,18 +23,70 @@ export default function Home() {
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
     setStreamingContent('')
-    setStatusMessage('Uploading files...')
+    setStatusMessage('Processing files...')
     setIsComplete(false)
 
     try {
-      // Step 1: Upload files directly to Cloudinary
-      const cloudinaryUploads = await Promise.all(
-        data.files.map(async (file) => {
-          return await ClientCompression.uploadToCloudinary(file);
-        })
-      )
+      // Separate files into those that need Cloudinary vs client-side processing
+      const cloudinaryFiles: File[] = []
+      const clientProcessFiles: File[] = []
 
-      setStatusMessage('Files uploaded! Starting generation...')
+      for (const file of data.files) {
+        if (shouldBypassCloudinary(file)) {
+          clientProcessFiles.push(file)
+        } else {
+          cloudinaryFiles.push(file)
+        }
+      }
+
+      console.log('File processing plan:', {
+        cloudinary: cloudinaryFiles.map(f => f.name),
+        clientSide: clientProcessFiles.map(f => f.name)
+      })
+
+      // Step 1a: Upload small files to Cloudinary
+      let cloudinaryUploads: any[] = []
+      if (cloudinaryFiles.length > 0) {
+        setStatusMessage('Uploading files...')
+        cloudinaryUploads = await Promise.all(
+          cloudinaryFiles.map(async (file) => {
+            return await ClientCompression.uploadToCloudinary(file);
+          })
+        )
+      }
+
+      // Step 1b: Process large/PPTX files client-side
+      let clientProcessedContent: Array<{ name: string; content: string }> = []
+      if (clientProcessFiles.length > 0) {
+        for (const file of clientProcessFiles) {
+          setStatusMessage(`Processing ${file.name}...`)
+          try {
+            const result = await processFileClientSide(file, setStatusMessage)
+            if (result.type === 'text' && result.content) {
+              clientProcessedContent.push({
+                name: file.name,
+                content: result.content
+              })
+            } else if (result.type === 'images' && result.images) {
+              // For now, we'll need to handle images differently
+              // TODO: Send images directly to Claude's vision API
+              console.log(`Converted ${file.name} to ${result.images.length} images`)
+              // For PDFs converted to images, we'll upload the images to Cloudinary
+              for (let i = 0; i < result.images.length; i++) {
+                const img = result.images[i]
+                const imageFile = new File([img.data], img.name, { type: 'image/jpeg' })
+                const upload = await ClientCompression.uploadToCloudinary(imageFile)
+                cloudinaryUploads.push(upload)
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to process ${file.name}:`, error)
+            throw new Error(`Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          }
+        }
+      }
+
+      setStatusMessage('Files processed! Starting generation...')
 
       // Step 2: Generate study guide with streaming
       const studyGuideRequest = {
@@ -43,6 +96,8 @@ export default function Home() {
           size: upload.size,
           format: upload.format
         })),
+        // Include directly processed content (bypasses Cloudinary)
+        directContent: clientProcessedContent.length > 0 ? clientProcessedContent : undefined,
         studyGuideName: data.studyGuideName,
         subject: data.subject,
         gradeLevel: data.gradeLevel,

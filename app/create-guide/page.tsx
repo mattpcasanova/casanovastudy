@@ -37,7 +37,9 @@ export default function CreateGuidePage() {
 
     const fetchGuide = async () => {
       try {
-        const response = await fetch(`/api/study-guides/${editId}/custom-content`)
+        const response = await fetch(`/api/study-guides/${editId}/custom-content?userId=${user.id}`, {
+          credentials: 'include'
+        })
         const data = await response.json()
 
         if (!response.ok) {
@@ -85,8 +87,9 @@ export default function CreateGuidePage() {
 
     const response = await fetch(endpoint, {
       method,
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ ...data, userId: user.id })
     })
 
     const result = await response.json()
