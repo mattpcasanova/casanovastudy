@@ -1,5 +1,8 @@
-const MAX_IMAGE_SIZE = 4.5 * 1024 * 1024 // 4.5MB to stay safely under Claude's 5MB limit
-const TARGET_RESOLUTION = 1500 // Max width/height in pixels (good quality for handwriting)
+const MAX_IMAGE_SIZE = 500 * 1024 // 500KB per image - allows ~8 pages within Vercel's 4.5MB body limit
+const TARGET_RESOLUTION = 1200 // Max width/height in pixels (good quality for handwriting)
+const MAX_TOTAL_UPLOAD_SIZE = 4 * 1024 * 1024 // 4MB total to stay safely under Vercel's 4.5MB limit
+
+export { MAX_TOTAL_UPLOAD_SIZE }
 
 interface ConvertedImage {
   data: Blob

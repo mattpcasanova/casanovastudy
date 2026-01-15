@@ -12,7 +12,7 @@ import NavigationHeader from "@/components/navigation-header"
 import { AutocompleteInput } from "@/components/autocomplete-input"
 import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
-import { processFile } from "@/lib/pdf-to-images"
+import { processFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 
 interface GradingResult {
   id?: string
@@ -271,6 +271,19 @@ export default function GradeExamPage() {
         setStatusMessage(`Processing student exam file ${i + 1} of ${studentExamFiles.length}...`)
         const processed = await processFile(studentExamFiles[i], setStatusMessage)
         processedStudentExams.push(...processed)
+      }
+
+      // Check total size before uploading
+      const totalSize = [...processedMarkScheme, ...processedStudentExams].reduce((sum, file) => sum + file.size, 0)
+      if (totalSize > MAX_TOTAL_UPLOAD_SIZE) {
+        const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
+        const limitMB = (MAX_TOTAL_UPLOAD_SIZE / (1024 * 1024)).toFixed(0)
+        const pageCount = processedStudentExams.length
+        throw new Error(
+          `Total file size (${totalMB}MB) exceeds the ${limitMB}MB upload limit. ` +
+          `You have ${pageCount} page${pageCount !== 1 ? 's' : ''}. ` +
+          `Try grading fewer pages at once, or upload lower resolution images.`
+        )
       }
 
       setStatusMessage("Sending to grading service...")
