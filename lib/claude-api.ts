@@ -351,15 +351,19 @@ CRITICAL GRADING PRINCIPLES:
 
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
-**STEP 1 - MARK SCHEME SUMMARY (MANDATORY):**
-Before grading, you MUST first analyze the mark scheme and output a complete summary of ALL questions:
+**STEP 1 - MARK SCHEME ANALYSIS (MANDATORY):**
+Before grading, you MUST first analyze the mark scheme. Check for:
+- **Choice/option sections**: Look for instructions like "Answer ONE question only", "EITHER...OR", "Choose ONE of the following". If the exam has choice sections, determine which question the student actually answered by examining their exam, and EXCLUDE the unchosen alternative(s).
+- **Past paper codes**: Ignore reference codes like "S24-13", "W20-11", "W23-12" next to questions — these are internal references, not question numbers.
+
+Then output this summary:
 [MARK SCHEME SUMMARY]
-List EVERY question with marks in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
-Where the number in parentheses is the marks possible for that question.
-Total: XX marks
+List ONLY the questions the student is required to answer, in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
+If a section has choice questions (e.g., Q5 OR Q6), list ONLY the one the student answered.
+Total: XX marks (this must match the exam's stated total, e.g., "The total mark for this paper is 40")
 [END SUMMARY]
 
-This summary ensures you account for ALL questions. After the summary, grade each one.
+This summary defines EXACTLY which questions you will grade. Do not grade any question not in this summary.
 
 **STEP 2 - GRADE EACH QUESTION:**
 For EACH question in the mark scheme, use this EXACT format on its own line:
@@ -395,19 +399,17 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
-- **START WITH MARK SCHEME SUMMARY**: Always begin with [MARK SCHEME SUMMARY] listing all questions and their marks, then start grading with Question 1 (or 1a if subdivided). Never skip the summary or the first question.
-- Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
-- NEVER stop early - you MUST grade through ALL sections including essay questions
+- **START WITH MARK SCHEME ANALYSIS**: Always begin with the Step 1 analysis (check for choice sections, past paper codes) then output [MARK SCHEME SUMMARY]. Start grading with Question 1 (or 1a if subdivided).
+- **ONLY GRADE QUESTIONS IN YOUR SUMMARY**: Grade every question listed in your mark scheme summary exactly ONCE. Do NOT grade questions you excluded (e.g., unchosen alternatives from choice sections).
+- NEVER stop early - grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
-- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc. (same order as mark scheme)
-- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
+- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc.
+- If the student didn't attempt a required question, award 0 marks with explanation "Question not attempted"
 - Use the exact marks available from the mark scheme for the denominator (Y)
-- The total of all Y values should equal the EXACT total marks possible from the mark scheme
-- **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
-- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
-- **OPTION/CHOICE QUESTIONS**: If a section offers multiple OPTIONS to choose from (e.g., "Option 1" OR "Option 2", "Answer ONE of the following"), students only answer ONE option, not all of them. Look at the student's exam to see which option they actually answered, and ONLY grade that option. Do NOT grade options the student did not attempt - exclude them entirely from your grading and from the mark scheme summary. For example, if Section C offers Option 1 (20 marks) and Option 2 (20 marks), and the student answered Option 1, only include Option 1 in your grading - the total possible marks for that section is 20, not 40.
-- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
-- **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
+- **GRADE ALL SUB-PARTS**: If questions have sub-parts like 2a, 2b, 2c, grade EVERY sub-part separately. Do NOT stop after grading just 2a.
+- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: Grade all essay questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL graded questions. Do not abbreviate or cut short.
+- **VERIFY YOUR TOTAL**: Your total possible marks (Y) must match the exam's stated total. If the exam says "Total: 40 marks", your Y values must sum to 40. If they don't, you likely included unchosen choice questions — go back and remove them.
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
@@ -583,15 +585,19 @@ CRITICAL GRADING PRINCIPLES:
 
     instructionText += `\n\n**RESPONSE FORMAT (follow exactly):**
 
-**STEP 1 - MARK SCHEME SUMMARY (MANDATORY):**
-Before grading, you MUST first analyze the mark scheme and output a complete summary of ALL questions:
+**STEP 1 - MARK SCHEME ANALYSIS (MANDATORY):**
+Before grading, you MUST first analyze the mark scheme. Check for:
+- **Choice/option sections**: Look for instructions like "Answer ONE question only", "EITHER...OR", "Choose ONE of the following". If the exam has choice sections, determine which question the student actually answered by examining their exam, and EXCLUDE the unchosen alternative(s).
+- **Past paper codes**: Ignore reference codes like "S24-13", "W20-11", "W23-12" next to questions — these are internal references, not question numbers.
+
+Then output this summary:
 [MARK SCHEME SUMMARY]
-List EVERY question with marks in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
-Where the number in parentheses is the marks possible for that question.
-Total: XX marks
+List ONLY the questions the student is required to answer, in format: 1a(2), 1b(3), 2(5), 3a(4), 3b(6)...
+If a section has choice questions (e.g., Q5 OR Q6), list ONLY the one the student answered.
+Total: XX marks (this must match the exam's stated total, e.g., "The total mark for this paper is 40")
 [END SUMMARY]
 
-This summary ensures you account for ALL questions. After the summary, grade each one.
+This summary defines EXACTLY which questions you will grade. Do not grade any question not in this summary.
 
 **STEP 2 - GRADE EACH QUESTION:**
 For EACH question in the mark scheme, use this EXACT format on its own line:
@@ -627,19 +633,17 @@ ILLEGIBLE HANDWRITING:
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
-- **START WITH MARK SCHEME SUMMARY**: Always begin with [MARK SCHEME SUMMARY] listing all questions and their marks, then start grading with Question 1 (or 1a if subdivided). Never skip the summary or the first question.
-- Grade EVERY question from the mark scheme exactly ONCE - ALL SECTIONS (A, B, C, etc.)
-- NEVER stop early - you MUST grade through ALL sections including essay questions
+- **START WITH MARK SCHEME ANALYSIS**: Always begin with the Step 1 analysis (check for choice sections, past paper codes) then output [MARK SCHEME SUMMARY]. Start grading with Question 1 (or 1a if subdivided).
+- **ONLY GRADE QUESTIONS IN YOUR SUMMARY**: Grade every question listed in your mark scheme summary exactly ONCE. Do NOT grade questions you excluded (e.g., unchosen alternatives from choice sections).
+- NEVER stop early - grade through ALL sections including essay questions
 - Each question appears only ONCE in your response - no duplicates
-- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc. (same order as mark scheme)
-- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
+- Output questions in SEQUENTIAL ORDER: 1, 1a, 1b, 2, 2a, 2b, 3... etc.
+- If the student didn't attempt a required question, award 0 marks with explanation "Question not attempted"
 - Use the exact marks available from the mark scheme for the denominator (Y)
-- The total of all Y values should equal the EXACT total marks possible from the mark scheme
-- **GRADE ALL SUB-PARTS IN EVERY SECTION**: If ANY section (A, B, C, D, Part 1, Part 2, etc.) has questions with sub-parts like 2a, 2b, 2c (or Option 1a, 1b, Option 2a, 2b), you MUST grade EVERY sub-part separately. Do NOT stop after grading just 2a - continue to 2b, 2c, 2d, etc. Each sub-part should have its own entry.
-- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: If the mark scheme includes extended response or essay sections (regardless of what section letter/number they are: Section C, Section D, Part 3, etc.), you MUST grade them. Do NOT skip these questions even if the student's response is poor or blank - award 0 marks with explanation.
-- **OPTION/CHOICE QUESTIONS**: If a section offers multiple OPTIONS to choose from (e.g., "Option 1" OR "Option 2", "Answer ONE of the following"), students only answer ONE option, not all of them. Look at the student's exam to see which option they actually answered, and ONLY grade that option. Do NOT grade options the student did not attempt - exclude them entirely from your grading and from the mark scheme summary. For example, if Section C offers Option 1 (20 marks) and Option 2 (20 marks), and the student answered Option 1, only include Option 1 in your grading - the total possible marks for that section is 20, not 40.
-- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL questions including essays and extended responses. Do not abbreviate or cut short your explanations.
-- **VERIFY YOUR TOTAL**: Before finishing, verify that your Total marks match the EXACT total from the mark scheme. Your Y values MUST sum to the mark scheme's total (e.g., if it says "Total: 50 marks" or "[X]/50", your Y values must sum to exactly 50).
+- **GRADE ALL SUB-PARTS**: If questions have sub-parts like 2a, 2b, 2c, grade EVERY sub-part separately. Do NOT stop after grading just 2a.
+- **ESSAY/EXTENDED RESPONSE QUESTIONS ARE MANDATORY**: Grade all essay questions even if the student's response is poor or blank - award 0 marks with explanation.
+- **COMPLETE YOUR FULL RESPONSE**: Provide detailed feedback for ALL graded questions. Do not abbreviate or cut short.
+- **VERIFY YOUR TOTAL**: Your total possible marks (Y) must match the exam's stated total. If the exam says "Total: 40 marks", your Y values must sum to 40. If they don't, you likely included unchosen choice questions — go back and remove them.
 
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
