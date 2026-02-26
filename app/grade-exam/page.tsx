@@ -12,7 +12,7 @@ import NavigationHeader from "@/components/navigation-header"
 import { AutocompleteInput } from "@/components/autocomplete-input"
 import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
-import { processFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
+import { processFile, compressImageFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 
 interface GradingResult {
   id?: string
@@ -273,17 +273,38 @@ export default function GradeExamPage() {
         processedStudentExams.push(...processed)
       }
 
-      // Check total size before uploading
-      const totalSize = [...processedMarkScheme, ...processedStudentExams].reduce((sum, file) => sum + file.size, 0)
+      // Check total size and re-compress if needed
+      let totalSize = [...processedMarkScheme, ...processedStudentExams].reduce((sum, file) => sum + file.size, 0)
       if (totalSize > MAX_TOTAL_UPLOAD_SIZE) {
-        const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
-        const limitMB = (MAX_TOTAL_UPLOAD_SIZE / (1024 * 1024)).toFixed(0)
-        const pageCount = processedStudentExams.length
-        throw new Error(
-          `Total file size (${totalMB}MB) exceeds the ${limitMB}MB upload limit. ` +
-          `You have ${pageCount} page${pageCount !== 1 ? 's' : ''}. ` +
-          `Try grading fewer pages at once, or upload lower resolution images.`
-        )
+        const allFiles = [...processedMarkScheme, ...processedStudentExams]
+        const totalFiles = allFiles.length
+        // Calculate a per-image budget that fits within the limit (with 5% margin)
+        const targetPerImage = Math.floor((MAX_TOTAL_UPLOAD_SIZE * 0.95) / totalFiles)
+        setStatusMessage(`Files too large (${(totalSize / (1024 * 1024)).toFixed(1)}MB). Re-compressing to fit...`)
+
+        const recompressed: File[] = []
+        for (let i = 0; i < allFiles.length; i++) {
+          const file = allFiles[i]
+          if (file.type.startsWith('image/') && file.size > targetPerImage) {
+            const blob = await compressImageFile(file, targetPerImage)
+            recompressed.push(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+          } else {
+            recompressed.push(file)
+          }
+        }
+
+        processedMarkScheme = recompressed.slice(0, processedMarkScheme.length)
+        processedStudentExams = recompressed.slice(processedMarkScheme.length)
+
+        totalSize = recompressed.reduce((sum, file) => sum + file.size, 0)
+        if (totalSize > MAX_TOTAL_UPLOAD_SIZE) {
+          const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
+          const limitMB = (MAX_TOTAL_UPLOAD_SIZE / (1024 * 1024)).toFixed(0)
+          throw new Error(
+            `Total file size (${totalMB}MB) still exceeds the ${limitMB}MB limit after compression. ` +
+            `Try grading fewer pages at once.`
+          )
+        }
       }
 
       setStatusMessage("Sending to grading service...")

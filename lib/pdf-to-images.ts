@@ -1,6 +1,6 @@
-const MAX_IMAGE_SIZE = 500 * 1024 // 500KB per image - allows ~8 pages within Vercel's 4.5MB body limit
+const MAX_IMAGE_SIZE = 350 * 1024 // 350KB per image - allows ~12 pages within Vercel's 4.5MB body limit
 const TARGET_RESOLUTION = 1200 // Max width/height in pixels (good quality for handwriting)
-const MAX_TOTAL_UPLOAD_SIZE = 4 * 1024 * 1024 // 4MB total to stay safely under Vercel's 4.5MB limit
+const MAX_TOTAL_UPLOAD_SIZE = 4.2 * 1024 * 1024 // 4.2MB total to stay under Vercel's 4.5MB body limit (with FormData overhead)
 
 export { MAX_TOTAL_UPLOAD_SIZE }
 
