@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,11 +35,17 @@ export default function NavigationHeader() {
   const { user, signOut } = useAuth()
   const initials = getUserInitials(user)
 
-  // Prevent hydration mismatch by only rendering user-dependent UI after mount
   const [mounted, setMounted] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
   const isMyTeachersActive = pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
@@ -51,20 +57,26 @@ export default function NavigationHeader() {
     <header className="bg-gradient-to-r from-primary via-secondary to-accent text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between py-4">
-          {/* Logo - Bigger */}
+          {/* Logo */}
           <Link href="/" className="transition-all duration-200 hover:scale-105">
+            <Image
+              src="/images/casanova-study-icon.png"
+              alt="Casanova Study"
+              width={80}
+              height={80}
+              className="h-14 w-auto md:hidden drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+            />
             <Image
               src="/images/casanova-study-logo.png"
               alt="Casanova Study"
               width={280}
               height={105}
-              className="h-16 w-auto md:h-20 drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className="hidden md:block h-20 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
             />
           </Link>
 
-          {/* Right side - Navigation and User Menu */}
-          <div className="flex items-center gap-3">
-            {/* Navigation Dropdowns */}
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-3">
             <nav className="flex items-center gap-2">
               {/* Study Guides Dropdown */}
               <DropdownMenu>
@@ -209,8 +221,143 @@ export default function NavigationHeader() {
               </DropdownMenu>
             )}
           </div>
+
+          {/* Mobile: user avatar + hamburger */}
+          <div className="flex md:hidden items-center gap-2">
+            {mounted && user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="w-9 h-9 rounded-full bg-white text-primary font-bold text-xs flex items-center justify-center shadow-md"
+                    aria-label="User menu"
+                  >
+                    {initials}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-medium">
+                      {user.first_name && user.last_name
+                        ? `${user.first_name} ${user.last_name}`
+                        : user.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
+                    <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Mobile menu panel */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-white/20 bg-white/10 backdrop-blur-sm">
+          <nav className="container mx-auto px-4 py-3 flex flex-col gap-1">
+            {/* Study Guides section */}
+            <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Study Guides</p>
+            <Link
+              href="/"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                pathname === '/' ? 'bg-white/20' : 'hover:bg-white/10'
+              }`}
+            >
+              <Plus className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm font-medium">Create Guide</span>
+            </Link>
+            {mounted && user && (
+              <>
+                <Link
+                  href="/create-guide"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname === '/create-guide' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <PenSquare className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Create Custom Guide</span>
+                </Link>
+                <Link
+                  href="/my-guides"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname?.startsWith('/my-guides') ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Guides</span>
+                </Link>
+              </>
+            )}
+
+            {/* Grading section - Teachers only */}
+            {mounted && user && isTeacher && (
+              <>
+                <div className="h-px bg-white/10 my-1" />
+                <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Grading</p>
+                <Link
+                  href="/grade-exam"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname === '/grade-exam' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <GraduationCap className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Grade Exam</span>
+                </Link>
+                <Link
+                  href="/graded-exams"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname?.startsWith('/graded-exams') ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <ClipboardList className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Reports</span>
+                </Link>
+              </>
+            )}
+
+            {/* My Teachers - Students only */}
+            {mounted && user && !isTeacher && (
+              <>
+                <div className="h-px bg-white/10 my-1" />
+                <Link
+                  href="/my-teachers"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isMyTeachersActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Teachers</span>
+                </Link>
+              </>
+            )}
+
+            {/* My Students - Teachers only */}
+            {mounted && user && isTeacher && (
+              <Link
+                href="/my-students"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                  isMyStudentsActive ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <Users className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">My Students</span>
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   )
 }
