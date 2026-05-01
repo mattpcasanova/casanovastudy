@@ -51,6 +51,8 @@ export default function NavigationHeader() {
   const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
   const isMyStudentsActive = pathname?.startsWith('/my-students')
   const isMyClassesActive = pathname?.startsWith('/teacher/classes')
+  const isStudentClassesActive = pathname?.startsWith('/my-classes') || (pathname?.startsWith('/classes') && !pathname?.startsWith('/classes/join'))
+  const isJoinClassActive = pathname?.startsWith('/classes/join')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
   const isTeacher = user?.user_type === 'teacher'
 
@@ -153,6 +155,42 @@ export default function NavigationHeader() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              )}
+
+              {/* My Classes Button - For logged-in students */}
+              {mounted && user && !isTeacher && (
+                <Button
+                  variant={isStudentClassesActive ? 'secondary' : 'ghost'}
+                  className={`h-10 ${
+                    isStudentClassesActive
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href="/my-classes">
+                    <School className="h-4 w-4 mr-2 flex-shrink-0" />
+                    My Classes
+                  </Link>
+                </Button>
+              )}
+
+              {/* Join Class Button - For logged-in students */}
+              {mounted && user && !isTeacher && (
+                <Button
+                  variant={isJoinClassActive ? 'secondary' : 'ghost'}
+                  className={`h-10 ${
+                    isJoinClassActive
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href="/classes/join">
+                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                    Join Class
+                  </Link>
+                </Button>
               )}
 
               {/* My Teachers Button - For logged-in students */}
@@ -346,10 +384,28 @@ export default function NavigationHeader() {
               </>
             )}
 
-            {/* My Teachers - Students only */}
+            {/* Classes & Teachers - Students only */}
             {mounted && user && !isTeacher && (
               <>
                 <div className="h-px bg-white/10 my-1" />
+                <Link
+                  href="/my-classes"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isStudentClassesActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <School className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Classes</span>
+                </Link>
+                <Link
+                  href="/classes/join"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isJoinClassActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Plus className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Join Class</span>
+                </Link>
                 <Link
                   href="/my-teachers"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
