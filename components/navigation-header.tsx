@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,8 +48,9 @@ export default function NavigationHeader() {
   }, [pathname])
 
   const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
-  const isMyTeachersActive = pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')
+  const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
   const isMyStudentsActive = pathname?.startsWith('/my-students')
+  const isMyClassesActive = pathname?.startsWith('/teacher/classes')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
   const isTeacher = user?.user_type === 'teacher'
 
@@ -168,6 +169,24 @@ export default function NavigationHeader() {
                   <Link href="/my-teachers">
                     <Users className="h-4 w-4 mr-2 flex-shrink-0" />
                     My Teachers
+                  </Link>
+                </Button>
+              )}
+
+              {/* My Classes Button - For teachers */}
+              {mounted && user && isTeacher && (
+                <Button
+                  variant={isMyClassesActive ? 'secondary' : 'ghost'}
+                  className={`h-10 ${
+                    isMyClassesActive
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href="/teacher/classes">
+                    <School className="h-4 w-4 mr-2 flex-shrink-0" />
+                    My Classes
                   </Link>
                 </Button>
               )}
@@ -343,17 +362,28 @@ export default function NavigationHeader() {
               </>
             )}
 
-            {/* My Students - Teachers only */}
+            {/* My Classes & My Students - Teachers only */}
             {mounted && user && isTeacher && (
-              <Link
-                href="/my-students"
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isMyStudentsActive ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
-              >
-                <Users className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm font-medium">My Students</span>
-              </Link>
+              <>
+                <Link
+                  href="/teacher/classes"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isMyClassesActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <School className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Classes</span>
+                </Link>
+                <Link
+                  href="/my-students"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isMyStudentsActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Students</span>
+                </Link>
+              </>
             )}
           </nav>
         </div>
