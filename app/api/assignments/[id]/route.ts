@@ -56,7 +56,7 @@ export async function GET(
       // Look up student's own submission
       const { data: submission } = await supabase
         .from('assignment_submissions')
-        .select('id, status, file_urls, submitted_at, is_late, grading_result_id, updated_at')
+        .select('id, status, file_urls, student_comment, submitted_at, is_late, grading_result_id, updated_at')
         .eq('assignment_id', id)
         .eq('student_id', user.id)
         .maybeSingle()

@@ -5,19 +5,43 @@ import { ProcessedFile, FileType } from '@/types'
 
 export class FileProcessor {
   private static readonly MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB (local development)
-  private static readonly ALLOWED_TYPES = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain']
+  private static readonly ALLOWED_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'text/plain',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  ]
+  private static readonly ALLOWED_EXTENSIONS = [
+    'pdf', 'docx', 'pptx', 'txt',
+    'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif',
+  ]
 
   static validateFile(file: File): { valid: boolean; error?: string } {
     if (file.size > this.MAX_FILE_SIZE) {
       return { valid: false, error: 'File size must be less than 20MB' }
     }
 
-    if (!this.ALLOWED_TYPES.includes(file.type)) {
-      return { valid: false, error: 'File type not supported. Please upload PDF, DOCX, PPTX, or TXT files.' }
+    // Browsers/OSes sometimes hand us empty or generic MIME types
+    // (e.g. application/octet-stream from Finder drag-and-drop, or HEIC photos
+    // from iOS that some browsers don't tag with image/heic). Fall back to the
+    // file extension so the user isn't blocked.
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const mimeOk = this.ALLOWED_TYPES.includes(file.type)
+    const extOk = this.ALLOWED_EXTENSIONS.includes(extension)
+
+    if (!mimeOk && !extOk) {
+      return {
+        valid: false,
+        error: `File type not supported (${file.type || extension || 'unknown'}). Please upload PDF, DOCX, PPTX, TXT, or an image (JPG, PNG, WEBP, HEIC).`,
+      }
     }
 
-    // Warn about Cloudinary 10MB limit for PDFs
-    if (file.type === 'application/pdf' && file.size > 10 * 1024 * 1024) {
+    if ((file.type === 'application/pdf' || extension === 'pdf') && file.size > 10 * 1024 * 1024) {
       console.warn(`PDF file ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Will be compressed to fit Cloudinary's 10MB limit.`);
     }
 

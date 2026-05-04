@@ -16,7 +16,7 @@ export async function GET(
 
     const { data: submission, error } = await supabase
       .from('assignment_submissions')
-      .select('id, assignment_id, student_id, class_id, file_urls, submitted_at, status, is_late, grading_result_id, grading_error, updated_at')
+      .select('id, assignment_id, student_id, class_id, file_urls, student_comment, submitted_at, status, is_late, grading_result_id, grading_error, updated_at')
       .eq('id', id)
       .maybeSingle()
     if (error) return NextResponse.json({ error: 'Failed to fetch submission' }, { status: 500 })

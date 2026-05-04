@@ -4,7 +4,10 @@ import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 interface SubmitBody {
   files?: Array<{ url: string; name?: string; type?: string }>
   class_id?: string
+  student_comment?: string | null
 }
+
+const MAX_COMMENT_LEN = 2000
 
 // POST - Student submits files for an assignment.
 // Files must already be uploaded (e.g. to Cloudinary via /api/upload-to-cloudinary).
@@ -24,6 +27,10 @@ export async function POST(
     if (files.length === 0) {
       return NextResponse.json({ error: 'At least one file is required' }, { status: 400 })
     }
+
+    const studentComment = typeof body.student_comment === 'string'
+      ? body.student_comment.trim().slice(0, MAX_COMMENT_LEN) || null
+      : null
 
     const supabase = createAdminClient()
 
@@ -97,6 +104,7 @@ export async function POST(
           class_id: chosenClassId,
           grading_result_id: null,
           grading_error: null,
+          student_comment: studentComment,
         })
         .eq('id', existing.id)
         .select()
@@ -117,6 +125,7 @@ export async function POST(
         file_urls: fileUrls,
         is_late: isLate,
         status: 'submitted',
+        student_comment: studentComment,
       })
       .select()
       .single()

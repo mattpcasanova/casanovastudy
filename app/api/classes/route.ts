@@ -41,20 +41,52 @@ export async function GET(request: NextRequest) {
     }
 
     const classIds = classes.map(c => c.id)
-    const { data: enrollmentRows } = await supabase
-      .from('class_enrollments')
-      .select('class_id')
-      .eq('status', 'active')
-      .in('class_id', classIds)
+    const [enrollmentRowsRes, linksRes] = await Promise.all([
+      supabase
+        .from('class_enrollments')
+        .select('class_id')
+        .eq('status', 'active')
+        .in('class_id', classIds),
+      supabase
+        .from('assignment_class_links')
+        .select('assignment_id, class_id')
+        .in('class_id', classIds),
+    ])
 
     const counts = new Map<string, number>()
-    for (const row of enrollmentRows ?? []) {
+    for (const row of enrollmentRowsRes.data ?? []) {
       counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1)
+    }
+
+    // Submissions in the teacher's awaiting-action queue per class:
+    // status = 'submitted' (needs grading) or 'pending_review' (graded by AI,
+    // teacher hasn't reviewed) or 'failed' (auto-grade errored, needs retry).
+    const links = linksRes.data ?? []
+    const linkedAssignmentIds = Array.from(new Set(links.map(l => l.assignment_id)))
+    const linkClassByAssignment = new Map<string, string[]>()
+    for (const l of links) {
+      const arr = linkClassByAssignment.get(l.assignment_id) ?? []
+      arr.push(l.class_id)
+      linkClassByAssignment.set(l.assignment_id, arr)
+    }
+
+    let pendingByClass = new Map<string, number>()
+    if (linkedAssignmentIds.length > 0) {
+      const { data: pendingSubs } = await supabase
+        .from('assignment_submissions')
+        .select('assignment_id, class_id, status')
+        .in('assignment_id', linkedAssignmentIds)
+        .in('status', ['submitted', 'pending_review', 'failed'])
+
+      for (const s of pendingSubs ?? []) {
+        pendingByClass.set(s.class_id, (pendingByClass.get(s.class_id) ?? 0) + 1)
+      }
     }
 
     const result = classes.map(c => ({
       ...c,
-      student_count: counts.get(c.id) ?? 0
+      student_count: counts.get(c.id) ?? 0,
+      pending_review_count: pendingByClass.get(c.id) ?? 0,
     }))
 
     return NextResponse.json({ classes: result })

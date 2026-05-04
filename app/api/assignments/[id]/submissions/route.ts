@@ -23,7 +23,7 @@ export async function GET(
 
     const { data: submissions, error } = await supabase
       .from('assignment_submissions')
-      .select('id, student_id, class_id, status, is_late, file_urls, submitted_at, grading_result_id, updated_at')
+      .select('id, student_id, class_id, status, is_late, file_urls, student_comment, submitted_at, grading_result_id, updated_at')
       .eq('assignment_id', id)
       .order('submitted_at', { ascending: false })
 
