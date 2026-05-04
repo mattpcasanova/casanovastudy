@@ -31,6 +31,7 @@ import {
   Clock,
   AlertCircle,
   FileText,
+  MessageSquare,
 } from "lucide-react"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
 
@@ -63,6 +64,7 @@ interface Submission {
   status: "submitted" | "grading" | "pending_review" | "graded" | "failed"
   is_late: boolean
   file_urls: Array<{ url: string; name: string | null; type: string | null }>
+  student_comment: string | null
   submitted_at: string
   grading_result_id: string | null
   updated_at: string
@@ -386,6 +388,15 @@ export default function TeacherAssignmentDetailPage() {
                           </a>
                         ))}
                       </div>
+                      {s.student_comment && (
+                        <div className="mt-2 text-sm bg-muted/50 rounded-md px-3 py-2">
+                          <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            Student comment
+                          </p>
+                          <p className="whitespace-pre-wrap">{s.student_comment}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {s.grading_result && (

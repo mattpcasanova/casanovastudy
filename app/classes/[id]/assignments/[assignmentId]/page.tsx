@@ -8,8 +8,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
+import { processFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 import {
   ArrowLeft,
   Camera,
@@ -21,6 +24,7 @@ import {
   AlertCircle,
   FileText,
   Send,
+  MessageSquare,
 } from "lucide-react"
 
 interface Assignment {
@@ -38,6 +42,7 @@ interface Submission {
   status: "submitted" | "grading" | "pending_review" | "graded" | "failed"
   is_late: boolean
   file_urls: Array<{ url: string; name: string | null; type: string | null }>
+  student_comment: string | null
   submitted_at: string
   grading_result_id: string | null
   updated_at: string
@@ -88,7 +93,9 @@ export default function StudentAssignmentSubmitPage() {
   const [loading, setLoading] = useState(true)
   const [uploads, setUploads] = useState<UploadedFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
+  const [comment, setComment] = useState<string>("")
 
   const isStudent = user?.user_type === "student"
 
@@ -120,27 +127,76 @@ export default function StudentAssignmentSubmitPage() {
     fetchAssignment()
   }, [authLoading, user, isStudent, router, fetchAssignment])
 
+  // Upload one File to Cloudinary via /api/upload-to-cloudinary.
+  // Returns the saved upload meta or throws with a useful error.
+  const uploadOne = async (file: File): Promise<UploadedFile> => {
+    const fd = new FormData()
+    fd.append("file", file)
+    fd.append("folder", "casanovastudy/submissions")
+
+    let res: Response
+    try {
+      res = await fetch("/api/upload-to-cloudinary", { method: "POST", body: fd })
+    } catch (err) {
+      throw new Error(`Network error: ${err instanceof Error ? err.message : 'fetch failed'}`)
+    }
+
+    // The Vercel platform returns a non-JSON body (HTML or empty) for a 413
+    // "request too large", so we have to handle that case explicitly before
+    // calling res.json().
+    if (res.status === 413) {
+      throw new Error('File is too large for the server. Try a smaller file or split into multiple pages.')
+    }
+    let json: { url?: string; error?: string } = {}
+    try {
+      json = await res.json()
+    } catch {
+      throw new Error(`Upload failed (status ${res.status})`)
+    }
+    if (!res.ok || !json.url) {
+      throw new Error(json.error ?? `Upload failed (status ${res.status})`)
+    }
+    return { url: json.url, name: file.name, type: file.type || "application/octet-stream" }
+  }
+
   const uploadFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true)
+    setUploadStatus("Preparing files…")
     try {
       const newOnes: UploadedFile[] = []
-      for (const file of Array.from(files)) {
-        const fd = new FormData()
-        fd.append("file", file)
-        fd.append("folder", "casanovastudy/submissions")
-        const res = await fetch("/api/upload-to-cloudinary", { method: "POST", body: fd })
-        const json = await res.json()
-        if (!res.ok || !json.url) {
-          toast({ title: `Failed to upload ${file.name}: ${json.error ?? "unknown"}`, variant: "destructive" })
-          continue
+      for (const original of Array.from(files)) {
+        try {
+          // Run through processFile: PDFs become per-page compressed JPEGs,
+          // large images get downscaled. DOCX/PPTX/TXT pass through unchanged.
+          const processed = await processFile(original, (msg) => setUploadStatus(`${original.name}: ${msg}`))
+
+          // Light total-size sanity check so we fail fast with a clear message
+          // before sending one-by-one.
+          const totalSize = processed.reduce((s, f) => s + f.size, 0)
+          if (totalSize > MAX_TOTAL_UPLOAD_SIZE * 4) {
+            // Allow generous slack since each file uploads individually, but
+            // still cap to avoid a runaway browser session.
+            throw new Error(`Total size ${(totalSize / 1024 / 1024).toFixed(1)}MB is too large.`)
+          }
+
+          for (let i = 0; i < processed.length; i++) {
+            const f = processed[i]
+            setUploadStatus(processed.length > 1 ? `${original.name}: uploading page ${i + 1}/${processed.length}…` : `Uploading ${original.name}…`)
+            const uploaded = await uploadOne(f)
+            newOnes.push(uploaded)
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'unknown error'
+          console.error(`Failed to process/upload ${original.name}:`, err)
+          toast({ title: `Couldn't add ${original.name}`, description: msg, variant: "destructive" })
         }
-        newOnes.push({ url: json.url, name: file.name, type: file.type || "application/octet-stream" })
       }
       setUploads(curr => [...curr, ...newOnes])
-      if (newOnes.length > 0) toast({ title: `Uploaded ${newOnes.length} file${newOnes.length === 1 ? "" : "s"}` })
+      if (newOnes.length > 0) toast({ title: `Added ${newOnes.length} file${newOnes.length === 1 ? "" : "s"}` })
     } finally {
       setUploading(false)
+      setUploadStatus("")
     }
   }
 
@@ -158,7 +214,11 @@ export default function StudentAssignmentSubmitPage() {
       const res = await fetch(`/api/assignments/${assignmentId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: uploads, class_id: classId }),
+        body: JSON.stringify({
+          files: uploads,
+          class_id: classId,
+          student_comment: comment.trim() || null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -167,6 +227,7 @@ export default function StudentAssignmentSubmitPage() {
       }
       toast({ title: json.resubmitted ? "Resubmitted" : "Submitted" })
       setUploads([])
+      setComment("")
       fetchAssignment()
     } catch (err) {
       console.error(err)
@@ -241,6 +302,15 @@ export default function StudentAssignmentSubmitPage() {
                   </a>
                 ))}
               </div>
+              {mySubmission.student_comment && (
+                <div className="mt-3 text-sm bg-muted/50 rounded-md px-3 py-2">
+                  <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" />
+                    Your comment
+                  </p>
+                  <p className="whitespace-pre-wrap">{mySubmission.student_comment}</p>
+                </div>
+              )}
               {mySubmission.status === "graded" && mySubmission.grading_result_id && (
                 <div className="mt-4">
                   <Button asChild size="sm">
@@ -286,7 +356,7 @@ export default function StudentAssignmentSubmitPage() {
                 <input
                   id="file-input"
                   type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*"
+                  accept=".pdf,.docx,.pptx,.txt,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*"
                   multiple
                   onChange={(e) => { uploadFiles(e.target.files); e.target.value = "" }}
                   disabled={uploading}
@@ -307,7 +377,7 @@ export default function StudentAssignmentSubmitPage() {
               {uploading && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading…
+                  {uploadStatus || "Uploading…"}
                 </div>
               )}
 
@@ -326,6 +396,24 @@ export default function StudentAssignmentSubmitPage() {
                   ))}
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="student-comment" className="flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Comments for your teacher (optional)
+                </Label>
+                <Textarea
+                  id="student-comment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value.slice(0, 2000))}
+                  placeholder="e.g., Q3 has my work on the back of the page; I had to redo Q5 after a mistake..."
+                  rows={3}
+                  disabled={submitting}
+                />
+                {comment.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-right">{comment.length}/2000</p>
+                )}
+              </div>
 
               <Button
                 onClick={submit}
