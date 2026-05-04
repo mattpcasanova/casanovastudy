@@ -147,14 +147,14 @@ export default function StudentAssignmentSubmitPage() {
     if (res.status === 413) {
       throw new Error('File is too large for the server. Try a smaller file or split into multiple pages.')
     }
-    let json: { url?: string; error?: string } = {}
+    let json: { url?: string; error?: string; details?: string } = {}
     try {
       json = await res.json()
     } catch {
       throw new Error(`Upload failed (status ${res.status})`)
     }
     if (!res.ok || !json.url) {
-      throw new Error(json.error ?? `Upload failed (status ${res.status})`)
+      throw new Error(json.details ?? json.error ?? `Upload failed (status ${res.status})`)
     }
     return { url: json.url, name: file.name, type: file.type || "application/octet-stream" }
   }

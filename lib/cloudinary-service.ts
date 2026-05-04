@@ -64,11 +64,15 @@ export class CloudinaryService {
         }
       }
       
+      // Cloudinary public_ids reject most special characters (spaces, parens,
+      // colons, etc.). Drop the explicit public_id and let Cloudinary build
+      // one from the filename via use_filename — it does the sanitization
+      // for us — and append a random suffix via unique_filename to keep
+      // re-uploads of the same filename from colliding.
       const result = await cloudinary.uploader.upload(
         `data:application/octet-stream;base64,${uploadBuffer.toString('base64')}`,
         {
-          public_id: `${folder}/${filename.replace(/\.[^/.]+$/, '')}`,
-          resource_type: 'raw', // Use 'raw' for all file types
+          resource_type: 'raw',
           folder: folder,
           use_filename: true,
           unique_filename: true,
@@ -86,8 +90,21 @@ export class CloudinaryService {
         format: result.format,
       };
     } catch (error) {
-      console.error('Cloudinary upload error:', error);
-      throw new Error(`Failed to upload file to Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Cloudinary errors come back as objects with a `.error` property when
+      // raised by their SDK. Log everything we can so we have a fighting
+      // chance of debugging from the Vercel function logs.
+      console.error('Cloudinary upload error:', {
+        filename,
+        folder,
+        bufferLength: buffer.length,
+        error,
+        errorMessage: error instanceof Error ? error.message : undefined,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
+      const detail = error instanceof Error
+        ? error.message
+        : (error && typeof error === 'object' && 'message' in error ? String((error as any).message) : 'Unknown error');
+      throw new Error(`Cloudinary upload failed: ${detail}`);
     }
   }
 

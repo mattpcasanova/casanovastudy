@@ -53,10 +53,14 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Cloudinary upload error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    // Surface the underlying Cloudinary message in `error` so the client
+    // (which renders json.error in the toast) shows something actionable
+    // instead of the generic "Failed to upload file".
     return NextResponse.json(
-      { 
-        error: 'Failed to upload file',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        error: message,
+        details: message,
       },
       { status: 500 }
     );
