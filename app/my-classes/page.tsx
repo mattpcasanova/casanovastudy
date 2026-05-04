@@ -7,9 +7,10 @@ import NavigationHeader from "@/components/navigation-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, ChevronRight, School } from "lucide-react"
+import { Plus, ChevronRight, School, AlertCircle } from "lucide-react"
 
 interface MyClass {
   id: string
@@ -21,6 +22,7 @@ interface MyClass {
   created_at: string
   enrollment_id?: string
   joined_at?: string
+  pending_assignments_count?: number
   teacher: {
     id: string
     first_name: string | null
@@ -148,9 +150,17 @@ export default function MyClassesPage() {
                       </div>
                       <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {teacherDisplay(cls.teacher)}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm text-muted-foreground truncate">
+                        {teacherDisplay(cls.teacher)}
+                      </p>
+                      {(cls.pending_assignments_count ?? 0) > 0 && (
+                        <Badge variant="default" className="flex items-center gap-1 flex-shrink-0 bg-amber-500 hover:bg-amber-600">
+                          <AlertCircle className="h-3 w-3" />
+                          {cls.pending_assignments_count} due
+                        </Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

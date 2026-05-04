@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, Users, ChevronRight, Archive, Loader2 } from "lucide-react"
+import { Plus, Users, ChevronRight, Archive, Loader2, ClipboardList } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
 
 interface ClassRecord {
@@ -22,6 +22,7 @@ interface ClassRecord {
   is_archived: boolean
   created_at: string
   student_count: number
+  pending_review_count?: number
 }
 
 export default function TeacherClassesPage() {
@@ -154,11 +155,21 @@ export default function TeacherClassesPage() {
                           <Badge variant="outline" className="text-muted-foreground">Archived</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{cls.student_count}</span>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          {cls.student_count}
+                        </span>
                       </div>
                     </div>
+                    {(cls.pending_review_count ?? 0) > 0 && (
+                      <div className="mt-2">
+                        <Badge variant="default" className="flex items-center gap-1 w-fit bg-amber-500 hover:bg-amber-600">
+                          <ClipboardList className="h-3 w-3" />
+                          {cls.pending_review_count} to review
+                        </Badge>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </Link>

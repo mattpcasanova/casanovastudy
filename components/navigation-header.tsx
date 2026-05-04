@@ -157,40 +157,38 @@ export default function NavigationHeader() {
                 </DropdownMenu>
               )}
 
-              {/* My Classes Button - For logged-in students */}
+              {/* Classes Dropdown - For logged-in students */}
               {mounted && user && !isTeacher && (
-                <Button
-                  variant={isStudentClassesActive ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
-                    isStudentClassesActive
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                  asChild
-                >
-                  <Link href="/my-classes">
-                    <School className="h-4 w-4 mr-2 flex-shrink-0" />
-                    My Classes
-                  </Link>
-                </Button>
-              )}
-
-              {/* Join Class Button - For logged-in students */}
-              {mounted && user && !isTeacher && (
-                <Button
-                  variant={isJoinClassActive ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
-                    isJoinClassActive
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                  asChild
-                >
-                  <Link href="/classes/join">
-                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                    Join Class
-                  </Link>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={isStudentClassesActive || isJoinClassActive ? 'secondary' : 'ghost'}
+                      className={`h-10 ${
+                        isStudentClassesActive || isJoinClassActive
+                          ? 'bg-white/20 text-white hover:bg-white/30'
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <School className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Classes
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-classes" className="flex items-center cursor-pointer">
+                        <School className="h-4 w-4 mr-2" />
+                        My Classes
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/classes/join" className="flex items-center cursor-pointer">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Join Class
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               {/* My Teachers Button - For logged-in students */}
