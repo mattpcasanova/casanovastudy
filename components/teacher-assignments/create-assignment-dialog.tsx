@@ -228,7 +228,16 @@ export default function CreateAssignmentDialog({
                 id="due_at"
                 type="datetime-local"
                 value={toLocalInputValue(values.due_at)}
-                onChange={(e) => setValues({ ...values, due_at: e.target.value || null })}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (!val) { setValues(v => ({ ...v, due_at: null })); return }
+                  // When picking a date for the first time the browser defaults to T00:00;
+                  // auto-advance to end-of-day (23:59) so deadlines land at midnight.
+                  const adjusted = !values.due_at && val.endsWith('T00:00')
+                    ? val.slice(0, 10) + 'T23:59'
+                    : val
+                  setValues(v => ({ ...v, due_at: adjusted }))
+                }}
               />
             </div>
             <div className="space-y-2">

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { gradeSubmission } from '@/lib/submission-grading'
 
 interface SubmitBody {
   files?: Array<{ url: string; name?: string; type?: string }>
@@ -12,6 +13,7 @@ const MAX_COMMENT_LEN = 2000
 // POST - Student submits files for an assignment.
 // Files must already be uploaded (e.g. to Cloudinary via /api/upload-to-cloudinary).
 // Resubmissions overwrite the previous file_urls; status resets to 'submitted'.
+// If the assignment has a mark_scheme_url, auto-grading fires after the response.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,10 +36,10 @@ export async function POST(
 
     const supabase = createAdminClient()
 
-    // Verify assignment exists + is published
+    // Verify assignment exists + is published; fetch mark_scheme_url for auto-grade check
     const { data: assignment } = await supabase
       .from('assignments')
-      .select('id, due_at, is_published')
+      .select('id, due_at, is_published, mark_scheme_url')
       .eq('id', assignmentId)
       .maybeSingle()
     if (!assignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
@@ -45,9 +47,8 @@ export async function POST(
       return NextResponse.json({ error: 'Assignment is not yet published' }, { status: 403 })
     }
 
-    // Find a class context for this submission: must be a class the student is
-    // actively enrolled in AND linked to this assignment. Prefer the body's
-    // class_id when valid.
+    // Find a class context: must be a class the student is actively enrolled in
+    // AND linked to this assignment. Prefer the body's class_id when valid.
     const { data: linkedClassIds } = await supabase
       .from('assignment_class_links')
       .select('class_id')
@@ -92,8 +93,12 @@ export async function POST(
       type: f.type ?? null,
     }))
 
+    let submissionId: string
+    let resubmitted: boolean
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let submissionData: any
+
     if (existing) {
-      // Resubmit: clear prior grading link and reset status
       const { data: updated, error } = await supabase
         .from('assignment_submissions')
         .update({
@@ -113,28 +118,62 @@ export async function POST(
         console.error('Error updating submission:', error)
         return NextResponse.json({ error: 'Failed to resubmit' }, { status: 500 })
       }
-      return NextResponse.json({ submission: updated, resubmitted: true })
+      submissionId = existing.id
+      resubmitted = true
+      submissionData = updated
+    } else {
+      const { data: created, error } = await supabase
+        .from('assignment_submissions')
+        .insert({
+          assignment_id: assignmentId,
+          student_id: user.id,
+          class_id: chosenClassId,
+          file_urls: fileUrls,
+          is_late: isLate,
+          status: 'submitted',
+          student_comment: studentComment,
+        })
+        .select()
+        .single()
+      if (error || !created) {
+        console.error('Error creating submission:', error)
+        return NextResponse.json({ error: 'Failed to submit' }, { status: 500 })
+      }
+      submissionId = created.id
+      resubmitted = false
+      submissionData = created
     }
 
-    const { data: created, error } = await supabase
-      .from('assignment_submissions')
-      .insert({
-        assignment_id: assignmentId,
-        student_id: user.id,
-        class_id: chosenClassId,
-        file_urls: fileUrls,
-        is_late: isLate,
-        status: 'submitted',
-        student_comment: studentComment,
+    // Auto-grade when a mark scheme is present: set status to 'grading' immediately
+    // so the student sees progress right away, then kick off grading after response.
+    if (assignment.mark_scheme_url) {
+      await supabase
+        .from('assignment_submissions')
+        .update({ status: 'grading' })
+        .eq('id', submissionId)
+      submissionData = { ...submissionData, status: 'grading' }
+
+      const baseUrl = new URL(request.url).origin
+      after(async () => {
+        try {
+          await gradeSubmission(submissionId, baseUrl)
+        } catch (err) {
+          console.error('Auto-grade failed for submission', submissionId, err)
+          await createAdminClient()
+            .from('assignment_submissions')
+            .update({
+              status: 'failed',
+              grading_error: err instanceof Error ? err.message : 'Unknown error',
+            })
+            .eq('id', submissionId)
+        }
       })
-      .select()
-      .single()
-    if (error || !created) {
-      console.error('Error creating submission:', error)
-      return NextResponse.json({ error: 'Failed to submit' }, { status: 500 })
     }
 
-    return NextResponse.json({ submission: created, resubmitted: false }, { status: 201 })
+    return NextResponse.json(
+      { submission: submissionData, resubmitted },
+      { status: resubmitted ? 200 : 201 }
+    )
   } catch (error) {
     console.error('Submit assignment error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

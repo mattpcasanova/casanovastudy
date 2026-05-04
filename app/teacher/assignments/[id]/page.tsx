@@ -364,9 +364,9 @@ export default function TeacherAssignmentDetailPage() {
                 No submissions yet.
               </p>
             ) : (
-              <ul className="divide-y">
+              <div className="space-y-3">
                 {submissions.map(s => (
-                  <li key={s.id} className="py-4 flex items-start justify-between gap-3 flex-wrap">
+                  <div key={s.id} className="border rounded-lg p-4 flex items-start justify-between gap-3 flex-wrap">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{studentDisplay(s.student)}</p>
                       <p className="text-xs text-muted-foreground">
@@ -427,9 +427,9 @@ export default function TeacherAssignmentDetailPage() {
                         </Button>
                       )}
                     </div>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>

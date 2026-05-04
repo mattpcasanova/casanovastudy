@@ -398,10 +398,10 @@ export default function TeacherClassDetailPage() {
                   No assignments yet. Click "Create" to post one.
                 </p>
               ) : (
-                <ul className="divide-y">
+                <div className="space-y-2">
                   {assignments.map(a => (
-                    <li key={a.id}>
-                      <Link href={`/teacher/assignments/${a.id}`} className="flex items-center justify-between py-3 hover:bg-muted/40 rounded-md -mx-2 px-2">
+                    <div key={a.id}>
+                      <Link href={`/teacher/assignments/${a.id}`} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg border transition-colors">
                         <div className="min-w-0 flex-1">
                           <p className="font-medium truncate">{a.title}</p>
                           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-0.5">
@@ -418,9 +418,9 @@ export default function TeacherClassDetailPage() {
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </Link>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </CardContent>
           </Card>
