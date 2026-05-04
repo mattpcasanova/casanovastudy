@@ -67,6 +67,7 @@ interface GradingResult {
   class_name: string | null
   class_period: string | null
   exam_title: string | null
+  assignment_submission_id: string | null
   grade_breakdown?: Array<{
     questionNumber: string
     marksAwarded: number
@@ -298,7 +299,7 @@ export default function GradedExamsPage() {
         setResultsLoading(true)
         const { data, error: fetchError } = await supabase
           .from('grading_results')
-          .select('id, student_name, student_first_name, student_last_name, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title')
+          .select('id, student_name, student_first_name, student_last_name, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title, assignment_submission_id')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 
@@ -333,6 +334,8 @@ export default function GradedExamsPage() {
   }
 
   const getFilenameTitle = (result: GradingResult) => {
+    // Prefer exam_title (populated for assignment-based grades) over filename
+    if (result.exam_title) return result.exam_title
     const filename = result.original_filename || result.student_exam_filename
     return filename.replace(/\.(pdf|jpg|jpeg|png|heic|heif|webp)$/i, '')
   }

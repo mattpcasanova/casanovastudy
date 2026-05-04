@@ -36,10 +36,10 @@ export async function POST(
 
     const supabase = createAdminClient()
 
-    // Verify assignment exists + is published; fetch mark_scheme_url for auto-grade check
+    // Verify assignment exists + is published; fetch grading settings for auto-grade check
     const { data: assignment } = await supabase
       .from('assignments')
-      .select('id, due_at, is_published, mark_scheme_url')
+      .select('id, due_at, is_published, mark_scheme_url, auto_grade')
       .eq('id', assignmentId)
       .maybeSingle()
     if (!assignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
@@ -144,9 +144,8 @@ export async function POST(
       submissionData = created
     }
 
-    // Auto-grade when a mark scheme is present: set status to 'grading' immediately
-    // so the student sees progress right away, then kick off grading after response.
-    if (assignment.mark_scheme_url) {
+    // Auto-grade when a mark scheme is present AND the teacher opted in.
+    if (assignment.auto_grade && assignment.mark_scheme_url) {
       await supabase
         .from('assignment_submissions')
         .update({ status: 'grading' })

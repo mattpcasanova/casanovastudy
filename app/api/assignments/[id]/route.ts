@@ -21,7 +21,7 @@ export async function GET(
 
     const { data: assignment, error } = await supabase
       .from('assignments')
-      .select('id, teacher_id, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, created_at, updated_at')
+      .select('id, teacher_id, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, auto_grade, students_can_see_grade, students_can_see_report, created_at, updated_at')
       .eq('id', id)
       .maybeSingle()
 
@@ -50,8 +50,8 @@ export async function GET(
         return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
       }
 
-      // Student-facing payload: redact mark scheme + grading instructions
-      const { mark_scheme_url, mark_scheme_text, grading_instructions, teacher_id, ...studentSafe } = assignment
+      // Student-facing payload: redact mark scheme + grading instructions but keep visibility flags
+      const { mark_scheme_url, mark_scheme_text, grading_instructions, teacher_id, auto_grade, ...studentSafe } = assignment
 
       // Look up student's own submission
       const { data: submission } = await supabase
@@ -153,6 +153,14 @@ export async function PATCH(
       }
       updates.is_published = body.is_published
     }
+    for (const flag of ['auto_grade', 'students_can_see_grade', 'students_can_see_report'] as const) {
+      if (flag in body) {
+        if (typeof body[flag] !== 'boolean') {
+          return NextResponse.json({ error: `${flag} must be boolean` }, { status: 400 })
+        }
+        updates[flag] = body[flag]
+      }
+    }
 
     let updatedAssignment = assignment
     if (Object.keys(updates).length > 0) {
@@ -160,7 +168,7 @@ export async function PATCH(
         .from('assignments')
         .update(updates)
         .eq('id', id)
-        .select('id, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, created_at, updated_at')
+        .select('id, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, auto_grade, students_can_see_grade, students_can_see_report, created_at, updated_at')
         .single()
       if (updateError || !u) {
         console.error('Error updating assignment:', updateError)

@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { Switch } from "@/components/ui/switch"
 import { Loader2, Upload, X } from "lucide-react"
 
 interface ClassOption {
@@ -33,6 +34,9 @@ interface InitialValues {
   total_possible_marks: string
   mark_scheme_url: string | null
   class_ids: string[]
+  auto_grade: boolean
+  students_can_see_grade: boolean
+  students_can_see_report: boolean
 }
 
 interface Props {
@@ -53,6 +57,9 @@ const EMPTY: InitialValues = {
   total_possible_marks: "",
   mark_scheme_url: null,
   class_ids: [],
+  auto_grade: true,
+  students_can_see_grade: true,
+  students_can_see_report: true,
 }
 
 function toLocalInputValue(iso: string | null): string {
@@ -143,6 +150,9 @@ export default function CreateAssignmentDialog({
         description: values.description.trim() || null,
         grading_instructions: values.grading_instructions.trim() || null,
         mark_scheme_url: values.mark_scheme_url || null,
+        auto_grade: values.auto_grade,
+        students_can_see_grade: values.students_can_see_grade,
+        students_can_see_report: values.students_can_see_report,
       }
       if (values.due_at) payload.due_at = new Date(values.due_at).toISOString()
       else payload.due_at = null
@@ -336,6 +346,40 @@ export default function CreateAssignmentDialog({
               placeholder="Award method marks even if final answer is wrong. Penalize unit errors by 1 mark each."
               rows={3}
             />
+          </div>
+
+          <div className="border rounded-lg p-4 space-y-3">
+            <p className="text-sm font-medium">Grading &amp; visibility settings</p>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <p className="text-sm">Auto-grade on submit</p>
+                <p className="text-xs text-muted-foreground">AI grades the submission immediately when a student submits (requires mark scheme)</p>
+              </div>
+              <Switch
+                checked={values.auto_grade}
+                onCheckedChange={(v) => setValues(vals => ({ ...vals, auto_grade: v }))}
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <p className="text-sm">Students can see their grade</p>
+                <p className="text-xs text-muted-foreground">Show score and grade after teacher returns the work</p>
+              </div>
+              <Switch
+                checked={values.students_can_see_grade}
+                onCheckedChange={(v) => setValues(vals => ({ ...vals, students_can_see_grade: v }))}
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <p className="text-sm">Students can view full report</p>
+                <p className="text-xs text-muted-foreground">Allow students to open the detailed AI grade report</p>
+              </div>
+              <Switch
+                checked={values.students_can_see_report}
+                onCheckedChange={(v) => setValues(vals => ({ ...vals, students_can_see_report: v }))}
+              />
+            </label>
           </div>
         </div>
 

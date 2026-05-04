@@ -46,6 +46,9 @@ interface Assignment {
   grading_instructions: string | null
   total_possible_marks: number | null
   is_published: boolean
+  auto_grade: boolean
+  students_can_see_grade: boolean
+  students_can_see_report: boolean
   created_at: string
   updated_at: string
 }
@@ -250,6 +253,9 @@ export default function TeacherAssignmentDetailPage() {
       total_possible_marks: assignment.total_possible_marks?.toString() ?? "",
       mark_scheme_url: assignment.mark_scheme_url,
       class_ids: linkedClasses.map(c => c.id),
+      auto_grade: assignment.auto_grade,
+      students_can_see_grade: assignment.students_can_see_grade,
+      students_can_see_report: assignment.students_can_see_report,
     }
   }, [assignment, linkedClasses])
 

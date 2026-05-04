@@ -34,6 +34,8 @@ interface Assignment {
   due_at: string | null
   total_possible_marks: number | null
   is_published: boolean
+  students_can_see_grade: boolean
+  students_can_see_report: boolean
   created_at: string
 }
 
@@ -59,12 +61,15 @@ function formatDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
 }
 
-function statusBadge(status: Submission["status"], isLate: boolean) {
+function statusBadge(status: Submission["status"], isLate: boolean, canSeeGrade: boolean) {
+  // When students_can_see_grade is off, show a neutral "Returned" label for graded work
   const map: Record<Submission["status"], { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: typeof CheckCircle2 }> = {
     submitted: { label: "Submitted", variant: "secondary", icon: Clock },
     grading: { label: "Grading…", variant: "secondary", icon: Loader2 },
     pending_review: { label: "Awaiting teacher review", variant: "default", icon: Clock },
-    graded: { label: "Graded", variant: "default", icon: CheckCircle2 },
+    graded: canSeeGrade
+      ? { label: "Graded", variant: "default", icon: CheckCircle2 }
+      : { label: "Returned", variant: "secondary", icon: CheckCircle2 },
     failed: { label: "Grading failed", variant: "destructive", icon: AlertCircle },
   }
   const m = map[status]
@@ -290,7 +295,7 @@ export default function StudentAssignmentSubmitPage() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h2 className="font-semibold">Your submission</h2>
-                {statusBadge(mySubmission.status, mySubmission.is_late)}
+                {statusBadge(mySubmission.status, mySubmission.is_late, assignment.students_can_see_grade)}
               </div>
               <p className="text-sm text-muted-foreground mb-3">
                 Submitted {formatDateTime(mySubmission.submitted_at)}
@@ -311,7 +316,7 @@ export default function StudentAssignmentSubmitPage() {
                   <p className="whitespace-pre-wrap">{mySubmission.student_comment}</p>
                 </div>
               )}
-              {mySubmission.status === "graded" && mySubmission.grading_result_id && (
+              {mySubmission.status === "graded" && mySubmission.grading_result_id && assignment.students_can_see_report && (
                 <div className="mt-4">
                   <Button asChild size="sm">
                     <Link href={`/grade-report/${mySubmission.grading_result_id}`}>View graded report</Link>
