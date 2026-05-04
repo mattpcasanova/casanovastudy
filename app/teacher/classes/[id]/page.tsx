@@ -30,8 +30,12 @@ import {
   Trash2,
   Loader2,
   UserMinus,
+  Plus,
+  ClipboardList,
+  ChevronRight,
 } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
+import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
 
 interface ClassRecord {
   id: string
@@ -58,6 +62,22 @@ interface Enrollment {
   } | null
 }
 
+interface AssignmentSummary {
+  id: string
+  title: string
+  description: string | null
+  due_at: string | null
+  total_possible_marks: number | null
+  is_published: boolean
+  has_mark_scheme: boolean
+  submission_stats: { total: number; pending: number; graded: number }
+}
+
+function formatDueDate(iso: string | null): string {
+  if (!iso) return "No due date"
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+}
+
 function studentDisplay(e: Enrollment): string {
   if (!e.student) return "Unknown student"
   const { first_name, last_name, email } = e.student
@@ -74,10 +94,12 @@ export default function TeacherClassDetailPage() {
 
   const [cls, setCls] = useState<ClassRecord | null>(null)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
+  const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [regenOpen, setRegenOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [createAssignmentOpen, setCreateAssignmentOpen] = useState(false)
   const [working, setWorking] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
 
@@ -96,12 +118,14 @@ export default function TeacherClassDetailPage() {
     if (!classId) return
     setLoading(true)
     try {
-      const [classRes, rosterRes] = await Promise.all([
+      const [classRes, rosterRes, assignmentsRes] = await Promise.all([
         fetch(`/api/classes/${classId}`),
         fetch(`/api/classes/${classId}/enrollments`),
+        fetch(`/api/classes/${classId}/assignments`),
       ])
       const classJson = await classRes.json()
       const rosterJson = await rosterRes.json()
+      const assignmentsJson = await assignmentsRes.json()
 
       if (!classRes.ok) {
         toast({ title: classJson.error ?? "Failed to load class", variant: "destructive" })
@@ -116,6 +140,10 @@ export default function TeacherClassDetailPage() {
         setEnrollments(rosterJson.enrollments ?? [])
       } else {
         toast({ title: rosterJson.error ?? "Failed to load roster", variant: "destructive" })
+      }
+
+      if (assignmentsRes.ok) {
+        setAssignments(assignmentsJson.assignments ?? [])
       }
     } catch (err) {
       console.error(err)
@@ -352,8 +380,53 @@ export default function TeacherClassDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Roster */}
+          {/* Assignments */}
           <Card className="md:col-span-2">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Assignments
+                </h2>
+                <Button size="sm" onClick={() => setCreateAssignmentOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create
+                </Button>
+              </div>
+              {assignments.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  No assignments yet. Click "Create" to post one.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {assignments.map(a => (
+                    <li key={a.id}>
+                      <Link href={`/teacher/assignments/${a.id}`} className="flex items-center justify-between py-3 hover:bg-muted/40 rounded-md -mx-2 px-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{a.title}</p>
+                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-0.5">
+                            <span>Due: {formatDueDate(a.due_at)}</span>
+                            <span>·</span>
+                            <span>{a.submission_stats.total} submitted</span>
+                            {a.submission_stats.pending > 0 && (
+                              <Badge variant="secondary" className="text-xs">{a.submission_stats.pending} to review</Badge>
+                            )}
+                            {!a.has_mark_scheme && (
+                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">No mark scheme</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Roster */}
+          <Card className="md:col-span-3">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-lg">Roster</h2>
@@ -406,6 +479,16 @@ export default function TeacherClassDetailPage() {
         classId={cls.id}
         initialValues={{ name: cls.name, period: cls.period, subject: cls.subject }}
         onSaved={(updated) => setCls({ ...cls, ...updated })}
+      />
+
+      <CreateAssignmentDialog
+        open={createAssignmentOpen}
+        onOpenChange={setCreateAssignmentOpen}
+        mode="create"
+        defaultClassId={cls.id}
+        onSaved={(a) => {
+          router.push(`/teacher/assignments/${a.id}`)
+        }}
       />
 
       <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
