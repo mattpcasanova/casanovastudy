@@ -20,22 +20,49 @@ const EXT_MIMES: Record<string, string> = {
   heif: 'image/heif',
 }
 
+// Detect MIME type from the first few bytes of a buffer (magic numbers).
+// More reliable than URL inference when Cloudinary strips extensions.
+function sniffMime(buf: Buffer): string | null {
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46)
+    return 'application/pdf'
+  if (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04)
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (buf.length >= 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF)
+    return 'image/jpeg'
+  if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47)
+    return 'image/png'
+  if (buf.length >= 12 &&
+      buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50)
+    return 'image/webp'
+  return null
+}
+
 async function fetchAsBuffer(
   url: string,
-  fallbackName: string
+  fallbackName: string,
+  storedType?: string | null
 ): Promise<{ buffer: Buffer; name: string; type: string }> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
   const ab = await res.arrayBuffer()
+  const buf = Buffer.from(ab)
 
-  // Prefer the URL filename for extension-based MIME inference because
-  // Cloudinary serves everything as application/octet-stream.
   const urlFilename = url.split('/').pop()?.split('?')[0]
   const name = urlFilename || fallbackName || 'file'
   const ext = (name.split('.').pop() ?? '').toLowerCase()
-  const type = EXT_MIMES[ext] ?? res.headers.get('content-type') ?? 'application/octet-stream'
 
-  return { buffer: Buffer.from(ab), name, type }
+  // Resolution order:
+  // 1. Stored type from DB (set by browser on upload — most accurate)
+  // 2. URL extension lookup
+  // 3. Magic-number sniffing (handles Cloudinary extension-less URLs)
+  // 4. Content-Type header (Cloudinary returns application/octet-stream — least useful)
+  let type = storedType && storedType !== 'application/octet-stream' ? storedType : ''
+  if (!type) type = EXT_MIMES[ext] ?? ''
+  if (!type || type === 'application/octet-stream') type = sniffMime(buf) ?? ''
+  if (!type) type = res.headers.get('content-type') ?? 'application/octet-stream'
+
+  return { buffer: buf, name, type }
 }
 
 /**
@@ -82,7 +109,7 @@ export async function gradeSubmission(submissionId: string): Promise<{ gradingRe
   const markScheme = await fetchAsBuffer(assignment.mark_scheme_url, 'mark-scheme')
 
   const studentFiles = await Promise.all(
-    fileUrls.map((f, i) => fetchAsBuffer(f.url, f.name ?? `page-${i + 1}`))
+    fileUrls.map((f, i) => fetchAsBuffer(f.url, f.name ?? `page-${i + 1}`, f.type))
   )
 
   // Run the same pipeline the teacher's manual grade-exam page uses.
