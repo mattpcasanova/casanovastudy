@@ -687,15 +687,17 @@ export default function GradeReportPage() {
                     Download Graded PDF
                   </Button>
                 )}
-                <Button
-                  onClick={() => router.push('/grade-exam')}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  <FileCheck className="h-5 w-5 mr-2" />
-                  Grade Another Exam
-                </Button>
+                {isTeacher && (
+                  <Button
+                    onClick={() => router.push('/grade-exam')}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    <FileCheck className="h-5 w-5 mr-2" />
+                    Grade Another Exam
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
