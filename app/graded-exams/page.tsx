@@ -299,7 +299,7 @@ export default function GradedExamsPage() {
         setResultsLoading(true)
         const { data, error: fetchError } = await supabase
           .from('grading_results')
-          .select('id, student_name, student_first_name, student_last_name, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title, assignment_submission_id')
+          .select('id, student_name, student_first_name, student_last_name, student_user_id, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title, assignment_submission_id')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 

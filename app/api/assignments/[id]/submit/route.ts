@@ -152,10 +152,9 @@ export async function POST(
         .eq('id', submissionId)
       submissionData = { ...submissionData, status: 'grading' }
 
-      const baseUrl = new URL(request.url).origin
       after(async () => {
         try {
-          await gradeSubmission(submissionId, baseUrl)
+          await gradeSubmission(submissionId)
         } catch (err) {
           console.error('Auto-grade failed for submission', submissionId, err)
           await createAdminClient()

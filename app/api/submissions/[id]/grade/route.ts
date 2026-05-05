@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 import { gradeSubmission } from '@/lib/submission-grading'
 
+export const maxDuration = 300
+
 // POST - Teacher manually triggers (or re-triggers) AI grading for a submission.
 // Loads files from Cloudinary URLs and internally calls /api/grade-exam, then
 // links the resulting grading_result back to the submission.
@@ -29,16 +31,8 @@ export async function POST(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
-    // Build absolute base URL for the internal call
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '')
-      || (() => {
-        const proto = request.headers.get('x-forwarded-proto') ?? 'http'
-        const host = request.headers.get('host') ?? 'localhost:3000'
-        return `${proto}://${host}`
-      })()
-
     try {
-      const { gradingResultId } = await gradeSubmission(id, baseUrl)
+      const { gradingResultId } = await gradeSubmission(id)
       return NextResponse.json({ success: true, grading_result_id: gradingResultId })
     } catch (gradingError) {
       console.error('Grading error:', gradingError)

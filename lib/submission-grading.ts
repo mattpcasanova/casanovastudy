@@ -1,4 +1,5 @@
 import { createAdminClient } from './supabase-server'
+import { runGradingPipeline } from './grade-exam-pipeline'
 
 interface FileMeta {
   url: string
@@ -6,8 +7,8 @@ interface FileMeta {
   type?: string
 }
 
-// Map file extensions to MIME types so we send the correct Content-Type to
-// /api/grade-exam even when Cloudinary returns application/octet-stream.
+// Map file extensions to MIME types so we infer the correct Content-Type even
+// when Cloudinary returns application/octet-stream.
 const EXT_MIMES: Record<string, string> = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -19,33 +20,34 @@ const EXT_MIMES: Record<string, string> = {
   heif: 'image/heif',
 }
 
-async function fetchAsBlob(url: string, fallbackName: string): Promise<{ blob: Blob; name: string; type: string }> {
+async function fetchAsBuffer(
+  url: string,
+  fallbackName: string
+): Promise<{ buffer: Buffer; name: string; type: string }> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
   const ab = await res.arrayBuffer()
 
-  // Prefer the filename from the URL (which carries the extension) over the
-  // caller-supplied fallback, so we can infer the correct MIME type.
+  // Prefer the URL filename for extension-based MIME inference because
+  // Cloudinary serves everything as application/octet-stream.
   const urlFilename = url.split('/').pop()?.split('?')[0]
   const name = urlFilename || fallbackName || 'file'
   const ext = (name.split('.').pop() ?? '').toLowerCase()
   const type = EXT_MIMES[ext] ?? res.headers.get('content-type') ?? 'application/octet-stream'
 
-  return { blob: new Blob([ab], { type }), name, type }
+  return { buffer: Buffer.from(ab), name, type }
 }
 
 /**
- * Grades a submission by calling the existing /api/grade-exam route internally.
- * Reuses the same Claude pipeline + parser + grading_results insertion the
- * teacher's manual /grade-exam page uses.
+ * Grades a submission using the shared grading pipeline — the same logic path
+ * the teacher's manual grade-exam page uses, with no internal HTTP hop.
  *
- * After grading, enriches the grading_results row with the real student name,
- * class info, and exam title so the teacher's My Reports page shows them correctly.
+ * After grading, enriches the grading_results row with real student and class
+ * metadata so the teacher's My Reports page shows meaningful info.
  *
- * Throws on any failure; caller is responsible for marking the submission as
- * 'failed' and storing the grading_error.
+ * Throws on any failure; caller should mark the submission as 'failed'.
  */
-export async function gradeSubmission(submissionId: string, baseUrl: string): Promise<{ gradingResultId: string }> {
+export async function gradeSubmission(submissionId: string): Promise<{ gradingResultId: string }> {
   const supabase = createAdminClient()
 
   const { data: submission, error: subError } = await supabase
@@ -70,44 +72,30 @@ export async function gradeSubmission(submissionId: string, baseUrl: string): Pr
   const fileUrls = (submission.file_urls as FileMeta[]) ?? []
   if (fileUrls.length === 0) throw new Error('Submission has no files')
 
-  // Mark as grading so the UI can show progress
+  // Mark as grading so the UI can reflect progress
   await supabase
     .from('assignment_submissions')
     .update({ status: 'grading', grading_error: null })
     .eq('id', submissionId)
 
-  // Build FormData by fetching each Cloudinary URL into a Blob.
-  // /api/grade-exam accepts `userId` as a FormData auth fallback when no cookie
-  // is present (see app/api/grade-exam/route.ts), which is our case for an
-  // internal server-to-server call.
-  const fd = new FormData()
-  fd.append('userId', assignment.teacher_id)
+  // Fetch all files from Cloudinary into buffers
+  const markScheme = await fetchAsBuffer(assignment.mark_scheme_url, 'mark-scheme')
 
-  const markScheme = await fetchAsBlob(assignment.mark_scheme_url, 'mark-scheme')
-  fd.append('markScheme', markScheme.blob, markScheme.name)
+  const studentFiles = await Promise.all(
+    fileUrls.map((f, i) => fetchAsBuffer(f.url, f.name ?? `page-${i + 1}`))
+  )
 
-  for (let i = 0; i < fileUrls.length; i++) {
-    const f = fileUrls[i]
-    const fetched = await fetchAsBlob(f.url, f.name ?? `page-${i + 1}`)
-    fd.append('studentExam', fetched.blob, fetched.name)
-  }
+  // Run the same pipeline the teacher's manual grade-exam page uses.
+  // The teacher is the "user" for this grading session (they own the assignment).
+  const result = await runGradingPipeline({
+    userId: assignment.teacher_id,
+    userType: 'teacher',
+    markSchemeFile: markScheme,
+    studentFiles,
+    additionalComments: assignment.grading_instructions ?? undefined,
+  })
 
-  if (assignment.grading_instructions) {
-    fd.append('additionalComments', assignment.grading_instructions)
-  }
-
-  const res = await fetch(`${baseUrl}/api/grade-exam`, { method: 'POST', body: fd })
-  const json = await res.json()
-
-  // /api/grade-exam returns { success, data: { id, ... }, message }
-  if (!res.ok || !json?.success || !json?.data?.id) {
-    throw new Error(json?.error ?? `Grading failed (${res.status})`)
-  }
-
-  const gradingResultId: string = json.data.id
-
-  // Fetch student profile and class to enrich the grading_results row so
-  // the teacher's My Reports page shows the real student name, class, etc.
+  // Fetch student profile and class info to enrich the grading_results row
   const [profileRes, classRes] = await Promise.all([
     supabase
       .from('user_profiles')
@@ -127,12 +115,12 @@ export async function gradeSubmission(submissionId: string, baseUrl: string): Pr
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email
     : null
 
-  // Link the grading_result back to the submission (both directions) and
-  // populate the metadata fields that were left as placeholders.
+  // Link the grading result to the submission (both directions) and populate
+  // the metadata fields so the teacher's My Reports page shows the right info.
   await Promise.all([
     supabase
       .from('assignment_submissions')
-      .update({ status: 'pending_review', grading_result_id: gradingResultId, grading_error: null })
+      .update({ status: 'pending_review', grading_result_id: result.id, grading_error: null })
       .eq('id', submissionId),
     supabase
       .from('grading_results')
@@ -146,8 +134,8 @@ export async function gradeSubmission(submissionId: string, baseUrl: string): Pr
         class_period: cls?.period ?? null,
         exam_title: assignment.title,
       })
-      .eq('id', gradingResultId),
+      .eq('id', result.id),
   ])
 
-  return { gradingResultId }
+  return { gradingResultId: result.id }
 }

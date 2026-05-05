@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -84,11 +85,34 @@ export default function CreateAssignmentDialog({
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [classesLoading, setClassesLoading] = useState(false)
   const [uploadingMarkScheme, setUploadingMarkScheme] = useState(false)
+  const [savingDefaults, setSavingDefaults] = useState(false)
 
   useEffect(() => {
     if (!open) return
-    setValues(initialValues ?? (defaultClassId ? { ...EMPTY, class_ids: [defaultClassId] } : EMPTY))
     let cancelled = false
+
+    if (mode === "create") {
+      // Fetch teacher's saved preferences to pre-fill toggle defaults
+      fetch("/api/teacher/preferences")
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (cancelled || !j?.preferences) return
+          const p = j.preferences
+          const base = defaultClassId ? { ...EMPTY, class_ids: [defaultClassId] } : EMPTY
+          setValues({
+            ...base,
+            auto_grade: p.pref_auto_grade ?? true,
+            students_can_see_grade: p.pref_students_can_see_grade ?? true,
+            students_can_see_report: p.pref_students_can_see_report ?? true,
+          })
+        })
+        .catch(() => {
+          if (!cancelled) setValues(defaultClassId ? { ...EMPTY, class_ids: [defaultClassId] } : EMPTY)
+        })
+    } else {
+      setValues(initialValues ?? EMPTY)
+    }
+
     setClassesLoading(true)
     fetch("/api/classes")
       .then(r => r.json())
@@ -98,7 +122,28 @@ export default function CreateAssignmentDialog({
       })
       .finally(() => { if (!cancelled) setClassesLoading(false) })
     return () => { cancelled = true }
-  }, [open, initialValues, defaultClassId])
+  }, [open, initialValues, defaultClassId, mode])
+
+  const saveDefaults = async () => {
+    setSavingDefaults(true)
+    try {
+      const res = await fetch("/api/teacher/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pref_auto_grade: values.auto_grade,
+          pref_students_can_see_grade: values.students_can_see_grade,
+          pref_students_can_see_report: values.students_can_see_report,
+        }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      toast({ title: "Saved as your defaults" })
+    } catch {
+      toast({ title: "Failed to save defaults", variant: "destructive" })
+    } finally {
+      setSavingDefaults(false)
+    }
+  }
 
   const toggleClass = (id: string) => {
     setValues(v => ({
@@ -271,21 +316,31 @@ export default function CreateAssignmentDialog({
               <p className="text-sm text-muted-foreground">You don't have any classes yet.</p>
             ) : (
               <div className="border rounded-md divide-y max-h-44 overflow-y-auto">
-                {classes.map(c => (
-                  <label key={c.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/40">
-                    <Checkbox
-                      checked={values.class_ids.includes(c.id)}
-                      onCheckedChange={() => toggleClass(c.id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {c.period ? `Period ${c.period}` : "No period"}
-                        {c.subject ? ` · ${c.subject}` : ""}
-                      </p>
-                    </div>
-                  </label>
-                ))}
+                {classes.map(c => {
+                  const checked = values.class_ids.includes(c.id)
+                  return (
+                    <label
+                      key={c.id}
+                      className={cn(
+                        "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-accent",
+                        checked && "bg-primary/5"
+                      )}
+                    >
+                      {checked && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary rounded-l-md" />}
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleClass(c.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{c.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {c.period ? `Period ${c.period}` : "No period"}
+                          {c.subject ? ` · ${c.subject}` : ""}
+                        </p>
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             )}
             {values.class_ids.length > 0 && (
@@ -349,7 +404,20 @@ export default function CreateAssignmentDialog({
           </div>
 
           <div className="border rounded-lg p-4 space-y-3">
-            <p className="text-sm font-medium">Grading &amp; visibility settings</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Grading &amp; visibility settings</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground"
+                onClick={saveDefaults}
+                disabled={savingDefaults}
+              >
+                {savingDefaults && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                Save as my defaults
+              </Button>
+            </div>
             <label className="flex items-center justify-between gap-3 cursor-pointer">
               <div>
                 <p className="text-sm">Auto-grade on submit</p>
