@@ -316,7 +316,8 @@ export default function StudentAssignmentSubmitPage() {
                   <p className="whitespace-pre-wrap">{mySubmission.student_comment}</p>
                 </div>
               )}
-              {mySubmission.status === "graded" && mySubmission.grading_result_id && assignment.students_can_see_report && (
+              {(mySubmission.status === "graded" || mySubmission.status === "pending_review") &&
+               mySubmission.grading_result_id && assignment.students_can_see_report && (
                 <div className="mt-4">
                   <Button asChild size="sm">
                     <Link href={`/grade-report/${mySubmission.grading_result_id}`}>View graded report</Link>

@@ -32,6 +32,7 @@ import {
   AlertCircle,
   FileText,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
 
@@ -70,6 +71,7 @@ interface Submission {
   student_comment: string | null
   submitted_at: string
   grading_result_id: string | null
+  grading_error: string | null
   updated_at: string
   student: {
     id: string
@@ -93,27 +95,6 @@ function studentDisplay(s: Submission["student"]): string {
   return s.email
 }
 
-function statusBadge(status: Submission["status"], isLate: boolean) {
-  const map: Record<Submission["status"], { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: typeof CheckCircle2 }> = {
-    submitted: { label: "Submitted", variant: "secondary", icon: Clock },
-    grading: { label: "Grading…", variant: "secondary", icon: Loader2 },
-    pending_review: { label: "Pending review", variant: "default", icon: Clock },
-    graded: { label: "Graded", variant: "default", icon: CheckCircle2 },
-    failed: { label: "Grading failed", variant: "destructive", icon: AlertCircle },
-  }
-  const m = map[status]
-  const Icon = m.icon
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Badge variant={m.variant} className="flex items-center gap-1">
-        <Icon className={`h-3 w-3 ${status === "grading" ? "animate-spin" : ""}`} />
-        {m.label}
-      </Badge>
-      {isLate && <Badge variant="outline" className="text-amber-600 border-amber-600">Late</Badge>}
-    </div>
-  )
-}
-
 function formatDateTime(iso: string | null): string {
   if (!iso) return "No due date"
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
@@ -133,6 +114,7 @@ export default function TeacherAssignmentDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [working, setWorking] = useState(false)
+  // Track which submission is currently being graded/returned
   const [gradingId, setGradingId] = useState<string | null>(null)
 
   const isTeacher = user?.user_type === "teacher"
@@ -198,18 +180,21 @@ export default function TeacherAssignmentDetailPage() {
       return
     }
     setGradingId(submission.id)
-    // Optimistic UI: flip status to 'grading' immediately
-    setSubmissions(curr => curr.map(s => s.id === submission.id ? { ...s, status: "grading" } : s))
+    // Optimistic: show grading status immediately in the card
+    setSubmissions(curr => curr.map(s =>
+      s.id === submission.id ? { ...s, status: "grading", grading_error: null } : s
+    ))
     try {
       const res = await fetch(`/api/submissions/${submission.id}/grade`, { method: "POST" })
       const json = await res.json()
       if (!res.ok) {
-        toast({ title: json.error ?? "Grading failed", variant: "destructive" })
-        // Refresh to pick up the persisted 'failed' status
+        const msg = json.error ?? "Grading failed"
+        toast({ title: "Grading failed", description: msg, variant: "destructive" })
+        // Refresh to pick up persisted 'failed' status + grading_error from DB
         fetchAll()
         return
       }
-      toast({ title: "Graded" })
+      toast({ title: "Graded — ready for review" })
       fetchAll()
     } catch (err) {
       console.error(err)
@@ -371,31 +356,56 @@ export default function TeacherAssignmentDetailPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {submissions.map(s => (
-                  <div key={s.id} className="border rounded-lg p-4 flex items-start justify-between gap-3 flex-wrap">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{studentDisplay(s.student)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Submitted {formatDateTime(s.submitted_at)}
-                        {s.class && ` · ${s.class.name}${s.class.period ? ` P${s.class.period}` : ""}`}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        {statusBadge(s.status, s.is_late)}
-                        {s.grading_result && (
-                          <Badge variant="outline" className="font-mono">
-                            {s.grading_result.total_marks}/{s.grading_result.total_possible_marks} ({s.grading_result.percentage}%) · {s.grading_result.grade}
+                {submissions.map(s => {
+                  const isGrading = gradingId === s.id || s.status === "grading"
+                  const hasGrade = !!s.grading_result
+                  const canGrade = !!(assignment.mark_scheme_url)
+
+                  return (
+                    <div key={s.id} className="border rounded-lg p-4 space-y-3">
+                      {/* Top row: name + two status chips */}
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="font-medium">{studentDisplay(s.student)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.class && `${s.class.name}${s.class.period ? ` P${s.class.period}` : ""} · `}
+                            {formatDateTime(s.submitted_at)}
+                            {s.is_late && <span className="ml-1 text-amber-600">· Late</span>}
+                          </p>
+                        </div>
+                        {/* Two separate status chips */}
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                          {/* Submitted chip — always present */}
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Submitted
                           </Badge>
-                        )}
+                          {/* Graded chip — only when a grade exists */}
+                          {hasGrade && s.grading_result && (
+                            <Badge variant="default" className="flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {s.grading_result.total_marks}/{s.grading_result.total_possible_marks}
+                              {" "}({s.grading_result.percentage.toFixed(0)}%)
+                              {" · "}{s.grading_result.grade}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                        {s.file_urls.map((f, i) => (
-                          <a key={i} href={f.url} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate max-w-xs">
-                            {f.name ?? `Page ${i + 1}`}
-                          </a>
-                        ))}
-                      </div>
+
+                      {/* File links */}
+                      {s.file_urls.length > 0 && (
+                        <div className="flex items-center gap-3 flex-wrap text-xs">
+                          {s.file_urls.map((f, i) => (
+                            <a key={i} href={f.url} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate max-w-xs">
+                              {f.name ?? `Page ${i + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Student comment */}
                       {s.student_comment && (
-                        <div className="mt-2 text-sm bg-muted/50 rounded-md px-3 py-2">
+                        <div className="text-sm bg-muted/50 rounded-md px-3 py-2">
                           <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" />
                             Student comment
@@ -403,38 +413,81 @@ export default function TeacherAssignmentDetailPage() {
                           <p className="whitespace-pre-wrap">{s.student_comment}</p>
                         </div>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {s.grading_result && (
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/grade-report/${s.grading_result.id}`}>
-                            View report
-                          </Link>
-                        </Button>
-                      )}
-                      {(s.status === "submitted" || s.status === "failed") && (
-                        <Button
-                          size="sm"
-                          onClick={() => gradeSubmission(s)}
-                          disabled={gradingId === s.id || !assignment.mark_scheme_url}
-                        >
-                          {gradingId === s.id ? (
+
+                      {/* Action row: grading button + return button + view report */}
+                      <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-muted/50">
+
+                        {/* Grade / Grading / Graded button — occupies the same spot */}
+                        {s.status === "grading" || (gradingId === s.id) ? (
+                          // Actively grading right now
+                          <Button size="sm" disabled variant="secondary">
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
+                            Grading…
+                          </Button>
+                        ) : s.status === "pending_review" || s.status === "graded" ? (
+                          // Grading complete — show view report
+                          s.grading_result && (
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/grade-report/${s.grading_result.id}`}>
+                                View report
+                              </Link>
+                            </Button>
+                          )
+                        ) : s.status === "failed" ? (
+                          // Failed — show error + retry
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {s.grading_error && (
+                              <p className="text-xs text-destructive flex items-center gap-1 truncate" title={s.grading_error}>
+                                <AlertCircle className="h-3 w-3 shrink-0" />
+                                {s.grading_error}
+                              </p>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => gradeSubmission(s)}
+                              disabled={gradingId === s.id || !canGrade}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Retry grading
+                            </Button>
+                          </div>
+                        ) : (
+                          // submitted — ready to grade
+                          <Button
+                            size="sm"
+                            onClick={() => gradeSubmission(s)}
+                            disabled={gradingId === s.id || !canGrade}
+                          >
                             <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          Grade with AI
-                        </Button>
-                      )}
-                      {s.status === "pending_review" && (
-                        <Button size="sm" onClick={() => returnSubmission(s)} disabled={gradingId === s.id}>
-                          {gradingId === s.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Return to student
-                        </Button>
-                      )}
+                            Grade with AI
+                          </Button>
+                        )}
+
+                        {/* Return to student — separate concept, only when pending_review */}
+                        {s.status === "pending_review" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => returnSubmission(s)}
+                            disabled={gradingId === s.id}
+                          >
+                            {gradingId === s.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Return to student
+                          </Button>
+                        )}
+
+                        {/* Already returned */}
+                        {s.status === "graded" && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Returned
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
