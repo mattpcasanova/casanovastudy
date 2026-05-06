@@ -44,8 +44,10 @@ import {
   Trash2,
   Check,
   Loader2,
-  X
+  X,
+  School
 } from 'lucide-react'
+import AssignToClassDialog from '@/components/assign-to-class-dialog'
 
 const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   outline: AlignLeft,
@@ -570,6 +572,24 @@ export default function MyGuidesPage() {
                             <span className="font-medium">Focus:</span> {guide.topic_focus}
                           </div>
                         )}
+                        {user?.user_type === 'teacher' && (
+                          <div className="mt-3" onClick={e => e.stopPropagation()}>
+                            <AssignToClassDialog
+                              studyGuideIds={[guide.id]}
+                              studyGuideTitle={guide.title}
+                              trigger={
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+                                >
+                                  <School className="h-3 w-3 mr-1.5" />
+                                  Assign to Class
+                                </Button>
+                              }
+                            />
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )
@@ -596,6 +616,22 @@ export default function MyGuidesPage() {
               {selectedIds.size} {selectedIds.size === 1 ? 'guide' : 'guides'} selected
             </span>
             <div className="h-6 w-px bg-gray-600" />
+            {user?.user_type === 'teacher' && (
+              <AssignToClassDialog
+                studyGuideIds={Array.from(selectedIds)}
+                onSaved={() => setSelectedIds(new Set())}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-green-400 hover:bg-green-900/50 hover:text-green-300"
+                  >
+                    <School className="h-4 w-4 mr-2" />
+                    Assign
+                  </Button>
+                }
+              />
+            )}
             <Button
               variant="ghost"
               size="sm"

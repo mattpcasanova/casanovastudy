@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil } from 'lucide-react'
+import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, ArrowLeft } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -25,6 +25,7 @@ import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
 import CustomFormat from '@/components/formats/custom-format'
 import EmailShareDialog from '@/components/email-share-dialog'
+import AssignToClassDialog from '@/components/assign-to-class-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 
@@ -42,6 +43,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const isOwner = user?.id === studyGuide.user_id
+  const isTeacherOwner = isOwner && user?.user_type === 'teacher'
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
   const canSave = user && !isOwner
@@ -208,7 +210,16 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       </div>
 
       {/* Title Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden">
+      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden relative">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="absolute top-4 left-4 sm:left-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
         <div className="container mx-auto px-4 py-10">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
@@ -259,6 +270,23 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
               <BookmarkPlus className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save to My Guides'}
             </Button>
+          )}
+          {isTeacherOwner && (
+            <AssignToClassDialog
+              studyGuideIds={[studyGuide.id]}
+              studyGuideTitle={studyGuide.title}
+              trigger={
+                <Button
+                  variant="outline"
+                  className="bg-white hover:bg-green-50 text-green-700 hover:text-green-800 border-green-300 shadow-lg"
+                  size="lg"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <School className="h-4 w-4 mr-2" />
+                  Assign to Class
+                </Button>
+              }
+            />
           )}
           <Button
             onClick={() => { handlePrintToPDF(); setIsMenuOpen(false); }}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import StudyGuideFilterBar, { applyGuideFilters, type SortOption } from "@/components/study-guide-filter-bar"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
@@ -33,6 +34,12 @@ import {
   Plus,
   ClipboardList,
   ChevronRight,
+  BookOpen,
+  AlignLeft,
+  Layers,
+  ListChecks,
+  Brain,
+  X,
 } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
@@ -60,6 +67,17 @@ interface Enrollment {
     first_name: string | null
     last_name: string | null
   } | null
+}
+
+interface AssignedGuide {
+  assignmentId: string
+  assignedAt: string
+  id: string
+  title: string
+  subject: string
+  format: string
+  grade_level: string
+  created_at: string
 }
 
 interface AssignmentSummary {
@@ -95,6 +113,12 @@ export default function TeacherClassDetailPage() {
   const [cls, setCls] = useState<ClassRecord | null>(null)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
+  const [studyGuides, setStudyGuides] = useState<AssignedGuide[]>([])
+  const [unassigningId, setUnassigningId] = useState<string | null>(null)
+  const [guideSearch, setGuideSearch] = useState("")
+  const [guideSubject, setGuideSubject] = useState("all")
+  const [guideFormat, setGuideFormat] = useState("all")
+  const [guideSort, setGuideSort] = useState<SortOption>("date-desc")
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [regenOpen, setRegenOpen] = useState(false)
@@ -104,6 +128,19 @@ export default function TeacherClassDetailPage() {
   const [removingId, setRemovingId] = useState<string | null>(null)
 
   const isTeacher = user?.user_type === "teacher"
+  const filteredGuides = useMemo(
+    () => applyGuideFilters(studyGuides, {
+      search: guideSearch,
+      subject: guideSubject,
+      format: guideFormat,
+      sort: guideSort,
+    }),
+    [studyGuides, guideSearch, guideSubject, guideFormat, guideSort]
+  )
+  const availableGuideSubjects = useMemo(
+    () => Array.from(new Set(studyGuides.map(g => g.subject))).sort(),
+    [studyGuides]
+  )
   const joinUrl = useMemo(() => {
     if (!cls) return ""
     if (typeof window === "undefined") return ""
@@ -118,10 +155,11 @@ export default function TeacherClassDetailPage() {
     if (!classId) return
     setLoading(true)
     try {
-      const [classRes, rosterRes, assignmentsRes] = await Promise.all([
+      const [classRes, rosterRes, assignmentsRes, guidesRes] = await Promise.all([
         fetch(`/api/classes/${classId}`),
         fetch(`/api/classes/${classId}/enrollments`),
         fetch(`/api/classes/${classId}/assignments`),
+        fetch(`/api/classes/${classId}/study-guides`),
       ])
       const classJson = await classRes.json()
       const rosterJson = await rosterRes.json()
@@ -144,6 +182,11 @@ export default function TeacherClassDetailPage() {
 
       if (assignmentsRes.ok) {
         setAssignments(assignmentsJson.assignments ?? [])
+      }
+
+      if (guidesRes.ok) {
+        const j = await guidesRes.json()
+        setStudyGuides(j.guides ?? [])
       }
     } catch (err) {
       console.error(err)
@@ -249,6 +292,26 @@ export default function TeacherClassDetailPage() {
     } finally {
       setWorking(false)
       setDeleteOpen(false)
+    }
+  }
+
+  const unassignGuide = async (guideId: string) => {
+    if (!cls) return
+    setUnassigningId(guideId)
+    try {
+      const res = await fetch(`/api/study-guides/${guideId}/assign?class_id=${cls.id}`, { method: "DELETE" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({ title: json.error ?? "Failed to unassign", variant: "destructive" })
+        return
+      }
+      setStudyGuides(current => current.filter(g => g.id !== guideId))
+      toast({ title: "Study guide unassigned" })
+    } catch (err) {
+      console.error(err)
+      toast({ title: "Network error", variant: "destructive" })
+    } finally {
+      setUnassigningId(null)
     }
   }
 
@@ -421,6 +484,93 @@ export default function TeacherClassDetailPage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Study Guides */}
+          <Card className="md:col-span-3">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-lg flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  Study Guides
+                </h2>
+                <Badge variant="secondary">{studyGuides.length}</Badge>
+              </div>
+              {studyGuides.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  No study guides assigned. Open a guide from{" "}
+                  <Link href="/my-guides" className="underline">My Guides</Link>{" "}
+                  and click <span className="font-medium">Assign to Class</span> to share it here.
+                </p>
+              ) : (
+                <>
+                  {studyGuides.length > 3 && (
+                    <StudyGuideFilterBar
+                      searchQuery={guideSearch}
+                      onSearchChange={setGuideSearch}
+                      subjectFilter={guideSubject}
+                      onSubjectChange={setGuideSubject}
+                      formatFilter={guideFormat}
+                      onFormatChange={setGuideFormat}
+                      sortBy={guideSort}
+                      onSortChange={setGuideSort}
+                      availableSubjects={availableGuideSubjects}
+                    />
+                  )}
+                  {filteredGuides.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      No guides match your filters.
+                    </p>
+                  ) : (
+                <div className="space-y-2">
+                  {filteredGuides.map(guide => {
+                    const formatIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+                      outline: AlignLeft,
+                      flashcards: Layers,
+                      quiz: ListChecks,
+                      summary: Brain,
+                      custom: BookOpen,
+                    }
+                    const FormatIcon = formatIconMap[guide.format] ?? BookOpen
+                    const isUnassigning = unassigningId === guide.id
+                    return (
+                      <div
+                        key={guide.assignmentId}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <Link href={`/study-guide/${guide.id}`} className="flex items-center gap-3 min-w-0 flex-1">
+                          <FormatIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{guide.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {guide.subject} · Grade {guide.grade_level} · {guide.format}
+                            </p>
+                          </div>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unassignGuide(guide.id)}
+                          disabled={isUnassigning}
+                          className="text-red-600 hover:text-red-700 ml-2"
+                        >
+                          {isUnassigning ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <X className="h-4 w-4 mr-1" />
+                              Unassign
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

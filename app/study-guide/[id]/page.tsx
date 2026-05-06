@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import StudyGuideViewer from '@/components/study-guide-viewer'
 import { Metadata } from 'next'
 
@@ -41,6 +41,13 @@ export default async function StudyGuidePage({ params }: StudyGuidePageProps) {
 
   if (error || !studyGuide) {
     notFound()
+  }
+
+  // Static-saved guides are pointers to a hand-coded static route (e.g. /marinescience/...).
+  // Their custom_content has no `sections`, so rendering CustomFormat would crash.
+  const cc = studyGuide.custom_content as { is_static?: boolean; static_route?: string } | null
+  if (cc?.is_static && cc.static_route) {
+    redirect(cc.static_route)
   }
 
   return <StudyGuideViewer studyGuide={studyGuide} />

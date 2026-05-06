@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import StudyGuideFilterBar, { applyGuideFilters, type SortOption } from "@/components/study-guide-filter-bar"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Loader2, LogOut, ChevronRight, ClipboardList, CheckCircle2, Clock, AlertCircle } from "lucide-react"
+import { ArrowLeft, Loader2, LogOut, ChevronRight, ClipboardList, CheckCircle2, Clock, AlertCircle, BookOpen, AlignLeft, Layers, ListChecks, Brain } from "lucide-react"
 
 interface ClassRecord {
   id: string
@@ -38,6 +39,17 @@ interface TeacherProfile {
   last_name: string | null
   display_name: string | null
   email: string
+}
+
+interface AssignedGuide {
+  assignmentId: string
+  assignedAt: string
+  id: string
+  title: string
+  subject: string
+  format: string
+  grade_level: string
+  created_at: string
 }
 
 interface StudentAssignment {
@@ -103,7 +115,26 @@ export default function StudentClassDetailPage() {
   const [cls, setCls] = useState<ClassRecord | null>(null)
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null)
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
+  const [studyGuides, setStudyGuides] = useState<AssignedGuide[]>([])
+  const [guideSearch, setGuideSearch] = useState("")
+  const [guideSubject, setGuideSubject] = useState("all")
+  const [guideFormat, setGuideFormat] = useState("all")
+  const [guideSort, setGuideSort] = useState<SortOption>("date-desc")
   const [loading, setLoading] = useState(true)
+
+  const filteredGuides = useMemo(
+    () => applyGuideFilters(studyGuides, {
+      search: guideSearch,
+      subject: guideSubject,
+      format: guideFormat,
+      sort: guideSort,
+    }),
+    [studyGuides, guideSearch, guideSubject, guideFormat, guideSort]
+  )
+  const availableGuideSubjects = useMemo(
+    () => Array.from(new Set(studyGuides.map(g => g.subject))).sort(),
+    [studyGuides]
+  )
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
@@ -115,10 +146,11 @@ export default function StudentClassDetailPage() {
     try {
       // Single class fetch returns redacted teacher_id; we then look up the teacher's profile
       // by reading the my-classes list (cheap; usually 1-3 entries).
-      const [classRes, myClassesRes, assignmentsRes] = await Promise.all([
+      const [classRes, myClassesRes, assignmentsRes, guidesRes] = await Promise.all([
         fetch(`/api/classes/${classId}`),
         fetch(`/api/my-classes`),
         fetch(`/api/classes/${classId}/assignments`),
+        fetch(`/api/classes/${classId}/study-guides`),
       ])
       const classJson = await classRes.json()
 
@@ -140,6 +172,11 @@ export default function StudentClassDetailPage() {
       if (assignmentsRes.ok) {
         const j = await assignmentsRes.json()
         setAssignments(j.assignments ?? [])
+      }
+
+      if (guidesRes.ok) {
+        const j = await guidesRes.json()
+        setStudyGuides(j.guides ?? [])
       }
     } catch (err) {
       console.error(err)
@@ -261,6 +298,75 @@ export default function StudentClassDetailPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-4">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Study Guides
+              </h2>
+              <Badge variant="secondary">{studyGuides.length}</Badge>
+            </div>
+            {studyGuides.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No study guides assigned yet.
+              </p>
+            ) : (
+              <>
+                {studyGuides.length > 3 && (
+                  <StudyGuideFilterBar
+                    searchQuery={guideSearch}
+                    onSearchChange={setGuideSearch}
+                    subjectFilter={guideSubject}
+                    onSubjectChange={setGuideSubject}
+                    formatFilter={guideFormat}
+                    onFormatChange={setGuideFormat}
+                    sortBy={guideSort}
+                    onSortChange={setGuideSort}
+                    availableSubjects={availableGuideSubjects}
+                  />
+                )}
+                {filteredGuides.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    No guides match your filters.
+                  </p>
+                ) : (
+              <div className="space-y-2">
+                {filteredGuides.map(guide => {
+                  const formatIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+                    outline: AlignLeft,
+                    flashcards: Layers,
+                    quiz: ListChecks,
+                    summary: Brain,
+                    custom: BookOpen,
+                  }
+                  const FormatIcon = formatIconMap[guide.format] ?? BookOpen
+                  return (
+                    <Link
+                      key={guide.assignmentId}
+                      href={`/study-guide/${guide.id}`}
+                      className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg border transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{guide.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {guide.subject} · Grade {guide.grade_level}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <FormatIcon className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
