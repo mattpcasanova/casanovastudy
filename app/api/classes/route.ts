@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('classes')
-      .select('id, name, period, subject, enrollment_code, is_archived, created_at, updated_at')
+      .select('id, name, period, subject, color, enrollment_code, is_archived, created_at, updated_at')
       .eq('teacher_id', user.id)
       .order('is_archived', { ascending: true })
       .order('created_at', { ascending: false })

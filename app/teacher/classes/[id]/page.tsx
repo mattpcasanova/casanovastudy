@@ -43,6 +43,8 @@ import {
 } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
+import ClassColorPicker from "@/components/class-color-picker"
+import { isClassColorToken, type ClassColorToken } from "@/lib/class-colors"
 
 interface ClassRecord {
   id: string
@@ -50,6 +52,7 @@ interface ClassRecord {
   name: string
   period: string | null
   subject: string | null
+  color: string | null
   enrollment_code: string
   is_archived: boolean
   created_at: string
@@ -387,7 +390,29 @@ export default function TeacherClassDetailPage() {
               {!cls.period && !cls.subject && <span>No period or subject set</span>}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ClassColorPicker
+              size="sm"
+              value={isClassColorToken(cls.color) ? (cls.color as ClassColorToken) : null}
+              onChange={async (next) => {
+                try {
+                  const res = await fetch(`/api/classes/${cls.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ color: next }),
+                  })
+                  const json = await res.json()
+                  if (!res.ok) {
+                    toast({ title: json.error ?? "Failed to set color", variant: "destructive" })
+                    return
+                  }
+                  setCls(prev => (prev ? { ...prev, color: next } : prev))
+                } catch (err) {
+                  console.error(err)
+                  toast({ title: "Network error", variant: "destructive" })
+                }
+              }}
+            />
             <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} disabled={working}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit

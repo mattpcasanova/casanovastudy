@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { isClassColorToken, resolveClassColor } from '@/lib/class-colors'
 
 const MAX_NAME_LEN = 100
 const MAX_PERIOD_LEN = 50
@@ -26,7 +27,7 @@ export async function GET(
 
     const { data: cls, error } = await supabase
       .from('classes')
-      .select('id, teacher_id, name, period, subject, enrollment_code, is_archived, created_at, updated_at')
+      .select('id, teacher_id, name, period, subject, color, enrollment_code, is_archived, created_at, updated_at')
       .eq('id', id)
       .maybeSingle()
 
@@ -41,25 +42,40 @@ export async function GET(
     const isTeacher = cls.teacher_id === user.id
 
     let isEnrolled = false
+    let studentColor: string | null = null
     if (!isTeacher) {
       const { data: enrollment } = await supabase
         .from('class_enrollments')
-        .select('id')
+        .select('id, student_color')
         .eq('class_id', id)
         .eq('student_id', user.id)
         .eq('status', 'active')
         .maybeSingle()
       isEnrolled = !!enrollment
+      studentColor = enrollment?.student_color ?? null
     }
 
     if (!isTeacher && !isEnrolled) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
+    const effectiveColor = resolveClassColor(cls.color, studentColor)
+
     // Hide enrollment_code from students — they don't need it
     const payload = isTeacher
-      ? cls
-      : { id: cls.id, teacher_id: cls.teacher_id, name: cls.name, period: cls.period, subject: cls.subject, is_archived: cls.is_archived, created_at: cls.created_at }
+      ? { ...cls, effective_color: effectiveColor }
+      : {
+          id: cls.id,
+          teacher_id: cls.teacher_id,
+          name: cls.name,
+          period: cls.period,
+          subject: cls.subject,
+          is_archived: cls.is_archived,
+          created_at: cls.created_at,
+          color: cls.color,
+          student_color: studentColor,
+          effective_color: effectiveColor,
+        }
 
     return NextResponse.json({ class: payload, viewer: isTeacher ? 'teacher' : 'student' })
   } catch (error) {
@@ -109,8 +125,32 @@ export async function PATCH(
       }
       updates.is_archived = body.is_archived
     }
+    let teacherColorUpdate: string | null | undefined = undefined
+    if ('color' in body) {
+      if (body.color === null) {
+        teacherColorUpdate = null
+      } else if (isClassColorToken(body.color)) {
+        teacherColorUpdate = body.color
+      } else {
+        return NextResponse.json({ error: 'Invalid color' }, { status: 400 })
+      }
+    }
+    let studentColorUpdate: string | null | undefined = undefined
+    if ('student_color' in body) {
+      if (body.student_color === null) {
+        studentColorUpdate = null
+      } else if (isClassColorToken(body.student_color)) {
+        studentColorUpdate = body.student_color
+      } else {
+        return NextResponse.json({ error: 'Invalid student_color' }, { status: 400 })
+      }
+    }
 
-    if (Object.keys(updates).length === 0) {
+    if (
+      Object.keys(updates).length === 0 &&
+      teacherColorUpdate === undefined &&
+      studentColorUpdate === undefined
+    ) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
@@ -128,23 +168,52 @@ export async function PATCH(
     if (!cls) {
       return NextResponse.json({ error: 'Class not found' }, { status: 404 })
     }
-    if (cls.teacher_id !== user.id) {
+
+    const isTeacher = cls.teacher_id === user.id
+
+    // Teacher-only fields
+    if ((Object.keys(updates).length > 0 || teacherColorUpdate !== undefined) && !isTeacher) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
-
-    const { data: updated, error: updateError } = await supabase
-      .from('classes')
-      .update(updates)
-      .eq('id', id)
-      .select('id, name, period, subject, enrollment_code, is_archived, created_at, updated_at')
-      .single()
-
-    if (updateError) {
-      console.error('Error updating class:', updateError)
-      return NextResponse.json({ error: 'Failed to update class' }, { status: 500 })
+    if (teacherColorUpdate !== undefined) {
+      updates.color = teacherColorUpdate
     }
 
-    return NextResponse.json({ class: updated })
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase
+        .from('classes')
+        .update(updates)
+        .eq('id', id)
+      if (updateError) {
+        console.error('Error updating class:', updateError)
+        return NextResponse.json({ error: 'Failed to update class' }, { status: 500 })
+      }
+    }
+
+    // Student override (only the enrolled student themselves)
+    if (studentColorUpdate !== undefined) {
+      if (isTeacher) {
+        return NextResponse.json({ error: 'Teachers cannot set student_color' }, { status: 400 })
+      }
+      const { error: enrollErr } = await supabase
+        .from('class_enrollments')
+        .update({ student_color: studentColorUpdate })
+        .eq('class_id', id)
+        .eq('student_id', user.id)
+        .eq('status', 'active')
+      if (enrollErr) {
+        console.error('Error updating student color:', enrollErr)
+        return NextResponse.json({ error: 'Failed to set color' }, { status: 500 })
+      }
+    }
+
+    const { data: refreshed } = await supabase
+      .from('classes')
+      .select('id, name, period, subject, color, enrollment_code, is_archived, created_at, updated_at')
+      .eq('id', id)
+      .single()
+
+    return NextResponse.json({ class: refreshed })
   } catch (error) {
     console.error('Update class error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

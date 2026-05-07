@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
+import ClassesSectionNav from "@/components/classes-section-nav"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -130,6 +131,9 @@ export default function JoinClassPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationHeader />
+      <div className="container mx-auto px-4 pt-8">
+        <ClassesSectionNav />
+      </div>
       <Suspense fallback={
         <div className="container mx-auto px-4 py-8 max-w-md">
           <Skeleton className="h-8 w-48 mb-6" />

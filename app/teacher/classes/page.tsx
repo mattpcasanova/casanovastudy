@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
+import ClassesSectionNav from "@/components/classes-section-nav"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -91,6 +92,7 @@ export default function TeacherClassesPage() {
     <div className="min-h-screen bg-background">
       <NavigationHeader />
       <div className="container mx-auto px-4 py-8">
+        <ClassesSectionNav />
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-bold">My Classes</h1>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, LayoutDashboard, CalendarDays } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,12 +47,14 @@ export default function NavigationHeader() {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  const isStudyGuidesActive = pathname === '/' || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
+  const isStudyGuidesActive = pathname?.startsWith('/create-study-guide') || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
   const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
   const isMyStudentsActive = pathname?.startsWith('/my-students')
   const isMyClassesActive = pathname?.startsWith('/teacher/classes')
   const isStudentClassesActive = pathname?.startsWith('/my-classes') || (pathname?.startsWith('/classes') && !pathname?.startsWith('/classes/join'))
   const isJoinClassActive = pathname?.startsWith('/classes/join')
+  const isDashboardActive = pathname === '/' || pathname?.startsWith('/dashboard')
+  const isCalendarActive = pathname?.startsWith('/calendar')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
   const isTeacher = user?.user_type === 'teacher'
 
@@ -99,7 +101,7 @@ export default function NavigationHeader() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link href="/" className="flex items-center cursor-pointer">
+                    <Link href="/create-study-guide" className="flex items-center cursor-pointer">
                       <Plus className="h-4 w-4 mr-2" />
                       Create Guide
                     </Link>
@@ -162,9 +164,9 @@ export default function NavigationHeader() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isStudentClassesActive || isJoinClassActive ? 'secondary' : 'ghost'}
+                      variant={isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
                       className={`h-10 ${
-                        isStudentClassesActive || isJoinClassActive
+                        isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive
                           ? 'bg-white/20 text-white hover:bg-white/30'
                           : 'text-white/80 hover:text-white hover:bg-white/10'
                       }`}
@@ -176,9 +178,21 @@ export default function NavigationHeader() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem asChild>
+                      <Link href="/" className="flex items-center cursor-pointer">
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/my-classes" className="flex items-center cursor-pointer">
                         <School className="h-4 w-4 mr-2" />
                         My Classes
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/calendar" className="flex items-center cursor-pointer">
+                        <CalendarDays className="h-4 w-4 mr-2" />
+                        Calendar
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -209,22 +223,44 @@ export default function NavigationHeader() {
                 </Button>
               )}
 
-              {/* My Classes Button - For teachers */}
+              {/* Classes Dropdown - For teachers */}
               {mounted && user && isTeacher && (
-                <Button
-                  variant={isMyClassesActive ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
-                    isMyClassesActive
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                  asChild
-                >
-                  <Link href="/teacher/classes">
-                    <School className="h-4 w-4 mr-2 flex-shrink-0" />
-                    My Classes
-                  </Link>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={isMyClassesActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
+                      className={`h-10 ${
+                        isMyClassesActive || isDashboardActive || isCalendarActive
+                          ? 'bg-white/20 text-white hover:bg-white/30'
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <School className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Classes
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/" className="flex items-center cursor-pointer">
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/teacher/classes" className="flex items-center cursor-pointer">
+                        <School className="h-4 w-4 mr-2" />
+                        My Classes
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/calendar" className="flex items-center cursor-pointer">
+                        <CalendarDays className="h-4 w-4 mr-2" />
+                        Calendar
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               {/* My Students Button - For teachers */}
@@ -325,9 +361,9 @@ export default function NavigationHeader() {
             {/* Study Guides section */}
             <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Study Guides</p>
             <Link
-              href="/"
+              href="/create-study-guide"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                pathname === '/' ? 'bg-white/20' : 'hover:bg-white/10'
+                pathname?.startsWith('/create-study-guide') ? 'bg-white/20' : 'hover:bg-white/10'
               }`}
             >
               <Plus className="h-4 w-4 flex-shrink-0" />
@@ -387,6 +423,15 @@ export default function NavigationHeader() {
               <>
                 <div className="h-px bg-white/10 my-1" />
                 <Link
+                  href="/"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isDashboardActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Dashboard</span>
+                </Link>
+                <Link
                   href="/my-classes"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                     isStudentClassesActive ? 'bg-white/20' : 'hover:bg-white/10'
@@ -394,6 +439,15 @@ export default function NavigationHeader() {
                 >
                   <School className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Classes</span>
+                </Link>
+                <Link
+                  href="/calendar"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isCalendarActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <CalendarDays className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Calendar</span>
                 </Link>
                 <Link
                   href="/classes/join"
@@ -420,6 +474,15 @@ export default function NavigationHeader() {
             {mounted && user && isTeacher && (
               <>
                 <Link
+                  href="/"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isDashboardActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Dashboard</span>
+                </Link>
+                <Link
                   href="/teacher/classes"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                     isMyClassesActive ? 'bg-white/20' : 'hover:bg-white/10'
@@ -427,6 +490,15 @@ export default function NavigationHeader() {
                 >
                   <School className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Classes</span>
+                </Link>
+                <Link
+                  href="/calendar"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isCalendarActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <CalendarDays className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Calendar</span>
                 </Link>
                 <Link
                   href="/my-students"

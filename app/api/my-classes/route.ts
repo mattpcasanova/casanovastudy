@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { isPendingForStudent, type SubmissionStatus } from '@/lib/student-assignments'
+import { resolveClassColor } from '@/lib/class-colors'
 
 // GET - Student's actively-enrolled classes (joined to class + teacher info)
 export async function GET(request: NextRequest) {
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { data: enrollments, error: enrollmentsError } = await supabase
       .from('class_enrollments')
-      .select('id, class_id, joined_at')
+      .select('id, class_id, joined_at, student_color')
       .eq('student_id', user.id)
       .eq('status', 'active')
       .order('joined_at', { ascending: false })
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const { data: classes, error: classesError } = await supabase
       .from('classes')
-      .select('id, teacher_id, name, period, subject, is_archived, created_at')
+      .select('id, teacher_id, name, period, subject, color, is_archived, created_at')
       .in('id', classIds)
       .eq('is_archived', false)
 
@@ -71,18 +73,10 @@ export async function GET(request: NextRequest) {
     const links = linksRes.data ?? []
     const submissions = mySubsRes.data ?? []
 
-    const submittedByAssignment = new Map<string, string>()
-    for (const s of submissions) submittedByAssignment.set(s.assignment_id, s.status)
+    const submittedByAssignment = new Map<string, SubmissionStatus>()
+    for (const s of submissions) submittedByAssignment.set(s.assignment_id, s.status as SubmissionStatus)
 
-    const pendingByClass = new Map<string, number>()
-    for (const l of links) {
-      const status = submittedByAssignment.get(l.assignment_id)
-      if (!status || status === 'failed') {
-        pendingByClass.set(l.class_id, (pendingByClass.get(l.class_id) ?? 0) + 1)
-      }
-    }
-
-    // Also need each linked assignment_id to verify it's published.
+    // Need each linked assignment_id to verify it's published before counting.
     const linkedAssignmentIds = Array.from(new Set(links.map(l => l.assignment_id)))
     const { data: assignmentsMeta } = linkedAssignmentIds.length
       ? await supabase
@@ -92,23 +86,27 @@ export async function GET(request: NextRequest) {
       : { data: [] as Array<{ id: string; is_published: boolean }> }
     const publishedSet = new Set((assignmentsMeta ?? []).filter(a => a.is_published).map(a => a.id))
 
-    // Recompute the pending count, only counting published assignments
-    pendingByClass.clear()
+    const pendingByClass = new Map<string, number>()
     for (const l of links) {
       if (!publishedSet.has(l.assignment_id)) continue
-      const status = submittedByAssignment.get(l.assignment_id)
-      if (!status || status === 'failed') {
+      if (isPendingForStudent(submittedByAssignment.get(l.assignment_id))) {
         pendingByClass.set(l.class_id, (pendingByClass.get(l.class_id) ?? 0) + 1)
       }
     }
 
-    const result = classes.map(c => ({
-      ...c,
-      teacher: teacherMap.get(c.teacher_id) ?? null,
-      enrollment_id: enrollmentMap.get(c.id)?.id,
-      joined_at: enrollmentMap.get(c.id)?.joined_at,
-      pending_assignments_count: pendingByClass.get(c.id) ?? 0,
-    }))
+    const result = classes.map(c => {
+      const enr = enrollmentMap.get(c.id)
+      const studentColor = enr?.student_color ?? null
+      return {
+        ...c,
+        teacher: teacherMap.get(c.teacher_id) ?? null,
+        enrollment_id: enr?.id,
+        joined_at: enr?.joined_at,
+        pending_assignments_count: pendingByClass.get(c.id) ?? 0,
+        student_color: studentColor,
+        effective_color: resolveClassColor(c.color, studentColor),
+      }
+    })
 
     return NextResponse.json({ classes: result })
   } catch (error) {

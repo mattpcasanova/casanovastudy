@@ -94,12 +94,36 @@ export async function GET(
       .in('assignment_id', visible.map(a => a.id))
     const subMap = new Map((mySubs ?? []).map(s => [s.assignment_id, s]))
 
+    // For graded submissions, inline the grading result so the Grades tab can
+    // render score/percentage/grade without a follow-up roundtrip.
+    const gradedResultIds = (mySubs ?? [])
+      .filter(s => s.status === 'graded' && s.grading_result_id)
+      .map(s => s.grading_result_id as string)
+
+    const gradingMap = new Map<string, { total_marks: number | null; total_possible_marks: number | null; percentage: number | null; grade: string | null }>()
+    if (gradedResultIds.length > 0) {
+      const { data: results } = await supabase
+        .from('grading_results')
+        .select('id, total_marks, total_possible_marks, percentage, grade')
+        .in('id', gradedResultIds)
+      for (const r of results ?? []) {
+        gradingMap.set(r.id, {
+          total_marks: r.total_marks,
+          total_possible_marks: r.total_possible_marks,
+          percentage: r.percentage,
+          grade: r.grade,
+        })
+      }
+    }
+
     const result = visible.map(a => {
       // Strip mark scheme details from student response
       const { mark_scheme_url, mark_scheme_text, ...studentSafe } = a
+      const sub = subMap.get(a.id) ?? null
+      const grading = sub?.grading_result_id ? gradingMap.get(sub.grading_result_id) ?? null : null
       return {
         ...studentSafe,
-        my_submission: subMap.get(a.id) ?? null,
+        my_submission: sub ? { ...sub, grading_result: grading } : null,
       }
     })
 
