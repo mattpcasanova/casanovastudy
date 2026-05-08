@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, School, CalendarDays, Plus } from "lucide-react"
+import { LayoutDashboard, School, CalendarDays, Plus, ClipboardCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 
 // Sub-nav for the classes section. Rendered at the top of /dashboard, /calendar,
@@ -40,7 +40,14 @@ export default function ClassesSectionNav() {
     },
   ]
 
-  if (!isTeacher) {
+  if (isTeacher) {
+    items.push({
+      href: "/teacher/practice-tests",
+      label: "Practice Tests",
+      icon: ClipboardCheck,
+      match: p => !!p && p.startsWith("/teacher/practice-tests"),
+    })
+  } else {
     items.push({
       href: "/classes/join",
       label: "Join Class",
