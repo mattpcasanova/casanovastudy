@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry — Unit 3 Study Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hunter: #1a3d2e;
+    --hunter-dark: #122a20;
+    --cream: #f5f0e1;
+    --cream-light: #faf6ea;
+    --gold: #c8a951;
+    --gold-light: #e0c685;
+    --ink: #1f2620;
+    --ink-soft: #4a5550;
+    --rule: #d4c89a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  body { padding: 40px 32px 80px; max-width: 900px; margin: 0 auto; }
+
+  /* Masthead */
+  .masthead {
+    border-top: 4px solid var(--hunter);
+    border-bottom: 1px solid var(--rule);
+    padding: 28px 0 22px;
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .masthead::after {
+    content: ""; display: block; height: 2px; background: var(--gold);
+    width: 60px; margin-top: 14px;
+  }
+  .monogram {
+    position: absolute; top: 28px; right: 0;
+    font-family: 'Playfair Display', serif; font-weight: 700;
+    color: var(--gold); font-size: 22px; letter-spacing: 2px;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700; font-size: 34px; line-height: 1.15;
+    color: var(--hunter); margin: 0 0 6px;
+  }
+  .subtitle {
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--ink-soft); letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .teacher-badge {
+    display: inline-block; margin-top: 10px; padding: 3px 10px;
+    background: var(--hunter); color: var(--cream-light);
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    border-radius: 2px;
+  }
+
+  /* Section */
+  section.unit {
+    background: var(--cream-light);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--hunter);
+    border-radius: 4px;
+    padding: 22px 26px;
+    margin-bottom: 24px;
+    page-break-inside: avoid;
+  }
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700; font-size: 24px;
+    color: var(--hunter); margin: 0 0 4px;
+  }
+  .topic-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--gold); letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  h3 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600; font-size: 18px;
+    color: var(--hunter-dark); margin: 18px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px dotted var(--rule);
+  }
+  h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: 15px;
+    color: var(--hunter); margin: 14px 0 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  p { margin: 6px 0 10px; }
+  ul, ol { margin: 6px 0 12px; padding-left: 24px; }
+  li { margin-bottom: 4px; }
+
+  strong { color: var(--hunter-dark); }
+  em { color: var(--ink-soft); }
+
+  .key-fact {
+    background: rgba(200, 169, 81, 0.12);
+    border-left: 3px solid var(--gold);
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 14.5px;
+    border-radius: 0 4px 4px 0;
+  }
+  .key-fact strong { color: var(--hunter); }
+
+  .formula {
+    background: var(--hunter);
+    color: var(--cream-light);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 3px;
+    margin: 10px 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  /* Check Your Understanding */
+  .check {
+    background: var(--cream);
+    border: 1px dashed var(--gold);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .check-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .check .q { font-weight: 500; margin-bottom: 6px; }
+  .check .a {
+    font-size: 14px;
+    color: var(--ink-soft);
+    padding-top: 6px;
+    border-top: 1px dotted var(--rule);
+    margin-top: 8px;
+  }
+  .check .a::before {
+    content: "Answer: ";
+    color: var(--hunter);
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Comparison table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  th {
+    background: var(--hunter);
+    color: var(--cream-light);
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: rgba(255, 255, 255, 0.4); }
+
+  /* Quick reference at top */
+  .quick-ref-toc {
+    background: var(--hunter);
+    color: var(--cream-light);
+    padding: 18px 22px;
+    border-radius: 4px;
+    margin-bottom: 28px;
+  }
+  .quick-ref-toc h2 {
+    color: var(--gold-light);
+    font-size: 18px;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+  }
+  .quick-ref-toc ol {
+    columns: 2;
+    column-gap: 24px;
+    margin: 0;
+    padding-left: 20px;
+    font-size: 14px;
+  }
+  .quick-ref-toc li { color: var(--cream-light); margin-bottom: 3px; }
+
+  /* Print */
+  @media print {
+    body { padding: 20px; max-width: 100%; }
+    section.unit { background: white; page-break-inside: avoid; }
+    .quick-ref-toc { background: white; color: var(--ink); border: 2px solid var(--hunter); }
+    .quick-ref-toc h2, .quick-ref-toc li { color: var(--hunter); }
+    .formula { background: #eee; color: var(--ink); }
+    .check { background: white; }
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 20px 14px; }
+    section.unit { padding: 16px 18px; }
+    .quick-ref-toc ol { columns: 1; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="monogram">MC</div>
+  <h1>AP Chemistry — Unit 3 Study Guide</h1>
+  <div class="subtitle">Intermolecular Forces · Properties · Spectroscopy</div>
+  <span class="teacher-badge">Section I Review</span>
+</header>
+
+<div class="quick-ref-toc">
+  <h2>What You Need to Know</h2>
+  <ol>
+    <li>Intermolecular Forces (IMFs)</li>
+    <li>Solids, Liquids, Gases — Particle Views</li>
+    <li>Phase Changes & Heating Curves</li>
+    <li>Ideal Gas Law & Dalton's Law</li>
+    <li>Kinetic Molecular Theory (KMT)</li>
+    <li>Solutions & "Like Dissolves Like"</li>
+    <li>Spectroscopy (PES, IR, UV/Vis)</li>
+    <li>Beer-Lambert & Mass Spectrometry</li>
+  </ol>
+</div>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 1</span>
+  <h2>Intermolecular Forces (IMFs)</h2>
+
+  <p>IMFs are attractions <strong>between</strong> molecules, not within them. They're <em>much</em> weaker than covalent or ionic bonds, but they determine boiling point, melting point, viscosity, surface tension, and solubility.</p>
+
+  <h3>The Hierarchy (weakest → strongest)</h3>
+
+  <table>
+    <tr><th>Force</th><th>Found In</th><th>Strength</th></tr>
+    <tr><td>London Dispersion (LDF)</td><td>ALL molecules</td><td>Weak (gets stronger with size)</td></tr>
+    <tr><td>Dipole–Dipole</td><td>Polar molecules</td><td>Moderate</td></tr>
+    <tr><td>Hydrogen Bonding</td><td>H bonded to N, O, or F</td><td>Strong</td></tr>
+    <tr><td>Ion–Dipole</td><td>Ion + polar molecule (e.g. salt in water)</td><td>Very strong</td></tr>
+  </table>
+
+  <div class="key-fact">
+    <strong>LDF clarification:</strong> Every molecule has LDFs — even polar ones and H-bonders. We just emphasize the strongest force when comparing substances. Larger/heavier molecules have stronger LDFs because they have more electrons that can shift around.
+  </div>
+
+  <h3>Hydrogen Bonding — The Special Case</h3>
+  <p>Requires <strong>H directly bonded to N, O, or F</strong>. Why these three? They're small AND highly electronegative, creating a very strong δ+ on the H. The "FON" rule.</p>
+
+  <ul>
+    <li>H₂O has TWO H-bonds per molecule (high BP, surface tension, ice less dense than water)</li>
+    <li>NH₃ and HF also H-bond but less aggressively than H₂O</li>
+    <li>CH₄ does NOT H-bond — C isn't electronegative enough</li>
+  </ul>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Why does H₂O (BP 100°C) boil so much higher than H₂S (BP −60°C), even though S is heavier than O?</div>
+    <div class="a">H₂O has hydrogen bonding (H to highly electronegative O); H₂S only has weak dipole–dipole forces. Sulfur isn't electronegative enough to form true H-bonds. IMF strength beats molecular weight here.</div>
+  </div>
+
+  <h3>Predicting IMFs from Structure</h3>
+  <ol>
+    <li>Is the substance ionic? → ionic bonds dominate (technically not an IMF, but strongest)</li>
+    <li>Does it have H–N, H–O, or H–F? → hydrogen bonding</li>
+    <li>Is the molecule polar (asymmetric)? → dipole–dipole</li>
+    <li>Otherwise → only LDFs</li>
+  </ol>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 2</span>
+  <h2>Solids, Liquids, Gases</h2>
+
+  <h3>Particle Behavior by Phase</h3>
+  <table>
+    <tr><th>Phase</th><th>Particle Motion</th><th>IMFs</th><th>Shape/Volume</th></tr>
+    <tr><td>Solid</td><td>Vibrating in place</td><td>Strong (locked)</td><td>Fixed shape & volume</td></tr>
+    <tr><td>Liquid</td><td>Sliding past each other</td><td>Moderate</td><td>Fixed volume, takes container shape</td></tr>
+    <tr><td>Gas</td><td>Random, rapid, mostly empty space</td><td>Essentially zero</td><td>Fills container completely</td></tr>
+  </table>
+
+  <h3>Types of Solids</h3>
+  <ul>
+    <li><strong>Ionic</strong> — cations + anions in lattice (NaCl). High MP, brittle, conduct when dissolved/molten.</li>
+    <li><strong>Molecular</strong> — discrete molecules held by IMFs (ice, sugar). Low MP, soft.</li>
+    <li><strong>Metallic</strong> — sea of delocalized electrons. Conductive, malleable, ductile.</li>
+    <li><strong>Network covalent</strong> — atoms bonded in 3D network (diamond, SiO₂). Extremely high MP, hard.</li>
+  </ul>
+
+  <h4>Alloys (relevant for Q9 on this test)</h4>
+  <ul>
+    <li><strong>Substitutional</strong> — host atoms replaced by similar-sized atoms (brass: Cu + Zn; stainless: Fe + Cr)</li>
+    <li><strong>Interstitial</strong> — small atoms wedged into gaps (steel: Fe + small C atoms)</li>
+  </ul>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Stainless steel contains Fe, Cr, and C. Why is Cr substitutional but C interstitial?</div>
+    <div class="a">Cr has roughly the same atomic radius as Fe, so it can swap into lattice positions. C is much smaller and fits into the empty spaces between Fe atoms instead.</div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 3</span>
+  <h2>Phase Changes & Heating Curves</h2>
+
+  <h3>The Key Insight</h3>
+  <div class="key-fact">
+    During a phase change, <strong>temperature stays constant</strong>. Added energy goes entirely into breaking IMFs, not raising kinetic energy. You'll see this as <strong>flat plateaus</strong> on a heating curve.
+  </div>
+
+  <h3>Anatomy of a Heating Curve</h3>
+  <ul>
+    <li><strong>Sloped sections</strong> — substance warming within a single phase (q = mcΔT applies)</li>
+    <li><strong>Flat plateau at melting point</strong> — heat of fusion (ΔH<sub>fus</sub>) — solid → liquid</li>
+    <li><strong>Flat plateau at boiling point</strong> — heat of vaporization (ΔH<sub>vap</sub>) — liquid → gas</li>
+    <li>ΔH<sub>vap</sub> &gt; ΔH<sub>fus</sub> — vaporization breaks <em>all</em> IMFs; melting only loosens them</li>
+  </ul>
+
+  <h3>Calorimetry Calculations</h3>
+  <div class="formula">q = m · c · ΔT       (warming/cooling within one phase)
+q = n · ΔH           (during phase change)
+
+Where:
+  q  = heat (J)
+  m  = mass (g)
+  c  = specific heat (J/g·°C)
+  ΔT = T_final − T_initial
+  n  = moles
+  ΔH = molar enthalpy (J/mol)</div>
+
+  <div class="key-fact">
+    <strong>Conservation of energy:</strong> in a closed calorimetry system, q<sub>lost</sub> by hot object = q<sub>gained</sub> by cold object. Use this to solve for unknown temperatures or specific heats.
+  </div>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Boiling water at sea level never goes above 100°C, no matter how high you turn the burner. Why?</div>
+    <div class="a">All added energy is being used to break hydrogen bonds between water molecules (vaporization), not to raise their kinetic energy. Temperature stays pinned until all the water has converted to gas.</div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 4</span>
+  <h2>Ideal Gas Law & Dalton's Law</h2>
+
+  <h3>The Ideal Gas Law</h3>
+  <div class="formula">PV = nRT
+
+P = pressure (atm)
+V = volume (L)
+n = moles
+R = 0.0821 L·atm/(mol·K)
+T = temperature (K — ALWAYS KELVIN!)</div>
+
+  <h3>Derived Relationships (hold others constant)</h3>
+  <ul>
+    <li><strong>Boyle's Law:</strong> P ∝ 1/V at constant n, T (hyperbola)</li>
+    <li><strong>Charles's Law:</strong> V ∝ T at constant n, P (linear through origin)</li>
+    <li><strong>Avogadro:</strong> V ∝ n at constant P, T</li>
+    <li><strong>Gay-Lussac:</strong> P ∝ T at constant n, V</li>
+  </ul>
+
+  <h3>Dalton's Law of Partial Pressures</h3>
+  <div class="formula">P_total = P_A + P_B + P_C + ...
+P_A = X_A · P_total       (X = mole fraction)</div>
+
+  <p>In a gas mixture, each gas contributes pressure proportional to its mole fraction. They don't interact (ideal gases).</p>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Three sealed flasks contain different gases at the same temperature. To compare their pressures, what single quantity do you need?</div>
+    <div class="a">n/V (moles per liter). Since P = (n/V)RT and T is fixed, the gas with the highest n/V has the highest pressure. Identity of the gas doesn't matter for ideal behavior.</div>
+  </div>
+
+  <h3>When Gases Deviate from Ideal</h3>
+  <ul>
+    <li><strong>Low temperature</strong> — molecules move slower, IMFs matter more</li>
+    <li><strong>High pressure</strong> — molecular volume becomes non-negligible</li>
+    <li>Real gases pull each other inward (real P is slightly LOWER than ideal predicts)</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 5</span>
+  <h2>Kinetic Molecular Theory (KMT)</h2>
+
+  <h3>The Five Assumptions of an Ideal Gas</h3>
+  <ol>
+    <li>Particles are in constant random motion</li>
+    <li>Particle volume is negligible compared to container volume</li>
+    <li>No IMFs between particles</li>
+    <li>Collisions are perfectly elastic (no energy loss)</li>
+    <li>Average KE depends ONLY on temperature</li>
+  </ol>
+
+  <h3>The Big Result: Same T → Same KE</h3>
+  <div class="formula">KE_avg = (3/2) k_B T = (1/2) m v²_avg</div>
+
+  <div class="key-fact">
+    At the same temperature, <strong>all gases have the same average kinetic energy</strong>. Since KE = ½mv², lighter molecules must move FASTER to match the KE of heavier ones.
+  </div>
+
+  <h3>Maxwell-Boltzmann Distributions</h3>
+  <p>Speed distributions for a gas at a given temperature. Reading them:</p>
+  <ul>
+    <li><strong>Lighter gas</strong> → curve shifted RIGHT (faster speeds), broader/flatter</li>
+    <li><strong>Heavier gas</strong> → curve shifted LEFT (slower), taller/narrower</li>
+    <li><strong>Higher temperature</strong> (same gas) → curve shifts right, flattens out</li>
+  </ul>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">At 25°C, which moves faster on average — H₂ or O₂?</div>
+    <div class="a">H₂. Same temperature means same average KE, so the lighter molecule (M = 2) moves faster than the heavier one (M = 32). Roughly 4× faster, since v ∝ 1/√M.</div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 6</span>
+  <h2>Solutions & "Like Dissolves Like"</h2>
+
+  <h3>The Golden Rule</h3>
+  <div class="key-fact">
+    <strong>Like dissolves like.</strong> Polar solvents dissolve polar/ionic solutes. Nonpolar solvents dissolve nonpolar solutes. The IMFs in the solvent must be similar to those of the solute to "swap out" without an energy penalty.
+  </div>
+
+  <h3>Common Categories</h3>
+  <ul>
+    <li><strong>Polar/ionic:</strong> water, methanol, ethanol, ammonia, NaCl, HCl</li>
+    <li><strong>Nonpolar:</strong> hexane, benzene, CCl₄, oils, fats, I₂, gasoline</li>
+  </ul>
+
+  <h3>Dissolving Mechanics (Ionic in Water)</h3>
+  <ol>
+    <li>Water dipoles surround the ion (O end toward cations, H end toward anions)</li>
+    <li>Ion-dipole forces overcome the ionic lattice energy</li>
+    <li>Ions become solvated (hydrated) and disperse</li>
+  </ol>
+
+  <h4>Charge Density Predicts Solvation Strength</h4>
+  <p>Charge density = charge ÷ ionic radius. Higher charge density → stronger ion–dipole attraction with water. So:</p>
+  <ul>
+    <li>Mg²⁺ (small, +2) attracts water MORE strongly than Na⁺ (larger, +1)</li>
+    <li>F⁻ (small, −1) attracts water MORE strongly than I⁻ (large, −1)</li>
+  </ul>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Which would be more soluble in water: ethanol (CH₃CH₂OH) or hexane (C₆H₁₄)?</div>
+    <div class="a">Ethanol — its −OH group can hydrogen bond with water. Hexane is purely nonpolar with only LDFs and won't mix with water (think oil and water).</div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Topic 7</span>
+  <h2>Spectroscopy — Light Probing Matter</h2>
+
+  <p>Different regions of the electromagnetic spectrum probe different parts of an atom or molecule. Energy of the photon must match the energy gap being probed.</p>
+
+  <h3>EM Regions and What They Probe</h3>
+  <table>
+    <tr><th>Region</th><th>Energy</th><th>Probes</th></tr>
+    <tr><td>Gamma / X-ray</td><td>Highest</td><td>Core electrons, nuclei</td></tr>
+    <tr><td>UV / Visible</td><td>High</td><td>Valence electrons (electronic transitions)</td></tr>
+    <tr><td>Infrared (IR)</td><td>Medium</td><td>Bond vibrations (stretching/bending)</td></tr>
+    <tr><td>Microwave</td><td>Lower</td><td>Molecular rotations</td></tr>
+    <tr><td>Radio (NMR)</td><td>Lowest</td><td>Nuclear spin flips</td></tr>
+  </table>
+
+  <h3>Photoelectron Spectroscopy (PES)</h3>
+  <p>High-energy photons knock electrons out of an atom. The instrument measures their <strong>binding energy</strong> (BE = energy required to remove that electron).</p>
+  <ul>
+    <li><strong>Higher BE</strong> = electron held more tightly = closer to nucleus (inner shell)</li>
+    <li><strong>Lower BE</strong> = electron held loosely = outer shell (valence)</li>
+    <li><strong>Peak height</strong> ∝ number of electrons in that subshell</li>
+    <li>Number of peaks = number of occupied subshells</li>
+  </ul>
+
+  <div class="formula">KE_ejected = E_photon − BE
+
+(Same photon energy → low BE means more leftover KE → faster ejected electron)</div>
+
+  <div class="key-fact">
+    <strong>Reading PES like a pro:</strong> Read peaks right-to-left. Lowest BE on the right = outermost subshell. Tally electrons by peak heights → get the electron configuration → identify the element.
+  </div>
+
+  <h3>Infrared (IR) Spectroscopy</h3>
+  <p>IR photons excite bond vibrations. Vibration frequency depends on bond stiffness and atom mass:</p>
+  <ul>
+    <li>Stronger/stiffer bond → higher frequency</li>
+    <li>Lighter atoms → higher frequency</li>
+    <li>Different bond lengths produce different frequencies → IR distinguishes them</li>
+  </ul>
+
+  <h3>UV/Visible Spectroscopy & Beer-Lambert Law</h3>
+  <div class="formula">A = ε · b · c
+
+A = absorbance (no units)
+ε = molar absorptivity (M⁻¹cm⁻¹)
+b = path length (cm)
+c = concentration (M)</div>
+
+  <p>Absorbance is directly proportional to concentration. This is how we measure unknown concentrations from a calibration curve.</p>
+
+  <h3>Mass Spectrometry</h3>
+  <ul>
+    <li>Each peak = one isotope at its specific mass</li>
+    <li>Peak height (abundance %) = how common that isotope is</li>
+    <li>Average atomic mass = weighted average of all peaks (Σ mass × abundance)</li>
+    <li>Number of peaks = number of isotopes</li>
+  </ul>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">A PES shows 3 peaks with electron counts 2 : 2 : 5 (highest BE → lowest BE). Which element?</div>
+    <div class="a">Total = 2 + 2 + 5 = 9 electrons → Fluorine. Configuration 1s² 2s² 2p⁵ matches: highest BE peak = 1s² (closest to nucleus), middle = 2s², lowest BE = 2p⁵ (outermost).</div>
+  </div>
+
+  <div class="check">
+    <div class="check-label">Check Your Understanding</div>
+    <div class="q">Which spectroscopic technique would distinguish between a C–H bond and a C–D bond (deuterium)?</div>
+    <div class="a">IR. Different atomic masses on the same bond produce different vibrational frequencies (heavier D = lower frequency). UV/Vis wouldn't see this because the electronic structure is essentially identical.</div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section class="unit">
+  <span class="topic-tag">Exam Tips</span>
+  <h2>Common Traps on Unit 3 Questions</h2>
+
+  <h3>1. Mixing up molecular weight and IMFs</h3>
+  <p>For boiling/melting point comparisons, IMFs usually win over mass — but not always. If two substances have the same IMF type, the heavier one boils higher (more LDFs). H-bonding always wins over LDFs.</p>
+
+  <h3>2. Forgetting "all molecules have LDFs"</h3>
+  <p>Even H₂O has LDFs. We name the <em>strongest</em> force when characterizing a substance, but LDFs are universal.</p>
+
+  <h3>3. Phase change temperatures</h3>
+  <p>During a phase change, T stays CONSTANT even though energy is added. The graph plateaus. Don't get tricked into thinking temperature is rising.</p>
+
+  <h3>4. Kelvin vs Celsius in gas laws</h3>
+  <p>Always convert to Kelvin (K = °C + 273) before plugging into PV = nRT. Forgetting is a classic AP trap.</p>
+
+  <h3>5. KMT: same T means same KE, NOT same speed</h3>
+  <p>Light molecules move faster to compensate for low mass. Speed ∝ 1/√M.</p>
+
+  <h3>6. PES peak heights ≠ binding energy</h3>
+  <p>Height = number of electrons (e.g. 6 for a full 2p). Position on x-axis = binding energy. Don't confuse them.</p>
+
+  <h3>7. "Like dissolves like" isn't perfect</h3>
+  <p>Small polar molecules dissolve in nonpolar solvents sometimes; large nonpolar molecules can be amphiphilic. Use it as a starting framework, not a rigid rule.</p>
+</section>
+
+</body>
+</html>

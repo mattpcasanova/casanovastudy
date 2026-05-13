@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry — Section I Answer Key</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1a3d2e;
+    --green-soft: #2d5544;
+    --cream: #f5f0e1;
+    --cream-soft: #faf6ec;
+    --gold: #c8a951;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d9d2bd;
+    --correct: #2d5544;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--cream); color: var(--ink); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  body { padding: 24px 32px 80px; max-width: 1100px; margin: 0 auto; }
+
+  header.masthead {
+    border-bottom: 2px solid var(--green);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .title-block h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 1.9rem;
+    color: var(--green);
+    line-height: 1.1;
+  }
+  .title-block .subtitle {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Quick answer reference at top */
+  .quick-ref {
+    background: var(--green);
+    color: var(--cream);
+    padding: 18px 22px;
+    border-radius: 6px;
+    margin-bottom: 32px;
+  }
+  .quick-ref h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+  .quick-ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+  .quick-ref-cell {
+    background: rgba(245,240,225,0.08);
+    border: 1px solid rgba(200,169,81,0.3);
+    padding: 6px 8px;
+    border-radius: 3px;
+    text-align: center;
+  }
+  .quick-ref-cell .qn { color: rgba(245,240,225,0.65); font-size: 0.7rem; }
+  .quick-ref-cell .ans { color: var(--gold); font-weight: 600; font-size: 1.1rem; }
+
+  /* Answer cards */
+  .answer-card {
+    background: var(--cream-soft);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--gold);
+    border-radius: 4px;
+    padding: 22px 26px;
+    margin-bottom: 18px;
+  }
+  .answer-card .header-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .q-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    color: var(--green);
+    font-weight: 700;
+  }
+  .answer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green);
+    color: var(--cream);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+  }
+  .answer-pill .letter {
+    color: var(--gold);
+    font-size: 1.15rem;
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+  }
+  .topic-tag {
+    background: rgba(26,61,46,0.08);
+    color: var(--green-soft);
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .q-prompt {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 14px;
+    font-style: italic;
+    color: var(--green-soft);
+  }
+  .explanation {
+    font-size: 0.97rem;
+    line-height: 1.62;
+    color: var(--ink);
+  }
+  .explanation strong { color: var(--green); }
+  .explanation .calc {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    background: white;
+    border: 1px solid var(--line);
+    padding: 10px 14px;
+    margin: 8px 0;
+    border-radius: 3px;
+    color: var(--green);
+    overflow-x: auto;
+  }
+  .explanation .key-point {
+    display: block;
+    background: rgba(200,169,81,0.15);
+    border-left: 3px solid var(--gold);
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.9rem;
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Stem context */
+  .stem-banner {
+    background: var(--green-soft);
+    color: var(--cream);
+    padding: 14px 22px;
+    border-radius: 6px;
+    margin: 28px 0 12px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+  .stem-banner strong {
+    color: var(--gold);
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Print */
+  @media print {
+    body { padding: 0; background: white; max-width: 100%; }
+    .answer-card { break-inside: avoid; padding: 14px 0; border: none; border-bottom: 1px solid #ccc; border-radius: 0; }
+    .quick-ref { background: white; color: black; border: 1px solid #333; }
+    .quick-ref h2 { color: #333; }
+    .quick-ref-cell { background: white; color: black; border: 1px solid #999; }
+    .quick-ref-cell .ans { color: black; }
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 16px; }
+    .answer-card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="title-block">
+    <h1>AP Chemistry — Section I Answer Key</h1>
+    <div class="subtitle">60 Multiple-Choice Questions · Princeton Review Practice Test 1</div>
+  </div>
+</header>
+
+<!-- QUICK ANSWER REFERENCE -->
+<div class="quick-ref">
+  <h2>Quick Answer Key</h2>
+  <div class="quick-ref-grid" id="quickRef"></div>
+</div>
+
+<!-- DETAILED EXPLANATIONS -->
+<div id="explanations"></div>
+
+<script>
+const answers = [
+  // Q1
+  { n:1, ans:'A', topic:'Kinetics',
+    prompt:'Rate law for overall reaction when step 1 is rate-determining.',
+    explanation:`<strong>Step 1:</strong> The rate-determining step controls the overall rate, so its rate law IS the overall rate law.
+    <strong>Step 2:</strong> For an elementary step, exponents = stoichiometric coefficients. Step 1 reactants: H₂ (coef 1), ICl (coef 1).
+    <span class="calc">Rate = k[H₂][ICl]</span>` },
+  // Q2
+  { n:2, ans:'D', topic:'Catalysis',
+    prompt:'How does iodide concentration change as H₂O₂ decomposes?',
+    explanation:`<strong>Step 1:</strong> I⁻ is consumed in one step and regenerated in another → net change is zero.
+    <strong>Step 2:</strong> A species used and remade with no net change is a catalyst. [I⁻] stays constant.` },
+  // Q3
+  { n:3, ans:'B', topic:'Empirical formulas',
+    prompt:'Empirical formula of caffeine (C₈H₁₀N₄O₂).',
+    explanation:`<strong>Step 1:</strong> Find the GCF of subscripts {8, 10, 4, 2} = 2.
+    <strong>Step 2:</strong> Divide each subscript by 2.
+    <span class="calc">C₈H₁₀N₄O₂ ÷ 2 → C₄H₅N₂O</span>` },
+
+  // ===== Q4-Q8 stem =====
+  { stemHeader: 'Voltaic Cell · Questions 4–8',
+    stemBody: 'Two half-cells: Ag(s) | AgNO₃ (1.0 M) and Fe(s) | Fe(NO₃)₂ (1.0 M), connected by a NaNO₃ salt bridge at 25 °C. E°(Ag⁺/Ag) = +0.80 V; E°(Fe²⁺/Fe) = −0.44 V. Net cell reaction: 2 Ag⁺ + Fe → Fe²⁺ + 2 Ag.' },
+
+  { n:4, ans:'B', topic:'Electrochemistry',
+    prompt:'Standard reduction potential for the full reaction.',
+    explanation:`<strong>Step 1:</strong> E° values from the stem: E°(Ag⁺/Ag) = +0.80 V, E°(Fe²⁺/Fe) = −0.44 V.
+    <strong>Step 2:</strong> Higher E° = stronger pull to be reduced. +0.80 > −0.44, so:
+    <span class="key-point">Ag⁺ is reduced (cathode) — gains e⁻
+Fe is oxidized (anode) — loses e⁻ (its half-reaction runs in reverse)</span>
+    <strong>Step 3:</strong> Apply E°<sub>cell</sub> = E°<sub>cathode</sub> − E°<sub>anode</sub> using values as written:
+    <span class="calc">E°<sub>cell</sub> = (+0.80) − (−0.44) = +1.24 V</span>` },
+  // Q5
+  { n:5, ans:'A', topic:'Nernst / Q',
+    prompt:'Concentrations producing the highest cell potential.',
+    explanation:`<strong>Step 1:</strong> Definitions:
+    <span class="key-point">E = cell potential (voltage) under actual conditions
+E° = standard cell potential (all species at 1 M, 25°C)
+Q = reaction quotient — same form as K, but using current concentrations (not equilibrium). Tells you how far from equilibrium you are.</span>
+    Nernst equation:
+    <span class="calc">E = E° − (RT/nF) ln Q</span>
+    Higher E ⟺ smaller Q (smaller ln Q makes the subtracted term smaller).
+    <strong>Step 2:</strong> Build Q from the balanced equation:
+    <span class="calc">2 Ag⁺ + Fe&nbsp;&nbsp;→&nbsp;&nbsp;Fe²⁺ + 2 Ag
+(reactants)&nbsp;&nbsp;&nbsp;&nbsp;(products)</span>
+    Rule: Q = products / reactants, each raised to its coefficient. Pure solids (Fe, Ag) are excluded.
+    <span class="calc">Numerator (products): [Fe²⁺]¹
+Denominator (reactants): [Ag⁺]²
+Q = [Fe²⁺] / [Ag⁺]²</span>
+    <strong>Step 3:</strong> Minimize Q → low [Fe²⁺] (numerator), high [Ag⁺] (denominator, squared). Choice A: [Ag⁺] = 2.0, [Fe²⁺] = 1.0 → Q = 1.0/4.0 = 0.25 (smallest).` },
+  // Q6
+  { n:6, ans:'D', topic:'Electrochemistry',
+    prompt:'Pathway and direction of electron flow.',
+    explanation:`<strong>Step 1:</strong> Anode (oxidation) = Fe; cathode (reduction) = Ag. Electrons flow from anode to cathode → from Fe to Ag.
+    <strong>Step 2:</strong> The correct diagram shows Fe → Ag direction. (Note: in standard chemistry, electrons travel through the EXTERNAL WIRE, never through the salt bridge — the salt bridge carries ions only. Match the answer to the choice that shows Fe → Ag direction in the diagram.)
+    <span class="calc">Direction: Fe (anode) → Ag (cathode)</span>` },
+  // Q7
+  { n:7, ans:'D', topic:'Thermo / Equilibrium',
+    prompt:'Signs of K_eq and ΔG for this cell.',
+    explanation:`<strong>Big picture:</strong> A voltaic cell making positive voltage IS spontaneous. E°, ΔG°, and K are three ways of saying the same thing:
+    <span class="key-point">E° > 0  ⟺  ΔG° < 0  ⟺  K > 1  (spontaneous, products win)
+E° < 0  ⟺  ΔG° > 0  ⟺  K < 1  (non-spontaneous)</span>
+    <strong>Step 1:</strong> From Q4, E°<sub>cell</sub> = +1.24 V (positive) → spontaneous.
+    <strong>Step 2:</strong> Spontaneous → ΔG° < 0 and K > 1 → <strong>D</strong>.
+    <span class="key-point">Formulas behind the scenes: ΔG° = −nFE° (positive E° → negative ΔG°) and ΔG° = −RT ln K (negative ΔG° → ln K > 0 → K > 1).</span>` },
+  // Q8
+  { n:8, ans:'B', topic:'Electrochemistry',
+    prompt:'Function of the salt bridge.',
+    explanation:`<strong>Step 1:</strong> As cell runs: anode beaker gets +charged (Fe²⁺ builds up), cathode beaker gets −charged (Ag⁺ depletes).
+    <strong>Step 2:</strong> Charge buildup would stop the reaction. The salt bridge releases Na⁺ (toward cathode) and NO₃⁻ (toward anode) to maintain neutrality.
+    <span class="key-point">Wire moves electrons. Salt bridge moves ions. Don't confuse them.</span>` },
+
+  // Q9
+  { n:9, ans:'B', topic:'Bonding / Alloys',
+    prompt:'Diagram representing stainless steel structure.',
+    explanation:`<strong>Step 1:</strong> Stainless steel ≈ 70% Fe, 18% Cr (similar size to Fe), small % C (much smaller).
+    <strong>Step 2:</strong> Cr ≈ Fe size → SUBSTITUTIONAL (replaces Fe in lattice). C is much smaller → INTERSTITIAL (fits in gaps).
+    <strong>Step 3:</strong> Correct diagram: lattice of Fe atoms with Cr swapped in at lattice spots, tiny C atoms wedged between.` },
+  // Q10
+  { n:10, ans:'C', topic:'Spectroscopy',
+    prompt:'EM region for testing nitrate vs nitrite N–O bond lengths.',
+    explanation:`<strong>Step 1:</strong> Match EM region to what it probes:
+    <span class="key-point">Microwave → rotations
+IR → bond vibrations (linked to bond length/strength)
+UV/Vis → valence electrons
+X-ray → core electrons</span>
+    <strong>Step 2:</strong> Bond length differences show up as different vibrational frequencies → <strong>IR</strong>.` },
+
+  // Q11-Q13 stem
+  { stemHeader: 'Photoelectron Spectrum · Questions 11–13',
+    stemBody: 'PES with 4 peaks at binding energies 104, 6.84, 3.67, 0.50 (kJ/mol). Heights: Peak 3 (largest) > Peaks 2,4 ≈ Peak 1. Note: BE (binding energy) = energy required to remove an electron from its shell. Higher BE = held tighter = closer to nucleus.' },
+
+  { n:11, ans:'C', topic:'PES',
+    prompt:'Which element does the spectrum represent?',
+    explanation:`<strong>Step 1:</strong> 4 peaks → 4 occupied subshells. Peak heights ∝ # of electrons. Read right-to-left (low BE = outermost):
+    <span class="calc">Peak 4 (small): 1 e⁻ → 3s¹
+Peak 3 (largest): 6 e⁻ → 2p⁶
+Peak 2: 2 e⁻ → 2s²
+Peak 1 (small): 2 e⁻ → 1s²</span>
+    <strong>Step 2:</strong> Total = 11 e⁻ → Z = 11 → <strong>Sodium</strong>.` },
+  // Q12
+  { n:12, ans:'A', topic:'PES',
+    prompt:'Peak from electrons closest to the nucleus.',
+    explanation:`<strong>Step 1:</strong> Closer to nucleus → stronger attraction → harder to remove → highest BE.
+    <strong>Step 2:</strong> Highest BE = Peak 1 (104 kJ/mol) → 1s electrons.` },
+  // Q13
+  { n:13, ans:'D', topic:'PES',
+    prompt:'Peak whose ejected electrons have the highest velocity.',
+    explanation:`<strong>Step 1:</strong> KE<sub>ejected</sub> = E<sub>photon</sub> − BE. Same photon energy for all peaks.
+    <strong>Step 2:</strong> Lowest BE → most leftover KE → fastest. Peak 4 (BE = 0.50) wins.` },
+
+  // Q14
+  { n:14, ans:'A', topic:'Bonding',
+    prompt:'Point of strongest internuclear interaction (PE vs. distance).',
+    explanation:`<strong>Step 1:</strong> "Strongest interaction" means largest magnitude of force between the two nuclei, not necessarily attractive.
+    <strong>Step 2:</strong> At very small distances (Point A), the nuclei repel each other strongly — this is where the PE curve shoots up steeply. The slope of PE vs. distance is steepest here, meaning force is largest.
+    <strong>Step 3:</strong> Point C is the equilibrium bond distance where attractive and repulsive forces BALANCE → net force is zero, not maximum. Points B and D have weaker net interactions.
+    <span class="key-point">Strongest force ≠ most stable bond. The minimum PE is the most stable arrangement; the steepest part of the curve (Point A) is where force magnitude is largest.</span>` },
+  // Q15
+  { n:15, ans:'D', topic:'Acid–base / Structure',
+    prompt:'Most acidic H in alanine.',
+    explanation:`<strong>Step 1:</strong> Acidity depends on stability of the conjugate base (after H⁺ leaves).
+    <strong>Step 2:</strong> Compare conjugate bases:
+    • Lose H from −COOH → carboxylate (RCOO⁻), stabilized by resonance over both O's → very stable
+    • Lose H from −NH₂ or C−H → no resonance → unstable
+    <strong>Step 3:</strong> Most stable conjugate base = most acidic H → <strong>H₄ (the −OH on −COOH)</strong>.` },
+  // Q16
+  { n:16, ans:'D', topic:'Equilibrium',
+    prompt:'K for 2 Cl₂ + 2 PCl₃ ⇌ 2 PCl₅, given K = 2.0 × 10⁻³ for PCl₅ ⇌ PCl₃ + Cl₂.',
+    explanation:`<strong>Rules for manipulating K:</strong>
+    <span class="key-point">Reverse equation → K becomes 1/K
+Multiply coefficients by n → K becomes K<sup>n</sup>
+Add two equations → multiply their K's together</span>
+    <strong>Step 1:</strong> Reverse the given equation (K → 1/K):
+    <span class="calc">K' = 1/(2.0 × 10⁻³) = 500</span>
+    <strong>Step 2:</strong> Double all coefficients to match the target. Doubling = "multiplying by n=2", so K gets RAISED to the 2nd power (squared):
+    <span class="calc">K'' = (500)² = 2.5 × 10⁵</span>` },
+  // Q17
+  { n:17, ans:'D', topic:'IMFs / Solubility',
+    prompt:'Solvent most miscible with hexane.',
+    explanation:`<strong>Step 1:</strong> Hexane is nonpolar (only LDFs). "Like dissolves like" → need a nonpolar solvent.
+    <strong>Step 2:</strong> Eliminate polar/ionic options (NaCl(aq), H₂O, NF₃). <strong>CCl₄</strong> is tetrahedral and symmetric → dipoles cancel → nonpolar ✓.` },
+
+  // Q18-Q21 stem
+  { stemHeader: 'Calorimetry · Questions 18–21',
+    stemBody: '10.0 g cube of vanadium (c = 0.50 J/g·°C) heated to 100 °C, dropped into water at 22.0 °C, final equilibrium 23.0 °C.' },
+
+  { n:18, ans:'D', topic:'Thermo / Calorimetry',
+    prompt:'Energy transferred from V to water.',
+    explanation:`<strong>Step 1:</strong> Energy lost by V = energy gained by water. Calculate q from V using q = m·c·ΔT.
+    <strong>Step 2:</strong> ΔT for V = 100 − 23 = 77°C. Plug in:
+    <span class="calc">q = (10.0)(0.50)(77) = 385 J</span>` },
+  // Q19
+  { n:19, ans:'A', topic:'Kinetics / Surface area',
+    prompt:'Effect of using V powder instead of a cube.',
+    explanation:`<strong>Step 1:</strong> Powder = more surface area → faster heat transfer. But same m, c, and ΔT → same total q.
+    <strong>Step 2:</strong> Final temperature is unchanged; equilibrium is just reached faster.` },
+  // Q20
+  { n:20, ans:'C', topic:'Calorimetry',
+    prompt:'Effect of replacing V with Al (c = 0.900 J/g·°C).',
+    explanation:`<strong>Step 1:</strong> c(Al) = 0.900 > c(V) = 0.50 → Al stores more thermal energy at 100°C than V did.
+    <strong>Step 2:</strong> More energy to give up → water heats up MORE → higher final water temperature.` },
+  // Q21
+  { n:21, ans:'A', topic:'Phase change',
+    prompt:'Why boiling water never exceeds 100 °C.',
+    explanation:`<strong>Step 1:</strong> At the boiling point, energy goes into breaking IMFs (H-bonds for water), not raising T.
+    <strong>Step 2:</strong> Temperature stays pinned at 100°C until all liquid converts to gas.
+    <span class="key-point">B is wrong: many covalent compounds boil above 100°C. The 100°C limit is specific to water at 1 atm.</span>` },
+
+  // Q22
+  { n:22, ans:'A', topic:'Atomic structure',
+    prompt:'Isotope where valence electrons exceed core electrons.',
+    explanation:`<strong>Step 1:</strong> Core e⁻ = filled inner shells (noble-gas core); valence e⁻ = outermost shell. Write configurations:
+    <span class="calc">¹³₇N: [He] 2s²2p³ → 2 core, 5 valence ✓ (5 > 2)
+³³₁₆S: [Ne] 3s²3p⁴ → 10 core, 6 valence ✗
+²²₁₁Na: [Ne] 3s¹ → 10 core, 1 valence ✗
+⁴₂He: 1s² → 0 core, 2 valence (edge case)</span>
+    <strong>Step 2:</strong> N is the clearest answer with a real noble-gas core. (He has no inner shell, so it's usually treated as a special case.)` },
+  // Q23
+  { n:23, ans:'A', topic:'Stoichiometry',
+    prompt:'Excess reactant when 112 g Fe reacts with 64 g O₂.',
+    explanation:`<strong>Step 1:</strong> Convert to moles: Fe = 112/56 = 2.0 mol; O₂ = 64/32 = 2.0 mol.
+    <strong>Step 2:</strong> Balanced 4 Fe + 3 O₂ → 2 Fe₂O₃. O₂ needed for 2.0 mol Fe = (3/4)(2.0) = 1.5 mol.
+    <strong>Step 3:</strong> Have 2.0 mol O₂, need 1.5 → Fe limits, O₂ excess.
+    <span class="calc">Excess O₂ = 2.0 − 1.5 = 0.5 mol = 0.5 × 32 = 16 g</span>` },
+  // Q24
+  { n:24, ans:'B', topic:'Equilibrium / Q vs K',
+    prompt:'Direction of partial pressure changes.',
+    explanation:`<strong>Step 1:</strong> Q for 2 N₂O₅ ⇌ 4 NO₂ + O₂:
+    <span class="calc">Q = (P<sub>O₂</sub>)(P<sub>NO₂</sub>)⁴ / (P<sub>N₂O₅</sub>)²
+Q = (0.20)(0.10)⁴ / (0.20)² = 5 × 10⁻⁴</span>
+    <strong>Step 2:</strong> Q (5×10⁻⁴) ≪ K (0.62) → reaction shifts <strong>forward</strong>: P(N₂O₅) ↓, P(NO₂) and P(O₂) ↑.` },
+  // Q25
+  { n:25, ans:'D', topic:'Kinetics / Order',
+    prompt:'Linearized plot for second-order kinetics.',
+    explanation:`<strong>Step 1:</strong> Linearizations:
+    <span class="key-point">Zero order: [A] vs. t (decreasing line)
+First order: ln[A] vs. t (decreasing line)
+Second order: 1/[A] vs. t (INCREASING line)</span>
+    <strong>Step 2:</strong> 2nd order → 1/[A] grows linearly with t.` },
+  // Q26
+  { n:26, ans:'C', topic:'Periodic trends / Lattice energy',
+    prompt:'Explanation for the MP trend NaF > KCl > RbBr.',
+    explanation:`<strong>Step 1:</strong> All three are +1/−1 ionic salts → charge is constant, not the differentiator.
+    <strong>Step 2:</strong> Going Na→K→Rb and F→Cl→Br: ions get bigger.
+    <strong>Step 3:</strong> Coulomb's law: bigger ions → larger separation → weaker lattice → lower MP. NaF (smallest ions) has the strongest lattice → highest MP.` },
+
+  // Q27-Q30 stem
+  { stemHeader: 'Ethylamine Titration · Questions 27–30',
+    stemBody: '20.0 mL of 1.0 M ethylamine (CH₃CH₂NH₂, weak base) titrated with HCl. Titration curve: starts pH ~12, half-equivalence pH ~10 (around 15 mL HCl), equivalence at ~30 mL HCl, finishes pH ~1.' },
+
+  { n:27, ans:'A', topic:'Titration / Stoichiometry',
+    prompt:'Concentration of HCl.',
+    explanation:`<strong>Step 1:</strong> At equivalence: moles acid = moles base. From curve, V<sub>equiv</sub> = 30.0 mL.
+    <strong>Step 2:</strong> Solve M·V = M·V:
+    <span class="calc">M_HCl(30.0) = (1.0)(20.0)
+M_HCl = 20/30 = 0.67 M</span>` },
+  // Q28
+  { n:28, ans:'B', topic:'Titration / pKa',
+    prompt:'Approximate K_b for ethylamine.',
+    explanation:`<strong>Step 1:</strong> At half-equivalence (15 mL HCl), [base] = [conjugate acid] → pH = pK<sub>a</sub>(conjugate acid). From curve, pH ≈ 10 → pK<sub>a</sub> ≈ 10.
+    <strong>Step 2:</strong> pK<sub>a</sub> + pK<sub>b</sub> = 14:
+    <span class="calc">pK<sub>b</sub> = 14 − 10 = 4
+K<sub>b</sub> = 10⁻⁴ = 1.0 × 10⁻⁴</span>` },
+  // Q29
+  { n:29, ans:'C', topic:'Titration / Equivalence',
+    prompt:'Species in greatest concentration at the equivalence point.',
+    explanation:`<strong>Step 1:</strong> At equivalence, all base has reacted: CH₃CH₂NH₂ + HCl → CH₃CH₂NH₃⁺ + Cl⁻.
+    <strong>Step 2:</strong> Dominant species (besides H₂O and Cl⁻ spectator) = the conjugate acid CH₃CH₂NH₃⁺.` },
+  // Q30
+  { n:30, ans:'C', topic:'Titration',
+    prompt:'Effect of replacing ethylamine with NaOH (same V, same M).',
+    explanation:`<strong>Step 1:</strong> Same moles of base → same volume of HCl needed → equivalence VOLUME unchanged.
+    <strong>Step 2:</strong> Equivalence pH changes:
+    <span class="key-point">Weak base + strong acid → acidic equivalence (~5)
+Strong base + strong acid → neutral equivalence (= 7)</span>
+    Switching to NaOH raises equivalence pH from ~5 to 7.` },
+
+  // Q31
+  { n:31, ans:'C', topic:'Acid–base equilibrium',
+    prompt:'Ranking of [HClO], [HNO₂], [H⁺] after mixing.',
+    explanation:`<strong>Step 1:</strong> Equal volumes mixed → both halve to 0.05 M.
+    <strong>Step 2:</strong> With given Ka values, HClO (1.1×10⁻²) > HNO₂ (4.0×10⁻⁴) → HClO is stronger here. HClO dominates [H⁺]; common-ion effect suppresses HNO₂ dissociation.
+    <strong>Step 3:</strong> Approximate [H⁺] from HClO using x = √(K<sub>a</sub>·C):
+    <span class="calc">x = √((1.1×10⁻²)(0.05)) ≈ 0.023 M ≈ [H⁺]
+[HClO]<sub>undiss</sub> ≈ 0.050 − 0.023 = 0.027 M
+[HNO₂]<sub>undiss</sub> ≈ 0.050 (barely dissociates)</span>
+    <strong>Step 4:</strong> Rank: [HNO₂] > [HClO] > [H⁺].
+    <span class="key-point">Note: real-world Ka values reverse this ranking. Use the values from the problem.</span>` },
+  // Q32
+  { n:32, ans:'C', topic:'Bond enthalpy',
+    prompt:'Estimate the H−H bond enthalpy.',
+    explanation:`<strong>Step 1:</strong> ΔH = (bonds broken) − (bonds formed). Inventory bonds:
+    <span class="calc">Broken (CH₄ + C₂H₆): 10 C–H + 1 C–C = 10(410) + 350 = 4450 kJ
+Formed (C₃H₈ + H₂): 8 C–H + 2 C–C + (H–H) = 3280 + 700 + (H–H) = 3980 + (H–H)</span>
+    <strong>Step 2:</strong> Set ΔH = +40 and solve:
+    <span class="calc">+40 = 4450 − [3980 + (H–H)]
++40 = 470 − (H–H)
+H–H = 430 kJ/mol</span>` },
+  // Q33
+  { n:33, ans:'C', topic:'Spectroscopy',
+    prompt:'What does IR best determine?',
+    explanation:`<strong>Step 1:</strong> IR excites bond vibrations. Vibrational frequency depends on bond strength and reduced mass — both tied to bond identity (length, type).
+    <strong>Step 2:</strong> So IR is most informative about bond lengths/types within a molecule.` },
+  // Q34
+  { n:34, ans:'B', topic:'Gas laws',
+    prompt:"P vs. V at constant T (Boyle's Law).",
+    explanation:`<strong>Step 1:</strong> PV = nRT. At constant n and T: P ∝ 1/V.
+    <strong>Step 2:</strong> Graph of y ∝ 1/x is a hyperbola — high at small x, asymptotes to 0 at large x. Pick that curve.` },
+  // Q35
+  { n:35, ans:'C', topic:'Reaction coordinate diagrams',
+    prompt:'Correct labeling for ΔH = +256 kJ/mol (endothermic).',
+    explanation:`<strong>Step 1:</strong> Endothermic (ΔH > 0) → products END HIGHER than reactants.
+    <strong>Step 2:</strong> Label conventions:
+    <span class="key-point">E<sub>a</sub> = reactants UP to the peak
+ΔH = reactants UP to product level (NOT to the peak)</span>
+    <strong>Step 3:</strong> C is the choice with products higher than reactants AND both E<sub>a</sub> and ΔH labeled correctly (E<sub>a</sub> from reactants to peak, ΔH from reactants to products).` },
+  // Q36
+  { n:36, ans:'C', topic:'Bonding / Electronegativity',
+    prompt:'Element giving N the strongest positive partial charge.',
+    explanation:`<strong>Step 1:</strong> N becomes more δ+ when paired with a MORE electronegative partner (pulls electron density away).
+    <strong>Step 2:</strong> Electronegativities: P (2.19), C (2.55), <strong>O (3.44)</strong>, As (2.18). O is highest → strongest N<sup>δ+</sup>.` },
+
+  // Q37-Q39 stem
+  { stemHeader: 'Three Gas Chambers · Questions 37–39',
+    stemBody: 'Stopcocks closed initially. Chamber 1: 12.0 g H₂O / 1.0 L. Chamber 2: 14.0 g N₂ / 2.0 L. Chamber 3: 3.0 g H₂ / 3.0 L. Constant T.' },
+
+  { n:37, ans:'B', topic:'Gas laws',
+    prompt:'Gas with greatest pressure initially (chambers sealed).',
+    explanation:`<strong>Step 1:</strong> P = (n/V)RT. Same T → compare n/V.
+    <strong>Step 2:</strong> Compute moles (M: H₂O=18, N₂=28, H₂=2) and divide by chamber V:
+    <span class="calc">H₂O: 0.67 mol / 1.0 L = 0.67 mol/L ✓
+N₂:  0.50 mol / 2.0 L = 0.25 mol/L
+H₂:  1.50 mol / 3.0 L = 0.50 mol/L</span>
+    H₂O has highest n/V → highest P.` },
+  // Q38
+  { n:38, ans:'A', topic:'Gas laws / Dalton',
+    prompt:'Gas with greatest partial pressure after mixing (V_total = 6.0 L).',
+    explanation:`<strong>Step 1:</strong> After mixing, all gases share V (6.0 L) and T → partial pressure ∝ moles (Dalton).
+    <strong>Step 2:</strong> Most moles wins. n(H₂) = 1.50 mol > n(H₂O) = 0.67 > n(N₂) = 0.50 → <strong>H₂</strong>.` },
+  // Q39
+  { n:39, ans:'C', topic:'KMT / velocity distribution',
+    prompt:'Match gases X, Y, Z to Maxwell–Boltzmann curves.',
+    explanation:`<strong>Step 1:</strong> Same T → same average KE for all gases. Lighter molecules must move faster.
+    <strong>Step 2:</strong> Curve shape: lighter → shifted right (faster), broader. Heavier → tall, narrow, leftward.
+    <strong>Step 3:</strong> Mass: H₂(2) < H₂O(18) < N₂(28). So X (tall/narrow) → N₂, Y → H₂O, Z (broad/fast) → H₂.` },
+
+  // Q40
+  { n:40, ans:'A', topic:'Precipitation / spectator ions',
+    prompt:'Ions remaining in solution after Mg(OH)₂ precipitates.',
+    explanation:`<strong>Step 1:</strong> Reaction: Mg²⁺ + 2 OH⁻ → Mg(OH)₂(s). Both ions leave solution as solid; Na⁺ and NO₃⁻ are spectators.
+    <strong>Step 2:</strong> Look at the original beaker diagrams to find the limiting reagent. If Mg²⁺ is in EXCESS of the OH⁻ available (count ions in each beaker), some Mg²⁺ remains after all OH⁻ has precipitated.
+    <strong>Step 3:</strong> Result in solution: NO₃⁻ (still in same amount, as spectator), Na⁺ (still in same amount, as spectator), plus leftover Mg²⁺. Ratio: lots of NO₃⁻, several Na⁺, a few leftover Mg²⁺.
+    <span class="key-point">Key: count the ions in the starting beakers. The original mix had Mg²⁺ in excess relative to OH⁻, so Mg²⁺ doesn't disappear completely.</span>` },
+  // Q41
+  { n:41, ans:'D', topic:'Mass spectrum / isotopes',
+    prompt:'Conclusion supported by the zinc mass spectrum.',
+    explanation:`<strong>Step 1:</strong> Each peak in a mass spectrum = one isotope. Zn shows 4 peaks (64, 66, 67, 68).
+    <strong>Step 2:</strong> Conclusion: Zn has 4 isotopes with different atomic masses.
+    <span class="key-point">A: spectra show neutral isotope masses, not ion charges.
+B: most-abundant is mass 64 → 64 − 30 = 34 neutrons, not 35.
+C: a mass spectrum can't reveal melting point.</span>` },
+  // Q42
+  { n:42, ans:'D', topic:'Redox',
+    prompt:'Which reaction reduces carbon?',
+    explanation:`<strong>Step 1:</strong> Reduced = oxidation number decreases. Track C in each reaction:
+    <span class="calc">A) C(0) → CO(+2): oxidized
+B) C₂H₂ (−1) → CO₂ (+4): oxidized
+C) CO₂ (+4) → H₂CO₃ (+4): no change
+D) CO₂ (+4) → CO (+2): REDUCED ✓</span>` },
+  // Q43
+  { n:43, ans:'A', topic:'Thermochemistry / ΔS',
+    prompt:'ΔS° for 2 NO₂ + 7 H₂ → 2 NH₃ + 4 H₂O(l).',
+    explanation:`<strong>Step 1:</strong> ΔS° = Σ products − Σ reactants (weighted by coefficients).
+    <span class="calc">Products: 2(190) + 4(70) = 660
+Reactants: 2(240) + 7(130) = 1390
+ΔS° = 660 − 1390 = −730 J·mol⁻¹·K⁻¹</span>
+    <strong>Step 2:</strong> Negative makes sense: 9 mol gas → 2 mol gas, and product H₂O is liquid.` },
+  // Q44
+  { n:44, ans:'B', topic:'Electrochemistry / Faraday',
+    prompt:'Expression for mass of Cu plated.',
+    explanation:`<strong>Step 1:</strong> Chain: q = I·t, n<sub>e</sub> = q/F, n<sub>Cu</sub> = n<sub>e</sub>/z, m = n·M.
+    <strong>Step 2:</strong> Cu²⁺ + 2 e⁻ → Cu, so z = 2. Combine:
+    <span class="calc">m = (I · t · M) / (z · F)
+m = [(0.15)(300)(63.55)] / [(2)(96,500)]</span>` },
+  // Q45
+  { n:45, ans:'B', topic:'Molecular polarity',
+    prompt:'Which molecule is completely nonpolar?',
+    explanation:`<strong>Step 1:</strong> Nonpolar requires bond dipoles to cancel by symmetry (no lone-pair distortion).
+    <strong>Step 2:</strong> VSEPR check:
+    <span class="key-point">ClF₅: square pyramidal (1 LP) → polar
+<strong>XeF₄: square planar (2 LPs, axial) → symmetric → NONPOLAR ✓</strong>
+NF₃: trigonal pyramidal → polar
+OF₂: bent → polar</span>` },
+  // Q46
+  { n:46, ans:'D', topic:'Buffers',
+    prompt:'Which addition creates a buffer at pH = 9.2 with HCN?',
+    explanation:`<strong>Step 1:</strong> Buffer at pH = pK<sub>a</sub> needs equal moles HCN and CN⁻. Start: n(HCN) = (0.200)(1.0) = 0.200 mol.
+    <strong>Step 2:</strong> Add 0.100 mol NaOH:
+    <span class="calc">HCN + OH⁻ → CN⁻ + H₂O
+HCN left: 0.200 − 0.100 = 0.100 mol
+CN⁻ formed: 0.100 mol</span>
+    <strong>Step 3:</strong> [HCN] = [CN⁻] → pH = pK<sub>a</sub> = 9.2 ✓` },
+  // Q47
+  { n:47, ans:'A', topic:"Hess's law",
+    prompt:'ΔH for 2 Fe₂O₃ + 3 C → 4 Fe + 3 CO₂.',
+    explanation:`<strong>Step 1:</strong> Multiply (1) by 3 to get 3 CO₂ as a product:
+    <span class="calc">3 C + 3 O₂ → 3 CO₂&nbsp;&nbsp;ΔH = 3(−394) = −1182</span>
+    <strong>Step 2:</strong> Reverse (2) to put 2 Fe₂O₃ on the reactant side (flip ΔH sign):
+    <span class="calc">2 Fe₂O₃ → 4 Fe + 3 O₂&nbsp;&nbsp;ΔH = +1650</span>
+    <strong>Step 3:</strong> Add (3 O₂ cancels):
+    <span class="calc">2 Fe₂O₃ + 3 C → 4 Fe + 3 CO₂
+ΔH = −1182 + 1650 = +468 kJ/mol</span>` },
+  // Q48
+  { n:48, ans:'B', topic:'Stoichiometry from rates',
+    prompt:'Balanced equation from concentration vs. time graph.',
+    explanation:`<strong>Step 1:</strong> Read slopes: [X] decreases at 2× the rate of [Y]; [Z] increases at the same rate [X] decreases.
+    <strong>Step 2:</strong> Coefficients ∝ rates of change → X : Y : Z = 2 : 1 : 2. X and Y are reactants, Z is product.
+    <span class="calc">2X + Y ⇌ 2Z</span>` },
+
+  // Q49-Q53 stem
+  { stemHeader: 'Cd(IO₃)₂ Solubility · Questions 49–53',
+    stemBody: 'Cd(IO₃)₂(s) ⇌ Cd²⁺(aq) + 2 IO₃⁻(aq), K_sp = 4.0 × 10⁻⁶. Saturated solution with excess solid present.' },
+
+  { n:49, ans:'A', topic:'K_sp',
+    prompt:'Ion concentrations in saturated Cd(IO₃)₂ solution.',
+    explanation:`<strong>Step 1:</strong> Let s = molar solubility. Then [Cd²⁺] = s, [IO₃⁻] = 2s.
+    <strong>Step 2:</strong> Plug into K<sub>sp</sub>:
+    <span class="calc">K<sub>sp</sub> = (s)(2s)² = 4s³ = 4.0 × 10⁻⁶
+s³ = 1.0 × 10⁻⁶
+s = 1.0 × 10⁻² M</span>
+    <strong>Step 3:</strong> [Cd²⁺] = 0.010 M; [IO₃⁻] = 0.020 M.` },
+  // Q50
+  { n:50, ans:'B', topic:'Common ion effect',
+    prompt:'Which addition reduces [IO₃⁻]?',
+    explanation:`<strong>Step 1:</strong> Common ion effect: adding a product ion shifts equilibrium left, decreasing the OTHER ion.
+    <strong>Step 2:</strong> Cd(NO₃)₂ adds Cd²⁺ → equilibrium shifts left → [IO₃⁻] decreases ✓. (NaIO₃ adds IO₃⁻; evaporation concentrates both; NaNO₃ has no effect.)` },
+  // Q51
+  { n:51, ans:'C', topic:'K_sp',
+    prompt:'Effect of adding more solid Cd(IO₃)₂.',
+    explanation:`<strong>Step 1:</strong> Solution is already saturated. Solids don't appear in K<sub>sp</sub>.
+    <strong>Step 2:</strong> Adding more solid doesn't change ion concentrations — they're already at the K<sub>sp</sub>-determined equilibrium. Extra solid just sits at the bottom.` },
+  // Q52
+  { n:52, ans:'B', topic:'K_sp comparison',
+    prompt:'Which solution has higher [IO₃⁻]?',
+    explanation:`<strong>Step 1:</strong> Both salts have the same form (M²⁺ + 2 IO₃⁻) → K<sub>sp</sub> = 4s³ for each. Larger K<sub>sp</sub> → larger s → larger [IO₃⁻].
+    <strong>Step 2:</strong> Ni(IO₃)₂ K<sub>sp</sub> = 5.0 × 10⁻⁵ > Cd(IO₃)₂ K<sub>sp</sub> = 4.0 × 10⁻⁶ → Ni(IO₃)₂ has higher [IO₃⁻].
+    <span class="key-point">Direct K<sub>sp</sub> comparison only works when stoichiometry is identical.</span>` },
+  // Q53
+  { n:53, ans:'A', topic:'Ion–dipole forces',
+    prompt:'Strongest attraction with water molecules.',
+    explanation:`<strong>Step 1:</strong> Ion–dipole strength scales with charge density (charge ÷ size).
+    <strong>Step 2:</strong> Ni²⁺: small, +2 → highest charge density. Cd²⁺: +2 but bigger. IO₃⁻: −1, large polyatomic → lowest. <strong>Ni²⁺ wins.</strong>` },
+  // Q54
+  { n:54, ans:'B', topic:'Phase changes',
+    prompt:'Section of heating curve giving heat of fusion.',
+    explanation:`<strong>Step 1:</strong> Heating curve: sloped sections = warming within a phase; flat plateaus = phase changes.
+    <strong>Step 2:</strong> Section B = solid→liquid plateau = melting/fusion. (D = boiling/vaporization.)` },
+  // Q55
+  { n:55, ans:'A', topic:'Gibbs free energy',
+    prompt:'Signs of ΔH and ΔS for a process favored only at high T.',
+    explanation:`<strong>Step 1:</strong> ΔG = ΔH − TΔS. Need ΔG > 0 at low T but ΔG < 0 at high T.
+    <strong>Step 2:</strong> ΔH > 0 and ΔS > 0: at low T, ΔH dominates → ΔG > 0 (not favored). At high T, TΔS dominates → ΔG < 0 (favored). ✓` },
+  // Q56
+  { n:56, ans:'B', topic:'Diprotic titration',
+    prompt:'pK_a values from H₂SO₃ titration curve.',
+    explanation:`<strong>Step 1:</strong> Diprotic = 2 equivalence points + 2 half-equivalence points. At each half-equivalence, pH = pK<sub>a</sub>.
+    <strong>Step 2:</strong> Read off the curve:
+    <span class="calc">First equiv ≈ 10 mL → first half-equiv ≈ 5 mL, pH ≈ 2 → pK<sub>a1</sub> ≈ 2
+Second equiv ≈ 40 mL → second half-equiv ≈ 30 mL, pH ≈ 7 → pK<sub>a2</sub> ≈ 7</span>` },
+  // Q57
+  { n:57, ans:'B', topic:'Le Chatelier',
+    prompt:'Color change on heating and on dilution.',
+    explanation:`<strong>Step 1:</strong> Reaction (yellow ⇌ red) is exothermic forward, so treat heat as a "product."
+    <strong>Step 2:</strong> Heating adds product-side heat → shifts left → MORE YELLOW.
+    <strong>Step 3:</strong> Dilution: reactant side has 3 dissolved species, product side has 1. Shift toward MORE dissolved species (left) → MORE YELLOW.` },
+  // Q58
+  { n:58, ans:'C', topic:'Solubility / common ion',
+    prompt:'Solution dissolving the most Mg(OH)₂.',
+    explanation:`<strong>Step 1:</strong> Mg(OH)₂(s) ⇌ Mg²⁺ + 2 OH⁻. Removing a product ion shifts right → more dissolves.
+    <strong>Step 2:</strong> HCl provides H⁺ that neutralizes OH⁻ (H⁺ + OH⁻ → H₂O) → removes OH⁻ → MORE Mg(OH)₂ dissolves ✓. (NaOH and Mg(NO₃)₂ are common-ion suppressors.)` },
+  // Q59
+  { n:59, ans:'B', topic:'IMFs',
+    prompt:'Strongest force in dissolved MgCl₂.',
+    explanation:`<strong>Step 1:</strong> In MgCl₂(aq), ions are surrounded by water → ion–dipole interactions. Strength scales with charge density.
+    <strong>Step 2:</strong> Mg²⁺ (small, +2) has very high charge density → strong attraction to O end of water. Beats Cl⁻–water ion-dipole and water–water H-bonding.` },
+  // Q60
+  { n:60, ans:'C', topic:'Entropy',
+    prompt:'Situation with increasing entropy.',
+    explanation:`<strong>Step 1:</strong> ΔS > 0 = more disorder / more accessible microstates.
+    <strong>Step 2:</strong> Quick check:
+    <span class="key-point">A) 2 atoms → 1 molecule: more order → ΔS < 0
+B) Liquid → solid: more order → ΔS < 0
+<strong>C) Gas expanding: more microstates → ΔS > 0 ✓</strong>
+D) Ions → precipitate: more order → ΔS < 0</span>` }
+];
+
+// Build quick reference grid
+const qref = document.getElementById('quickRef');
+let qrefHtml = '';
+answers.filter(a => a.n).forEach(a => {
+  qrefHtml += `<div class="quick-ref-cell"><div class="qn">Q${a.n}</div><div class="ans">${a.ans}</div></div>`;
+});
+qref.innerHTML = qrefHtml;
+
+// Build detailed explanations
+const exp = document.getElementById('explanations');
+let expHtml = '';
+answers.forEach(a => {
+  if (a.stemHeader) {
+    expHtml += `<div class="stem-banner"><strong>${a.stemHeader}</strong>${a.stemBody}</div>`;
+    return;
+  }
+  expHtml += `
+    <div class="answer-card">
+      <div class="header-row">
+        <span class="q-num">Question ${a.n}</span>
+        <span class="answer-pill">Answer: <span class="letter">${a.ans}</span></span>
+        <span class="topic-tag">${a.topic}</span>
+      </div>
+      <div class="q-prompt">${a.prompt}</div>
+      <div class="explanation">${a.explanation}</div>
+    </div>
+  `;
+});
+exp.innerHTML = expHtml;
+</script>
+</body>
+</html>
