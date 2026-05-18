@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry FRQ Playbook | Mr. Casanova</title>
+<meta name="description" content="Strategy and content reference for the AP Chemistry free-response section, built around visuals and analogies.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --green:        #1f3a2e;
+    --green-deep:   #142019;
+    --green-soft:   #2d5240;
+    --cream:        #f5efe1;
+    --cream-deep:   #ebe2cd;
+    --gold:         #b8964a;
+    --gold-dark:    #8a6f33;
+    --rust:         #a14d3a;
+    --rust-light:   #c97a64;
+    --ink:          #1a1a1a;
+    --ink-soft:     #3d3d3d;
+    --rule:         #c9bd9e;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--cream);
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 64px 32px 96px;
+  }
+
+  /* ---------- HEADER ---------- */
+  .page-header {
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    line-height: 1.05;
+    color: var(--green);
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .page-header .subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    color: var(--ink-soft);
+    margin: 0 0 32px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+  .meta-grid .meta-item {
+    border-left: 2px solid var(--gold);
+    padding-left: 12px;
+  }
+  .meta-grid .meta-label {
+    color: var(--gold-dark);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- TOC ---------- */
+  .toc {
+    background: var(--cream-deep);
+    padding: 24px 28px;
+    border-radius: 3px;
+    margin: 48px 0;
+    border-left: 3px solid var(--gold);
+  }
+  .toc h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    margin: 0 0 16px;
+  }
+  .toc ol { margin: 0; padding-left: 20px; column-count: 2; column-gap: 32px; }
+  @media (max-width: 600px) { .toc ol { column-count: 1; } }
+  .toc li { margin: 6px 0; }
+  .toc a {
+    color: var(--green);
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+    transition: border-color 0.15s;
+  }
+  .toc a:hover { border-bottom-color: var(--gold); }
+
+  /* ---------- SECTIONS ---------- */
+  section { margin: 72px 0; }
+  h2 {
+    font-family: 'Playfair Display', serif;
+    color: var(--green);
+    font-size: clamp(1.6rem, 4vw, 2rem);
+    font-weight: 700;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+  }
+  h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--green-soft);
+    font-size: 1.25rem;
+    margin: 32px 0 12px;
+  }
+  h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--gold-dark);
+    margin: 24px 0 8px;
+  }
+  p { margin: 12px 0; }
+  strong { color: var(--green); font-weight: 600; }
+  em { color: var(--green-soft); }
+
+  /* ---------- CALLOUTS ---------- */
+  .callout {
+    margin: 24px 0;
+    padding: 20px 24px;
+    border-radius: 3px;
+  }
+  .callout .callout-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p { margin: 8px 0; }
+
+  .analogy {
+    background: var(--cream-deep);
+    border-left: 4px solid var(--gold);
+  }
+  .analogy .callout-label { color: var(--gold-dark); }
+  .analogy .callout-label::before { content: "💡 "; }
+
+  .pitfall {
+    background: rgba(161, 77, 58, 0.08);
+    border-left: 4px solid var(--rust);
+  }
+  .pitfall .callout-label { color: var(--rust); }
+  .pitfall .callout-label::before { content: "⚠ "; }
+
+  .strategy {
+    background: rgba(184, 150, 74, 0.12);
+    border: 1px solid var(--gold);
+  }
+  .strategy .callout-label { color: var(--gold-dark); }
+  .strategy .callout-label::before { content: "★ "; }
+
+  .key-rule {
+    background: var(--green);
+    color: var(--cream);
+    padding: 20px 24px;
+    border-radius: 3px;
+    margin: 24px 0;
+  }
+  .key-rule .callout-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .key-rule strong { color: var(--cream); font-weight: 700; }
+  .key-rule p:last-child { margin-bottom: 0; }
+
+  /* ---------- FORMULAS ---------- */
+  .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    background: var(--cream-deep);
+    padding: 12px 18px;
+    margin: 14px 0;
+    border-left: 3px solid var(--gold);
+    border-radius: 2px;
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* ---------- TABLES ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--green);
+    color: var(--cream);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: rgba(245, 239, 225, 0.5); }
+  .compact-table { font-size: 0.85rem; }
+  .compact-table td { padding: 6px 10px; }
+
+  /* ---------- SVG DIAGRAMS ---------- */
+  figure {
+    margin: 28px 0;
+    text-align: center;
+  }
+  figure svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+  figcaption {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ---------- TWO COLUMN ---------- */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 20px 0;
+  }
+  @media (max-width: 600px) {
+    .two-col { grid-template-columns: 1fr; gap: 16px; }
+  }
+
+  /* ---------- LISTS ---------- */
+  ul, ol { padding-left: 24px; margin: 12px 0; }
+  li { margin: 6px 0; }
+
+  /* ---------- FOOTER ---------- */
+  .page-footer {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 2px solid var(--gold);
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 40px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header class="page-header">
+    <div class="eyebrow">AP Chemistry · Final Review</div>
+    <h1>The FRQ Playbook</h1>
+    <p class="subtitle">Visual strategy and content reference for Section II.</p>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Section</span>
+        II · Free Response
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Time</span>
+        105 minutes
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Weight</span>
+        50% of total
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Format</span>
+        3 long + 4 short = 46 pts
+      </div>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#budget">Time budget</a></li>
+      <li><a href="#verbs">The four verbs</a></li>
+      <li><a href="#archetypes">FRQ archetypes</a></li>
+      <li><a href="#scoring">What scores, what doesn't</a></li>
+      <li><a href="#formulas">Formulas to know cold</a></li>
+      <li><a href="#particle">Particle-level language</a></li>
+      <li><a href="#vsepr">VSEPR &amp; polarity</a></li>
+      <li><a href="#imf">IMF decision tree</a></li>
+      <li><a href="#checklist">Test-day checklist</a></li>
+    </ol>
+  </nav>
+
+  <div class="key-rule">
+    <div class="callout-label">The one rule</div>
+    <p><strong>Every "justify," "explain," or "predict" is worth zero without the reasoning.</strong> A correct answer with no justification is the #1 way to lose points on Section II. Always write the "because" sentence.</p>
+  </div>
+
+  <!-- ============= TIME BUDGET ============= -->
+  <section id="budget">
+    <h2>Time budget</h2>
+    <p>105 minutes split across 7 questions. The College Board pacing is real. Long questions get more than twice the time of shorts because they're worth 2.5× the points.</p>
+
+    <figure>
+      <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Time budget chart">
+        <!-- Long questions bar -->
+        <rect x="40" y="60" width="420" height="55" fill="#1f3a2e" rx="3"/>
+        <text x="250" y="90" text-anchor="middle" fill="#f5efe1" font-family="DM Sans, sans-serif" font-size="15" font-weight="600">3 long questions · 69 min · 30 pts</text>
+        <text x="250" y="108" text-anchor="middle" fill="#b8964a" font-family="JetBrains Mono, monospace" font-size="11">~23 min each</text>
+
+        <!-- Short questions bar -->
+        <rect x="460" y="60" width="200" height="55" fill="#b8964a" rx="3"/>
+        <text x="560" y="90" text-anchor="middle" fill="#142019" font-family="DM Sans, sans-serif" font-size="14" font-weight="600">4 shorts · 36 min · 16 pts</text>
+        <text x="560" y="108" text-anchor="middle" fill="#142019" font-family="JetBrains Mono, monospace" font-size="11">~9 min each</text>
+
+        <!-- Scale -->
+        <line x1="40" y1="135" x2="660" y2="135" stroke="#c9bd9e" stroke-width="1"/>
+        <text x="40" y="155" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">0 min</text>
+        <text x="460" y="155" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">69 min</text>
+        <text x="660" y="155" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">105 min</text>
+        <line x1="40" y1="128" x2="40" y2="138" stroke="#3d3d3d" stroke-width="1"/>
+        <line x1="460" y1="128" x2="460" y2="138" stroke="#3d3d3d" stroke-width="1"/>
+        <line x1="660" y1="128" x2="660" y2="138" stroke="#3d3d3d" stroke-width="1"/>
+
+        <!-- Title -->
+        <text x="350" y="30" text-anchor="middle" font-family="Playfair Display, serif" font-size="16" font-weight="700" fill="#1f3a2e">Section II · 105 minutes total</text>
+      </svg>
+    </figure>
+
+    <div class="callout analogy">
+      <div class="callout-label">Mental Model · Order of attack</div>
+      <p>Skim all 7 in the first 60 seconds. Crush the easy shorts first to bank points and settle your nerves. Save the scariest long for last so you can dump your remaining time into it without the rest of the test hanging over you.</p>
+    </div>
+  </section>
+
+  <!-- ============= THE FOUR VERBS ============= -->
+  <section id="verbs">
+    <h2>The four verbs that decide your score</h2>
+    <p>Every part starts with a verb. The verb tells you exactly what to write.</p>
+
+    <figure>
+      <svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verb decision tree">
+        <!-- Center node -->
+        <circle cx="350" cy="50" r="35" fill="#1f3a2e"/>
+        <text x="350" y="46" text-anchor="middle" fill="#f5efe1" font-family="Playfair Display, serif" font-size="13" font-weight="700">Read the</text>
+        <text x="350" y="62" text-anchor="middle" fill="#b8964a" font-family="Playfair Display, serif" font-size="13" font-weight="700">verb</text>
+
+        <!-- 4 branches -->
+        <line x1="350" y1="85" x2="100" y2="140" stroke="#b8964a" stroke-width="2"/>
+        <line x1="350" y1="85" x2="270" y2="140" stroke="#b8964a" stroke-width="2"/>
+        <line x1="350" y1="85" x2="440" y2="140" stroke="#b8964a" stroke-width="2"/>
+        <line x1="350" y1="85" x2="610" y2="140" stroke="#b8964a" stroke-width="2"/>
+
+        <!-- Calculate -->
+        <rect x="20" y="140" width="160" height="80" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="100" y="162" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">CALCULATE</text>
+        <text x="100" y="184" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Setup → numbers</text>
+        <text x="100" y="199" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">→ answer → units</text>
+        <text x="100" y="214" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d" font-style="italic">Setup earns credit</text>
+
+        <!-- Explain/Justify -->
+        <rect x="190" y="140" width="160" height="80" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="270" y="162" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">EXPLAIN</text>
+        <text x="270" y="178" text-anchor="middle" font-family="Playfair Display, serif" font-size="11" font-style="italic" fill="#3d3d3d">(or JUSTIFY)</text>
+        <text x="270" y="196" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Name the principle</text>
+        <text x="270" y="211" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">→ cause → effect</text>
+
+        <!-- Predict -->
+        <rect x="360" y="140" width="160" height="80" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="440" y="162" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">PREDICT</text>
+        <text x="440" y="178" text-anchor="middle" font-family="Playfair Display, serif" font-size="11" font-style="italic" fill="#3d3d3d">(or IDENTIFY)</text>
+        <text x="440" y="196" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Direct answer first,</text>
+        <text x="440" y="211" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">then one-sentence why</text>
+
+        <!-- Draw -->
+        <rect x="530" y="140" width="160" height="80" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="610" y="162" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">DRAW</text>
+        <text x="610" y="178" text-anchor="middle" font-family="Playfair Display, serif" font-size="11" font-style="italic" fill="#3d3d3d">(or COMPLETE)</text>
+        <text x="610" y="196" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Use their structure,</text>
+        <text x="610" y="211" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">label everything</text>
+
+        <!-- Common pitfall band -->
+        <rect x="20" y="270" width="660" height="90" fill="rgba(161, 77, 58, 0.08)" stroke="#a14d3a" stroke-width="1.5" rx="3"/>
+        <text x="40" y="293" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#a14d3a" letter-spacing="2">⚠  COMMON PITFALL</text>
+        <text x="40" y="318" font-family="DM Sans, sans-serif" font-size="13" fill="#1a1a1a">A correct one-word answer for an "explain" or "justify" prompt earns</text>
+        <text x="40" y="336" font-family="DM Sans, sans-serif" font-size="13" font-weight="600" fill="#a14d3a">half the points at most. The justification is a separate rubric point.</text>
+        <text x="40" y="353" font-family="DM Sans, sans-serif" font-size="13" fill="#1a1a1a">Train yourself: every "justify" gets a "because" sentence.</text>
+      </svg>
+    </figure>
+  </section>
+
+  <!-- ============= ARCHETYPES ============= -->
+  <section id="archetypes">
+    <h2>The five FRQ archetypes</h2>
+    <p>Section II questions are built from a small set of recurring tasks. Recognize the archetype and you start writing immediately.</p>
+
+    <h3>1. The lab / experimental design question</h3>
+    <p>Procedure (calorimetry, titration, gravimetric, gas collection) → calculate something → critique a source of error. The error analysis is where students slip.</p>
+
+    <figure>
+      <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calorimetry error propagation">
+        <text x="350" y="25" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">Tracing the error: "If heat is lost to surroundings..."</text>
+
+        <!-- Boxes in chain -->
+        <g>
+          <!-- Box 1 -->
+          <rect x="20" y="50" width="120" height="60" fill="#ebe2cd" stroke="#1f3a2e" stroke-width="1.5" rx="3"/>
+          <text x="80" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#1f3a2e">Final T</text>
+          <text x="80" y="92" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-weight="600" fill="#a14d3a">↓ lower</text>
+
+          <!-- Arrow -->
+          <line x1="142" y1="80" x2="170" y2="80" stroke="#1f3a2e" stroke-width="1.5"/>
+          <polygon points="170,76 178,80 170,84" fill="#1f3a2e"/>
+
+          <!-- Box 2 -->
+          <rect x="180" y="50" width="120" height="60" fill="#ebe2cd" stroke="#1f3a2e" stroke-width="1.5" rx="3"/>
+          <text x="240" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#1f3a2e">ΔT</text>
+          <text x="240" y="92" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-weight="600" fill="#a14d3a">↓ smaller</text>
+
+          <!-- Arrow -->
+          <line x1="302" y1="80" x2="330" y2="80" stroke="#1f3a2e" stroke-width="1.5"/>
+          <polygon points="330,76 338,80 330,84" fill="#1f3a2e"/>
+
+          <!-- Box 3 -->
+          <rect x="340" y="50" width="120" height="60" fill="#ebe2cd" stroke="#1f3a2e" stroke-width="1.5" rx="3"/>
+          <text x="400" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#1f3a2e">q = mcΔT</text>
+          <text x="400" y="92" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-weight="600" fill="#a14d3a">↓ smaller</text>
+
+          <!-- Arrow -->
+          <line x1="462" y1="80" x2="490" y2="80" stroke="#1f3a2e" stroke-width="1.5"/>
+          <polygon points="490,76 498,80 490,84" fill="#1f3a2e"/>
+
+          <!-- Box 4 -->
+          <rect x="500" y="50" width="180" height="60" fill="#1f3a2e" stroke="#b8964a" stroke-width="2" rx="3"/>
+          <text x="590" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#f5efe1">|ΔH| = |q/n|</text>
+          <text x="590" y="92" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-weight="600" fill="#b8964a">↓ smaller magnitude</text>
+        </g>
+
+        <!-- Annotation underneath -->
+        <text x="350" y="155" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="13" font-style="italic" fill="#3d3d3d">Don't just say "the answer is off." Walk through every step of the equation.</text>
+
+        <!-- Heat-loss illustration -->
+        <g transform="translate(180, 180)">
+          <rect x="80" y="20" width="120" height="60" fill="#ebe2cd" stroke="#1f3a2e" stroke-width="2" rx="2"/>
+          <text x="140" y="55" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#1f3a2e">Calorimeter</text>
+          <text x="40" y="20" font-family="DM Sans, sans-serif" font-size="20" fill="#a14d3a">→</text>
+          <text x="220" y="20" font-family="DM Sans, sans-serif" font-size="20" fill="#a14d3a">→</text>
+          <text x="40" y="75" font-family="DM Sans, sans-serif" font-size="20" fill="#a14d3a">→</text>
+          <text x="220" y="75" font-family="DM Sans, sans-serif" font-size="20" fill="#a14d3a">→</text>
+          <text x="140" y="15" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" fill="#a14d3a">heat escapes</text>
+        </g>
+      </svg>
+    </figure>
+
+    <h3>2. The equilibrium / Le Châtelier question</h3>
+    <p>Almost always: K expression → calculate Q → compare Q to K → predict direction. Then a temperature or volume change.</p>
+
+    <figure>
+      <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Q vs K number line">
+        <text x="350" y="25" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">Q vs K: which way does the reaction shift?</text>
+
+        <!-- Number line -->
+        <line x1="60" y1="100" x2="640" y2="100" stroke="#1f3a2e" stroke-width="2"/>
+
+        <!-- K marker -->
+        <circle cx="350" cy="100" r="6" fill="#b8964a"/>
+        <text x="350" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#b8964a">K</text>
+
+        <!-- Q < K zone -->
+        <text x="180" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1f3a2e">Q &lt; K</text>
+        <text x="180" y="130" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Too few products</text>
+        <text x="180" y="146" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" font-weight="700" fill="#1f3a2e">SHIFT FORWARD →</text>
+
+        <!-- Q > K zone -->
+        <text x="520" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1f3a2e">Q &gt; K</text>
+        <text x="520" y="130" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Too many products</text>
+        <text x="520" y="146" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" font-weight="700" fill="#1f3a2e">← SHIFT REVERSE</text>
+
+        <!-- Arrows on line -->
+        <polygon points="60,100 70,95 70,105" fill="#1f3a2e"/>
+        <polygon points="640,100 630,95 630,105" fill="#1f3a2e"/>
+
+        <!-- Ksp tag -->
+        <text x="350" y="175" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">For Ksp: Q &gt; Ksp → precipitate forms. Q &lt; Ksp → more solid dissolves.</text>
+      </svg>
+    </figure>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · Q is the scoreboard, K is the final score</div>
+      <p>Q is the current state of the products-to-reactants ratio at this instant, like a game in progress. K is where that ratio has to land at equilibrium: the final score. If Q is below K, you need more products (shift forward). If Q is above K, you have too many products (shift reverse). Q chases K.</p>
+    </div>
+
+    <p><strong>For temperature on K:</strong> treat heat as a product (exothermic) or reactant (endothermic) and apply Le Châtelier.</p>
+
+    <table class="compact-table">
+      <thead>
+        <tr><th>Reaction type</th><th>Heat treated as</th><th>↑ Temperature shifts</th><th>K does what?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Exothermic (ΔH &lt; 0)</td><td>Product</td><td>Reverse (consumes heat)</td><td>K decreases</td></tr>
+        <tr><td>Endothermic (ΔH &gt; 0)</td><td>Reactant</td><td>Forward (consumes heat)</td><td>K increases</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3. The acid-base / titration question</h3>
+
+    <figure>
+      <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Titration curve landmarks">
+        <text x="350" y="25" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">Weak acid + strong base: the four landmarks</text>
+
+        <!-- Axes -->
+        <line x1="80" y1="270" x2="640" y2="270" stroke="#3d3d3d" stroke-width="1.5"/>
+        <line x1="80" y1="270" x2="80" y2="60" stroke="#3d3d3d" stroke-width="1.5"/>
+        <text x="360" y="325" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" fill="#3d3d3d">Volume of NaOH added →</text>
+        <text x="35" y="170" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" fill="#3d3d3d" transform="rotate(-90, 35, 170)">pH</text>
+
+        <!-- pH 7 reference line -->
+        <line x1="80" y1="165" x2="640" y2="165" stroke="#c9bd9e" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="65" y="170" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">7</text>
+
+        <!-- The titration curve (smooth S-curve) -->
+        <path d="M 95 240 Q 200 235 280 215 Q 340 200 380 130 Q 410 80 480 75 Q 580 73 640 72"
+              fill="none" stroke="#1f3a2e" stroke-width="2.5"/>
+
+        <!-- Landmark 1: Start -->
+        <circle cx="95" cy="240" r="5" fill="#b8964a"/>
+        <text x="112" y="237" font-family="DM Sans, sans-serif" font-size="10" font-weight="700" fill="#1f3a2e">START</text>
+        <text x="112" y="251" font-family="JetBrains Mono, monospace" font-size="9" fill="#3d3d3d">weak acid alone (Ka, ICE)</text>
+
+        <!-- Landmark 2: Half-equivalence -->
+        <circle cx="240" cy="225" r="6" fill="#a14d3a"/>
+        <line x1="240" y1="225" x2="240" y2="270" stroke="#a14d3a" stroke-width="1" stroke-dasharray="2,2"/>
+        <text x="240" y="208" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-weight="700" fill="#a14d3a">HALF-EQ</text>
+        <text x="240" y="195" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a14d3a">pH = pKa</text>
+
+        <!-- Landmark 3: Equivalence -->
+        <circle cx="385" cy="135" r="6" fill="#a14d3a"/>
+        <line x1="385" y1="135" x2="385" y2="270" stroke="#a14d3a" stroke-width="1" stroke-dasharray="2,2"/>
+        <text x="385" y="118" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-weight="700" fill="#a14d3a">EQUIVALENCE</text>
+        <text x="385" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a14d3a">pH &gt; 7 (weak acid)</text>
+
+        <!-- Landmark 4: Past eq -->
+        <circle cx="600" cy="72" r="5" fill="#b8964a"/>
+        <text x="600" y="55" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-weight="700" fill="#1f3a2e">PAST EQ</text>
+        <text x="600" y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#3d3d3d">excess strong base</text>
+
+        <!-- Buffer region bracket and label -->
+        <line x1="100" y1="295" x2="360" y2="295" stroke="#b8964a" stroke-width="2"/>
+        <line x1="100" y1="291" x2="100" y2="299" stroke="#b8964a" stroke-width="2"/>
+        <line x1="360" y1="291" x2="360" y2="299" stroke="#b8964a" stroke-width="2"/>
+        <text x="230" y="310" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="700" fill="#8a6f33" letter-spacing="1.5">BUFFER REGION</text>
+      </svg>
+      <figcaption>Memorize these four landmarks. At half-equivalence, the math collapses to <strong>pH = pK<sub>a</sub></strong> directly from the curve.</figcaption>
+    </figure>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · The buffer zone is the elevator stuck between floors</div>
+      <p>Before half-eq, the curve barely budges as base is added. That's the buffer working. Adding small amounts of base just nudges the HA / A⁻ ratio, not the pH. Then around equivalence, the buffer runs out and the elevator drops sharply.</p>
+    </div>
+
+    <h3>4. The bonding / structure / IMF question</h3>
+    <p>The pipeline always runs in this order:</p>
+    <div class="formula">Lewis structure → VSEPR geometry → hybridization → polarity → IMFs → property prediction</div>
+
+    <h3>5. The thermodynamics / favorability question</h3>
+    <p>Two distinct concepts: <strong>thermodynamic favorability</strong> (ΔG° &lt; 0?) and <strong>kinetic accessibility</strong> (does it happen fast enough?). The exam mostly tests the first.</p>
+
+    <div class="formula">ΔG° = ΔH° − TΔS°</div>
+
+    <figure>
+      <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Delta G sign chart">
+        <text x="300" y="25" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">When is ΔG° &lt; 0? (favorability matrix)</text>
+
+        <!-- Grid lines -->
+        <line x1="150" y1="60" x2="150" y2="280" stroke="#1f3a2e" stroke-width="2"/>
+        <line x1="375" y1="60" x2="375" y2="280" stroke="#c9bd9e" stroke-width="1"/>
+        <line x1="60" y1="170" x2="540" y2="170" stroke="#1f3a2e" stroke-width="2"/>
+        <line x1="60" y1="60" x2="540" y2="60" stroke="#1f3a2e" stroke-width="2"/>
+        <line x1="60" y1="280" x2="540" y2="280" stroke="#1f3a2e" stroke-width="2"/>
+        <line x1="60" y1="60" x2="60" y2="280" stroke="#1f3a2e" stroke-width="2"/>
+        <line x1="540" y1="60" x2="540" y2="280" stroke="#1f3a2e" stroke-width="2"/>
+
+        <!-- Axis labels -->
+        <text x="262" y="50" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">ΔS° &gt; 0</text>
+        <text x="457" y="50" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">ΔS° &lt; 0</text>
+        <text x="100" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">ΔH° &lt; 0</text>
+        <text x="100" y="135" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="9" fill="#3d3d3d">(exothermic)</text>
+        <text x="100" y="225" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">ΔH° &gt; 0</text>
+        <text x="100" y="240" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="9" fill="#3d3d3d">(endothermic)</text>
+
+        <!-- Quadrant 1: -, + -->
+        <rect x="151" y="61" width="223" height="108" fill="rgba(31, 58, 46, 0.15)"/>
+        <text x="262" y="105" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">ALWAYS</text>
+        <text x="262" y="125" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">favorable</text>
+        <text x="262" y="148" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" fill="#3d3d3d">at any temperature</text>
+
+        <!-- Quadrant 2: -, - -->
+        <rect x="376" y="61" width="163" height="108" fill="rgba(184, 150, 74, 0.2)"/>
+        <text x="457" y="100" text-anchor="middle" font-family="Playfair Display, serif" font-size="13" font-weight="700" fill="#8a6f33">Favorable</text>
+        <text x="457" y="118" text-anchor="middle" font-family="Playfair Display, serif" font-size="13" font-weight="700" fill="#8a6f33">at LOW T</text>
+        <text x="457" y="140" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#3d3d3d">enthalpy-driven</text>
+
+        <!-- Quadrant 3: +, + -->
+        <rect x="151" y="171" width="223" height="108" fill="rgba(184, 150, 74, 0.2)"/>
+        <text x="262" y="210" text-anchor="middle" font-family="Playfair Display, serif" font-size="13" font-weight="700" fill="#8a6f33">Favorable</text>
+        <text x="262" y="228" text-anchor="middle" font-family="Playfair Display, serif" font-size="13" font-weight="700" fill="#8a6f33">at HIGH T</text>
+        <text x="262" y="250" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#3d3d3d">entropy-driven</text>
+
+        <!-- Quadrant 4: +, - -->
+        <rect x="376" y="171" width="163" height="108" fill="rgba(161, 77, 58, 0.15)"/>
+        <text x="457" y="215" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#a14d3a">NEVER</text>
+        <text x="457" y="235" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#a14d3a">favorable</text>
+        <text x="457" y="258" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" fill="#3d3d3d">at any temperature</text>
+      </svg>
+    </figure>
+  </section>
+
+  <!-- ============= SCORING ============= -->
+  <section id="scoring">
+    <h2>What scores, what doesn't</h2>
+
+    <div class="two-col">
+      <div class="callout" style="background: rgba(31, 58, 46, 0.08); border-left: 4px solid var(--green);">
+        <div class="callout-label" style="color: var(--green);">✓ Scores</div>
+        <ul style="margin: 8px 0 0;">
+          <li>Naming the principle (Coulomb's law, Le Châtelier, collision theory) <em>by name</em></li>
+          <li>Units on every calculated answer</li>
+          <li>Setup shown before plugging in</li>
+          <li>"Because" sentences on every justify</li>
+          <li>Particle-level language for entropy ("more microstates")</li>
+          <li>Using data given in the question</li>
+        </ul>
+      </div>
+      <div class="callout pitfall">
+        <div class="callout-label">Doesn't score</div>
+        <ul style="margin: 8px 0 0;">
+          <li>Vague hand-waving ("because of IMFs")</li>
+          <li>Restating the prompt as your justification</li>
+          <li>Hedging ("might," "could," "depending on")</li>
+          <li>Listing every IMF instead of identifying the relevant one</li>
+          <li>Missing units</li>
+          <li>Lewis structures without lone pairs</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= FORMULAS ============= -->
+  <section id="formulas">
+    <h2>Formulas to know cold</h2>
+    <p>The reference sheet has the formulas. <em>Knowing how to use them</em> is on you.</p>
+
+    <h4>Stoichiometry &amp; gases</h4>
+    <div class="formula">n = m / M    ·    PV = nRT    ·    M₁V₁ = M₂V₂    ·    P_A = χ_A · P_total</div>
+    <p style="font-size: 0.9rem;">R = 0.08206 L·atm·mol⁻¹·K⁻¹ (pressure/volume) or 8.314 J·mol⁻¹·K⁻¹ (energy).</p>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · Kinetic energy and the football team</div>
+      <p>KE = ½mv². An offensive lineman (~300 lb) running a 4.50 second 40-yard dash has <em>way</em> more kinetic energy than a wide receiver (~190 lb) running a 4.40. The receiver is faster, but mass wins because it's not squared. Speed is. The lineman is heavier <em>and</em> the velocity term, while smaller, still gets squared. This is why mass dominates KE for similar speeds, and why a small temperature increase (which raises average speed) hits gas kinetics so hard.</p>
+    </div>
+
+    <h4>Acid-base</h4>
+    <div class="formula">Ka · Kb = Kw = 1.0 × 10⁻¹⁴    ·    pH + pOH = 14</div>
+    <div class="formula">Henderson-Hasselbalch: pH = pKa + log([A⁻]/[HA])</div>
+
+    <div class="callout analogy">
+      <div class="callout-label">Mental Model · pH and pKa shortcuts</div>
+      <p>If pH = pKa → [HA] = [A⁻] (the half-eq sweet spot). If pH &lt; pKa → acid form dominates. If pH &gt; pKa → conjugate base dominates. Read a titration curve like a thermometer and you can place yourself instantly.</p>
+    </div>
+
+    <h4>Equilibrium</h4>
+    <div class="formula">For aA + bB ⇌ cC + dD:    Kc = [C]ᶜ[D]ᵈ / [A]ᵃ[B]ᵇ</div>
+    <div class="formula">Kp = Kc(RT)^Δn    ·    Ksp for solids: only products in expression</div>
+    <p style="font-size: 0.9rem;"><strong>Solids and pure liquids never appear in K.</strong> Only gases and aqueous species.</p>
+
+    <h4>Thermodynamics</h4>
+    <div class="formula">q = mcΔT    ·    ΔH° = Σ ΔH°f(prod) − Σ ΔH°f(react)</div>
+    <div class="formula">ΔG° = ΔH° − TΔS°    ·    ΔG° = −RT ln K    ·    ΔG° = −nFE°cell</div>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · Hess's law is a road trip</div>
+      <p>The total enthalpy change of a reaction is path-independent, like a road trip from Miami to Orlando. Direct on I-95, or via Tampa, or via Jacksonville. The miles you drive change, but your net displacement (start → end) is the same. Add up the ΔH of any path that gets you from reactants to products, and you've got your answer.</p>
+    </div>
+
+    <div class="callout pitfall">
+      <div class="callout-label">q signs in calorimetry</div>
+      <p>q<sub>rxn</sub> = −q<sub>surr</sub>. Solution heats up → q<sub>soln</sub> &gt; 0 → q<sub>rxn</sub> &lt; 0 → reaction is exothermic. When converting to molar ΔH, divide by <em>moles of reaction</em>, which often means identifying the limiting reactant first.</p>
+    </div>
+
+    <h4>Kinetics</h4>
+    <table class="compact-table">
+      <thead>
+        <tr><th>Order</th><th>Rate law</th><th>Linear plot</th><th>Half-life</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>rate = k</td><td>[A] vs t</td><td>[A]₀ / 2k</td></tr>
+        <tr><td>1</td><td>rate = k[A]</td><td>ln[A] vs t</td><td>0.693 / k</td></tr>
+        <tr><td>2</td><td>rate = k[A]²</td><td>1/[A] vs t</td><td>1 / (k[A]₀)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · Catalyst is a tunnel through the mountain</div>
+      <p>A catalyst lowers Ea by giving the reaction an alternate path, like drilling a tunnel through a mountain instead of climbing over. Start altitude and end altitude (ΔH) are unchanged. Catalyst is consumed in one mechanism step and regenerated in another, so it doesn't appear in the overall equation.</p>
+    </div>
+
+    <h4>Electrochemistry</h4>
+    <div class="formula">E°cell = E°cathode − E°anode    (always reduction potentials, then subtract)</div>
+    <div class="formula">ΔG° = −nFE°    ·    F = 96,485 C/mol e⁻    ·    q = It</div>
+  </section>
+
+  <!-- ============= PARTICLE-LEVEL ============= -->
+  <section id="particle">
+    <h2>Particle-level language</h2>
+    <p>The exam wants particle-level reasoning. These phrases earn points; vague ones don't.</p>
+
+    <table>
+      <thead>
+        <tr><th>Concept</th><th>What scores</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Higher entropy</strong></td>
+          <td>"more dispersed," "more microstates accessible," "greater positional freedom"</td>
+        </tr>
+        <tr>
+          <td><strong>Stronger IMF → ↑ BP</strong></td>
+          <td>"more energy required to separate molecules into the gas phase"</td>
+        </tr>
+        <tr>
+          <td><strong>Coulomb in IMFs</strong></td>
+          <td>"higher charge → stronger attraction; smaller distance → stronger attraction"</td>
+        </tr>
+        <tr>
+          <td><strong>↑ T → faster rate</strong></td>
+          <td>"more molecules have KE ≥ Ea; collisions occur more frequently with greater energy"</td>
+        </tr>
+        <tr>
+          <td><strong>↑ Surface area → faster</strong></td>
+          <td>"more particles exposed; frequency of effective collisions increases"</td>
+        </tr>
+        <tr>
+          <td><strong>Catalyst</strong></td>
+          <td>"provides alternative pathway with lower Ea; consumed and regenerated; not in overall equation"</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============= VSEPR ============= -->
+  <section id="vsepr">
+    <h2>VSEPR &amp; polarity</h2>
+
+    <figure>
+      <svg viewBox="0 0 700 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VSEPR geometries">
+        <text x="350" y="25" text-anchor="middle" font-family="Playfair Display, serif" font-size="14" font-weight="700" fill="#1f3a2e">VSEPR molecular geometries</text>
+
+        <!-- Linear -->
+        <g transform="translate(60, 50)">
+          <circle cx="60" cy="60" r="14" fill="#1f3a2e"/>
+          <circle cx="10" cy="60" r="10" fill="#b8964a"/>
+          <circle cx="110" cy="60" r="10" fill="#b8964a"/>
+          <line x1="20" y1="60" x2="50" y2="60" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="70" y1="60" x2="100" y2="60" stroke="#1f3a2e" stroke-width="2"/>
+          <text x="60" y="105" text-anchor="middle" font-family="Playfair Display, serif" font-size="12" font-weight="700" fill="#1f3a2e">Linear</text>
+          <text x="60" y="121" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">180° · sp</text>
+          <text x="60" y="135" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#8a6f33">CO₂, BeCl₂</text>
+        </g>
+
+        <!-- Trigonal planar -->
+        <g transform="translate(220, 50)">
+          <circle cx="60" cy="60" r="14" fill="#1f3a2e"/>
+          <circle cx="60" cy="15" r="10" fill="#b8964a"/>
+          <circle cx="20" cy="80" r="10" fill="#b8964a"/>
+          <circle cx="100" cy="80" r="10" fill="#b8964a"/>
+          <line x1="60" y1="48" x2="60" y2="25" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="50" y1="68" x2="29" y2="78" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="70" y1="68" x2="91" y2="78" stroke="#1f3a2e" stroke-width="2"/>
+          <text x="60" y="115" text-anchor="middle" font-family="Playfair Display, serif" font-size="12" font-weight="700" fill="#1f3a2e">Trigonal Planar</text>
+          <text x="60" y="131" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">120° · sp²</text>
+          <text x="60" y="145" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#8a6f33">BF₃, NO₃⁻</text>
+        </g>
+
+        <!-- Tetrahedral -->
+        <g transform="translate(400, 50)">
+          <circle cx="60" cy="60" r="14" fill="#1f3a2e"/>
+          <circle cx="60" cy="15" r="10" fill="#b8964a"/>
+          <circle cx="105" cy="50" r="10" fill="#b8964a"/>
+          <circle cx="25" cy="85" r="10" fill="#b8964a"/>
+          <circle cx="80" cy="105" r="10" fill="#b8964a"/>
+          <line x1="60" y1="48" x2="60" y2="25" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="71" y1="56" x2="96" y2="52" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="49" y1="68" x2="32" y2="80" stroke="#1f3a2e" stroke-width="2" stroke-dasharray="3,2"/>
+          <line x1="66" y1="72" x2="76" y2="96" stroke="#1f3a2e" stroke-width="3"/>
+          <text x="60" y="140" text-anchor="middle" font-family="Playfair Display, serif" font-size="12" font-weight="700" fill="#1f3a2e">Tetrahedral</text>
+          <text x="60" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">109.5° · sp³</text>
+          <text x="60" y="170" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#8a6f33">CH₄, NH₄⁺</text>
+        </g>
+
+        <!-- Trigonal pyramidal -->
+        <g transform="translate(60, 230)">
+          <circle cx="60" cy="60" r="14" fill="#1f3a2e"/>
+          <circle cx="50" cy="30" r="2.5" fill="#a14d3a"/>
+          <circle cx="58" cy="30" r="2.5" fill="#a14d3a"/>
+          <circle cx="105" cy="60" r="10" fill="#b8964a"/>
+          <circle cx="25" cy="85" r="10" fill="#b8964a"/>
+          <circle cx="80" cy="100" r="10" fill="#b8964a"/>
+          <line x1="71" y1="58" x2="96" y2="60" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="49" y1="68" x2="32" y2="80" stroke="#1f3a2e" stroke-width="2" stroke-dasharray="3,2"/>
+          <line x1="66" y1="72" x2="76" y2="92" stroke="#1f3a2e" stroke-width="3"/>
+          <text x="60" y="135" text-anchor="middle" font-family="Playfair Display, serif" font-size="12" font-weight="700" fill="#1f3a2e">Trig. Pyramidal</text>
+          <text x="60" y="151" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">~107° · sp³</text>
+          <text x="60" y="165" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#8a6f33">NH₃</text>
+        </g>
+
+        <!-- Bent -->
+        <g transform="translate(240, 230)">
+          <circle cx="60" cy="60" r="14" fill="#1f3a2e"/>
+          <circle cx="48" cy="40" r="2.5" fill="#a14d3a"/>
+          <circle cx="55" cy="35" r="2.5" fill="#a14d3a"/>
+          <circle cx="68" cy="35" r="2.5" fill="#a14d3a"/>
+          <circle cx="75" cy="40" r="2.5" fill="#a14d3a"/>
+          <circle cx="20" cy="90" r="10" fill="#b8964a"/>
+          <circle cx="100" cy="90" r="10" fill="#b8964a"/>
+          <line x1="50" y1="70" x2="28" y2="84" stroke="#1f3a2e" stroke-width="2"/>
+          <line x1="70" y1="70" x2="92" y2="84" stroke="#1f3a2e" stroke-width="2"/>
+          <text x="60" y="130" text-anchor="middle" font-family="Playfair Display, serif" font-size="12" font-weight="700" fill="#1f3a2e">Bent</text>
+          <text x="60" y="146" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#3d3d3d">~104.5° · sp³</text>
+          <text x="60" y="160" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#8a6f33">H₂O</text>
+        </g>
+
+        <!-- Legend -->
+        <g transform="translate(440, 245)">
+          <text x="0" y="0" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#3d3d3d" letter-spacing="1.5">LEGEND</text>
+          <circle cx="15" cy="25" r="7" fill="#1f3a2e"/>
+          <text x="32" y="29" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Central atom</text>
+          <circle cx="15" cy="50" r="6" fill="#b8964a"/>
+          <text x="32" y="54" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Bonded atom</text>
+          <circle cx="11" cy="75" r="2.5" fill="#a14d3a"/>
+          <circle cx="19" cy="75" r="2.5" fill="#a14d3a"/>
+          <text x="32" y="79" font-family="DM Sans, sans-serif" font-size="11" fill="#3d3d3d">Lone pair</text>
+        </g>
+      </svg>
+    </figure>
+
+    <div class="callout analogy">
+      <div class="callout-label">Mental Model · Polarity is a tug-of-war</div>
+      <p>A molecule is polar only if (1) it has polar bonds AND (2) the bond dipoles don't cancel by symmetry. CO₂ has very polar C=O bonds, but they pull in opposite directions and cancel: nonpolar. H₂O has the same kind of polar bonds, but the bent geometry means they don't cancel: polar. Symmetric shape, nonpolar. Asymmetric, polar.</p>
+    </div>
+  </section>
+
+  <!-- ============= IMF ============= -->
+  <section id="imf">
+    <h2>IMF decision tree</h2>
+    <p>Given two substances, which has the higher boiling point / vapor pressure / solubility? Walk through this:</p>
+
+    <figure>
+      <svg viewBox="0 0 700 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IMF decision flowchart">
+        <!-- Step 1: Ionic? -->
+        <rect x="240" y="20" width="220" height="50" fill="#1f3a2e" rx="3"/>
+        <text x="350" y="42" text-anchor="middle" fill="#f5efe1" font-family="DM Sans, sans-serif" font-size="13" font-weight="600">Are ions present?</text>
+        <text x="350" y="60" text-anchor="middle" fill="#b8964a" font-family="JetBrains Mono, monospace" font-size="10">(ionic compound or ions in soln)</text>
+
+        <!-- Yes arrow -->
+        <line x1="240" y1="45" x2="160" y2="85" stroke="#1f3a2e" stroke-width="1.5"/>
+        <text x="190" y="60" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">YES</text>
+        <rect x="50" y="85" width="200" height="50" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="150" y="107" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" font-weight="700" fill="#1f3a2e">Ionic bonds / ion-dipole</text>
+        <text x="150" y="123" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">Strongest. Beats everything below.</text>
+
+        <!-- No arrow → Step 2 -->
+        <line x1="350" y1="70" x2="350" y2="110" stroke="#1f3a2e" stroke-width="1.5"/>
+        <polygon points="346,110 354,110 350,118" fill="#1f3a2e"/>
+        <text x="365" y="92" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">NO</text>
+
+        <!-- Step 2: H bonding -->
+        <rect x="240" y="120" width="220" height="50" fill="#1f3a2e" rx="3"/>
+        <text x="350" y="142" text-anchor="middle" fill="#f5efe1" font-family="DM Sans, sans-serif" font-size="13" font-weight="600">H bonded to N, O, or F?</text>
+        <text x="350" y="160" text-anchor="middle" fill="#b8964a" font-family="JetBrains Mono, monospace" font-size="10">(within molecule)</text>
+
+        <line x1="240" y1="145" x2="160" y2="185" stroke="#1f3a2e" stroke-width="1.5"/>
+        <text x="190" y="160" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">YES</text>
+        <rect x="50" y="185" width="200" height="50" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="150" y="207" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" font-weight="700" fill="#1f3a2e">Hydrogen bonding</text>
+        <text x="150" y="223" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">Strong. Often decisive.</text>
+
+        <!-- No → Step 3 -->
+        <line x1="350" y1="170" x2="350" y2="210" stroke="#1f3a2e" stroke-width="1.5"/>
+        <polygon points="346,210 354,210 350,218" fill="#1f3a2e"/>
+        <text x="365" y="192" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">NO</text>
+
+        <!-- Step 3: Polar? -->
+        <rect x="240" y="220" width="220" height="50" fill="#1f3a2e" rx="3"/>
+        <text x="350" y="248" text-anchor="middle" fill="#f5efe1" font-family="DM Sans, sans-serif" font-size="13" font-weight="600">Is the molecule polar?</text>
+
+        <line x1="240" y1="245" x2="160" y2="285" stroke="#1f3a2e" stroke-width="1.5"/>
+        <text x="190" y="260" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">YES</text>
+        <rect x="50" y="285" width="200" height="50" fill="#ebe2cd" stroke="#b8964a" stroke-width="1.5" rx="3"/>
+        <text x="150" y="307" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="12" font-weight="700" fill="#1f3a2e">Dipole-dipole</text>
+        <text x="150" y="323" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">Moderate. (Plus LDF always.)</text>
+
+        <line x1="350" y1="270" x2="350" y2="310" stroke="#1f3a2e" stroke-width="1.5"/>
+        <polygon points="346,310 354,310 350,318" fill="#1f3a2e"/>
+        <text x="365" y="292" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1f3a2e">NO</text>
+
+        <!-- Final: LDF -->
+        <rect x="240" y="320" width="220" height="55" fill="#1f3a2e" rx="3"/>
+        <text x="350" y="345" text-anchor="middle" fill="#f5efe1" font-family="DM Sans, sans-serif" font-size="13" font-weight="600">London dispersion only</text>
+        <text x="350" y="363" text-anchor="middle" fill="#b8964a" font-family="JetBrains Mono, monospace" font-size="10">(present in everything)</text>
+
+        <!-- Polarizability footnote -->
+        <text x="350" y="400" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">bigger / more polarizable molecule</text>
+        <text x="350" y="416" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="11" font-style="italic" fill="#3d3d3d">→ stronger LDF</text>
+
+        <!-- Note panel -->
+        <rect x="490" y="320" width="200" height="110" fill="rgba(184, 150, 74, 0.12)" stroke="#b8964a" stroke-width="1" rx="3"/>
+        <text x="500" y="340" font-family="JetBrains Mono, monospace" font-size="9" font-weight="700" fill="#8a6f33" letter-spacing="1.5">💡 LDF STILL MATTERS</text>
+        <text x="500" y="362" font-family="DM Sans, sans-serif" font-size="11" fill="#1a1a1a">A giant nonpolar molecule</text>
+        <text x="500" y="377" font-family="DM Sans, sans-serif" font-size="11" fill="#1a1a1a">(I₂, long alkanes) can beat</text>
+        <text x="500" y="392" font-family="DM Sans, sans-serif" font-size="11" fill="#1a1a1a">a small polar one because</text>
+        <text x="500" y="407" font-family="DM Sans, sans-serif" font-size="11" font-weight="600" fill="#8a6f33">size and polarizability scale.</text>
+      </svg>
+    </figure>
+
+    <div class="callout analogy">
+      <div class="callout-label">Analogy · IMFs are like Velcro at different strengths</div>
+      <p>Ionic attraction is industrial-grade hook-and-loop. Hydrogen bonding is heavy-duty Velcro. Dipole-dipole is a standard strip. LDF is the cheap fuzzy stuff that still adds up if you use enough of it (which is why a big nonpolar molecule with tons of contact area can outperform a small polar one).</p>
+    </div>
+  </section>
+
+  <!-- ============= TEST DAY CHECKLIST ============= -->
+  <section id="checklist">
+    <h2>Test-day checklist</h2>
+
+    <div class="callout strategy">
+      <div class="callout-label">Before you write anything on Q1</div>
+      <ul style="margin: 8px 0 0;">
+        <li>Skim all 7 questions. Mark the easy shorts.</li>
+        <li>Note any question with multiple parts that depend on each other (follow-through credit).</li>
+      </ul>
+    </div>
+
+    <div class="callout strategy">
+      <div class="callout-label">For every calculation</div>
+      <p>Setup → numbers → answer → units. In that order. The setup earns its own point.</p>
+    </div>
+
+    <div class="callout strategy">
+      <div class="callout-label">For every "explain" / "justify"</div>
+      <p>Name the principle, then connect it to the specific scenario.</p>
+    </div>
+
+    <div class="callout strategy">
+      <div class="callout-label">For every "predict"</div>
+      <p>One-word answer first ("increase" / "decrease" / "yes" / "agree"), then the reason.</p>
+    </div>
+
+    <div class="callout strategy">
+      <div class="callout-label">If you get stuck for &gt; 90 seconds</div>
+      <p>Write what you do know, move on, come back. Partial credit on guessed-but-justified is more points than blank.</p>
+    </div>
+
+    <div class="callout strategy">
+      <div class="callout-label">Last 5 minutes</div>
+      <p>Every part has <em>something</em> written. Check units. Check signs.</p>
+    </div>
+  </section>
+
+  <footer class="page-footer">
+    <p>Built for AP Chemistry final review · Practice set available <a href="#" style="color: var(--green); border-bottom: 1px dotted var(--gold);">here</a>.</p>
+  </footer>
+
+</div>
+
+</body>
+</html>
