@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry FRQ Practice Set | Mr. Casanova</title>
+<meta name="description" content="Six free-response questions drawn from the 2024 and 2025 released AP Chemistry exams, with collapsible step-by-step solutions and official rubric notes.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --green:        #1f3a2e;
+    --green-deep:   #142019;
+    --green-soft:   #2d5240;
+    --cream:        #f5efe1;
+    --cream-deep:   #ebe2cd;
+    --gold:         #b8964a;
+    --gold-dark:    #8a6f33;
+    --rust:         #a14d3a;
+    --ink:          #1a1a1a;
+    --ink-soft:     #3d3d3d;
+    --rule:         #c9bd9e;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--cream);
+  }
+
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 64px 32px 96px;
+  }
+
+  /* ---------- HEADER ---------- */
+  .page-header {
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    line-height: 1.05;
+    color: var(--green);
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .page-header .subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    color: var(--ink-soft);
+    margin: 0 0 32px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+  .meta-grid .meta-item {
+    border-left: 2px solid var(--gold);
+    padding-left: 12px;
+  }
+  .meta-grid .meta-label {
+    color: var(--gold-dark);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- GLOBAL CONTROLS ---------- */
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 32px 0 0;
+  }
+  .control-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--green);
+    color: var(--cream);
+    border: none;
+    padding: 10px 18px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .control-btn:hover { background: var(--green-soft); }
+  .control-btn.outline {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+  }
+  .control-btn.outline:hover { background: var(--green); color: var(--cream); }
+
+  /* ---------- INTRO ---------- */
+  .intro {
+    margin: 48px 0;
+  }
+  .intro h2 {
+    font-family: 'Playfair Display', serif;
+    color: var(--green);
+    font-size: 1.6rem;
+    margin: 0 0 12px;
+  }
+  .intro p { color: var(--ink-soft); margin: 0 0 12px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--green);
+    color: var(--cream);
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: rgba(245, 239, 225, 0.5); }
+  @media (max-width: 600px) {
+    table { font-size: 0.85rem; }
+    th, td { padding: 8px 10px; }
+  }
+
+  /* ---------- CALLOUTS ---------- */
+  .callout {
+    margin: 24px 0;
+    padding: 18px 22px;
+    border-radius: 3px;
+  }
+  .callout .callout-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout p { margin: 8px 0; }
+  .strategy {
+    background: rgba(184, 150, 74, 0.12);
+    border: 1px solid var(--gold);
+  }
+  .strategy .callout-label { color: var(--gold-dark); }
+
+  /* ---------- QUESTIONS ---------- */
+  .question {
+    margin: 64px 0;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+  .question:first-of-type { border-top: none; padding-top: 0; }
+
+  .q-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--green);
+  }
+  .q-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .q-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--gold-dark);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .q-meta .points {
+    background: var(--gold);
+    color: var(--green-deep);
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-weight: 700;
+    margin-left: 8px;
+  }
+  .q-context {
+    font-style: italic;
+    color: var(--ink-soft);
+    margin: 12px 0 20px;
+  }
+
+  .frq-part {
+    margin: 24px 0;
+  }
+  .part-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--green);
+    font-size: 1rem;
+    margin-right: 6px;
+  }
+
+  .diagram-note {
+    background: var(--cream-deep);
+    border: 1px dashed var(--gold-dark);
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    font-style: italic;
+    border-radius: 2px;
+  }
+
+  /* ---------- COLLAPSIBLE SOLUTIONS ---------- */
+  .solution-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--green);
+    background: transparent;
+    border: 1.5px solid var(--green);
+    padding: 8px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    margin: 8px 0;
+    transition: all 0.15s;
+  }
+  .solution-toggle:hover {
+    background: var(--green);
+    color: var(--cream);
+  }
+  .solution-toggle::before {
+    content: "▸";
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+  .solution-toggle[aria-expanded="true"]::before {
+    transform: rotate(90deg);
+  }
+  .solution-toggle[aria-expanded="true"] {
+    background: var(--green);
+    color: var(--cream);
+  }
+
+  .solution {
+    background: rgba(31, 58, 46, 0.06);
+    border-left: 4px solid var(--green);
+    padding: 18px 22px;
+    margin: 8px 0 16px;
+    border-radius: 0 3px 3px 0;
+    overflow: hidden;
+  }
+  .solution[hidden] { display: none; }
+  .solution .solution-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 10px;
+  }
+  .solution p:first-of-type { margin-top: 0; }
+  .solution p:last-of-type { margin-bottom: 0; }
+  .solution ul { margin: 8px 0; padding-left: 24px; }
+  .solution li { margin: 4px 0; }
+  .point-tag {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--green-deep);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 10px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .rubric-note {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-top: 10px;
+    border-top: 1px dashed var(--rule);
+    padding-top: 10px;
+  }
+
+  /* ---------- FORMULAS ---------- */
+  .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    background: var(--cream-deep);
+    padding: 10px 16px;
+    margin: 12px 0;
+    border-left: 3px solid var(--gold);
+    border-radius: 2px;
+    display: block;
+    overflow-x: auto;
+  }
+  strong { color: var(--green); font-weight: 600; }
+
+  /* ---------- FOOTER ---------- */
+  .page-footer {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 2px solid var(--gold);
+    text-align: center;
+    color: var(--ink-soft);
+  }
+  .page-footer .gold-dot {
+    color: var(--gold);
+    font-size: 1.2rem;
+    letter-spacing: 0.6em;
+    margin-bottom: 16px;
+  }
+  .page-footer .gold-dot::before { content: "• • •"; }
+  .page-footer .signature {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--green);
+    font-size: 1.1rem;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 40px 20px 60px; }
+    .q-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .q-number { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header class="page-header">
+    <div class="eyebrow">AP Chemistry · Final Review</div>
+    <h1>FRQ Practice Set</h1>
+    <p class="subtitle">Six free-response questions from the 2024 and 2025 released exams, with step-by-step solutions and rubric notes.</p>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Source</span>
+        2024 + 2025 released
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Total</span>
+        3 long + 3 short = 42 pts
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Suggested time</span>
+        91 minutes
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Coverage</span>
+        Units 1, 2, 3, 4, 6, 7, 8, 9
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn" id="showAll">Show all solutions</button>
+      <button class="control-btn outline" id="hideAll">Hide all solutions</button>
+    </div>
+  </header>
+
+  <section class="intro">
+    <h2>How to use this page</h2>
+    <p>Each question is structured exactly as it appeared on the official AP Chemistry exam. Work through each part on paper before clicking "Show solution" to reveal the answer. Solutions include the full reasoning and a rubric note showing which point on the official scoring guideline the answer earns.</p>
+
+    <table>
+      <thead>
+        <tr><th>Q</th><th>Type</th><th>Source</th><th>Topic emphasis</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Long (10 pts)</td><td>2025 Q1</td><td>Atomic structure, Coulomb's law, pH, K<sub>sp</sub>, Le Châtelier</td></tr>
+        <tr><td>2</td><td>Long (10 pts)</td><td>2024 Q1</td><td>Titration, pK<sub>a</sub>, calorimetry, error analysis</td></tr>
+        <tr><td>3</td><td>Long (10 pts)</td><td>2025 Q3</td><td>Entropy, thermo favorability, calorimetry, Hess, K<sub>p</sub></td></tr>
+        <tr><td>4</td><td>Short (4 pts)</td><td>2025 Q4</td><td>Hybridization, H-bonding, ΔH<sub>vap</sub></td></tr>
+        <tr><td>5</td><td>Short (4 pts)</td><td>2024 Q5</td><td>K<sub>c</sub>, particle diagram, equilibrium</td></tr>
+        <tr><td>6</td><td>Short (4 pts)</td><td>2025 Q6</td><td>Galvanic cell, stoichiometry, max E°<sub>cell</sub></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout strategy">
+      <div class="callout-label">★ Before you start</div>
+      <p>You may use a calculator and the AP Chemistry reference sheet. Show all work for calculations. Every "explain," "justify," or "predict" requires reasoned justification, not just a one-word answer.</p>
+    </div>
+  </section>
+
+  <!-- ============= QUESTION 1 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 1</div>
+      <div class="q-meta">Long FRQ · 2025 Q1 <span class="points">10 pts</span></div>
+    </div>
+
+    <p class="q-context">Answer the following questions about magnesium.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> An incomplete mass spectrum for magnesium shows the percent abundance of magnesium-24 as 79%. The percent abundances of the other two natural isotopes, magnesium-25 and magnesium-26, are approximately equal.</p>
+      <div class="diagram-note">[mass spectrum: bar at 24 amu at 79%, 25 amu and 26 amu blank]</div>
+      <p><span class="part-label">i.</span> Complete the mass spectrum by drawing thick lines for the percent abundance of magnesium-25 and magnesium-26.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Total must sum to 100%: 100 − 79 = 21%, split approximately equally → each line at about 10–11%. Both bars drawn to the same height in that range.</p>
+        <div class="rubric-note"><span class="point-tag">P1</span> The abundance for the two lines should be between 10 and 11.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> Describe the difference in atomic structure that accounts for the difference in mass between magnesium-25 and magnesium-26.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Magnesium-26 has one more neutron than magnesium-25.</strong> Both have the same number of protons and electrons; the mass difference comes from neutron count.</p>
+        <div class="rubric-note"><span class="point-tag">P2</span> Mg-26 has one more neutron than Mg-25.</div>
+      </div>
+    </div>
+
+    <p class="q-context">A student prepares a 1.85 × 10⁻³ M solution of Mg(NO₃)₂(aq) in beaker 1 and a 2.80 × 10⁻⁴ M solution of NaOH(aq) in beaker 2.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.</span> A sodium ion, Na⁺, in beaker 2 has a weaker attraction to water than the Mg²⁺ in beaker 1 does. Explain this phenomenon using Coulomb's law and each of the following.</p>
+
+      <p><span class="part-label">i.</span> The relative charge of the ions.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>The charge on Na⁺ (+1) is less than the charge on Mg²⁺ (+2).</strong> By Coulomb's law, a smaller charge produces a weaker Coulombic attraction between Na⁺ and the partial negative charge on water's oxygen.</p>
+        <div class="rubric-note"><span class="point-tag">P3</span> The charge on Na⁺ is less than the charge on Mg²⁺. A smaller charge results in a weaker Coulombic attraction between Na⁺ and water.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> The relative radii of the ions.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Na⁺ is larger than Mg²⁺</strong> (Na⁺ has one more electron shell). The greater distance between Na⁺ and water's oxygen reduces the Coulombic attraction, since Coulomb's force decreases as distance increases.</p>
+        <div class="rubric-note"><span class="point-tag">P4</span> Na⁺ is larger than Mg²⁺, so the distance between Na⁺ and the oxygen on water is greater. As distance increases, Coulombic attraction decreases.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">C.</span> Calculate the pH of the solution in beaker 2.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>NaOH is a strong base, so [OH⁻] = 2.80 × 10⁻⁴ M.</p>
+        <div class="formula">pOH = −log(2.80 × 10⁻⁴) = 3.553</div>
+        <div class="formula">pH = 14 − pOH = 14 − 3.553 = <strong>10.447</strong></div>
+        <div class="rubric-note"><span class="point-tag">P5</span> Correct calculated value of pH ≈ 10.45.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">D.</span> A student combines 35.00 mL of 1.85 × 10⁻³ M Mg(NO₃)₂(aq) with 50.00 mL of 2.80 × 10⁻⁴ M NaOH(aq). Calculate [Mg²⁺] after the two solutions are combined but before any reaction takes place. (Assume volumes are additive.)</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Dilution formula M₁V₁ = M₂V₂ where V₂ is the combined total volume:</p>
+        <div class="formula">[Mg²⁺] = (1.85 × 10⁻³ M)(0.03500 L) / (0.03500 L + 0.05000 L)</div>
+        <div class="formula">[Mg²⁺] = (6.475 × 10⁻⁵) / (0.08500 L) = <strong>7.62 × 10⁻⁴ M</strong></div>
+        <div class="rubric-note"><span class="point-tag">P6</span> Correct calculated value of [Mg²⁺] ≈ 7.62 × 10⁻⁴ M.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">E.</span> The dissolution of magnesium hydroxide:</p>
+      <div class="formula">Mg(OH)₂(s) ⇌ Mg²⁺(aq) + 2 OH⁻(aq)    K<sub>sp</sub> = 5.61 × 10⁻¹²</div>
+
+      <p><span class="part-label">i.</span> Write the K<sub>sp</sub> expression.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">K<sub>sp</sub> = [Mg²⁺][OH⁻]²</div>
+        <p>(Solids are not included in the K expression.)</p>
+        <div class="rubric-note"><span class="point-tag">P7</span> Correct K<sub>sp</sub> expression.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> With [OH⁻] = 1.65 × 10⁻⁴ M after mixing, calculate Q.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">Q = [Mg²⁺][OH⁻]² = (7.62 × 10⁻⁴)(1.65 × 10⁻⁴)² = <strong>2.07 × 10⁻¹¹</strong></div>
+        <div class="rubric-note"><span class="point-tag">P8</span> Correct calculated value of Q ≈ 2.07 × 10⁻¹¹, consistent with parts D and E(i).</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">iii.</span> Will a precipitate form? Justify.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Yes, a precipitate will form.</strong> Q (2.07 × 10⁻¹¹) > K<sub>sp</sub> (5.61 × 10⁻¹²). When Q > K<sub>sp</sub>, the system is supersaturated and the reverse reaction (precipitation) is favored until equilibrium is reached.</p>
+        <div class="rubric-note"><span class="point-tag">P9</span> Q > K<sub>sp</sub>, so a precipitate will form.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">F.</span> When HNO₃ is added to a saturated Mg(OH)₂ solution with undissolved solid present, does the undissolved Mg(OH)₂ increase, decrease, or remain the same?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Decrease.</strong> H⁺ from HNO₃ reacts with OH⁻ in solution, decreasing [OH⁻]. This makes Q < K<sub>sp</sub>, so more Mg(OH)₂(s) dissolves to re-establish equilibrium. Less undissolved solid remains.</p>
+        <div class="rubric-note"><span class="point-tag">P10</span> Decrease. H⁺ reacts with OH⁻, decreasing [OH⁻] and causing Q < K<sub>sp</sub>. More Mg(OH)₂(s) dissolves until equilibrium is re-established.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============= QUESTION 2 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 2</div>
+      <div class="q-meta">Long FRQ · 2024 Q1 <span class="points">10 pts</span></div>
+    </div>
+
+    <p class="q-context">A student studies the reaction of lactic acid (C₃H₆O₃) with NaOH:</p>
+    <div class="formula">C₃H₆O₃(aq) + NaOH(aq) → NaC₃H₅O₃(aq) + H₂O(l)</div>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> Circle the H atom in the lactic acid structure that most readily participates in the reaction with NaOH.</p>
+      <div class="diagram-note">[Structural formula of lactic acid: CH₃–CH(OH)–COOH, all H atoms drawn explicitly]</div>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>The rightmost H, which is the carboxylic acid H (on −COOH).</strong> This is the acidic proton; NaOH deprotonates it. The hydroxyl H on the alcohol group is much less acidic and does not transfer to NaOH under these conditions.</p>
+        <div class="rubric-note"><span class="point-tag">P1</span> The rightmost (carboxylic acid) H is circled.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.</span> The student dissolves 10.22 g of NaOH (40.00 g/mol) in enough water to produce 500. mL of solution. Calculate the molarity of the NaOH solution.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">M = (10.22 g × 1 mol / 40.00 g) / 0.500 L = 0.2555 mol / 0.500 L = <strong>0.511 M</strong></div>
+        <div class="rubric-note"><span class="point-tag">P2</span> Correct molarity ≈ 0.511 M.</div>
+      </div>
+    </div>
+
+    <p class="q-context">The student titrates a 25.0 mL sample of lactic acid solution. The titration curve shows the equivalence point at approximately 16 mL of NaOH added.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">C.</span> Use the graph to determine the approximate pK<sub>a</sub> of lactic acid.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>The equivalence point is at ~16 mL → half-equivalence is at ~8 mL. At the half-equivalence point, [HA] = [A⁻], so <strong>pH = pK<sub>a</sub></strong>.</p>
+        <p>Read the pH at 8 mL on the curve: <strong>pK<sub>a</sub> ≈ 3.9</strong> (acceptable range 3.7 – 4.0).</p>
+        <div class="rubric-note"><span class="point-tag">P3</span> pK<sub>a</sub> = 3.9 (acceptable range: 3.7 – 4.0).</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">D.</span> A particle diagram shows more lactic acid (HA) molecules than lactate (A⁻) ions.</p>
+
+      <p><span class="part-label">i.</span> Mark X on the titration curve at a point matching this diagram.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>If [HA] > [A⁻], we are <strong>before the half-equivalence point</strong>. X should be placed at a volume <strong>between 3 mL and 8 mL</strong> on the curve.</p>
+        <div class="rubric-note"><span class="point-tag">P4</span> X is at V ≥ 3 mL and V &lt; 8 mL.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> Justify the placement.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>More acid (HA) particles are present than conjugate base (A⁻) particles, meaning the titration is before the half-equivalence point</strong>, where the ratio [HA]:[A⁻] equals 1:1.</p>
+        <div class="rubric-note"><span class="point-tag">P5</span> More acid particles than conjugate base particles → before half-equivalence.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">iii.</span> Draw the titration curve if NaOH concentration is doubled.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Doubling the titrant concentration halves the volume to reach equivalence: new equivalence at <strong>8 mL</strong> (instead of 16 mL). The starting pH and final pH should be similar to the original curve since acid and base strengths are unchanged. Only the volume axis differs.</p>
+        <div class="rubric-note"><span class="point-tag">P6</span> Curve shows equivalence point at 8 mL.</div>
+        <div class="rubric-note"><span class="point-tag">P7</span> Curve begins at similar pH, rises sharply at a different volume from 16 mL, and ends at similar pH.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">E.</span> 100.0 mL of 0.500 M lactic acid at 20.0 °C is combined with 100.0 mL of 0.500 M NaOH at 20.0 °C. Final T = 23.2 °C. Density = 1.00 g/mL, c = 4.2 J/(g·°C).</p>
+
+      <p><span class="part-label">i.</span> Calculate q (in J).</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">m<sub>soln</sub> = 200.0 mL × 1.00 g/mL = 200.0 g</div>
+        <div class="formula">q<sub>soln</sub> = mcΔT = (200.0 g)(4.2 J/(g·°C))(23.2 − 20.0 °C) = <strong>2700 J</strong></div>
+        <div class="rubric-note"><span class="point-tag">P8</span> Correct calculated value, q ≈ 2700 J.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> Calculate ΔH<sub>rxn</sub> in kJ/mol<sub>rxn</sub>.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Moles of reaction = (0.100 L)(0.500 mol/L) = 0.0500 mol (equal moles of acid and base; both are limiting).</p>
+        <div class="formula">q<sub>rxn</sub> = −q<sub>soln</sub> = −2700 J = −2.7 kJ</div>
+        <div class="formula">ΔH<sub>rxn</sub> = −2.7 kJ / 0.0500 mol = <strong>−54 kJ/mol<sub>rxn</sub></strong></div>
+        <div class="rubric-note"><span class="point-tag">P9</span> Correct ΔH<sub>rxn</sub> ≈ −54 kJ/mol<sub>rxn</sub> with negative sign.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">iii.</span> If heat is lost to surroundings, will the experimental |ΔH<sub>rxn</sub>| be smaller than the actual value?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Agree.</strong> Heat lost to surroundings means less heat warms the solution → final T is lower → ΔT is smaller → q<sub>soln</sub> is smaller in magnitude → |ΔH<sub>rxn</sub>| comes out smaller than its true value.</p>
+        <div class="rubric-note"><span class="point-tag">P10</span> Agree. Heat lost from system → lower final T → smaller ΔT → smaller q<sub>soln</sub> → smaller |ΔH|.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============= QUESTION 3 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 3</div>
+      <div class="q-meta">Long FRQ · 2025 Q3 <span class="points">10 pts</span></div>
+    </div>
+
+    <p class="q-context">White phosphorus is composed of P₄ molecules with a tetrahedral structure. Each P atom is bonded to the other three P atoms by single bonds.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> Complete the Lewis diagram for P₄ by drawing the nonbonding electrons.</p>
+      <div class="diagram-note">[Incomplete Lewis structure of P₄: four P atoms in a tetrahedron, all bonds drawn, no lone pairs shown yet]</div>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Each P has 5 valence electrons. With 3 single bonds, each P uses 3 valence electrons in bonds → 2 electrons remain as <strong>one lone pair per P atom</strong>. Total: 4 lone pairs in the structure.</p>
+        <div class="rubric-note"><span class="point-tag">P1</span> One lone pair drawn on each of the four P atoms.</div>
+      </div>
+    </div>
+
+    <p class="q-context">Equation 1: P₄(s) + 5 O₂(g) → P₄O₁₀(s). This reaction is thermodynamically favorable at 298 K.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.i.</span> The entropy change of the reaction, ΔS°, is negative. Using particle-level reasoning, explain why entropy decreases.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Gases have far more microstates (greater positional and energetic disorder) than solids.</strong> The reactants include 5 moles of gas; the products are all solid. Going from many gas particles to no gas particles drastically reduces the number of accessible microstates, so entropy decreases.</p>
+        <div class="rubric-note"><span class="point-tag">P2</span> Gas particles are more dispersed / have more microstates than solids; converting gaseous reactants to solid products decreases entropy.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">B.ii.</span> ΔH° is also negative. A student claims favorability is driven by enthalpy and not entropy. Is this claim correct?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Yes, the student is correct.</strong></p>
+        <div class="formula">ΔG° = ΔH° − TΔS°</div>
+        <p>For the reaction to be favorable, ΔG° &lt; 0. Given:</p>
+        <ul>
+          <li>ΔH° &lt; 0 (exothermic) → contributes a negative term to ΔG° → <em>favors</em> spontaneity (enthalpy-driven).</li>
+          <li>ΔS° &lt; 0 → −TΔS° is positive → contributes a <em>positive</em> term to ΔG° → <em>opposes</em> spontaneity.</li>
+        </ul>
+        <p>Therefore enthalpy is what makes the reaction favorable; entropy opposes favorability.</p>
+        <div class="rubric-note"><span class="point-tag">P3</span> Yes. ΔG° = ΔH° − TΔS°. ΔH° &lt; 0 contributes to favorability; ΔS° &lt; 0 means entropy does not contribute to favorability.</div>
+      </div>
+    </div>
+
+    <p class="q-context">Equation 2: P₄O₁₀(s) + 6 H₂O(l) → 4 H₃PO₄(aq) (exothermic). Calorimetry data: 0.100 g P₄O₁₀, 100.0 g H₂O, T<sub>i</sub> = 22.00 °C, T<sub>f</sub> = 22.38 °C, M(P₄O₁₀) = 283.9 g/mol, c(H₂O) = 4.18 J/(g·°C).</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">C.i.</span> Calculate q released in kJ.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">m<sub>soln</sub> ≈ 100.0 g + 0.100 g = 100.1 g</div>
+        <div class="formula">q = mcΔT = (100.1 g)(4.18 J/g·°C)(22.38 − 22.00 °C) = 159 J ≈ <strong>0.16 kJ</strong></div>
+        <div class="rubric-note"><span class="point-tag">P4</span> Correct calculated value ≈ 0.16 kJ, with correct sig figs.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">C.ii.</span> Calculate ΔH°<sub>rxn</sub> in kJ/mol<sub>rxn</sub>.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>q<sub>rxn</sub> = −q<sub>surr</sub> = −0.16 kJ. Moles of reaction based on P₄O₁₀:</p>
+        <div class="formula">mol<sub>rxn</sub> = 0.100 g × (1 mol / 283.9 g) = 3.52 × 10⁻⁴ mol<sub>rxn</sub></div>
+        <div class="formula">ΔH°<sub>rxn</sub> = −0.16 kJ / 3.52 × 10⁻⁴ mol<sub>rxn</sub> = <strong>−450 kJ/mol<sub>rxn</sub></strong></div>
+        <div class="rubric-note"><span class="point-tag">P5</span> Correct calculated value consistent with C(i).</div>
+        <div class="rubric-note"><span class="point-tag">P6</span> Correct negative sign.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">D.</span> In a second trial, some P₄O₁₀ stuck to the weighing paper (P₄O₁₀ is limiting). Is ΔT less than, greater than, or equal to trial 1?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Less than.</strong> Less P₄O₁₀ reacts → less heat transferred to water → smaller temperature increase. The mass of water (100.0 g) and the specific heat are unchanged.</p>
+        <div class="rubric-note"><span class="point-tag">P7</span> Less than. Less P₄O₁₀ → less thermal energy released → smaller ΔT.</div>
+      </div>
+    </div>
+
+    <p class="q-context">Equation 3: P₄(s) + 6 Cl₂(g) → 4 PCl₃(g), ΔH°<sub>rxn1</sub> = −1148 kJ/mol<sub>rxn</sub><br>
+    Equation 4: PCl₃(g) + Cl₂(g) ⇌ PCl₅(g), ΔH°<sub>rxn2</sub> = −88 kJ/mol<sub>rxn</sub></p>
+
+    <div class="frq-part">
+      <p><span class="part-label">E.</span> Calculate ΔH°<sub>f</sub> for PCl₅(g) per equation 5: ¼ P₄(s) + 5⁄2 Cl₂(g) → PCl₅(g).</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Apply Hess's law. Multiply equation 3 by ¼ to get one mole of PCl₃; then add equation 4:</p>
+        <ul>
+          <li>(¼) × Eq 3: ¼ P₄(s) + 3/2 Cl₂(g) → PCl₃(g), ΔH = ¼(−1148) = −287 kJ</li>
+          <li>Eq 4: PCl₃(g) + Cl₂(g) → PCl₅(g), ΔH = −88 kJ</li>
+          <li><strong>Sum:</strong> ¼ P₄(s) + 5⁄2 Cl₂(g) → PCl₅(g), ΔH°<sub>f</sub> = −287 + (−88) = <strong>−375 kJ/mol</strong></li>
+        </ul>
+        <div class="rubric-note"><span class="point-tag">P8</span> ΔH°<sub>f</sub> = ¼(−1148) + (−88) = −375 kJ/mol.</div>
+      </div>
+    </div>
+
+    <p class="q-context">Particle-level diagram at 546 K for equation 4: 6 PCl₃, 2 Cl₂, 4 PCl₅. Each particle = 1.00 atm.</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">F.i.</span> Calculate K<sub>p</sub>.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">K<sub>p</sub> = P(PCl₅) / [P(PCl₃) · P(Cl₂)] = 4.00 / [(6.00)(2.00)] = 4.00 / 12.0 = <strong>0.333</strong></div>
+        <div class="rubric-note"><span class="point-tag">P9</span> K<sub>p</sub> = 4 / (6 × 2) = 1/3 ≈ 0.333.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">F.ii.</span> Does K<sub>p</sub> increase, decrease, or stay the same when T increases to 596 K?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>K<sub>p</sub> decreases.</strong> Equation 4 is exothermic (ΔH°<sub>rxn2</sub> = −88 kJ/mol<sub>rxn</sub> &lt; 0). Treat heat as a product. Increasing T shifts equilibrium toward reactants by Le Châtelier, reducing the products-to-reactants ratio, so K<sub>p</sub> decreases.</p>
+        <div class="rubric-note"><span class="point-tag">P10</span> Decrease. Exothermic reactions favor reactant formation at higher T, so K<sub>p</sub> decreases.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============= QUESTION 4 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 4</div>
+      <div class="q-meta">Short FRQ · 2025 Q4 <span class="points">4 pts</span></div>
+    </div>
+
+    <p class="q-context">A scientist is investigating a mixture of CH₃OH (methanol) and H₂CO (formaldehyde).</p>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> Identify the hybridization of the valence orbitals of the C atom in H₂CO.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>H₂CO has C double-bonded to O and single-bonded to two H atoms. <strong>3 electron domains around C → sp² hybridization.</strong></p>
+        <div class="rubric-note"><span class="point-tag">P1</span> sp².</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.</span> Draw a single hydrogen bond between one CH₃OH and one H₂CO.</p>
+      <div class="diagram-note">[Mixture diagram: CH₃OH and H₂CO molecules with explicit O–H and C=O bonds]</div>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>H-bond donors are H attached to N/O/F. CH₃OH has an O–H group (H is the donor). H₂CO has no N–H, O–H, or F–H, but its <strong>carbonyl O is an H-bond acceptor</strong> (lone pairs on highly electronegative O).</p>
+        <p><strong>Draw a dashed line from the H of the −OH in CH₃OH to the O in H₂CO.</strong> (Donor → acceptor: O–H ⋯ O=C.)</p>
+        <div class="rubric-note"><span class="point-tag">P2</span> Dashed line between the O atom of one H₂CO molecule and the H atom of the −OH group of one CH₃OH molecule.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">C.</span> The scientist plans to cool the gaseous mixture to form a liquid mixture. Data:</p>
+      <table>
+        <thead>
+          <tr><th>Substance</th><th>Melting pt (K)</th><th>Boiling pt (K)</th><th>ΔH<sub>vap</sub> (kJ/mol)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CH₃OH</td><td>176</td><td>338</td><td>37.6</td></tr>
+          <tr><td>H₂CO</td><td>181</td><td>254</td><td>24.2</td></tr>
+        </tbody>
+      </table>
+
+      <p><span class="part-label">i.</span> Propose a temperature where both compounds are liquids.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Both substances are liquids between their respective melting and boiling points. T must be above both melting points (&gt;181 K) and below both boiling points (&lt;254 K).</p>
+        <p><strong>Any temperature in the range 181 K to 254 K.</strong> A safe choice: 220 K.</p>
+        <div class="rubric-note"><span class="point-tag">P3</span> Proposed temperature in the range 181 K – 254 K.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">ii.</span> Calculate the thermal energy removed to condense 8.59 g of CH₃OH (32.04 g/mol) at its boiling point.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Condensation releases the same magnitude of energy as vaporization absorbs.</p>
+        <div class="formula">q = 8.59 g × (1 mol / 32.04 g) × (37.6 kJ / 1 mol) = <strong>10.1 kJ</strong></div>
+        <div class="rubric-note"><span class="point-tag">P4</span> Correct calculated value ≈ 10.1 kJ.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============= QUESTION 5 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 5</div>
+      <div class="q-meta">Short FRQ · 2024 Q5 <span class="points">4 pts</span></div>
+    </div>
+
+    <p class="q-context">Hydrogen gas and iodine gas react to form hydrogen iodide:</p>
+    <div class="formula">H₂(g) + I₂(g) ⇌ 2 HI(g)    ΔH°<sub>rxn</sub> = −12.19 kJ/mol<sub>rxn</sub></div>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> Write the equilibrium constant expression K<sub>c</sub>.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <div class="formula">K<sub>c</sub> = [HI]² / ([H₂][I₂])</div>
+        <p>All species are gases, so all appear in K<sub>c</sub>. HI exponent is 2 from its coefficient.</p>
+        <div class="rubric-note"><span class="point-tag">P1</span> Correct K<sub>c</sub> expression with exponent 2 on [HI].</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.i.</span> A particle diagram shows 4 H₂ and 3 I₂ molecules, Q = 0.67. Draw the number of HI molecules needed.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Use particle counts as proxies for concentrations (same volume):</p>
+        <div class="formula">Q = (n<sub>HI</sub>)² / (n<sub>H₂</sub> · n<sub>I₂</sub>) = (n<sub>HI</sub>)² / (4 × 3) = (n<sub>HI</sub>)² / 12 = 0.67</div>
+        <div class="formula">(n<sub>HI</sub>)² = 8.04 → n<sub>HI</sub> ≈ 2.8 → <strong>3 HI molecules</strong></div>
+        <div class="rubric-note"><span class="point-tag">P2</span> Correct drawing showing ~3 HI molecules.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">B.ii.</span> Hypothesize an experimental change that increases moles of HI over time (without adding HI).</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>To shift equilibrium toward more HI:</p>
+        <ul>
+          <li><strong>Decrease the temperature.</strong> The reaction is exothermic; lower T favors product formation and increases K.</li>
+          <li><strong>Add more H₂(g) and/or I₂(g)</strong> to the rigid container. Increasing reactant concentration shifts equilibrium toward products by Le Châtelier.</li>
+        </ul>
+        <div class="rubric-note"><span class="point-tag">P3</span> Decreased temperature OR added more H₂ and/or I₂.</div>
+      </div>
+
+      <p style="margin-top: 16px;"><span class="part-label">B.iii.</span> The mixture is transferred to a larger container at constant T. Do moles of HI change?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Remain the same.</strong></p>
+        <p>For this reaction, Δn<sub>gas</sub> = 2 − (1+1) = 0. Equal moles of gas on both sides means increasing volume decreases all concentrations by the same proportion, so Q = [HI]² / ([H₂][I₂]) is unchanged. Q still equals K, so no shift.</p>
+        <div class="rubric-note"><span class="point-tag">P4</span> Remain unchanged. Equal moles of gas on both sides → Q ratio unchanged → no shift.</div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============= QUESTION 6 ============= -->
+  <article class="question">
+    <div class="q-header">
+      <div class="q-number">Question 6</div>
+      <div class="q-meta">Short FRQ · 2025 Q6 <span class="points">4 pts</span></div>
+    </div>
+
+    <p class="q-context">A galvanic cell. As the cell operates, the Zn(s) electrode gains mass and the Al(s) electrode loses mass.</p>
+
+    <table>
+      <thead>
+        <tr><th>Half-reaction</th><th>E° (V)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Zn²⁺(aq) + 2 e⁻ → Zn(s)</td><td>−0.76</td></tr>
+        <tr><td>Al³⁺(aq) + 3 e⁻ → Al(s)</td><td>−1.66</td></tr>
+      </tbody>
+    </table>
+
+    <div class="frq-part">
+      <p><span class="part-label">A.</span> Write the half-reaction for the oxidation that occurs at the anode.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Al loses mass → Al is oxidized. The anode is the site of oxidation.</p>
+        <div class="formula">Al(s) → Al³⁺(aq) + 3 e⁻</div>
+        <div class="rubric-note"><span class="point-tag">P1</span> Correct oxidation half-reaction.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">B.</span> Write the balanced net ionic equation for the overall reaction.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>Multiply oxidation by 2 and reduction by 3 to balance electrons (LCM = 6):</p>
+        <ul>
+          <li>Oxidation × 2: 2 Al(s) → 2 Al³⁺(aq) + 6 e⁻</li>
+          <li>Reduction × 3: 3 Zn²⁺(aq) + 6 e⁻ → 3 Zn(s)</li>
+        </ul>
+        <div class="formula">2 Al(s) + 3 Zn²⁺(aq) → 2 Al³⁺(aq) + 3 Zn(s)</div>
+        <div class="rubric-note"><span class="point-tag">P2</span> Correct balanced net ionic equation.</div>
+      </div>
+    </div>
+
+    <div class="frq-part">
+      <p><span class="part-label">C.</span> Each electrode starts at 50.0 g. Which electrode's mass changes more? Justify with a calculation.</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p><strong>Zn experiences the greater mass change.</strong></p>
+        <p>From the balanced equation, 2 mol Al lost corresponds to 3 mol Zn gained. Molar masses: Al = 26.98 g/mol, Zn = 65.38 g/mol.</p>
+        <div class="formula">Δm<sub>Al</sub> per mol<sub>rxn</sub> = 2 × 26.98 = 53.96 g (lost)</div>
+        <div class="formula">Δm<sub>Zn</sub> per mol<sub>rxn</sub> = 3 × 65.38 = 196.1 g (gained)</div>
+        <p>For every 54 g of Al consumed, 196 g of Zn is deposited.</p>
+        <div class="rubric-note"><span class="point-tag">P3</span> Zn has the greater mass change, justified with correct stoichiometric calculation.</div>
+      </div>
+    </div>
+
+    <p class="q-context">The standard Zn/Al cell has E°<sub>cell</sub> = 0.90 V. The scientist needs a galvanic cell with greater voltage and has access to these half-cells:</p>
+
+    <table>
+      <thead>
+        <tr><th>Reduction half-reaction</th><th>E° (V)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Au³⁺(aq) + 3 e⁻ → Au(s)</td><td>+1.50</td></tr>
+        <tr><td>Zn²⁺(aq) + 2 e⁻ → Zn(s)</td><td>−0.76</td></tr>
+        <tr><td>Mn²⁺(aq) + 2 e⁻ → Mn(s)</td><td>−1.19</td></tr>
+        <tr><td>Al³⁺(aq) + 3 e⁻ → Al(s)</td><td>−1.66</td></tr>
+        <tr><td>Be²⁺(aq) + 2 e⁻ → Be(s)</td><td>−1.85</td></tr>
+      </tbody>
+    </table>
+
+    <div class="frq-part">
+      <p><span class="part-label">D.</span> Using the Zn half-cell paired with one of the other options, what is the MAXIMUM voltage at standard conditions?</p>
+      <button class="solution-toggle" aria-expanded="false">Show solution</button>
+      <div class="solution" hidden>
+        <div class="solution-label">Solution</div>
+        <p>To maximize E°<sub>cell</sub> = E°<sub>cathode</sub> − E°<sub>anode</sub>, pair Zn (−0.76 V) with the half-cell giving the largest gap.</p>
+        <table>
+          <tbody>
+            <tr><td>Au³⁺/Au at +1.50 V (cathode), Zn anode</td><td>1.50 − (−0.76) = <strong>2.26 V</strong></td></tr>
+            <tr><td>Zn cathode, Mn²⁺/Mn anode</td><td>−0.76 − (−1.19) = 0.43 V</td></tr>
+            <tr><td>Zn cathode, Al³⁺/Al anode</td><td>−0.76 − (−1.66) = 0.90 V</td></tr>
+            <tr><td>Zn cathode, Be²⁺/Be anode</td><td>−0.76 − (−1.85) = 1.09 V</td></tr>
+          </tbody>
+        </table>
+        <p>Maximum: Zn paired with Au³⁺/Au → <strong>E°<sub>cell</sub> = 2.26 V</strong>.</p>
+        <div class="rubric-note"><span class="point-tag">P4</span> E°<sub>cell</sub> = +1.50 − (−0.76) = +2.26 V.</div>
+      </div>
+    </div>
+  </article>
+
+  <footer class="page-footer">
+    <div class="gold-dot"></div>
+    <p>End of practice set. Total: 42 points across 6 questions.</p>
+    <p style="font-size: 0.85rem; font-style: italic;">Questions are reproduced from publicly released College Board materials for instructional use. Source: AP Central, apcentral.collegeboard.org.</p>
+    <div class="signature">Mr. Casanova</div>
+  </footer>
+
+</div>
+
+<script>
+  // Individual solution toggles
+  document.querySelectorAll('.solution-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const solution = button.nextElementSibling;
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      button.setAttribute('aria-expanded', String(!expanded));
+      solution.hidden = expanded;
+      button.textContent = expanded ? 'Show solution' : 'Hide solution';
+      // Restore the chevron via ::before pseudo-element
+      button.setAttribute('aria-expanded', String(!expanded));
+    });
+  });
+
+  // Show all / hide all
+  document.getElementById('showAll').addEventListener('click', () => {
+    document.querySelectorAll('.solution-toggle').forEach(button => {
+      const solution = button.nextElementSibling;
+      button.setAttribute('aria-expanded', 'true');
+      solution.hidden = false;
+      button.textContent = 'Hide solution';
+    });
+  });
+
+  document.getElementById('hideAll').addEventListener('click', () => {
+    document.querySelectorAll('.solution-toggle').forEach(button => {
+      const solution = button.nextElementSibling;
+      button.setAttribute('aria-expanded', 'false');
+      solution.hidden = true;
+      button.textContent = 'Show solution';
+    });
+  });
+</script>
+
+</body>
+</html>
