@@ -386,7 +386,7 @@
   <!-- ============= THE FOUR VERBS ============= -->
   <section id="verbs">
     <h2>The four verbs that decide your score</h2>
-    <p>Every part starts with a verb. The verb tells you exactly what to write.</p>
+    <p>Every part starts with a verb. The verb is the AP exam telling you exactly what evidence they will accept for that point. Miss the verb, miss the point.</p>
 
     <figure>
       <svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verb decision tree">
@@ -437,6 +437,43 @@
         <text x="40" y="353" font-family="DM Sans, sans-serif" font-size="13" fill="#1a1a1a">Train yourself: every "justify" gets a "because" sentence.</text>
       </svg>
     </figure>
+    <table>
+      <thead>
+        <tr><th>Verb</th><th>What the grader is checking</th><th>Zero-point response</th><th>Full-point response</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Calculate</strong></td>
+          <td>Correct numerical answer with units. Setup shown (setup often earns its own point even if arithmetic is wrong).</td>
+          <td>"The molarity is 0.5."</td>
+          <td>"M = 10.0 g ÷ (40.0 g/mol) ÷ 0.500 L = 0.500 M"</td>
+        </tr>
+        <tr>
+          <td><strong>Explain / Justify</strong></td>
+          <td>The principle named AND connected to the specific scenario. The conclusion alone is never enough.</td>
+          <td>"The boiling point is higher because of stronger IMFs."</td>
+          <td>"H₂O has hydrogen bonding (H bonded to O) while H₂S does not. Hydrogen bonds require more energy to break than London dispersion forces, so H₂O has a higher boiling point."</td>
+        </tr>
+        <tr>
+          <td><strong>Predict / Identify</strong></td>
+          <td>Direct answer first, then one sentence of justification. The prediction without the reason earns partial credit at best.</td>
+          <td>"The equilibrium shifts to the right."</td>
+          <td>"The equilibrium shifts to the right. Adding more reactant increases Q below K, so the system produces more products to restore Q = K."</td>
+        </tr>
+        <tr>
+          <td><strong>Draw / Complete</strong></td>
+          <td>Use the structure they gave you. Add only what's missing. Label atoms and lone pairs explicitly — graders can't assume you meant something.</td>
+          <td>Lewis structure missing lone pairs on terminal atoms.</td>
+          <td>Every atom satisfies octet (or duet for H), lone pairs drawn as dots, formal charges shown if nonzero.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-label">The most expensive mistake on Section II</div>
+      <p>Writing <em>"because of stronger intermolecular forces"</em> for an explain prompt. That restates what the question is asking you to prove. The grader needs you to identify <em>which</em> IMF, <em>why</em> it's stronger, and <em>how</em> that causes the observed property. One vague sentence = zero points, even if the direction is correct.</p>
+    </div>
+
   </section>
 
   <!-- ============= ARCHETYPES ============= -->
@@ -446,6 +483,7 @@
 
     <h3>1. The lab / experimental design question</h3>
     <p>Procedure (calorimetry, titration, gravimetric, gas collection) → calculate something → critique a source of error. The error analysis is where students slip.</p>
+    <p>The key to error analysis: <strong>trace the error through the equation</strong>. The grader wants to see every link in the chain, not just the final conclusion. "The answer will be too small" earns nothing without the chain. Follow each variable in q = mcΔT to its outcome.</p>
 
     <figure>
       <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calorimetry error propagation">
@@ -502,8 +540,21 @@
       </svg>
     </figure>
 
+    <div class="callout strategy">
+      <div class="callout-label">Attack plan · Calorimetry question</div>
+      <ol style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Find mass of solution: total volume × density (don't forget to add the dissolved solid if given).</li>
+        <li>Calculate q<sub>soln</sub> = mcΔT. Use T<sub>f</sub> − T<sub>i</sub>.</li>
+        <li>Flip the sign: q<sub>rxn</sub> = −q<sub>soln</sub>. Solution warms up → reaction released heat → ΔH is negative.</li>
+        <li>Find moles of reaction using the limiting reactant.</li>
+        <li>ΔH<sub>rxn</sub> = q<sub>rxn</sub> / mol<sub>rxn</sub>. Include units and sign.</li>
+        <li>For error analysis: identify which variable in q = mcΔT is affected → trace to final ΔH. Write every step.</li>
+      </ol>
+    </div>
+
     <h3>2. The equilibrium / Le Châtelier question</h3>
     <p>Almost always: K expression → calculate Q → compare Q to K → predict direction. Then a temperature or volume change.</p>
+    <p>The conceptual core: <strong>K is a constant at a given temperature. Q is the current state.</strong> The system always moves to make Q → K. Temperature is the only thing that changes K itself — pressure and concentration changes shift position but leave K unchanged.</p>
 
     <figure>
       <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Q vs K number line">
@@ -540,6 +591,18 @@
       <p>Q is the current state of the products-to-reactants ratio at this instant, like a game in progress. K is where that ratio has to land at equilibrium: the final score. If Q is below K, you need more products (shift forward). If Q is above K, you have too many products (shift reverse). Q chases K.</p>
     </div>
 
+    <div class="callout strategy">
+      <div class="callout-label">Attack plan · Equilibrium question</div>
+      <ol style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Write the K expression: products over reactants, coefficients as exponents, solids/pure liquids omitted.</li>
+        <li>Calculate Q using current (not equilibrium) concentrations.</li>
+        <li>Compare Q to K: Q &lt; K → shift forward. Q &gt; K → shift reverse. Q = K → no shift.</li>
+        <li>For a change (add reactant, change volume, change temperature): determine the new Q, then decide direction.</li>
+        <li>For temperature: treat heat as product (exothermic) or reactant (endothermic). ↑T shifts away from heat → changes K.</li>
+        <li>For volume: pressure increases when volume decreases → system shifts toward fewer moles of gas (Δn<sub>gas</sub> matters).</li>
+      </ol>
+    </div>
+
     <p><strong>For temperature on K:</strong> treat heat as a product (exothermic) or reactant (endothermic) and apply Le Châtelier.</p>
 
     <table class="compact-table">
@@ -553,6 +616,7 @@
     </table>
 
     <h3>3. The acid-base / titration question</h3>
+    <p>The AP exam tests four types of acid-base calculations: strong acid/base (simple [H⁺] or [OH⁻]), weak acid/base (ICE table with Ka), buffer (Henderson–Hasselbalch), and titration. Learn which region of the curve uses which approach.</p>
 
     <figure>
       <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Titration curve landmarks">
@@ -608,12 +672,48 @@
       <p>Before half-eq, the curve barely budges as base is added. That's the buffer working. Adding small amounts of base just nudges the HA / A⁻ ratio, not the pH. Then around equivalence, the buffer runs out and the elevator drops sharply.</p>
     </div>
 
+    <table class="compact-table">
+      <thead>
+        <tr><th>Where you are on the curve</th><th>What's in solution</th><th>How to calculate pH</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Start (0 mL base added)</td><td>Weak acid only</td><td>ICE table with Ka: x² / ([HA]₀ − x) = Ka</td></tr>
+        <tr><td>Buffer region (before half-eq)</td><td>HA and A⁻ both present</td><td>Henderson–Hasselbalch: pH = pKa + log([A⁻]/[HA])</td></tr>
+        <tr><td>Half-equivalence point</td><td>[HA] = [A⁻]</td><td>pH = pKa (H–H simplifies, log(1) = 0)</td></tr>
+        <tr><td>Equivalence point</td><td>Only A⁻ (conjugate base)</td><td>Hydrolysis of A⁻ with Kb; pH > 7 for weak acid titration</td></tr>
+        <tr><td>Past equivalence</td><td>Excess strong base</td><td>pH from [OH⁻]<sub>excess</sub> directly</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout strategy">
+      <div class="callout-label">Attack plan · Titration question</div>
+      <ol style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Identify where on the curve you are (see table above) — this tells you which equation to use.</li>
+        <li>Find equivalence volume: moles of acid = moles of base → V<sub>eq</sub> = n<sub>acid</sub> / M<sub>base</sub>.</li>
+        <li>Find pKa from the half-equivalence point (read pH off the curve at V<sub>eq</sub>/2).</li>
+        <li>For curve sketches: match start pH, equivalence point location, and post-equivalence plateau. Same acid = same start. Same base concentration halved → equivalence at half the volume.</li>
+      </ol>
+    </div>
+
     <h3>4. The bonding / structure / IMF question</h3>
-    <p>The pipeline always runs in this order:</p>
+    <p>The pipeline always runs in this order — and you can only skip steps if the question tells you to:</p>
     <div class="formula">Lewis structure → VSEPR geometry → hybridization → polarity → IMFs → property prediction</div>
+    <p>Each step feeds the next. You can't determine hybridization without VSEPR (electron domain count). You can't determine polarity without geometry (dipoles might cancel). You can't determine IMFs without polarity. Students who jump straight to "IMFs" without the earlier steps lose the intermediate points.</p>
+
+    <div class="callout strategy">
+      <div class="callout-label">Attack plan · Bonding/IMF question</div>
+      <ol style="margin: 8px 0 0; padding-left: 20px;">
+        <li><strong>Lewis structure:</strong> count total valence electrons, place bonds, fill octets with lone pairs, minimize formal charges.</li>
+        <li><strong>Electron domains:</strong> count bonds + lone pairs on central atom → geometry and hybridization (2=sp, 3=sp², 4=sp³).</li>
+        <li><strong>Molecular geometry:</strong> shape is based only on atoms, not lone pairs (bent, pyramidal, etc.).</li>
+        <li><strong>Polarity:</strong> polar bonds + asymmetric geometry = polar molecule. Symmetric = nonpolar even with polar bonds (CO₂, CCl₄).</li>
+        <li><strong>Identify IMF:</strong> use the decision tree (ionic &gt; H-bond &gt; dipole-dipole &gt; LDF).</li>
+        <li><strong>Property prediction:</strong> stronger IMF = higher BP, lower vapor pressure, higher viscosity, more soluble in polar solvents.</li>
+      </ol>
+    </div>
 
     <h3>5. The thermodynamics / favorability question</h3>
-    <p>Two distinct concepts: <strong>thermodynamic favorability</strong> (ΔG° &lt; 0?) and <strong>kinetic accessibility</strong> (does it happen fast enough?). The exam mostly tests the first.</p>
+    <p>Two distinct concepts students often confuse: <strong>thermodynamic favorability</strong> (ΔG° &lt; 0 — will it happen?) and <strong>kinetic accessibility</strong> (does it happen fast enough?). A reaction can be thermodynamically favorable and still not happen at room temperature because of a large activation energy. The AP exam mostly tests the first concept, but it will sometimes ask you to distinguish the two.</p>
 
     <div class="formula">ΔG° = ΔH° − TΔS°</div>
 
@@ -665,9 +765,23 @@
     </figure>
   </section>
 
+    <div class="callout strategy">
+      <div class="callout-label">Attack plan · Thermodynamics question</div>
+      <ol style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Determine the sign of ΔH°: exothermic (bonds formed &gt; bonds broken, products more stable) = negative. Look for combustion, forming oxides, acid-base neutralization.</li>
+        <li>Determine the sign of ΔS°: count moles of gas on each side. More gas on product side = positive ΔS°. More ordered products (solid from gas) = negative ΔS°.</li>
+        <li>Use the ΔG matrix to determine temperature dependence. If ΔH and ΔS have the same sign, favorability depends on T.</li>
+        <li>For Hess's law: work backward from the target equation. Reverse or scale given equations so intermediates cancel.</li>
+        <li>For calorimetry: q<sub>rxn</sub> = −q<sub>soln</sub>, then divide by moles of limiting reactant to get ΔH.</li>
+      </ol>
+    </div>
+
+  </section>
+
   <!-- ============= SCORING ============= -->
   <section id="scoring">
     <h2>What scores, what doesn't</h2>
+    <p>Every point on the FRQ rubric is earned by a specific piece of evidence. The grader applies the rubric literally — they can't give credit for something you almost said.</p>
 
     <div class="two-col">
       <div class="callout" style="background: rgba(31, 58, 46, 0.08); border-left: 4px solid var(--green);">
@@ -678,31 +792,58 @@
           <li>Setup shown before plugging in</li>
           <li>"Because" sentences on every justify</li>
           <li>Particle-level language for entropy ("more microstates")</li>
-          <li>Using data given in the question</li>
+          <li>Using data given in the question (reference the numbers)</li>
+          <li>Explicit comparison: "X is greater than Y because…"</li>
         </ul>
       </div>
       <div class="callout pitfall">
         <div class="callout-label">Doesn't score</div>
         <ul style="margin: 8px 0 0;">
-          <li>Vague hand-waving ("because of IMFs")</li>
+          <li>Vague hand-waving ("because of IMFs" — which IMF?)</li>
           <li>Restating the prompt as your justification</li>
           <li>Hedging ("might," "could," "depending on")</li>
           <li>Listing every IMF instead of identifying the relevant one</li>
-          <li>Missing units</li>
+          <li>Missing units on a calculated answer</li>
           <li>Lewis structures without lone pairs</li>
+          <li>"The entropy is higher" without saying why at the particle level</li>
         </ul>
       </div>
     </div>
+
+    <h3>Side-by-side: zero points vs. full points</h3>
+    <table>
+      <thead>
+        <tr><th>Prompt type</th><th>Response that earns zero</th><th>Response that earns full credit</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Explain why NaCl has a higher melting point than I₂</td>
+          <td>"NaCl has stronger intermolecular forces."</td>
+          <td>"NaCl is an ionic compound held together by electrostatic attraction between Na⁺ and Cl⁻ ions, which requires much more energy to overcome than the London dispersion forces between I₂ molecules."</td>
+        </tr>
+        <tr>
+          <td>Justify that ΔS° is negative for P₄(s) + 5O₂(g) → P₄O₁₀(s)</td>
+          <td>"The entropy decreases because the products are less disordered."</td>
+          <td>"Five moles of O₂ gas (high entropy — many accessible microstates) are converted to a solid product. Gas particles have far greater positional freedom than solid particles, so removing 5 moles of gas drastically reduces the number of microstates available."</td>
+        </tr>
+        <tr>
+          <td>Predict whether a precipitate forms (Q and K given)</td>
+          <td>"Yes, because there are too many ions."</td>
+          <td>"Yes. Q = 2.07 × 10⁻¹¹ &gt; K<sub>sp</sub> = 5.61 × 10⁻¹². When Q &gt; K<sub>sp</sub>, the solution is supersaturated and Mg(OH)₂ precipitates until Q = K<sub>sp</sub>."</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- ============= FORMULAS ============= -->
   <section id="formulas">
     <h2>Formulas to know cold</h2>
-    <p>The reference sheet has the formulas. <em>Knowing how to use them</em> is on you.</p>
+    <p>The reference sheet has the formulas. <em>Knowing how to use them</em> is on you. For each formula below, the concept note explains what the formula is actually saying — if you only memorize the symbols, you'll misuse them under pressure.</p>
 
     <h4>Stoichiometry &amp; gases</h4>
     <div class="formula">n = m / M    ·    PV = nRT    ·    M₁V₁ = M₂V₂    ·    P_A = χ_A · P_total</div>
-    <p style="font-size: 0.9rem;">R = 0.08206 L·atm·mol⁻¹·K⁻¹ (pressure/volume) or 8.314 J·mol⁻¹·K⁻¹ (energy).</p>
+    <p style="font-size: 0.9rem;">R = 0.08206 L·atm·mol⁻¹·K⁻¹ (pressure/volume) or 8.314 J·mol⁻¹·K⁻¹ (energy). <strong>Pick R based on the units you need in the answer.</strong></p>
+    <p style="font-size: 0.9rem;">M₁V₁ = M₂V₂ works because moles don't change during dilution. If you're mixing two solutions, the total volume is V₁ + V₂ and you need to dilute each species separately before calculating anything.</p>
 
     <div class="callout analogy">
       <div class="callout-label">Analogy · Kinetic energy and the football team</div>
@@ -712,20 +853,23 @@
     <h4>Acid-base</h4>
     <div class="formula">Ka · Kb = Kw = 1.0 × 10⁻¹⁴    ·    pH + pOH = 14</div>
     <div class="formula">Henderson-Hasselbalch: pH = pKa + log([A⁻]/[HA])</div>
+    <p style="font-size: 0.9rem;">Ka · Kb = Kw tells you that every weak acid has a conjugate base, and the stronger the acid (large Ka), the weaker its conjugate base (small Kb). This is how you calculate Kb of A⁻ from Ka of HA.</p>
 
     <div class="callout analogy">
       <div class="callout-label">Mental Model · pH and pKa shortcuts</div>
-      <p>If pH = pKa → [HA] = [A⁻] (the half-eq sweet spot). If pH &lt; pKa → acid form dominates. If pH &gt; pKa → conjugate base dominates. Read a titration curve like a thermometer and you can place yourself instantly.</p>
+      <p>If pH = pKa → [HA] = [A⁻] (the half-eq sweet spot, log(1) = 0). If pH &lt; pKa → more acid than conjugate base (acid form dominates). If pH &gt; pKa → more conjugate base than acid. Read a titration curve like a thermometer: your position relative to pKa tells you the ratio of species in solution right now.</p>
     </div>
 
     <h4>Equilibrium</h4>
     <div class="formula">For aA + bB ⇌ cC + dD:    Kc = [C]ᶜ[D]ᵈ / [A]ᵃ[B]ᵇ</div>
     <div class="formula">Kp = Kc(RT)^Δn    ·    Ksp for solids: only products in expression</div>
-    <p style="font-size: 0.9rem;"><strong>Solids and pure liquids never appear in K.</strong> Only gases and aqueous species.</p>
+    <p style="font-size: 0.9rem;"><strong>Solids and pure liquids never appear in K.</strong> Their "concentration" is defined as 1 by convention. Only gases (in Kp) and aqueous species (in Kc) are included. For Ksp, the denominator is always 1 because the solid is excluded — so Ksp = product of ion concentrations raised to their coefficients.</p>
+    <p style="font-size: 0.9rem;">A large K (&gt;&gt;1) means products strongly favored at equilibrium. A small K (&lt;&lt;1) means reactants dominate. K = 1 means roughly equal concentrations of both.</p>
 
     <h4>Thermodynamics</h4>
     <div class="formula">q = mcΔT    ·    ΔH° = Σ ΔH°f(prod) − Σ ΔH°f(react)</div>
     <div class="formula">ΔG° = ΔH° − TΔS°    ·    ΔG° = −RT ln K    ·    ΔG° = −nFE°cell</div>
+    <p style="font-size: 0.9rem;">ΔG° = −RT ln K is the bridge between thermodynamics and equilibrium. If ΔG° &lt; 0, then ln K &gt; 0, so K &gt; 1 (products favored). If ΔG° &gt; 0, K &lt; 1. The more negative ΔG°, the larger K.</p>
 
     <div class="callout analogy">
       <div class="callout-label">Analogy · Hess's law is a road trip</div>
@@ -738,14 +882,15 @@
     </div>
 
     <h4>Kinetics</h4>
+    <p style="font-size: 0.9rem;">The reaction order is determined <em>experimentally</em> — you cannot read it from coefficients in the balanced equation (unless the question says it's an elementary step). The most common exam task: given a table of rate data, find orders by comparing trials where one concentration doubles.</p>
     <table class="compact-table">
       <thead>
-        <tr><th>Order</th><th>Rate law</th><th>Linear plot</th><th>Half-life</th></tr>
+        <tr><th>Order</th><th>Rate law</th><th>Linear plot</th><th>Half-life</th><th>What it means</th></tr>
       </thead>
       <tbody>
-        <tr><td>0</td><td>rate = k</td><td>[A] vs t</td><td>[A]₀ / 2k</td></tr>
-        <tr><td>1</td><td>rate = k[A]</td><td>ln[A] vs t</td><td>0.693 / k</td></tr>
-        <tr><td>2</td><td>rate = k[A]²</td><td>1/[A] vs t</td><td>1 / (k[A]₀)</td></tr>
+        <tr><td>0</td><td>rate = k</td><td>[A] vs t</td><td>[A]₀ / 2k</td><td>Rate doesn't change as A is consumed</td></tr>
+        <tr><td>1</td><td>rate = k[A]</td><td>ln[A] vs t</td><td>0.693 / k</td><td>Rate halves when [A] halves; t½ is constant</td></tr>
+        <tr><td>2</td><td>rate = k[A]²</td><td>1/[A] vs t</td><td>1 / (k[A]₀)</td><td>Rate quarters when [A] halves; t½ grows as reaction proceeds</td></tr>
       </tbody>
     </table>
 
@@ -757,44 +902,69 @@
     <h4>Electrochemistry</h4>
     <div class="formula">E°cell = E°cathode − E°anode    (always reduction potentials, then subtract)</div>
     <div class="formula">ΔG° = −nFE°    ·    F = 96,485 C/mol e⁻    ·    q = It</div>
+    <p style="font-size: 0.9rem;"><strong>Cathode = reduction = gains mass (in metal-plating cells).</strong> Anode = oxidation = loses mass. In a galvanic cell, the more negative E° half-reaction is reversed (oxidation) — that's your anode. To maximize voltage, maximize the E° gap between cathode and anode.</p>
+    <p style="font-size: 0.9rem;">The sign connection: positive E°cell → negative ΔG° → spontaneous → K &gt; 1. These three (E°, ΔG°, K) are three windows into the same underlying thermodynamics.</p>
+
+    <div class="callout strategy">
+      <div class="callout-label">The three-way link to memorize</div>
+      <p>E°<sub>cell</sub> &gt; 0 &nbsp;↔&nbsp; ΔG° &lt; 0 &nbsp;↔&nbsp; K &gt; 1 &nbsp;↔&nbsp; <strong>spontaneous / product-favored</strong><br>
+      E°<sub>cell</sub> &lt; 0 &nbsp;↔&nbsp; ΔG° &gt; 0 &nbsp;↔&nbsp; K &lt; 1 &nbsp;↔&nbsp; <strong>nonspontaneous / reactant-favored</strong></p>
+    </div>
   </section>
 
   <!-- ============= PARTICLE-LEVEL ============= -->
   <section id="particle">
     <h2>Particle-level language</h2>
-    <p>The exam wants particle-level reasoning. These phrases earn points; vague ones don't.</p>
+    <p>The exam awards points for reasoning at the molecular or atomic level — not for restating the macroscopic observation. "The boiling point is higher" is a macroscopic statement. "More energy is required to overcome the stronger hydrogen bonds between molecules before they can escape into the gas phase" is particle-level. Only the second one earns the point.</p>
+    <p>Here's the difference: a vague answer names the end result. A particle-level answer names the <em>mechanism</em> — what is happening at the particle level that produces that result.</p>
 
     <table>
       <thead>
-        <tr><th>Concept</th><th>What scores</th></tr>
+        <tr><th>Concept</th><th>Vague (won't score)</th><th>Particle-level (scores)</th></tr>
       </thead>
       <tbody>
         <tr>
           <td><strong>Higher entropy</strong></td>
-          <td>"more dispersed," "more microstates accessible," "greater positional freedom"</td>
+          <td>"more disorder"</td>
+          <td>"more microstates accessible; gas particles have greater positional and translational freedom than solid particles"</td>
         </tr>
         <tr>
           <td><strong>Stronger IMF → ↑ BP</strong></td>
-          <td>"more energy required to separate molecules into the gas phase"</td>
+          <td>"stronger forces hold the molecules together"</td>
+          <td>"more energy required to overcome [name the IMF] between molecules and separate them into the gas phase"</td>
         </tr>
         <tr>
-          <td><strong>Coulomb in IMFs</strong></td>
-          <td>"higher charge → stronger attraction; smaller distance → stronger attraction"</td>
+          <td><strong>Coulomb's law in IMFs or ions</strong></td>
+          <td>"the attraction is stronger"</td>
+          <td>"higher charge or smaller ionic radius → shorter distance between charges → Coulombic attraction is proportionally stronger (F ∝ q₁q₂/r²)"</td>
         </tr>
         <tr>
-          <td><strong>↑ T → faster rate</strong></td>
-          <td>"more molecules have KE ≥ Ea; collisions occur more frequently with greater energy"</td>
+          <td><strong>↑ T → faster reaction rate</strong></td>
+          <td>"higher temperature speeds up the reaction"</td>
+          <td>"more molecules have kinetic energy ≥ Ea; frequency of effective collisions increases"</td>
         </tr>
         <tr>
-          <td><strong>↑ Surface area → faster</strong></td>
-          <td>"more particles exposed; frequency of effective collisions increases"</td>
+          <td><strong>↑ Concentration → faster rate</strong></td>
+          <td>"more reactant is present"</td>
+          <td>"more particles per unit volume → more frequent collisions between reactant molecules"</td>
         </tr>
         <tr>
-          <td><strong>Catalyst</strong></td>
-          <td>"provides alternative pathway with lower Ea; consumed and regenerated; not in overall equation"</td>
+          <td><strong>Catalyst → faster rate</strong></td>
+          <td>"the catalyst lowers the energy barrier"</td>
+          <td>"provides an alternative reaction pathway with lower Ea; more molecules have enough energy to react; catalyst is consumed and regenerated so it does not appear in the overall equation"</td>
+        </tr>
+        <tr>
+          <td><strong>ΔS° is negative</strong></td>
+          <td>"there is less entropy in the products"</td>
+          <td>"reactants include X moles of gas; products are solid/liquid. Gas particles have many more accessible microstates than solid/liquid particles, so converting them reduces total entropy."</td>
         </tr>
       </tbody>
     </table>
+
+    <div class="callout key-rule">
+      <div class="callout-label">Pattern to practice</div>
+      <p>For any explain/justify prompt, train yourself to complete this sentence: <em>"Because at the particle level, [mechanism], which causes [observed result]."</em> The mechanism is what earns the point — the observed result alone never does.</p>
+    </div>
   </section>
 
   <!-- ============= VSEPR ============= -->
@@ -902,7 +1072,8 @@
   <!-- ============= IMF ============= -->
   <section id="imf">
     <h2>IMF decision tree</h2>
-    <p>Given two substances, which has the higher boiling point / vapor pressure / solubility? Walk through this:</p>
+    <p>Given two substances, which has the higher boiling point / vapor pressure / solubility? The answer always comes from comparing IMF strength. Stronger IMF = harder to separate particles = higher BP, lower vapor pressure, higher viscosity.</p>
+    <p>The key conceptual point: <strong>you must identify which IMF type is present</strong>, then explain why it's stronger or weaker for one molecule vs. the other. Walk through this tree in order — each step is a potential FRQ point.</p>
 
     <figure>
       <svg viewBox="0 0 700 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IMF decision flowchart">
@@ -976,6 +1147,44 @@
       <div class="callout-label">Analogy · IMFs are like Velcro at different strengths</div>
       <p>Ionic attraction is industrial-grade hook-and-loop. Hydrogen bonding is heavy-duty Velcro. Dipole-dipole is a standard strip. LDF is the cheap fuzzy stuff that still adds up if you use enough of it (which is why a big nonpolar molecule with tons of contact area can outperform a small polar one).</p>
     </div>
+
+    <h3>Why each IMF has the strength it does</h3>
+    <table>
+      <thead>
+        <tr><th>IMF type</th><th>What causes it</th><th>What makes it stronger</th><th>Typical BP range</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Ionic bonds</strong></td>
+          <td>Full charges on ions attract each other (Coulomb's law)</td>
+          <td>Higher charge on ions; smaller ionic radius (ions closer together)</td>
+          <td>&gt; 500 °C</td>
+        </tr>
+        <tr>
+          <td><strong>Hydrogen bonds</strong></td>
+          <td>H bonded to N, O, or F creates a partial positive charge that attracts a lone pair on another N, O, or F</td>
+          <td>More H-bond donors/acceptors per molecule; more electronegative atom (F &gt; O &gt; N)</td>
+          <td>50–300 °C</td>
+        </tr>
+        <tr>
+          <td><strong>Dipole-dipole</strong></td>
+          <td>Partial charges from polar bonds create permanent alignment between molecules</td>
+          <td>Greater difference in electronegativity between bonded atoms; larger overall dipole moment</td>
+          <td>−50–150 °C</td>
+        </tr>
+        <tr>
+          <td><strong>London dispersion</strong></td>
+          <td>Instantaneous fluctuations in electron density create temporary dipoles that induce dipoles in neighbors</td>
+          <td>More electrons (higher molar mass); more surface area (longer, less branched chain = more contact)</td>
+          <td>Variable; depends on size</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-label">The LDF size trap</div>
+      <p>A common mistake: assuming a small polar molecule always beats a larger nonpolar one. I₂ (nonpolar, molar mass 254 g/mol) has a boiling point of 184 °C. HCl (polar, molar mass 36.5 g/mol) boils at −85 °C. I₂ wins because its massive electron cloud creates very strong LDF that dwarf the weak dipole-dipole forces in HCl. When the size difference is large, LDF wins even over dipole-dipole.</p>
+    </div>
   </section>
 
   <!-- ============= TEST DAY CHECKLIST ============= -->
@@ -1017,7 +1226,7 @@
   </section>
 
   <footer class="page-footer">
-    <p>Built for AP Chemistry final review · Practice set available <a href="#" style="color: var(--green); border-bottom: 1px dotted var(--gold);">here</a>.</p>
+    <p>Built for AP Chemistry final review · <a href="/ap-chem/frq-practice.html" style="color: var(--green); border-bottom: 1px dotted var(--gold);">Practice set with solutions →</a></p>
   </footer>
 
 </div>
