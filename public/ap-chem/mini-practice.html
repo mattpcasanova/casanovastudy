@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry — Mini Practice Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hunter: #2d4a3e;
+    --hunter-deep: #1f342c;
+    --hunter-soft: #3d5e4f;
+    --cream: #f5f0e1;
+    --cream-warm: #ebe3cf;
+    --gold: #c9a44c;
+    --gold-deep: #a8862f;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --correct: #4a7c59;
+    --incorrect: #9b3a3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(201, 164, 76, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(45, 74, 62, 0.04) 0%, transparent 40%);
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 60px 40px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 60px;
+    position: relative;
+    padding-top: 20px;
+  }
+
+  .monogram {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 24px;
+  }
+
+  .title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 48px;
+    color: var(--hunter-deep);
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    letter-spacing: 0.05em;
+  }
+
+  .gold-rule {
+    width: 60px;
+    height: 2px;
+    background: var(--gold);
+    margin: 28px auto 0;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 50px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(45, 74, 62, 0.1);
+    border-radius: 4px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--hunter-deep);
+  }
+
+  .legend-badge {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .badge-we {
+    background: var(--hunter);
+    color: var(--cream);
+  }
+
+  .badge-you {
+    background: var(--gold);
+    color: var(--hunter-deep);
+  }
+
+  /* Topic blocks */
+  .topic {
+    margin-bottom: 70px;
+  }
+
+  .topic-header {
+    margin-bottom: 30px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(45, 74, 62, 0.2);
+  }
+
+  .topic-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--gold-deep);
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+
+  .topic-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--hunter-deep);
+  }
+
+  /* Pair layout */
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 820px) {
+    .pair { grid-template-columns: 1fr; }
+    .container { padding: 40px 20px; }
+    .title { font-size: 36px; }
+    .legend { flex-direction: column; gap: 12px; align-items: center; }
+  }
+
+  .card {
+    background: #fdfaf0;
+    border: 1px solid rgba(45, 74, 62, 0.12);
+    border-radius: 4px;
+    padding: 28px;
+    position: relative;
+    box-shadow: 0 2px 12px rgba(45, 74, 62, 0.04);
+  }
+
+  .card.we-do {
+    border-top: 3px solid var(--hunter);
+  }
+
+  .card.you-do {
+    border-top: 3px solid var(--gold);
+  }
+
+  .card-tag {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 5px 11px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .we-do .card-tag {
+    background: var(--hunter);
+    color: var(--cream);
+  }
+
+  .you-do .card-tag {
+    background: var(--gold);
+    color: var(--hunter-deep);
+  }
+
+  .q-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .question {
+    font-size: 16px;
+    color: var(--ink);
+    margin-bottom: 18px;
+    line-height: 1.65;
+  }
+
+  .question .formula {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 14px;
+  }
+
+  /* MCQ choices */
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 15px;
+  }
+
+  .choice:hover {
+    background: var(--cream-warm);
+    border-color: rgba(45, 74, 62, 0.2);
+  }
+
+  .choice.selected {
+    background: rgba(201, 164, 76, 0.15);
+    border-color: var(--gold);
+  }
+
+  .choice.correct {
+    background: rgba(74, 124, 89, 0.12);
+    border-color: var(--correct);
+  }
+
+  .choice.incorrect {
+    background: rgba(155, 58, 58, 0.08);
+    border-color: var(--incorrect);
+  }
+
+  .choice-letter {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--hunter);
+    flex-shrink: 0;
+  }
+
+  .choice-text {
+    flex: 1;
+  }
+
+  .choice-text .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* FRQ textarea */
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid rgba(45, 74, 62, 0.2);
+    border-radius: 3px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: var(--cream);
+    color: var(--ink);
+    resize: vertical;
+    margin-bottom: 14px;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    background: #fdfaf0;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-primary {
+    background: var(--hunter);
+    color: var(--cream);
+  }
+
+  .btn-primary:hover {
+    background: var(--hunter-deep);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--hunter);
+    border: 1px solid var(--hunter);
+  }
+
+  .btn-secondary:hover {
+    background: var(--hunter);
+    color: var(--cream);
+  }
+
+  .btn-gold {
+    background: var(--gold);
+    color: var(--hunter-deep);
+  }
+
+  .btn-gold:hover {
+    background: var(--gold-deep);
+    color: var(--cream);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* Solution reveal (We Do) */
+  .solution {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed rgba(45, 74, 62, 0.25);
+  }
+
+  .step {
+    display: none;
+    padding: 12px 14px;
+    background: rgba(45, 74, 62, 0.04);
+    border-left: 3px solid var(--gold);
+    margin-bottom: 10px;
+    border-radius: 0 3px 3px 0;
+    animation: slideIn 0.3s ease;
+  }
+
+  .step.visible {
+    display: block;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold-deep);
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .step-content {
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .step-content .formula,
+  .step-content .calc {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 13px;
+  }
+
+  .step-content .calc {
+    display: block;
+    margin: 6px 0;
+    padding: 8px 10px;
+  }
+
+  /* Feedback (You Do) */
+  .feedback {
+    display: none;
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 3px;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .feedback.visible {
+    display: block;
+  }
+
+  .feedback.correct-fb {
+    background: rgba(74, 124, 89, 0.1);
+    border-left: 3px solid var(--correct);
+  }
+
+  .feedback.incorrect-fb {
+    background: rgba(155, 58, 58, 0.08);
+    border-left: 3px solid var(--incorrect);
+  }
+
+  .feedback-label {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .correct-fb .feedback-label { color: var(--correct); }
+  .incorrect-fb .feedback-label { color: var(--incorrect); }
+
+  .answer-key {
+    display: none;
+    margin-top: 14px;
+    padding: 14px;
+    background: rgba(45, 74, 62, 0.05);
+    border-left: 3px solid var(--hunter);
+    border-radius: 0 3px 3px 0;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .answer-key.visible {
+    display: block;
+  }
+
+  .answer-key-label {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--hunter-deep);
+    margin-bottom: 8px;
+  }
+
+  .answer-key .formula,
+  .answer-key .calc {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 13px;
+  }
+
+  .answer-key .calc {
+    display: block;
+    margin: 6px 0;
+    padding: 8px 10px;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    padding-top: 30px;
+    border-top: 1px solid rgba(45, 74, 62, 0.15);
+  }
+
+  .gold-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    margin: 0 8px;
+    vertical-align: middle;
+  }
+
+  .footer-text {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1 class="title">AP Chemistry</h1>
+    <p class="subtitle">Mini Practice Set · Units 1–7</p>
+    <div class="gold-rule"></div>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item">
+      <span class="legend-badge badge-we">We Do</span>
+      <span>Work through together, step by step</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-badge badge-you">You Do</span>
+      <span>Try the parallel question on your own</span>
+    </div>
+  </div>
+
+  <!-- TOPIC 1: Electron Configuration -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 01 · UNIT 1</div>
+      <h2 class="topic-title">Electron Configuration & PES</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          Which of the following is the correct ground-state electron configuration for a neutral atom of <span class="formula">Mn</span> (Z = 25)?
+        </p>
+        <div class="choices" data-q="we1" data-correct="b">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">[Ar] 4s² 3d⁵</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">[Ar] 3d⁵ 4s²</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">[Ar] 4s² 3d⁷</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">[Ne] 3s² 3p⁶ 4s² 3d⁵</span></span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we1-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we1-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we1-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Locate Mn</div>
+            <div class="step-content">Mn is element 25. So we need to place <span class="formula">25 electrons</span> total.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Use Ar as a noble gas core</div>
+            <div class="step-content"><span class="formula">Ar = 18 electrons</span>. That leaves <span class="formula">25 − 18 = 7</span> electrons to place after [Ar].</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Fill in order of energy</div>
+            <div class="step-content">After Ar, the next subshells fill <span class="formula">4s</span> then <span class="formula">3d</span>. Place 2 in 4s, then 5 in 3d.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Write by shell, not by filling order</div>
+            <div class="step-content">When we write the configuration, we list subshells by <em>principal quantum number</em>: 3d comes before 4s. So the correct written form is <span class="formula">[Ar] 3d⁵ 4s²</span>. Choice (A) shows the filling order, which is why (B) is the answer AP wants.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>B.</strong> <span class="formula">[Ar] 3d⁵ 4s²</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          Which of the following is the correct ground-state electron configuration for a neutral atom of <span class="formula">Co</span> (Z = 27)?
+        </p>
+        <div class="choices" data-q="you1" data-correct="c">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">[Ar] 4s² 3d⁵</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">[Ar] 3d⁹</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">[Ar] 3d⁷ 4s²</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">[Ar] 4s² 3d⁹</span></span></div>
+        </div>
+        <button class="btn btn-gold" onclick="checkMCQ('you1')">Check My Answer</button>
+        <div class="feedback" id="you1-fb"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 2: Bond Polarity -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 02 · UNIT 2</div>
+      <h2 class="topic-title">Bond Polarity & Molecular Shape</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          <strong>(a)</strong> Predict the molecular geometry of <span class="formula">CO₂</span>.<br>
+          <strong>(b)</strong> The C–O bonds are polar, but the molecule itself is nonpolar. Explain why.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we2-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we2-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we2-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Draw the Lewis structure</div>
+            <div class="step-content">Carbon has 4 valence electrons, each oxygen has 6. Total = 16. The structure is <span class="formula">O=C=O</span> with two double bonds and no lone pairs on C.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Count electron domains on C</div>
+            <div class="step-content">Carbon has 2 bonding domains (the two double bonds count as one domain each) and 0 lone pairs. That gives a <span class="formula">linear</span> geometry with a bond angle of 180°.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Compare electronegativities</div>
+            <div class="step-content">O (3.44) is more electronegative than C (2.55). Each C=O bond has a dipole pointing toward O.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Vector addition of dipoles</div>
+            <div class="step-content">Because the molecule is linear and symmetric, the two C=O dipoles point in <em>opposite directions</em> and are equal in magnitude. They cancel out, giving a net dipole moment of zero.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> Linear, 180° bond angle.<br><strong>(b)</strong> Each C=O bond is polar (O is more electronegative than C), but the two bond dipoles are equal in magnitude and point in opposite directions due to the linear geometry. They cancel, so the molecule has no net dipole.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          <strong>(a)</strong> Predict the molecular geometry of <span class="formula">H₂O</span>.<br>
+          <strong>(b)</strong> The O–H bonds are polar. Explain whether the molecule is polar or nonpolar overall, and justify using geometry.
+        </p>
+        <textarea id="you2-answer" placeholder="Type your response here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you2')">Show Answer Key</button>
+        <div class="answer-key" id="you2-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a)</strong> Bent (or angular), with a bond angle of about 104.5°. Oxygen has 2 bonding domains and 2 lone pairs, giving a tetrahedral electron geometry but a bent molecular geometry.<br><br>
+            <strong>(b)</strong> The molecule is <em>polar</em>. Each O–H bond is polar because O is more electronegative than H. Unlike <span class="formula">CO₂</span>, the bent shape means the two bond dipoles do <em>not</em> point in opposite directions — they add together to give a net dipole pointing from the H atoms toward the O.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 3: Stoichiometry -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 03 · UNIT 3</div>
+      <h2 class="topic-title">Stoichiometry & Limiting Reactant</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          Consider the reaction: <span class="formula">N₂(g) + 3 H₂(g) → 2 NH₃(g)</span><br><br>
+          A reaction vessel contains <span class="formula">14.0 g</span> of <span class="formula">N₂</span> and <span class="formula">3.00 g</span> of <span class="formula">H₂</span>.<br>
+          <strong>(a)</strong> Identify the limiting reactant.<br>
+          <strong>(b)</strong> Calculate the theoretical yield of <span class="formula">NH₃</span> in grams.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we3-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we3-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we3-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Convert grams to moles</div>
+            <div class="step-content">
+              <span class="calc">mol N₂ = 14.0 g ÷ 28.02 g/mol = 0.500 mol</span>
+              <span class="calc">mol H₂ = 3.00 g ÷ 2.02 g/mol = 1.49 mol</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Determine the limiting reactant</div>
+            <div class="step-content">From the equation, 1 mol N₂ needs 3 mol H₂. So 0.500 mol N₂ would need <span class="formula">0.500 × 3 = 1.50 mol H₂</span>. We only have 1.49 mol H₂, which is just barely short — so <strong>H₂ is the limiting reactant</strong>.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Use limiting reactant to find mol NH₃</div>
+            <div class="step-content">
+              <span class="calc">mol NH₃ = 1.49 mol H₂ × (2 mol NH₃ / 3 mol H₂) = 0.990 mol NH₃</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Convert mol NH₃ to grams</div>
+            <div class="step-content">
+              <span class="calc">mass NH₃ = 0.990 mol × 17.04 g/mol = 16.9 g</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> H₂ is the limiting reactant.<br><strong>(b)</strong> Theoretical yield ≈ <span class="formula">16.9 g NH₃</span>.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          Consider the reaction: <span class="formula">2 Al(s) + 3 Cl₂(g) → 2 AlCl₃(s)</span><br><br>
+          A reaction vessel contains <span class="formula">5.40 g</span> of <span class="formula">Al</span> and <span class="formula">12.0 g</span> of <span class="formula">Cl₂</span>.<br>
+          <strong>(a)</strong> Identify the limiting reactant.<br>
+          <strong>(b)</strong> Calculate the theoretical yield of <span class="formula">AlCl₃</span> in grams.<br>
+          <em>Molar masses: Al = 26.98 g/mol, Cl₂ = 70.90 g/mol, AlCl₃ = 133.33 g/mol</em>
+        </p>
+        <textarea id="you3-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you3')">Show Answer Key</button>
+        <div class="answer-key" id="you3-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>Step 1 — Convert to moles:</strong>
+            <span class="calc">mol Al = 5.40 g ÷ 26.98 g/mol = 0.200 mol</span>
+            <span class="calc">mol Cl₂ = 12.0 g ÷ 70.90 g/mol = 0.169 mol</span>
+            <strong>Step 2 — Find limiting reactant:</strong> 2 mol Al needs 3 mol Cl₂, so 0.200 mol Al would need <span class="formula">0.200 × (3/2) = 0.300 mol Cl₂</span>. We only have 0.169 mol Cl₂, so <strong>Cl₂ is the limiting reactant</strong>.<br><br>
+            <strong>Step 3 — Find mol AlCl₃:</strong>
+            <span class="calc">mol AlCl₃ = 0.169 mol Cl₂ × (2 mol AlCl₃ / 3 mol Cl₂) = 0.113 mol</span>
+            <strong>Step 4 — Convert to grams:</strong>
+            <span class="calc">mass AlCl₃ = 0.113 mol × 133.33 g/mol = 15.0 g</span>
+            <strong>(a)</strong> Cl₂ is the limiting reactant.<br>
+            <strong>(b)</strong> Theoretical yield ≈ <span class="formula">15.0 g AlCl₃</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 4: Gas Laws -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 04 · UNIT 3</div>
+      <h2 class="topic-title">Gas Laws & Ideal Gas Equation</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A sample of <span class="formula">O₂</span> gas occupies <span class="formula">2.50 L</span> at <span class="formula">300 K</span> and <span class="formula">1.00 atm</span>. If the temperature is increased to <span class="formula">450 K</span> at constant pressure, what is the new volume?
+        </p>
+        <div class="choices" data-q="we4" data-correct="c">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">1.67 L</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">2.50 L</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">3.75 L</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">4.50 L</span></span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we4-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we4-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we4-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Identify what's constant</div>
+            <div class="step-content">Pressure is constant. Moles are constant (sealed sample). Temperature and volume change. This is <strong>Charles's Law</strong>: <span class="formula">V₁/T₁ = V₂/T₂</span>.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Verify temperatures are in Kelvin</div>
+            <div class="step-content">Both 300 K and 450 K are already in Kelvin. Good — never plug Celsius into gas law equations.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Solve for V₂</div>
+            <div class="step-content">
+              <span class="calc">V₂ = V₁ × (T₂ / T₁)</span>
+              <span class="calc">V₂ = 2.50 L × (450 K / 300 K) = 2.50 × 1.50 = 3.75 L</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Sanity check</div>
+            <div class="step-content">Temperature increased by a factor of 1.5, so at constant pressure the volume should also increase by 1.5×. <span class="formula">2.50 × 1.5 = 3.75 L</span>. ✓</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>C.</strong> <span class="formula">3.75 L</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A sample of <span class="formula">N₂</span> gas occupies <span class="formula">4.00 L</span> at <span class="formula">250 K</span> and <span class="formula">2.00 atm</span>. If the temperature is increased to <span class="formula">400 K</span> while pressure stays constant, what is the new volume?
+        </p>
+        <div class="choices" data-q="you4" data-correct="d">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">2.50 L</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">4.00 L</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">5.20 L</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">6.40 L</span></span></div>
+        </div>
+        <button class="btn btn-gold" onclick="checkMCQ('you4')">Check My Answer</button>
+        <div class="feedback" id="you4-fb"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 5: Thermochemistry -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 05 · UNIT 6</div>
+      <h2 class="topic-title">Thermochemistry & Calorimetry</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A <span class="formula">50.0 g</span> sample of water at <span class="formula">22.0 °C</span> is placed in a coffee-cup calorimeter. A <span class="formula">25.0 g</span> piece of copper metal at <span class="formula">95.0 °C</span> is dropped into the water. The final temperature of the system is <span class="formula">25.6 °C</span>.<br><br>
+          Calculate the specific heat capacity of copper. <em>(Specific heat of water = 4.18 J/g·°C)</em>
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we5-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we5-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we5-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Set up conservation of energy</div>
+            <div class="step-content">In a calorimeter, heat lost by the hot object = heat gained by the cold object. <span class="formula">−q_Cu = q_water</span>, or equivalently <span class="formula">q_water + q_Cu = 0</span>.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Calculate heat gained by water</div>
+            <div class="step-content">Using <span class="formula">q = mcΔT</span>:
+              <span class="calc">q_water = (50.0 g)(4.18 J/g·°C)(25.6 − 22.0)</span>
+              <span class="calc">q_water = (50.0)(4.18)(3.6) = +752 J</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Heat lost by copper</div>
+            <div class="step-content">Heat lost by Cu equals heat gained by water in magnitude:
+              <span class="calc">q_Cu = −752 J</span>
+              ΔT for copper: <span class="formula">25.6 − 95.0 = −69.4 °C</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Solve for c of copper</div>
+            <div class="step-content">
+              <span class="calc">c_Cu = q_Cu / (m × ΔT)</span>
+              <span class="calc">c_Cu = (−752 J) / [(25.0 g)(−69.4 °C)]</span>
+              <span class="calc">c_Cu = 0.433 J/g·°C</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><span class="formula">c_Cu ≈ 0.433 J/g·°C</span><br>(Accepted value is about 0.385 J/g·°C — the discrepancy in this problem reflects normal calorimeter heat loss.)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A <span class="formula">75.0 g</span> sample of water at <span class="formula">20.0 °C</span> is placed in a coffee-cup calorimeter. A <span class="formula">40.0 g</span> piece of an unknown metal at <span class="formula">100.0 °C</span> is dropped into the water. The final temperature is <span class="formula">24.5 °C</span>.<br><br>
+          Calculate the specific heat capacity of the unknown metal. <em>(c_water = 4.18 J/g·°C)</em>
+        </p>
+        <textarea id="you5-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you5')">Show Answer Key</button>
+        <div class="answer-key" id="you5-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>Step 1 — Set up:</strong> <span class="formula">−q_metal = q_water</span><br><br>
+            <strong>Step 2 — Heat gained by water:</strong>
+            <span class="calc">q_water = (75.0 g)(4.18 J/g·°C)(24.5 − 20.0)</span>
+            <span class="calc">q_water = (75.0)(4.18)(4.5) = +1411 J</span>
+            <strong>Step 3 — Heat lost by metal:</strong> <span class="formula">q_metal = −1411 J</span>, with <span class="formula">ΔT = 24.5 − 100.0 = −75.5 °C</span><br><br>
+            <strong>Step 4 — Solve for c:</strong>
+            <span class="calc">c_metal = (−1411 J) / [(40.0 g)(−75.5 °C)]</span>
+            <span class="calc">c_metal ≈ 0.467 J/g·°C</span>
+            This is close to the specific heat of iron (0.449 J/g·°C), so the unknown metal is likely iron.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 6: Equilibrium -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 06 · UNIT 7</div>
+      <h2 class="topic-title">Equilibrium & Le Châtelier's Principle</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          Consider the equilibrium: <span class="formula">N₂(g) + 3 H₂(g) ⇌ 2 NH₃(g)</span>, <span class="formula">ΔH = −92 kJ/mol</span><br><br>
+          Which change would shift the equilibrium to produce <strong>more</strong> <span class="formula">NH₃</span>?
+        </p>
+        <div class="choices" data-q="we6" data-correct="b">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text">Increasing the temperature</span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text">Increasing the total pressure on the system</span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text">Adding a noble gas at constant volume</span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text">Removing some N₂ from the system</span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we6-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we6-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we6-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Count moles of gas on each side</div>
+            <div class="step-content">Left side: 1 + 3 = 4 mol gas. Right side: 2 mol gas. The forward reaction <em>decreases</em> total moles of gas.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Evaluate (A) increasing temperature</div>
+            <div class="step-content">The reaction is exothermic (ΔH < 0). Treat heat as a product. Adding heat shifts equilibrium <em>backward</em> (toward reactants) — produces <em>less</em> NH₃. (A) is wrong.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Evaluate (B) increasing pressure</div>
+            <div class="step-content">Increasing pressure shifts equilibrium toward the side with <em>fewer</em> moles of gas. That's the product side (2 mol vs. 4 mol). So the equilibrium shifts forward → <em>more</em> NH₃. (B) is correct.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Evaluate (C) and (D)</div>
+            <div class="step-content"><strong>(C)</strong> Adding a noble gas at constant volume does not change the partial pressures of N₂, H₂, or NH₃ → no shift. <strong>(D)</strong> Removing N₂ shifts equilibrium <em>backward</em> (toward reactants) to replace it → less NH₃.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>B.</strong> Increasing pressure shifts toward the side with fewer moles of gas (the products).</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          Consider the equilibrium: <span class="formula">2 SO₂(g) + O₂(g) ⇌ 2 SO₃(g)</span>, <span class="formula">ΔH = −198 kJ/mol</span><br><br>
+          Which change would shift the equilibrium to produce <strong>more</strong> <span class="formula">SO₃</span>?
+        </p>
+        <div class="choices" data-q="you6" data-correct="c">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text">Increasing the temperature</span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text">Removing some O₂ from the system</span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text">Decreasing the volume of the container</span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text">Adding a catalyst</span></div>
+        </div>
+        <button class="btn btn-gold" onclick="checkMCQ('you6')">Check My Answer</button>
+        <div class="feedback" id="you6-fb"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 7: Acid-Base / pH -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">TOPIC 07 · UNIT 8</div>
+      <h2 class="topic-title">Acid-Base Chemistry & pH</h2>
+    </div>
+
+    <div class="pair">
+      <!-- WE DO -->
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          Acetic acid (<span class="formula">CH₃COOH</span>) is a weak acid with <span class="formula">Kₐ = 1.8 × 10⁻⁵</span>.<br><br>
+          <strong>(a)</strong> Write the equilibrium expression for the ionization of acetic acid in water.<br>
+          <strong>(b)</strong> Calculate the pH of a <span class="formula">0.100 M</span> solution of acetic acid.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we7-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we7-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we7-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Write the ionization equation</div>
+            <div class="step-content"><span class="formula">CH₃COOH(aq) ⇌ CH₃COO⁻(aq) + H⁺(aq)</span></div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Write the Kₐ expression</div>
+            <div class="step-content">
+              <span class="calc">Kₐ = [CH₃COO⁻][H⁺] / [CH₃COOH] = 1.8 × 10⁻⁵</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Set up an ICE table</div>
+            <div class="step-content">Let <span class="formula">x = [H⁺]</span> formed at equilibrium.<br>
+              Initial: [CH₃COOH] = 0.100, [CH₃COO⁻] = 0, [H⁺] = 0<br>
+              Change: −x, +x, +x<br>
+              Equilibrium: 0.100 − x, x, x
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Solve with the small-x approximation</div>
+            <div class="step-content">Because Kₐ is small, assume <span class="formula">x ≪ 0.100</span>, so <span class="formula">0.100 − x ≈ 0.100</span>:
+              <span class="calc">1.8 × 10⁻⁵ = x² / 0.100</span>
+              <span class="calc">x² = 1.8 × 10⁻⁶</span>
+              <span class="calc">x = [H⁺] = 1.34 × 10⁻³ M</span>
+              Check: 1.34 × 10⁻³ / 0.100 = 1.3% — under 5%, approximation valid. ✓
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 5 · Calculate pH</div>
+            <div class="step-content">
+              <span class="calc">pH = −log(1.34 × 10⁻³) = 2.87</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> <span class="formula">Kₐ = [CH₃COO⁻][H⁺] / [CH₃COOH]</span><br><strong>(b)</strong> pH ≈ <span class="formula">2.87</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOU DO -->
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          Formic acid (<span class="formula">HCOOH</span>) is a weak acid with <span class="formula">Kₐ = 1.8 × 10⁻⁴</span>.<br><br>
+          <strong>(a)</strong> Write the equilibrium expression for the ionization of formic acid in water.<br>
+          <strong>(b)</strong> Calculate the pH of a <span class="formula">0.250 M</span> solution of formic acid.
+        </p>
+        <textarea id="you7-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you7')">Show Answer Key</button>
+        <div class="answer-key" id="you7-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a)</strong> Ionization: <span class="formula">HCOOH(aq) ⇌ HCOO⁻(aq) + H⁺(aq)</span>
+            <span class="calc">Kₐ = [HCOO⁻][H⁺] / [HCOOH] = 1.8 × 10⁻⁴</span>
+            <strong>(b) Step 1 — ICE table:</strong> Let <span class="formula">x = [H⁺]</span>. Initial [HCOOH] = 0.250, equilibrium [HCOOH] = 0.250 − x, [HCOO⁻] = x, [H⁺] = x.<br><br>
+            <strong>Step 2 — Apply approximation (0.250 − x ≈ 0.250):</strong>
+            <span class="calc">1.8 × 10⁻⁴ = x² / 0.250</span>
+            <span class="calc">x² = 4.5 × 10⁻⁵</span>
+            <span class="calc">x = [H⁺] = 6.71 × 10⁻³ M</span>
+            Check: 6.71 × 10⁻³ / 0.250 = 2.7% — under 5%, approximation valid. ✓<br><br>
+            <strong>Step 3 — Calculate pH:</strong>
+            <span class="calc">pH = −log(6.71 × 10⁻³) = 2.17</span>
+            <strong>(a)</strong> <span class="formula">Kₐ = [HCOO⁻][H⁺] / [HCOOH]</span><br>
+            <strong>(b)</strong> pH ≈ <span class="formula">2.17</span> (more acidic than the acetic acid example because Kₐ is 10× larger).
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-text">
+      AP Chemistry Mini Practice
+      <span class="gold-dot"></span>
+      Units 1 through 7
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // MCQ click handling
+  document.querySelectorAll('.choices').forEach(group => {
+    const qId = group.dataset.q;
+    group.querySelectorAll('.choice').forEach(choice => {
+      choice.addEventListener('click', () => {
+        // Don't allow re-clicks if already revealed for You Do
+        if (group.classList.contains('locked')) return;
+        group.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+        choice.classList.add('selected');
+      });
+    });
+  });
+
+  // Reveal one step at a time (We Do)
+  function revealNextStep(containerId) {
+    const container = document.getElementById(containerId);
+    const steps = container.querySelectorAll('.step');
+    for (let i = 0; i < steps.length; i++) {
+      if (!steps[i].classList.contains('visible')) {
+        steps[i].classList.add('visible');
+        return;
+      }
+    }
+  }
+
+  // Reveal all steps
+  function revealAllSteps(containerId) {
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('.step').forEach(s => s.classList.add('visible'));
+  }
+
+  // Per-question feedback messages
+  const feedbackMessages = {
+    you1: {
+      correct: 'Co has 27 electrons. After [Ar] (18 electrons), 9 remain. Fill 4s first (2 electrons), then put the rest into 3d (7 electrons). Written in order of principal quantum number: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">[Ar] 3d⁷ 4s²</span>.',
+      incorrect: 'Co has 27 electrons. After [Ar] (18 electrons), 9 remain. Fill 4s with 2, then 3d with 7. Written by principal quantum number: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">[Ar] 3d⁷ 4s²</span>. Watch for common traps: (B) is the right element count but wrong subshell split; (D) has too many electrons.'
+    },
+    you4: {
+      correct: 'Charles\'s Law: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">V₁/T₁ = V₂/T₂</span>. Temperature increased by a factor of 400/250 = 1.6×, so volume goes from 4.00 L to 4.00 × 1.6 = 6.40 L. The 2.00 atm pressure is a distractor — it stays constant, so it cancels.',
+      incorrect: 'Use Charles\'s Law: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">V₂ = V₁ × (T₂/T₁)</span> = 4.00 × (400/250) = 6.40 L. Pressure is constant so it doesn\'t enter the calculation. If you got (A), you may have inverted the ratio. Always make sure T is in Kelvin (it already is here).'
+    },
+    you6: {
+      correct: 'Decreasing volume increases pressure, which shifts equilibrium to the side with fewer moles of gas. Left side: 2 + 1 = 3 mol; right side: 2 mol. Product side has fewer moles, so equilibrium shifts forward → more SO₃. (A) would shift backward (exothermic). (B) would shift backward (removing reactant). (D) catalysts don\'t shift equilibrium, just reach it faster.',
+      incorrect: 'The answer is (C). Decreasing volume = increasing pressure, which favors the side with fewer moles of gas. Reactants = 3 mol gas, products = 2 mol gas, so the shift goes forward (more SO₃). Common traps: (A) The reaction is exothermic — adding heat shifts <em>backward</em>. (B) Removing a reactant shifts backward to replace it. (D) Catalysts speed up both directions equally — no shift in equilibrium position.'
+    }
+  };
+
+  // Check MCQ (You Do)
+  function checkMCQ(qId) {
+    const group = document.querySelector(`.choices[data-q="${qId}"]`);
+    const correct = group.dataset.correct;
+    const selected = group.querySelector('.choice.selected');
+    const fb = document.getElementById(`${qId}-fb`);
+
+    if (!selected) {
+      fb.className = 'feedback incorrect-fb visible';
+      fb.innerHTML = '<div class="feedback-label">No answer selected</div>Pick one of the choices first.';
+      return;
+    }
+
+    const picked = selected.dataset.letter;
+    group.classList.add('locked');
+
+    // Show correct answer
+    group.querySelectorAll('.choice').forEach(c => {
+      if (c.dataset.letter === correct) c.classList.add('correct');
+      else if (c.dataset.letter === picked && picked !== correct) c.classList.add('incorrect');
+    });
+
+    const msg = feedbackMessages[qId] || { correct: 'Correct!', incorrect: `The correct answer is ${correct.toUpperCase()}.` };
+
+    if (picked === correct) {
+      fb.className = 'feedback correct-fb visible';
+      fb.innerHTML = '<div class="feedback-label">Correct!</div>' + msg.correct;
+    } else {
+      fb.className = 'feedback incorrect-fb visible';
+      fb.innerHTML = `<div class="feedback-label">Not quite — the answer is ${correct.toUpperCase()}</div>` + msg.incorrect;
+    }
+  }
+
+  // Show answer key (FRQ You Do)
+  function showAnswerKey(qId) {
+    document.getElementById(`${qId}-key`).classList.add('visible');
+  }
+</script>
+</body>
+</html>
