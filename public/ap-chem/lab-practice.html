@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Chemistry — Lab Skills Practice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hunter: #2d4a3e;
+    --hunter-deep: #1f342c;
+    --hunter-soft: #3d5e4f;
+    --cream: #f5f0e1;
+    --cream-warm: #ebe3cf;
+    --gold: #c9a44c;
+    --gold-deep: #a8862f;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --correct: #4a7c59;
+    --incorrect: #9b3a3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(201, 164, 76, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(45, 74, 62, 0.04) 0%, transparent 40%);
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 60px 40px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 60px;
+    position: relative;
+    padding-top: 20px;
+  }
+
+  .title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 48px;
+    color: var(--hunter-deep);
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    letter-spacing: 0.05em;
+  }
+
+  .gold-rule {
+    width: 60px;
+    height: 2px;
+    background: var(--gold);
+    margin: 28px auto 0;
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 50px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(45, 74, 62, 0.1);
+    border-radius: 4px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--hunter-deep);
+  }
+
+  .legend-badge {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .badge-we { background: var(--hunter); color: var(--cream); }
+  .badge-you { background: var(--gold); color: var(--hunter-deep); }
+
+  .topic { margin-bottom: 70px; }
+
+  .topic-header {
+    margin-bottom: 30px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(45, 74, 62, 0.2);
+  }
+
+  .topic-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--gold-deep);
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+
+  .topic-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--hunter-deep);
+  }
+
+  .topic-context {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 820px) {
+    .pair { grid-template-columns: 1fr; }
+    .container { padding: 40px 20px; }
+    .title { font-size: 36px; }
+    .legend { flex-direction: column; gap: 12px; align-items: center; }
+  }
+
+  .card {
+    background: #fdfaf0;
+    border: 1px solid rgba(45, 74, 62, 0.12);
+    border-radius: 4px;
+    padding: 28px;
+    position: relative;
+    box-shadow: 0 2px 12px rgba(45, 74, 62, 0.04);
+  }
+
+  .card.we-do { border-top: 3px solid var(--hunter); }
+  .card.you-do { border-top: 3px solid var(--gold); }
+
+  .card-tag {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 5px 11px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .we-do .card-tag { background: var(--hunter); color: var(--cream); }
+  .you-do .card-tag { background: var(--gold); color: var(--hunter-deep); }
+
+  .q-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .question {
+    font-size: 16px;
+    color: var(--ink);
+    margin-bottom: 18px;
+    line-height: 1.65;
+  }
+
+  .question .formula {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 14px;
+  }
+
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 15px;
+  }
+
+  .choice:hover {
+    background: var(--cream-warm);
+    border-color: rgba(45, 74, 62, 0.2);
+  }
+
+  .choice.selected {
+    background: rgba(201, 164, 76, 0.15);
+    border-color: var(--gold);
+  }
+
+  .choice.correct {
+    background: rgba(74, 124, 89, 0.12);
+    border-color: var(--correct);
+  }
+
+  .choice.incorrect {
+    background: rgba(155, 58, 58, 0.08);
+    border-color: var(--incorrect);
+  }
+
+  .choice-letter {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--hunter);
+    flex-shrink: 0;
+  }
+
+  .choice-text { flex: 1; }
+
+  .choice-text .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid rgba(45, 74, 62, 0.2);
+    border-radius: 3px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: var(--cream);
+    color: var(--ink);
+    resize: vertical;
+    margin-bottom: 14px;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    background: #fdfaf0;
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-primary { background: var(--hunter); color: var(--cream); }
+  .btn-primary:hover { background: var(--hunter-deep); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--hunter);
+    border: 1px solid var(--hunter);
+  }
+
+  .btn-secondary:hover { background: var(--hunter); color: var(--cream); }
+
+  .btn-gold { background: var(--gold); color: var(--hunter-deep); }
+  .btn-gold:hover { background: var(--gold-deep); color: var(--cream); }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .solution {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed rgba(45, 74, 62, 0.25);
+  }
+
+  .step {
+    display: none;
+    padding: 12px 14px;
+    background: rgba(45, 74, 62, 0.04);
+    border-left: 3px solid var(--gold);
+    margin-bottom: 10px;
+    border-radius: 0 3px 3px 0;
+    animation: slideIn 0.3s ease;
+  }
+
+  .step.visible { display: block; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold-deep);
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .step-content {
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .step-content .formula,
+  .step-content .calc {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 13px;
+  }
+
+  .step-content .calc {
+    display: block;
+    margin: 6px 0;
+    padding: 8px 10px;
+  }
+
+  .feedback {
+    display: none;
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 3px;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .feedback.visible { display: block; }
+
+  .feedback.correct-fb {
+    background: rgba(74, 124, 89, 0.1);
+    border-left: 3px solid var(--correct);
+  }
+
+  .feedback.incorrect-fb {
+    background: rgba(155, 58, 58, 0.08);
+    border-left: 3px solid var(--incorrect);
+  }
+
+  .feedback-label {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .correct-fb .feedback-label { color: var(--correct); }
+  .incorrect-fb .feedback-label { color: var(--incorrect); }
+
+  .answer-key {
+    display: none;
+    margin-top: 14px;
+    padding: 14px;
+    background: rgba(45, 74, 62, 0.05);
+    border-left: 3px solid var(--hunter);
+    border-radius: 0 3px 3px 0;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .answer-key.visible { display: block; }
+
+  .answer-key-label {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--hunter-deep);
+    margin-bottom: 8px;
+  }
+
+  .answer-key .formula,
+  .answer-key .calc {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--cream-warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 13px;
+  }
+
+  .answer-key .calc {
+    display: block;
+    margin: 6px 0;
+    padding: 8px 10px;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    background: var(--hunter);
+    color: var(--cream);
+    padding: 8px 10px;
+    text-align: left;
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(45, 74, 62, 0.1);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .data-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    padding-top: 30px;
+    border-top: 1px solid rgba(45, 74, 62, 0.15);
+  }
+
+  .gold-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    margin: 0 8px;
+    vertical-align: middle;
+  }
+
+  .footer-text {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1 class="title">Lab Skills Practice</h1>
+    <p class="subtitle">AP Chemistry · Experimental Techniques</p>
+    <div class="gold-rule"></div>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item">
+      <span class="legend-badge badge-we">We Do</span>
+      <span>Work through together, step by step</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-badge badge-you">You Do</span>
+      <span>Try the parallel question on your own</span>
+    </div>
+  </div>
+
+  <!-- TOPIC 1: Titration -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 01 · ACID-BASE TITRATION</div>
+      <h2 class="topic-title">Titration & Equivalence Point</h2>
+      <p class="topic-context">Recognizing the equivalence point on a titration curve and using volume data to find unknown concentration.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student titrates <span class="formula">25.00 mL</span> of an unknown <span class="formula">HCl</span> solution with <span class="formula">0.100 M NaOH</span>. The equivalence point is reached after adding <span class="formula">32.50 mL</span> of <span class="formula">NaOH</span>.<br><br>
+          <strong>(a)</strong> Write the balanced neutralization equation.<br>
+          <strong>(b)</strong> Calculate the concentration of the <span class="formula">HCl</span> solution.<br>
+          <strong>(c)</strong> What indicator would be appropriate, and why?
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we1-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we1-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we1-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Balanced equation</div>
+            <div class="step-content"><span class="formula">HCl(aq) + NaOH(aq) → NaCl(aq) + H₂O(l)</span><br>1:1 mole ratio — that's the key.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Moles of NaOH used</div>
+            <div class="step-content">
+              <span class="calc">mol NaOH = M × V = 0.100 mol/L × 0.03250 L = 3.25 × 10⁻³ mol</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Apply the 1:1 ratio</div>
+            <div class="step-content">At the equivalence point, mol acid = mol base (because the ratio is 1:1).
+              <span class="calc">mol HCl = 3.25 × 10⁻³ mol</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Solve for HCl concentration</div>
+            <div class="step-content">
+              <span class="calc">[HCl] = mol / V = 3.25 × 10⁻³ mol / 0.02500 L</span>
+              <span class="calc">[HCl] = 0.130 M</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 5 · Choose an indicator</div>
+            <div class="step-content">Strong acid + strong base → equivalence pH = 7. Use an indicator that changes color near pH 7, like <strong>bromothymol blue</strong> (pH 6.0-7.6). Phenolphthalein (pH 8.2-10) also works because the steep pH jump at equivalence covers that range too.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> HCl + NaOH → NaCl + H₂O<br><strong>(b)</strong> [HCl] = <span class="formula">0.130 M</span><br><strong>(c)</strong> Bromothymol blue, because it changes color near pH 7 (the equivalence pH for a strong acid + strong base).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student titrates <span class="formula">20.00 mL</span> of an unknown <span class="formula">H₂SO₄</span> solution with <span class="formula">0.150 M KOH</span>. The equivalence point is reached after adding <span class="formula">28.40 mL</span> of <span class="formula">KOH</span>.<br><br>
+          <strong>(a)</strong> Write the balanced neutralization equation.<br>
+          <strong>(b)</strong> Calculate the concentration of the <span class="formula">H₂SO₄</span> solution.<br>
+          <strong>(c)</strong> Watch out: this is <em>not</em> a 1:1 ratio.
+        </p>
+        <textarea id="you1-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you1')">Show Answer Key</button>
+        <div class="answer-key" id="you1-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a)</strong> <span class="formula">H₂SO₄ + 2 KOH → K₂SO₄ + 2 H₂O</span><br>
+            Sulfuric acid is diprotic — needs 2 mol base per mol acid.<br><br>
+            <strong>(b) Step 1 — moles of KOH:</strong>
+            <span class="calc">mol KOH = 0.150 × 0.02840 = 4.26 × 10⁻³ mol</span>
+            <strong>Step 2 — apply the 1:2 ratio (acid:base):</strong>
+            <span class="calc">mol H₂SO₄ = 4.26 × 10⁻³ × (1/2) = 2.13 × 10⁻³ mol</span>
+            <strong>Step 3 — concentration:</strong>
+            <span class="calc">[H₂SO₄] = 2.13 × 10⁻³ / 0.02000 = 0.107 M</span>
+            If you forgot to divide by 2, you'd get 0.213 M — exactly double the right answer. This is the most common error on diprotic acid titrations.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 2: Solution Prep & Dilution -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 02 · SOLUTION PREPARATION</div>
+      <h2 class="topic-title">Dilution & M₁V₁ = M₂V₂</h2>
+      <p class="topic-context">Preparing a target concentration from a stock solution — the workhorse of every wet lab.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A student needs <span class="formula">250.0 mL</span> of <span class="formula">0.200 M HCl</span>. They have a stock solution of <span class="formula">6.00 M HCl</span>.<br><br>
+          What volume of stock solution should they use?
+        </p>
+        <div class="choices" data-q="we2" data-correct="b">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">4.17 mL</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">8.33 mL</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">12.0 mL</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">30.0 mL</span></span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we2-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we2-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we2-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Identify what each variable is</div>
+            <div class="step-content"><span class="formula">M₁V₁ = M₂V₂</span>. Subscript 1 = stock (concentrated), subscript 2 = final (dilute).<br>M₁ = 6.00 M, V₁ = ? (what we want), M₂ = 0.200 M, V₂ = 250.0 mL</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Solve for V₁</div>
+            <div class="step-content">
+              <span class="calc">V₁ = (M₂ × V₂) / M₁</span>
+              <span class="calc">V₁ = (0.200 × 250.0) / 6.00 = 8.33 mL</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Sanity check</div>
+            <div class="step-content">Diluting from 6.00 M to 0.200 M is a 30× dilution. So we need 1/30 of the final volume of stock: 250 / 30 ≈ 8.3 mL. ✓</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · How to actually do it in lab</div>
+            <div class="step-content">Measure 8.33 mL of 6.00 M HCl with a pipette, add to a 250 mL volumetric flask, then fill to the 250 mL line with distilled water. <strong>Never</strong> add water to concentrated acid — always acid to water.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>B.</strong> <span class="formula">8.33 mL</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A student needs <span class="formula">500.0 mL</span> of <span class="formula">0.150 M NaOH</span>. They have a stock solution of <span class="formula">3.00 M NaOH</span>.<br><br>
+          What volume of stock solution should they use?
+        </p>
+        <div class="choices" data-q="you2" data-correct="c">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">10.0 mL</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">20.0 mL</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">25.0 mL</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text"><span class="formula">50.0 mL</span></span></div>
+        </div>
+        <button class="btn btn-gold" onclick="checkMCQ('you2')">Check My Answer</button>
+        <div class="feedback" id="you2-fb"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 3: Gravimetric Analysis -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 03 · GRAVIMETRIC ANALYSIS</div>
+      <h2 class="topic-title">Empirical Formula from Mass Data</h2>
+      <p class="topic-context">Heating a hydrate to drive off water, then using mass loss to determine the formula. Classic AP exam material.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          A <span class="formula">3.246 g</span> sample of a hydrate of copper(II) sulfate, <span class="formula">CuSO₄·xH₂O</span>, is heated until all the water is driven off. The mass of the anhydrous <span class="formula">CuSO₄</span> remaining is <span class="formula">2.076 g</span>.<br><br>
+          <strong>(a)</strong> Calculate the mass of water lost.<br>
+          <strong>(b)</strong> Determine the value of <span class="formula">x</span> in the formula.<br>
+          <em>Molar masses: CuSO₄ = 159.6 g/mol, H₂O = 18.02 g/mol</em>
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we3-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we3-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we3-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Mass of water lost</div>
+            <div class="step-content">
+              <span class="calc">mass H₂O = 3.246 g − 2.076 g = 1.170 g</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Convert each to moles</div>
+            <div class="step-content">
+              <span class="calc">mol CuSO₄ = 2.076 g / 159.6 g/mol = 0.01301 mol</span>
+              <span class="calc">mol H₂O = 1.170 g / 18.02 g/mol = 0.06493 mol</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Find the mole ratio</div>
+            <div class="step-content">Divide both by the smaller number (mol CuSO₄):
+              <span class="calc">CuSO₄: 0.01301 / 0.01301 = 1.00</span>
+              <span class="calc">H₂O: 0.06493 / 0.01301 = 4.99 ≈ 5</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Write the formula</div>
+            <div class="step-content">x = 5, so the hydrate is <span class="formula">CuSO₄·5H₂O</span> (copper(II) sulfate pentahydrate — the bright blue crystals you've seen in lab).</div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> Mass of water lost = <span class="formula">1.170 g</span><br><strong>(b)</strong> x = 5, formula is <span class="formula">CuSO₄·5H₂O</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">LONG-ANSWER FRQ</div>
+        <p class="question">
+          A <span class="formula">2.500 g</span> sample of a hydrate of magnesium sulfate, <span class="formula">MgSO₄·xH₂O</span>, is heated until all the water is driven off. The mass of anhydrous <span class="formula">MgSO₄</span> remaining is <span class="formula">1.222 g</span>.<br><br>
+          <strong>(a)</strong> Calculate the mass of water lost.<br>
+          <strong>(b)</strong> Determine the value of <span class="formula">x</span> in the formula.<br>
+          <em>Molar masses: MgSO₄ = 120.4 g/mol, H₂O = 18.02 g/mol</em>
+        </p>
+        <textarea id="you3-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you3')">Show Answer Key</button>
+        <div class="answer-key" id="you3-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a)</strong> <span class="calc">mass H₂O = 2.500 g − 1.222 g = 1.278 g</span><br>
+            <strong>(b) Step 1 — convert to moles:</strong>
+            <span class="calc">mol MgSO₄ = 1.222 / 120.4 = 0.01015 mol</span>
+            <span class="calc">mol H₂O = 1.278 / 18.02 = 0.07093 mol</span>
+            <strong>Step 2 — ratio (divide by smaller):</strong>
+            <span class="calc">MgSO₄: 0.01015 / 0.01015 = 1.00</span>
+            <span class="calc">H₂O: 0.07093 / 0.01015 = 6.99 ≈ 7</span>
+            <strong>Answer:</strong> x = 7, formula is <span class="formula">MgSO₄·7H₂O</span> (Epsom salts — same stuff you put in a bath).
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 4: Gas Collection -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 04 · GAS COLLECTION OVER WATER</div>
+      <h2 class="topic-title">Dalton's Law & Molar Volume</h2>
+      <p class="topic-context">When you collect a gas by water displacement, the gas in the tube is contaminated with water vapor. You need to subtract it out.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student reacts magnesium with hydrochloric acid and collects the <span class="formula">H₂</span> gas by water displacement. The collected gas has a volume of <span class="formula">125.0 mL</span> at <span class="formula">25 °C</span> and the total pressure inside the tube is <span class="formula">752 torr</span>. At 25 °C, the vapor pressure of water is <span class="formula">23.8 torr</span>.<br><br>
+          <strong>(a)</strong> Find the partial pressure of dry <span class="formula">H₂</span>.<br>
+          <strong>(b)</strong> Calculate the moles of <span class="formula">H₂</span> collected.<br>
+          <em>R = 0.0821 L·atm/(mol·K)</em>
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we4-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we4-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we4-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · Why we subtract water vapor</div>
+            <div class="step-content">When gas is collected over water, the gas above the water is a <em>mixture</em> of the gas we want (H₂) and water vapor. By Dalton's Law: <span class="formula">P_total = P_H₂ + P_H₂O</span>.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Solve for P of H₂</div>
+            <div class="step-content">
+              <span class="calc">P_H₂ = P_total − P_H₂O = 752 − 23.8 = 728.2 torr</span>
+              Convert to atm: <span class="calc">728.2 / 760 = 0.9582 atm</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Convert units for PV=nRT</div>
+            <div class="step-content">V = 125.0 mL = 0.1250 L<br>T = 25 °C = 298 K (always Kelvin!)<br>P = 0.9582 atm</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Solve for n</div>
+            <div class="step-content">
+              <span class="calc">n = PV / RT</span>
+              <span class="calc">n = (0.9582)(0.1250) / [(0.0821)(298)]</span>
+              <span class="calc">n = 0.1198 / 24.47 = 4.90 × 10⁻³ mol H₂</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> P_H₂ = <span class="formula">728.2 torr</span> (or 0.9582 atm)<br><strong>(b)</strong> n_H₂ = <span class="formula">4.90 × 10⁻³ mol</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student reacts zinc with hydrochloric acid and collects the <span class="formula">H₂</span> gas by water displacement. The collected gas has a volume of <span class="formula">85.0 mL</span> at <span class="formula">22 °C</span> and the total pressure inside the tube is <span class="formula">745 torr</span>. At 22 °C, the vapor pressure of water is <span class="formula">19.8 torr</span>.<br><br>
+          <strong>(a)</strong> Find the partial pressure of dry <span class="formula">H₂</span>.<br>
+          <strong>(b)</strong> Calculate the moles of <span class="formula">H₂</span> collected.<br>
+          <em>R = 0.0821 L·atm/(mol·K)</em>
+        </p>
+        <textarea id="you4-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you4')">Show Answer Key</button>
+        <div class="answer-key" id="you4-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a) Dalton's Law:</strong>
+            <span class="calc">P_H₂ = 745 − 19.8 = 725.2 torr</span>
+            <span class="calc">P_H₂ = 725.2 / 760 = 0.9542 atm</span>
+            <strong>(b) Set up PV = nRT:</strong>
+            V = 0.0850 L, T = 22 + 273 = 295 K
+            <span class="calc">n = (0.9542)(0.0850) / [(0.0821)(295)]</span>
+            <span class="calc">n = 0.08111 / 24.22 = 3.35 × 10⁻³ mol H₂</span>
+            <strong>Common pitfall:</strong> Forgetting to subtract water vapor. If you used 745 torr directly, you'd get ~3.44 × 10⁻³ mol — close enough to look "right" but actually wrong. Always subtract.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 5: Beer-Lambert -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 05 · BEER-LAMBERT LAW</div>
+      <h2 class="topic-title">Calibration Curves & Concentration</h2>
+      <p class="topic-context">Using a calibration curve to find an unknown concentration from absorbance — the most quantitative skill on the AP exam outside of titration.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student prepares standard solutions of <span class="formula">Cu²⁺</span> and measures their absorbance at 620 nm.
+        </p>
+        <table class="data-table">
+          <tr><th>[Cu²⁺] (M)</th><th>Absorbance</th></tr>
+          <tr><td>0.050</td><td>0.105</td></tr>
+          <tr><td>0.100</td><td>0.215</td></tr>
+          <tr><td>0.200</td><td>0.428</td></tr>
+          <tr><td>0.300</td><td>0.640</td></tr>
+        </table>
+        <p class="question">
+          An unknown <span class="formula">Cu²⁺</span> sample has an absorbance of <span class="formula">0.345</span> under the same conditions.<br><br>
+          <strong>(a)</strong> What is the relationship between absorbance and concentration here?<br>
+          <strong>(b)</strong> Calculate the concentration of <span class="formula">Cu²⁺</span> in the unknown.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we5-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we5-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we5-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · State Beer-Lambert Law</div>
+            <div class="step-content"><span class="formula">A = εbc</span><br>A = absorbance, ε = molar absorptivity (a constant for a given substance + wavelength), b = path length (cuvette width, constant), c = concentration.<br>If ε and b are constant, A is directly proportional to c — a straight line through the origin.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Verify the data is linear</div>
+            <div class="step-content">Check A/c for each row:
+              <span class="calc">0.105 / 0.050 = 2.10</span>
+              <span class="calc">0.215 / 0.100 = 2.15</span>
+              <span class="calc">0.428 / 0.200 = 2.14</span>
+              <span class="calc">0.640 / 0.300 = 2.13</span>
+              All roughly 2.13 — confirms linear behavior. The slope (εb) ≈ 2.13 M⁻¹.
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Find the best-fit slope</div>
+            <div class="step-content">Use the average of the slopes (or do a linear regression):
+              <span class="calc">slope ≈ 2.13 M⁻¹</span>
+              So the calibration equation is: <span class="formula">A = 2.13 × c</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Solve for unknown</div>
+            <div class="step-content">
+              <span class="calc">c = A / slope = 0.345 / 2.13 = 0.162 M</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>(a)</strong> Absorbance is directly proportional to concentration (Beer-Lambert Law, A = εbc).<br><strong>(b)</strong> [Cu²⁺] in unknown ≈ <span class="formula">0.162 M</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">SHORT-ANSWER FRQ</div>
+        <p class="question">
+          A student prepares standard solutions of <span class="formula">FeSCN²⁺</span> and measures their absorbance at 447 nm.
+        </p>
+        <table class="data-table">
+          <tr><th>[FeSCN²⁺] (M)</th><th>Absorbance</th></tr>
+          <tr><td>1.0 × 10⁻⁴</td><td>0.180</td></tr>
+          <tr><td>2.0 × 10⁻⁴</td><td>0.362</td></tr>
+          <tr><td>3.0 × 10⁻⁴</td><td>0.540</td></tr>
+          <tr><td>4.0 × 10⁻⁴</td><td>0.722</td></tr>
+        </table>
+        <p class="question">
+          An unknown <span class="formula">FeSCN²⁺</span> sample has an absorbance of <span class="formula">0.415</span>.<br><br>
+          <strong>(a)</strong> Determine the slope of the calibration curve.<br>
+          <strong>(b)</strong> Calculate the concentration of <span class="formula">FeSCN²⁺</span> in the unknown.
+        </p>
+        <textarea id="you5-answer" placeholder="Show your work here..."></textarea>
+        <button class="btn btn-gold" onclick="showAnswerKey('you5')">Show Answer Key</button>
+        <div class="answer-key" id="you5-key">
+          <div class="answer-key-label">Sample Response</div>
+          <div>
+            <strong>(a) Check ratios A/c:</strong>
+            <span class="calc">0.180 / 1.0×10⁻⁴ = 1800</span>
+            <span class="calc">0.362 / 2.0×10⁻⁴ = 1810</span>
+            <span class="calc">0.540 / 3.0×10⁻⁴ = 1800</span>
+            <span class="calc">0.722 / 4.0×10⁻⁴ = 1805</span>
+            All very close to 1800 — the data is linear. <strong>Slope ≈ 1800 M⁻¹</strong> (this is εb).<br><br>
+            <strong>(b) Use the slope:</strong>
+            <span class="calc">c = A / slope = 0.415 / 1800 = 2.31 × 10⁻⁴ M</span>
+            That falls between the 2.0 × 10⁻⁴ and 3.0 × 10⁻⁴ standards, which is exactly where it should be given an absorbance of 0.415 (between 0.362 and 0.540). ✓
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOPIC 6: Filtration & Qualitative Analysis -->
+  <section class="topic">
+    <div class="topic-header">
+      <div class="topic-number">LAB 06 · QUALITATIVE ANALYSIS</div>
+      <h2 class="topic-title">Precipitation, Filtration & Identifying Unknowns</h2>
+      <p class="topic-context">Using solubility rules and selective precipitation to figure out what's in an unknown solution.</p>
+    </div>
+
+    <div class="pair">
+      <div class="card we-do">
+        <span class="card-tag">We Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A student has an unknown solution that contains <em>one</em> of these cations: <span class="formula">Ag⁺</span>, <span class="formula">Ba²⁺</span>, or <span class="formula">Cu²⁺</span>.<br><br>
+          When dilute <span class="formula">HCl</span> is added, a white precipitate forms. Which cation is present?
+        </p>
+        <div class="choices" data-q="we6" data-correct="a">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">Ag⁺</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">Ba²⁺</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">Cu²⁺</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text">Cannot be determined</span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="revealNextStep('we6-steps')">Reveal Next Step</button>
+          <button class="btn btn-secondary" onclick="revealAllSteps('we6-steps')">Show All</button>
+        </div>
+        <div class="solution" id="we6-steps">
+          <div class="step">
+            <div class="step-label">STEP 1 · What's the anion we just added?</div>
+            <div class="step-content">HCl provides <span class="formula">Cl⁻</span>. So the precipitate has to be a chloride salt of whichever cation is in solution.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 2 · Check solubility rules for chlorides</div>
+            <div class="step-content"><strong>Most chlorides are soluble</strong> — the famous exceptions are <span class="formula">AgCl</span>, <span class="formula">PbCl₂</span>, and <span class="formula">Hg₂Cl₂</span>.<br>So among our three options: AgCl is insoluble (precipitates), BaCl₂ is soluble (no precipitate), CuCl₂ is soluble (no precipitate).</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 3 · Color check</div>
+            <div class="step-content">A second clue: <span class="formula">AgCl</span> is white. Cu²⁺ solutions are blue, so a Cu precipitate would also be colored. Ba²⁺ wouldn't precipitate at all here. Everything points to Ag⁺.</div>
+          </div>
+          <div class="step">
+            <div class="step-label">STEP 4 · Confirm with the net ionic equation</div>
+            <div class="step-content">
+              <span class="formula">Ag⁺(aq) + Cl⁻(aq) → AgCl(s)</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-label">ANSWER</div>
+            <div class="step-content"><strong>A.</strong> Ag⁺. The white precipitate is AgCl. Add NaCl or HCl to a silver solution and you get the classic curdy white precipitate that turns purple in light.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card you-do">
+        <span class="card-tag">You Do</span>
+        <div class="q-type">MULTIPLE CHOICE</div>
+        <p class="question">
+          A student has an unknown solution that contains <em>one</em> of these cations: <span class="formula">Na⁺</span>, <span class="formula">Ba²⁺</span>, or <span class="formula">NH₄⁺</span>.<br><br>
+          When dilute <span class="formula">H₂SO₄</span> is added, a white precipitate forms. Which cation is present?
+        </p>
+        <div class="choices" data-q="you6" data-correct="b">
+          <div class="choice" data-letter="a"><span class="choice-letter">A.</span><span class="choice-text"><span class="formula">Na⁺</span></span></div>
+          <div class="choice" data-letter="b"><span class="choice-letter">B.</span><span class="choice-text"><span class="formula">Ba²⁺</span></span></div>
+          <div class="choice" data-letter="c"><span class="choice-letter">C.</span><span class="choice-text"><span class="formula">NH₄⁺</span></span></div>
+          <div class="choice" data-letter="d"><span class="choice-letter">D.</span><span class="choice-text">Cannot be determined</span></div>
+        </div>
+        <button class="btn btn-gold" onclick="checkMCQ('you6')">Check My Answer</button>
+        <div class="feedback" id="you6-fb"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-text">
+      AP Chemistry Lab Skills
+      <span class="gold-dot"></span>
+      Experimental Techniques
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('.choices').forEach(group => {
+    group.querySelectorAll('.choice').forEach(choice => {
+      choice.addEventListener('click', () => {
+        if (group.classList.contains('locked')) return;
+        group.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+        choice.classList.add('selected');
+      });
+    });
+  });
+
+  function revealNextStep(containerId) {
+    const container = document.getElementById(containerId);
+    const steps = container.querySelectorAll('.step');
+    for (let i = 0; i < steps.length; i++) {
+      if (!steps[i].classList.contains('visible')) {
+        steps[i].classList.add('visible');
+        return;
+      }
+    }
+  }
+
+  function revealAllSteps(containerId) {
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('.step').forEach(s => s.classList.add('visible'));
+  }
+
+  const feedbackMessages = {
+    you2: {
+      correct: 'Using <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">M₁V₁ = M₂V₂</span>: V₁ = (0.150 × 500.0) / 3.00 = 25.0 mL. Diluting from 3.00 M to 0.150 M is a 20× dilution, so you need 1/20 of the final volume: 500/20 = 25 mL. ✓',
+      incorrect: 'The answer is C: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">25.0 mL</span>. Use <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">V₁ = (M₂ × V₂) / M₁</span> = (0.150 × 500.0) / 3.00 = 25.0 mL. Common errors: (A) inverted the ratio; (B) used 250 mL instead of 500 mL; (D) forgot the dilution factor.'
+    },
+    you6: {
+      correct: 'Sulfate (SO₄²⁻) precipitates with Ba²⁺ to form BaSO₄, a famous white precipitate (the basis for "barium swallow" medical imaging). Na₂SO₄ and (NH₄)₂SO₄ are both soluble — only Ba²⁺ precipitates with sulfate. The solubility rule: most sulfates are soluble, except those with Ba²⁺, Pb²⁺, Ca²⁺, and Sr²⁺.',
+      incorrect: 'The answer is B: <span class="formula" style="font-family:JetBrains Mono,monospace;background:#ebe3cf;padding:2px 6px;border-radius:2px;font-size:13px;">Ba²⁺</span>. Adding H₂SO₄ provides sulfate (SO₄²⁻). Most sulfates are soluble — the major exceptions are BaSO₄, PbSO₄, CaSO₄, and SrSO₄. Na₂SO₄ and (NH₄)₂SO₄ are very soluble (Group 1 and ammonium salts are essentially always soluble). Only Ba²⁺ gives a precipitate here.'
+    }
+  };
+
+  function checkMCQ(qId) {
+    const group = document.querySelector(`.choices[data-q="${qId}"]`);
+    const correct = group.dataset.correct;
+    const selected = group.querySelector('.choice.selected');
+    const fb = document.getElementById(`${qId}-fb`);
+
+    if (!selected) {
+      fb.className = 'feedback incorrect-fb visible';
+      fb.innerHTML = '<div class="feedback-label">No answer selected</div>Pick one of the choices first.';
+      return;
+    }
+
+    const picked = selected.dataset.letter;
+    group.classList.add('locked');
+
+    group.querySelectorAll('.choice').forEach(c => {
+      if (c.dataset.letter === correct) c.classList.add('correct');
+      else if (c.dataset.letter === picked && picked !== correct) c.classList.add('incorrect');
+    });
+
+    const msg = feedbackMessages[qId] || { correct: 'Correct!', incorrect: `The correct answer is ${correct.toUpperCase()}.` };
+
+    if (picked === correct) {
+      fb.className = 'feedback correct-fb visible';
+      fb.innerHTML = '<div class="feedback-label">Correct!</div>' + msg.correct;
+    } else {
+      fb.className = 'feedback incorrect-fb visible';
+      fb.innerHTML = `<div class="feedback-label">Not quite — the answer is ${correct.toUpperCase()}</div>` + msg.incorrect;
+    }
+  }
+
+  function showAnswerKey(qId) {
+    document.getElementById(`${qId}-key`).classList.add('visible');
+  }
+</script>
+</body>
+</html>
