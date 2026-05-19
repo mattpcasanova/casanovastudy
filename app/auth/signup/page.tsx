@@ -89,7 +89,13 @@ export default function SignUpPage() {
       // Don't sign in - redirect to confirmation page
       router.push('/auth/check-email')
     } catch (err: any) {
-      setError(err.message || 'Failed to create account. Please try again.')
+      console.error('❌ Signup error:', err)
+      const raw =
+        typeof err === 'string'
+          ? err
+          : err?.message || err?.error_description || err?.details || ''
+      const looksEmpty = !raw || raw === '{}' || raw === '[object Object]'
+      setError(looksEmpty ? 'Failed to create account. Please try again.' : raw)
     } finally {
       setIsLoading(false)
     }

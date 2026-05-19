@@ -270,8 +270,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    if (error) throw error
+    console.log('🔐 signUp() raw response:', {
+      hasError: !!error,
+      errorMessage: error?.message,
+      errorStatus: (error as any)?.status,
+      errorCode: (error as any)?.code,
+      hasUser: !!data?.user,
+      userId: data?.user?.id,
+      userEmail: data?.user?.email,
+      identityCount: data?.user?.identities?.length,
+      hasSession: !!data?.session,
+      fullError: error,
+    })
+
+    if (error) {
+      const msg = (error.message || '').toLowerCase()
+      if (
+        (error as any).status === 429 ||
+        msg.includes('rate limit') ||
+        msg.includes('email rate limit') ||
+        msg.includes('too many requests')
+      ) {
+        throw new Error(
+          "We're sending a lot of confirmation emails right now. Please wait a few minutes and try again — your account hasn't been created yet."
+        )
+      }
+      if (msg.includes('already registered') || msg.includes('already in use')) {
+        throw new Error(
+          'An account with this email already exists. Please sign in instead, or use a different email.'
+        )
+      }
+      throw new Error(error.message || 'Sign up failed. Please try again.')
+    }
     if (!data.user) throw new Error('Failed to create user')
+
+    // Supabase obfuscates duplicate signups: it returns a user object with an
+    // empty `identities` array instead of an error. Detect that and tell the
+    // student clearly, otherwise the downstream profile insert fails with an
+    // unhelpful FK error.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error(
+        'An account with this email already exists. Please sign in instead, or use a different email.'
+      )
+    }
 
     console.log('✅ User created in auth.users:', data.user.id)
 
@@ -321,8 +362,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (profileError) {
-      console.error('❌ Failed to create user profile after all retries:', profileError)
-      throw new Error(`Failed to create profile: ${profileError.message}`)
+      console.error('❌ Failed to create user profile after all retries:', {
+        message: profileError.message,
+        details: profileError.details,
+        hint: profileError.hint,
+        code: profileError.code,
+        raw: profileError,
+      })
+      const detail =
+        profileError.message ||
+        profileError.details ||
+        profileError.hint ||
+        profileError.code ||
+        'unknown error'
+      throw new Error(`Failed to create profile: ${detail}`)
     }
 
     console.log('✅ Sign up complete')
