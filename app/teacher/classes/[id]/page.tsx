@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import StudyGuideFilterBar, { applyGuideFilters, type SortOption } from "@/components/study-guide-filter-bar"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,7 @@ import {
 } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
+import ClassGradebook from "@/components/teacher-classes/class-gradebook"
 import ClassColorPicker from "@/components/class-color-picker"
 import { isClassColorToken, type ClassColorToken } from "@/lib/class-colors"
 
@@ -110,6 +111,8 @@ export default function TeacherClassDetailPage() {
   const params = useParams<{ id: string }>()
   const classId = params?.id
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeTab: "overview" | "gradebook" = searchParams?.get("tab") === "gradebook" ? "gradebook" : "overview"
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
@@ -437,6 +440,22 @@ export default function TeacherClassDetailPage() {
           </div>
         </div>
 
+        <div className="border-b mb-6 flex items-center gap-1">
+          <TabButton
+            label="Overview"
+            active={activeTab === "overview"}
+            onClick={() => router.replace(`/teacher/classes/${classId}`, { scroll: false })}
+          />
+          <TabButton
+            label="Gradebook"
+            active={activeTab === "gradebook"}
+            onClick={() => router.replace(`/teacher/classes/${classId}?tab=gradebook`, { scroll: false })}
+          />
+        </div>
+
+        {activeTab === "gradebook" ? (
+          <ClassGradebook classId={cls.id} className={cls.name} />
+        ) : (
         <div className="grid gap-6 md:grid-cols-3">
           {/* Enrollment code + QR */}
           <Card className="md:col-span-1">
@@ -645,6 +664,7 @@ export default function TeacherClassDetailPage() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
 
       <ClassFormDialog
@@ -702,5 +722,21 @@ export default function TeacherClassDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
   )
 }

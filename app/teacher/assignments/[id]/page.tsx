@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -104,6 +104,8 @@ export default function TeacherAssignmentDetailPage() {
   const params = useParams<{ id: string }>()
   const assignmentId = params?.id
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const deepLinkSubmissionId = searchParams?.get("submission") ?? null
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
@@ -116,6 +118,7 @@ export default function TeacherAssignmentDetailPage() {
   const [working, setWorking] = useState(false)
   // Track which submission is currently being graded/returned
   const [gradingId, setGradingId] = useState<string | null>(null)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
 
   const isTeacher = user?.user_type === "teacher"
 
@@ -151,6 +154,23 @@ export default function TeacherAssignmentDetailPage() {
     if (!isTeacher) { router.push("/"); return }
     fetchAll()
   }, [authLoading, user, isTeacher, router, fetchAll])
+
+  // Deep-link from Pending Review card: scroll the target submission into view
+  // and flash an amber ring. Strip ?submission= so refresh doesn't replay it.
+  useEffect(() => {
+    if (loading || !deepLinkSubmissionId) return
+    if (!submissions.some(s => s.id === deepLinkSubmissionId)) return
+
+    const el = document.getElementById(`submission-${deepLinkSubmissionId}`)
+    if (!el) return
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    setHighlightedId(deepLinkSubmissionId)
+    const clearTimer = window.setTimeout(() => setHighlightedId(null), 2500)
+    router.replace(`/teacher/assignments/${assignmentId}`, { scroll: false })
+
+    return () => window.clearTimeout(clearTimer)
+  }, [loading, submissions, deepLinkSubmissionId, assignmentId, router])
 
   const deleteAssignment = async () => {
     if (!assignment) return
@@ -361,8 +381,16 @@ export default function TeacherAssignmentDetailPage() {
                   const hasGrade = !!s.grading_result
                   const canGrade = !!(assignment.mark_scheme_url)
 
+                  const isHighlighted = highlightedId === s.id
+
                   return (
-                    <div key={s.id} className="border rounded-lg p-4 space-y-3">
+                    <div
+                      key={s.id}
+                      id={`submission-${s.id}`}
+                      className={`border rounded-lg p-4 space-y-3 transition-all duration-700 ${
+                        isHighlighted ? "ring-2 ring-amber-400 ring-offset-2 bg-amber-50/40" : ""
+                      }`}
+                    >
                       {/* Top row: name + two status chips */}
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="min-w-0">
