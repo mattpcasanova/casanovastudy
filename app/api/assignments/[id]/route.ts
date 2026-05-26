@@ -69,12 +69,18 @@ export async function GET(
       })
     }
 
-    // Teacher path: include full assignment + class summaries + submission stats
-    const [classesRes, submissionsRes] = await Promise.all([
+    // Teacher path: include full assignment + class summaries + submission stats + enrolled roster
+    const [classesRes, submissionsRes, enrollmentsRes] = await Promise.all([
       linkClassIds.length
         ? supabase.from('classes').select('id, name, period, subject').in('id', linkClassIds)
         : Promise.resolve({ data: [] as Array<{ id: string; name: string; period: string | null; subject: string | null }> }),
       supabase.from('assignment_submissions').select('status').eq('assignment_id', id),
+      linkClassIds.length
+        ? supabase.from('class_enrollments')
+            .select('student_id, class_id')
+            .in('class_id', linkClassIds)
+            .eq('status', 'active')
+        : Promise.resolve({ data: [] as Array<{ student_id: string; class_id: string }> }),
     ])
 
     const submissions = submissionsRes.data ?? []
@@ -87,11 +93,43 @@ export async function GET(
       failed: submissions.filter(s => s.status === 'failed').length,
     }
 
+    // Build enrolled roster: collapse duplicates (a student in multiple linked classes
+    // appears once, with the list of class_ids they're in)
+    const enrollments = enrollmentsRes.data ?? []
+    const studentIds = Array.from(new Set(enrollments.map(e => e.student_id)))
+    let enrolled: Array<{
+      id: string
+      first_name: string | null
+      last_name: string | null
+      email: string
+      class_ids: string[]
+    }> = []
+    if (studentIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', studentIds)
+      const classIdsByStudent = new Map<string, string[]>()
+      for (const e of enrollments) {
+        const list = classIdsByStudent.get(e.student_id) ?? []
+        if (!list.includes(e.class_id)) list.push(e.class_id)
+        classIdsByStudent.set(e.student_id, list)
+      }
+      enrolled = (profiles ?? []).map(p => ({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        email: p.email,
+        class_ids: classIdsByStudent.get(p.id) ?? [],
+      }))
+    }
+
     return NextResponse.json({
       assignment,
       viewer: 'teacher',
       classes: classesRes.data ?? [],
       submission_stats: stats,
+      enrolled_students: enrolled,
     })
   } catch (error) {
     console.error('Get assignment error:', error)

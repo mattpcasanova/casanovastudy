@@ -33,6 +33,10 @@ import {
   FileText,
   MessageSquare,
   RotateCcw,
+  Users,
+  CalendarClock,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
 
@@ -59,6 +63,14 @@ interface ClassSummary {
   name: string
   period: string | null
   subject: string | null
+}
+
+interface EnrolledStudent {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string
+  class_ids: string[]
 }
 
 interface Submission {
@@ -111,7 +123,9 @@ export default function TeacherAssignmentDetailPage() {
 
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [linkedClasses, setLinkedClasses] = useState<ClassSummary[]>([])
+  const [enrolledStudents, setEnrolledStudents] = useState<EnrolledStudent[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [notSubmittedOpen, setNotSubmittedOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -139,6 +153,7 @@ export default function TeacherAssignmentDetailPage() {
       }
       setAssignment(aJson.assignment)
       setLinkedClasses(aJson.classes ?? [])
+      setEnrolledStudents(aJson.enrolled_students ?? [])
       if (sRes.ok) setSubmissions(sJson.submissions ?? [])
     } catch (err) {
       console.error(err)
@@ -248,6 +263,46 @@ export default function TeacherAssignmentDetailPage() {
     }
   }
 
+  const submittedStudentIds = useMemo(
+    () => new Set(submissions.map(s => s.student_id)),
+    [submissions]
+  )
+
+  const notSubmitted = useMemo(() => {
+    return enrolledStudents
+      .filter(e => !submittedStudentIds.has(e.id))
+      .sort((a, b) => {
+        const la = (a.last_name ?? "").toLowerCase()
+        const lb = (b.last_name ?? "").toLowerCase()
+        if (la !== lb) return la.localeCompare(lb)
+        return (a.first_name ?? "").toLowerCase().localeCompare((b.first_name ?? "").toLowerCase())
+      })
+  }, [enrolledStudents, submittedStudentIds])
+
+  const dueStatus = useMemo(() => {
+    if (!assignment?.due_at) return { label: "No due date", tone: "muted" as const }
+    const due = new Date(assignment.due_at).getTime()
+    const diffMs = due - Date.now()
+    const dayMs = 24 * 60 * 60 * 1000
+    const days = Math.round(diffMs / dayMs)
+    if (diffMs < 0) {
+      if (days === 0) return { label: "Due today", tone: "amber" as const }
+      const past = Math.abs(days)
+      return { label: `Due ${past} day${past === 1 ? "" : "s"} ago`, tone: "red" as const }
+    }
+    if (days === 0) return { label: "Due today", tone: "amber" as const }
+    if (days === 1) return { label: "Due tomorrow", tone: "amber" as const }
+    return { label: `Due in ${days} days`, tone: "muted" as const }
+  }, [assignment?.due_at])
+
+  const readiness = useMemo(() => {
+    if (!assignment) return null
+    const hasMarkScheme = !!(assignment.mark_scheme_url || assignment.mark_scheme_text)
+    if (!hasMarkScheme) return { label: "Add mark scheme", tone: "amber" as const }
+    if (!assignment.is_published) return { label: "Unpublished draft", tone: "amber" as const }
+    return { label: "Ready to grade", tone: "green" as const }
+  }, [assignment])
+
   const editInitialValues = useMemo(() => {
     if (!assignment) return undefined
     return {
@@ -337,6 +392,35 @@ export default function TeacherAssignmentDetailPage() {
               Delete
             </Button>
           </div>
+        </div>
+
+        {/* Stats strip — at-a-glance roster / due / status */}
+        <div className="grid gap-3 sm:grid-cols-3 mb-6">
+          <StatTile
+            icon={Users}
+            label="Submitted"
+            value={`${submittedStudentIds.size} / ${enrolledStudents.length}`}
+            sub={notSubmitted.length > 0 ? `${notSubmitted.length} not yet submitted` : "All in"}
+            tone={notSubmitted.length === 0 && enrolledStudents.length > 0 ? "green" : "muted"}
+          />
+          <StatTile
+            icon={CalendarClock}
+            label={dueStatus.label}
+            value={assignment.due_at ? formatDateTime(assignment.due_at) : "—"}
+            sub={assignment.total_possible_marks != null ? `Out of ${assignment.total_possible_marks}` : "No max marks set"}
+            tone={dueStatus.tone}
+          />
+          <StatTile
+            icon={readiness?.tone === "green" ? CheckCircle2 : AlertCircle}
+            label="Status"
+            value={readiness?.label ?? "—"}
+            sub={
+              assignment.auto_grade
+                ? "Auto-grade enabled"
+                : "Manual review required"
+            }
+            tone={readiness?.tone ?? "muted"}
+          />
         </div>
 
         {assignment.description && (
@@ -520,6 +604,56 @@ export default function TeacherAssignmentDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Not-yet-submitted roster — collapsed by default. Hidden when there's no roster. */}
+        {enrolledStudents.length > 0 && notSubmitted.length > 0 && (
+          <Card className="mt-4">
+            <CardContent className="p-0">
+              <button
+                type="button"
+                onClick={() => setNotSubmittedOpen(o => !o)}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors"
+                aria-expanded={notSubmittedOpen}
+              >
+                <div className="flex items-center gap-3">
+                  {notSubmittedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <span className="font-semibold">Not yet submitted</span>
+                  <Badge variant="secondary">{notSubmitted.length}</Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {submittedStudentIds.size} of {enrolledStudents.length} students have submitted
+                </span>
+              </button>
+              {notSubmittedOpen && (
+                <ul className="divide-y border-t">
+                  {notSubmitted.map(s => {
+                    const name = (s.first_name || s.last_name)
+                      ? `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()
+                      : s.email
+                    const classNames = linkedClasses
+                      .filter(c => s.class_ids.includes(c.id))
+                      .map(c => `${c.name}${c.period ? ` · P${c.period}` : ""}`)
+                      .join(", ")
+                    return (
+                      <li key={s.id} className="flex items-center justify-between px-6 py-3">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{name}</p>
+                          {classNames && (
+                            <p className="text-xs text-muted-foreground truncate">{classNames}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-muted-foreground">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Not submitted
+                        </Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {editInitialValues && (
@@ -551,5 +685,40 @@ export default function TeacherAssignmentDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+type StatTone = "muted" | "amber" | "red" | "green"
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+  sub: string
+  tone: StatTone
+}) {
+  const toneClasses: Record<StatTone, string> = {
+    muted: "text-muted-foreground",
+    amber: "text-amber-600",
+    red: "text-red-600",
+    green: "text-green-600",
+  }
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+          <Icon className={`h-4 w-4 ${toneClasses[tone]}`} />
+          <span>{label}</span>
+        </div>
+        <p className="text-lg font-semibold leading-tight">{value}</p>
+        <p className={`text-xs mt-1 ${toneClasses[tone]}`}>{sub}</p>
+      </CardContent>
+    </Card>
   )
 }
