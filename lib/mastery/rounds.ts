@@ -22,7 +22,7 @@ export interface MasteryContext {
     is_published: boolean
   }
   config: MasteryConfig
-  concepts: Array<{ id: string; name: string }>
+  concepts: Array<{ id: string; name: string; description: string | null; unit: string | null }>
 }
 
 export interface AttemptRow {
@@ -69,17 +69,15 @@ export async function loadMasteryContext(
       .maybeSingle(),
     supabase
       .from('assignment_mastery_concepts')
-      .select('concept_id, concepts(id, name)')
+      .select('concept_id, concepts(id, name, description, unit)')
       .eq('assignment_id', assignmentId),
   ])
   if (!config || !conceptLinks || conceptLinks.length === 0) return null
 
+  type ConceptMeta = { id: string; name: string; description: string | null; unit: string | null }
   const concepts = conceptLinks
-    .map(link => {
-      const c = link.concepts as unknown as { id: string; name: string } | null
-      return c ? { id: c.id, name: c.name } : null
-    })
-    .filter((c): c is { id: string; name: string } => !!c)
+    .map(link => link.concepts as unknown as ConceptMeta | null)
+    .filter((c): c is ConceptMeta => !!c)
 
   return {
     assignment,
@@ -163,20 +161,106 @@ export async function getUnansweredQuestions(
   })
 }
 
+// Runaway-cost guard: at most this many AI-generated questions per concept per attempt
+const RUNTIME_GENERATION_CAP = 10
+
+type BankQuestion = {
+  id: string
+  concept_id: string
+  type: QuestionType
+  difficulty: number
+  times_served: number
+  question_text: string
+  options: string[] | null
+  correct_answer: Record<string, unknown>
+  explanation: string | null
+}
+
+/**
+ * When a student has seen every approved question for a concept, generate
+ * fresh ones on the fly (source='ai_runtime', status='suggested' → they land
+ * in the teacher's review queue; approving promotes them into the bank).
+ * Returns [] on failure or when the per-attempt cap is hit — caller re-serves.
+ */
+async function generateRuntimeQuestions(
+  supabase: SupabaseClient,
+  attempt: Pick<AttemptRow, 'id' | 'class_id'>,
+  teacherId: string,
+  concept: MasteryContext['concepts'][number],
+  config: MasteryConfig,
+  count: number,
+  avoidTexts: string[]
+): Promise<BankQuestion[]> {
+  // Enforce the cap: count ai_runtime questions already served in this attempt
+  const { data: servedRuntime } = await supabase
+    .from('mastery_responses')
+    .select('question_id, question_bank_questions!inner(source)')
+    .eq('attempt_id', attempt.id)
+    .eq('concept_id', concept.id)
+  const runtimeServed = (servedRuntime ?? []).filter(r => {
+    const q = r.question_bank_questions as unknown as { source: string } | null
+    return q?.source === 'ai_runtime'
+  }).length
+  if (runtimeServed >= RUNTIME_GENERATION_CAP) return []
+
+  const toGenerate = Math.min(Math.max(count, 3), 5, RUNTIME_GENERATION_CAP - runtimeServed)
+
+  try {
+    const { generateMasteryQuestions } = await import('@/lib/mastery/ai')
+    const { data: cls } = await supabase
+      .from('classes')
+      .select('subject')
+      .eq('id', attempt.class_id)
+      .maybeSingle()
+
+    const generated = await generateMasteryQuestions({
+      concept,
+      subject: cls?.subject ?? null,
+      count: toGenerate,
+      allowedTypes: config.allowed_types as QuestionType[],
+      avoidTexts,
+    })
+
+    const { data: inserted, error } = await supabase
+      .from('question_bank_questions')
+      .insert(
+        generated.map(g => ({
+          teacher_id: teacherId,
+          concept_id: concept.id,
+          type: g.type,
+          question_text: g.question_text,
+          options: g.type === 'multiple_choice' ? g.options : null,
+          correct_answer: g.correct_answer,
+          explanation: g.explanation ?? null,
+          difficulty: g.difficulty,
+          source: 'ai_runtime',
+          status: 'suggested',
+        }))
+      )
+      .select('id, concept_id, type, difficulty, times_served, question_text, options, correct_answer, explanation')
+    if (error || !inserted) return []
+    return inserted as BankQuestion[]
+  } catch (err) {
+    console.error(`Runtime generation failed for concept ${concept.id}:`, err)
+    return []
+  }
+}
+
 /**
  * Build the next round: allocate slots across in-progress concepts, pick bank
- * questions (unseen first; re-serve least-served when the bank is exhausted —
- * AI runtime generation lands here in a later phase), snapshot them into
+ * questions (unseen first; when the bank is exhausted, generate fresh AI
+ * questions if allowed, else re-serve least-served), snapshot them into
  * mastery_responses, and bump times_served.
  * Returns the served questions (empty when no concept is in progress).
  */
 export async function buildRound(
   supabase: SupabaseClient,
-  attempt: Pick<AttemptRow, 'id' | 'assignment_id'>,
-  config: MasteryConfig,
+  attempt: Pick<AttemptRow, 'id' | 'assignment_id' | 'class_id'>,
+  context: MasteryContext,
   rollups: ConceptRollup[],
   roundNumber: number
 ): Promise<ServedQuestion[]> {
+  const config = context.config
   const slots = allocateRoundSlots(rollups, config.questions_per_round)
   if (slots.size === 0) return []
 
@@ -196,10 +280,11 @@ export async function buildRound(
   ])
 
   const servedIds = new Set((servedRows ?? []).map(r => r.question_id))
-  const bank = bankRows ?? []
+  const bank = (bankRows ?? []) as BankQuestion[]
+  const conceptMeta = new Map(context.concepts.map(c => [c.id, c]))
 
   const rollupByConcept = new Map(rollups.map(r => [r.concept_id, r]))
-  const toServe: Array<(typeof bank)[number]> = []
+  const toServe: BankQuestion[] = []
 
   for (const [conceptId, count] of slots) {
     const rollup = rollupByConcept.get(conceptId)
@@ -210,10 +295,30 @@ export async function buildRound(
     const shuffled = [...conceptBank].sort(() => Math.random() - 0.5)
 
     const unseen = shuffled.filter(q => !servedIds.has(q.id))
-    const pool = unseen.length > 0 ? unseen : shuffled // bank exhausted → re-serve
+    let pool: BankQuestion[] = unseen
+
+    if (unseen.length < count) {
+      // Bank exhausted for this concept — try AI generation, else re-serve
+      const meta = conceptMeta.get(conceptId)
+      const fresh = config.allow_ai_fallback && meta
+        ? await generateRuntimeQuestions(
+            supabase,
+            attempt,
+            context.assignment.teacher_id,
+            meta,
+            config,
+            count - unseen.length,
+            conceptBank.map(q => q.question_text)
+          )
+        : []
+      pool = [...unseen, ...fresh]
+      if (pool.length === 0) pool = shuffled // last resort: re-serve
+    }
+
     const picked = selectConceptQuestions(pool as CandidateQuestion[], count, rollup)
+    const poolById = new Map(pool.map(q => [q.id, q]))
     for (const p of picked) {
-      toServe.push(conceptBank.find(q => q.id === p.id)!)
+      toServe.push(poolById.get(p.id)!)
     }
   }
 

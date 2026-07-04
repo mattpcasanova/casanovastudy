@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Check, Pencil, Archive, ArchiveRestore } from "lucide-react"
+import { Check, Pencil, Archive, ArchiveRestore, ThumbsUp, ThumbsDown } from "lucide-react"
 import type { QuestionRecord, QuestionType } from "@/lib/types/question-bank"
 
 const TYPE_BADGES: Record<QuestionType, string> = {
@@ -23,11 +23,14 @@ interface QuestionCardProps {
   question: QuestionRecord
   onEdit: (question: QuestionRecord) => void
   onArchiveToggle: (question: QuestionRecord) => void
+  /** Present on 'suggested' questions: approve/decline review actions. */
+  onReview?: (question: QuestionRecord, action: "approve" | "decline") => void
 }
 
-export default function QuestionCard({ question, onEdit, onArchiveToggle }: QuestionCardProps) {
+export default function QuestionCard({ question, onEdit, onArchiveToggle, onReview }: QuestionCardProps) {
   const answer = question.correct_answer as Record<string, unknown>
   const isArchived = question.status === "archived"
+  const isSuggested = question.status === "suggested"
   const sourceLabel = SOURCE_LABELS[question.source]
 
   return (
@@ -96,18 +99,46 @@ export default function QuestionCard({ question, onEdit, onArchiveToggle }: Ques
             <Button variant="ghost" size="icon" onClick={() => onEdit(question)} title="Edit">
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onArchiveToggle(question)}
-              title={isArchived ? "Restore" : "Archive"}
-            >
-              {isArchived
-                ? <ArchiveRestore className="h-4 w-4" />
-                : <Archive className="h-4 w-4 text-muted-foreground" />}
-            </Button>
+            {!isSuggested && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onArchiveToggle(question)}
+                title={isArchived ? "Restore" : "Archive"}
+              >
+                {isArchived
+                  ? <ArchiveRestore className="h-4 w-4" />
+                  : <Archive className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            )}
           </div>
         </div>
+
+        {isSuggested && onReview && (
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t">
+            <Button size="sm" onClick={() => onReview(question, "approve")}>
+              <ThumbsUp className="h-4 w-4 mr-2" />
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit(question)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit first
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => onReview(question, "decline")}
+            >
+              <ThumbsDown className="h-4 w-4 mr-2" />
+              Decline
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

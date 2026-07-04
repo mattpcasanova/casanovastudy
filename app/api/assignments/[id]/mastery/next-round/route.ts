@@ -10,6 +10,8 @@ import {
 } from '@/lib/mastery/rounds'
 import { finalizeAttempt } from '@/lib/mastery/finalize'
 
+export const maxDuration = 120 // round construction may generate AI questions
+
 // POST - Advance to the next round. Returns either fresh questions, the
 // still-unanswered current round (idempotent), or completion + final score.
 export async function POST(
@@ -71,7 +73,7 @@ export async function POST(
     const questions = await buildRound(
       supabase,
       attempt as AttemptRow,
-      context.config,
+      context,
       rollups,
       nextRound
     )

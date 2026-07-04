@@ -11,6 +11,8 @@ import {
 import { ensureSubmissionRow } from '@/lib/mastery/finalize'
 import { computeFinalScore } from '@/lib/mastery/engine'
 
+export const maxDuration = 120 // round construction may generate AI questions
+
 // Shared response shape for GET (resume) and POST (start): everything the
 // player needs, with correct answers stripped server-side.
 async function attemptStatePayload(
@@ -164,7 +166,7 @@ export async function POST(
     }
 
     const rollups = await getRollups(supabase, attempt.id)
-    await buildRound(supabase, attempt as AttemptRow, context.config, rollups, 1)
+    await buildRound(supabase, attempt as AttemptRow, context, rollups, 1)
     await ensureSubmissionRow(supabase, attempt as AttemptRow)
 
     return NextResponse.json(await attemptStatePayload(supabase, context, attempt as AttemptRow), { status: 201 })

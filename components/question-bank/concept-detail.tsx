@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Loader2, Pencil, Plus, Sparkles, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import ConceptFormDialog from "@/components/question-bank/concept-form-dialog"
 import ManualQuestionForm from "@/components/question-bank/manual-question-form"
@@ -35,6 +35,7 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
   const [deleteConceptOpen, setDeleteConceptOpen] = useState(false)
   const [questionFormOpen, setQuestionFormOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<QuestionRecord | undefined>(undefined)
+  const [suggesting, setSuggesting] = useState(false)
 
   const approved = questions.filter(q => q.status === "approved")
   const suggested = questions.filter(q => q.status === "suggested")
@@ -48,6 +49,42 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
   const openEditQuestion = (question: QuestionRecord) => {
     setEditingQuestion(question)
     setQuestionFormOpen(true)
+  }
+
+  const handleSuggest = async () => {
+    setSuggesting(true)
+    try {
+      const res = await fetch("/api/question-bank/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ concept_ids: [concept.id], count: 5 }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error ?? "Failed to generate suggestions", variant: "destructive" })
+        return
+      }
+      toast({ title: `${json.total_created} suggestion${json.total_created === 1 ? "" : "s"} ready to review` })
+      router.refresh()
+    } catch {
+      toast({ title: "Network error", variant: "destructive" })
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  const handleReview = async (question: QuestionRecord, action: "approve" | "decline") => {
+    const res = await fetch(`/api/question-bank/${question.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: action === "approve" ? "approved" : "declined" }),
+    })
+    if (!res.ok) {
+      const json = await res.json()
+      toast({ title: json.error ?? "Failed to update question", variant: "destructive" })
+      return
+    }
+    router.refresh()
   }
 
   const handleArchiveToggle = async (question: QuestionRecord) => {
@@ -95,7 +132,7 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
               <p className="text-muted-foreground text-sm mt-1 max-w-2xl">{concept.description}</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setEditConceptOpen(true)}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit
@@ -108,6 +145,12 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSuggest} disabled={suggesting}>
+              {suggesting
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Sparkles className="h-4 w-4 mr-2" />}
+              {suggesting ? "Generating…" : "Suggest with AI"}
             </Button>
             <Button size="sm" onClick={openCreateQuestion}>
               <Plus className="h-4 w-4 mr-2" />
@@ -129,6 +172,7 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
                 question={q}
                 onEdit={openEditQuestion}
                 onArchiveToggle={handleArchiveToggle}
+                onReview={handleReview}
               />
             ))}
           </div>
