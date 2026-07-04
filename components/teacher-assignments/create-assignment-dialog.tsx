@@ -18,7 +18,11 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, Upload, X } from "lucide-react"
+import { FileUp, Loader2, Target, Upload, X } from "lucide-react"
+import MasteryConfigFields, {
+  DEFAULT_MASTERY_CONFIG,
+  type MasteryConfigValues,
+} from "@/components/teacher-assignments/mastery-config-fields"
 
 interface ClassOption {
   id: string
@@ -86,6 +90,10 @@ export default function CreateAssignmentDialog({
   const [classesLoading, setClassesLoading] = useState(false)
   const [uploadingMarkScheme, setUploadingMarkScheme] = useState(false)
   const [savingDefaults, setSavingDefaults] = useState(false)
+  // Assignment type is chosen at creation and fixed afterwards
+  const [assignmentType, setAssignmentType] = useState<"file_upload" | "mastery_quiz">("file_upload")
+  const [masteryConfig, setMasteryConfig] = useState<MasteryConfigValues>(DEFAULT_MASTERY_CONFIG)
+  const isMastery = mode === "create" && assignmentType === "mastery_quiz"
 
   useEffect(() => {
     if (!open) return
@@ -112,6 +120,8 @@ export default function CreateAssignmentDialog({
     } else {
       setValues(initialValues ?? EMPTY)
     }
+    setAssignmentType("file_upload")
+    setMasteryConfig(DEFAULT_MASTERY_CONFIG)
 
     setClassesLoading(true)
     fetch("/api/classes")
@@ -187,29 +197,42 @@ export default function CreateAssignmentDialog({
       toast({ title: "Pick at least one class", variant: "destructive" })
       return
     }
+    if (isMastery && masteryConfig.concept_ids.length === 0) {
+      toast({ title: "Pick at least one concept", variant: "destructive" })
+      return
+    }
 
     setSubmitting(true)
     try {
-      const payload: Record<string, unknown> = {
-        title,
-        description: values.description.trim() || null,
-        grading_instructions: values.grading_instructions.trim() || null,
-        mark_scheme_url: values.mark_scheme_url || null,
-        auto_grade: values.auto_grade,
-        students_can_see_grade: values.students_can_see_grade,
-        students_can_see_report: values.students_can_see_report,
-      }
+      const payload: Record<string, unknown> = isMastery
+        ? {
+            type: "mastery_quiz",
+            title,
+            description: values.description.trim() || null,
+            mastery: masteryConfig,
+          }
+        : {
+            title,
+            description: values.description.trim() || null,
+            grading_instructions: values.grading_instructions.trim() || null,
+            mark_scheme_url: values.mark_scheme_url || null,
+            auto_grade: values.auto_grade,
+            students_can_see_grade: values.students_can_see_grade,
+            students_can_see_report: values.students_can_see_report,
+          }
       if (values.due_at) payload.due_at = new Date(values.due_at).toISOString()
       else payload.due_at = null
-      if (values.total_possible_marks) {
-        const n = parseInt(values.total_possible_marks, 10)
-        if (!Number.isFinite(n) || n < 0) {
-          toast({ title: "Total marks must be a non-negative number", variant: "destructive" })
-          setSubmitting(false)
-          return
-        }
-        payload.total_possible_marks = n
-      } else payload.total_possible_marks = null
+      if (!isMastery) {
+        if (values.total_possible_marks) {
+          const n = parseInt(values.total_possible_marks, 10)
+          if (!Number.isFinite(n) || n < 0) {
+            toast({ title: "Total marks must be a non-negative number", variant: "destructive" })
+            setSubmitting(false)
+            return
+          }
+          payload.total_possible_marks = n
+        } else payload.total_possible_marks = null
+      }
 
       if (mode === "create") {
         payload.class_ids = values.class_ids
@@ -253,6 +276,38 @@ export default function CreateAssignmentDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          {mode === "create" && (
+            <div className="space-y-2">
+              <Label>Assignment type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAssignmentType("file_upload")}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors",
+                    assignmentType === "file_upload" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  )}
+                >
+                  <FileUp className="h-4 w-4 mb-1.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">File upload</p>
+                  <p className="text-xs text-muted-foreground">Students submit work; AI grades against your mark scheme</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignmentType("mastery_quiz")}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors",
+                    assignmentType === "mastery_quiz" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  )}
+                >
+                  <Target className="h-4 w-4 mb-1.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">Mastery quiz</p>
+                  <p className="text-xs text-muted-foreground">Students loop through your question bank until they master each concept</p>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -295,17 +350,19 @@ export default function CreateAssignmentDialog({
                 }}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="total">Total marks (optional)</Label>
-              <Input
-                id="total"
-                type="number"
-                min="0"
-                value={values.total_possible_marks}
-                onChange={(e) => setValues({ ...values, total_possible_marks: e.target.value })}
-                placeholder="60"
-              />
-            </div>
+            {!isMastery && (
+              <div className="space-y-2">
+                <Label htmlFor="total">Total marks (optional)</Label>
+                <Input
+                  id="total"
+                  type="number"
+                  min="0"
+                  value={values.total_possible_marks}
+                  onChange={(e) => setValues({ ...values, total_possible_marks: e.target.value })}
+                  placeholder="60"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -348,6 +405,11 @@ export default function CreateAssignmentDialog({
             )}
           </div>
 
+          {isMastery && (
+            <MasteryConfigFields value={masteryConfig} onChange={setMasteryConfig} />
+          )}
+
+          {!isMastery && (
           <div className="space-y-2">
             <Label>Mark scheme (PDF or DOCX, optional)</Label>
             {values.mark_scheme_url ? (
@@ -391,7 +453,9 @@ export default function CreateAssignmentDialog({
               </div>
             )}
           </div>
+          )}
 
+          {!isMastery && (
           <div className="space-y-2">
             <Label htmlFor="instructions">Grading instructions for AI (optional)</Label>
             <Textarea
@@ -402,7 +466,9 @@ export default function CreateAssignmentDialog({
               rows={3}
             />
           </div>
+          )}
 
+          {!isMastery && (
           <div className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Grading &amp; visibility settings</p>
@@ -449,6 +515,7 @@ export default function CreateAssignmentDialog({
               />
             </label>
           </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -39,12 +39,18 @@ export async function POST(
     // Verify assignment exists + is published; fetch grading settings for auto-grade check
     const { data: assignment } = await supabase
       .from('assignments')
-      .select('id, due_at, is_published, mark_scheme_url, auto_grade')
+      .select('id, type, due_at, is_published, mark_scheme_url, auto_grade')
       .eq('id', assignmentId)
       .maybeSingle()
     if (!assignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
     if (!assignment.is_published) {
       return NextResponse.json({ error: 'Assignment is not yet published' }, { status: 403 })
+    }
+    if (assignment.type === 'mastery_quiz') {
+      return NextResponse.json(
+        { error: 'This is a mastery quiz — answer questions in the app instead of uploading files' },
+        { status: 400 }
+      )
     }
 
     // Find a class context: must be a class the student is actively enrolled in

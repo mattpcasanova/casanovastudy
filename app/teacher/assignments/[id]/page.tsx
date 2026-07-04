@@ -43,6 +43,7 @@ import CreateAssignmentDialog from "@/components/teacher-assignments/create-assi
 interface Assignment {
   id: string
   teacher_id: string
+  type?: string
   title: string
   description: string | null
   due_at: string | null
@@ -295,8 +296,14 @@ export default function TeacherAssignmentDetailPage() {
     return { label: `Due in ${days} days`, tone: "muted" as const }
   }, [assignment?.due_at])
 
+  const isMasteryQuiz = assignment?.type === "mastery_quiz"
+
   const readiness = useMemo(() => {
     if (!assignment) return null
+    if (assignment.type === "mastery_quiz") {
+      if (!assignment.is_published) return { label: "Unpublished draft", tone: "amber" as const }
+      return { label: "Self-grading quiz", tone: "green" as const }
+    }
     const hasMarkScheme = !!(assignment.mark_scheme_url || assignment.mark_scheme_text)
     if (!hasMarkScheme) return { label: "Add mark scheme", tone: "amber" as const }
     if (!assignment.is_published) return { label: "Unpublished draft", tone: "amber" as const }
@@ -367,7 +374,13 @@ export default function TeacherAssignmentDetailPage() {
                   <span>Out of {assignment.total_possible_marks}</span>
                 </>
               )}
-              {!assignment.mark_scheme_url && !assignment.mark_scheme_text && (
+              {isMasteryQuiz && (
+                <>
+                  <span>·</span>
+                  <Badge variant="secondary">Mastery Quiz</Badge>
+                </>
+              )}
+              {!isMasteryQuiz && !assignment.mark_scheme_url && !assignment.mark_scheme_text && (
                 <>
                   <span>·</span>
                   <Badge variant="outline" className="text-amber-600 border-amber-600">No mark scheme</Badge>
@@ -415,9 +428,11 @@ export default function TeacherAssignmentDetailPage() {
             label="Status"
             value={readiness?.label ?? "—"}
             sub={
-              assignment.auto_grade
-                ? "Auto-grade enabled"
-                : "Manual review required"
+              isMasteryQuiz
+                ? "Grades finalize as students finish"
+                : assignment.auto_grade
+                  ? "Auto-grade enabled"
+                  : "Manual review required"
             }
             tone={readiness?.tone ?? "muted"}
           />
@@ -529,6 +544,22 @@ export default function TeacherAssignmentDetailPage() {
                       {/* Action row: grading button + return button + view report */}
                       <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-muted/50">
 
+                        {/* Mastery quizzes grade themselves — no manual actions */}
+                        {isMasteryQuiz ? (
+                          s.status === "graded" && s.grading_result ? (
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/grade-report/${s.grading_result.id}`}>
+                                View report
+                              </Link>
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Loader2 className="h-3 w-3" />
+                              Quiz in progress — grade appears when they finish
+                            </span>
+                          )
+                        ) : (
+                        <>
                         {/* Grade / Grading / Graded button — occupies the same spot */}
                         {s.status === "grading" || (gradingId === s.id) ? (
                           // Actively grading right now
@@ -595,6 +626,8 @@ export default function TeacherAssignmentDetailPage() {
                             <CheckCircle2 className="h-3 w-3" />
                             Returned
                           </span>
+                        )}
+                        </>
                         )}
                       </div>
                     </div>

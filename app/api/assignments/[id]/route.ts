@@ -21,7 +21,7 @@ export async function GET(
 
     const { data: assignment, error } = await supabase
       .from('assignments')
-      .select('id, teacher_id, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, auto_grade, students_can_see_grade, students_can_see_report, created_at, updated_at')
+      .select('id, teacher_id, type, title, description, due_at, mark_scheme_url, mark_scheme_text, grading_instructions, total_possible_marks, is_published, auto_grade, students_can_see_grade, students_can_see_report, created_at, updated_at')
       .eq('id', id)
       .maybeSingle()
 

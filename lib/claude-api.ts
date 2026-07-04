@@ -1635,4 +1635,61 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
       usage: actualUsage
     }
   }
+
+  /**
+   * Grade a single short answer against a sample answer. Used in the mastery
+   * quiz answer loop (hot path — runs on Haiku for speed/cost) and by the
+   * study-guide quiz self-check (/api/score-short-answer).
+   * Returns strict JSON parsed from the model; caller validates the shape.
+   */
+  async gradeShortAnswer(params: {
+    question: string
+    sampleAnswer: string
+    rubricNotes?: string | null
+    studentAnswer: string
+    subject?: string | null
+  }): Promise<{ score: number; feedback: string; isCorrect: boolean }> {
+    const { question, sampleAnswer, rubricNotes, studentAnswer, subject } = params
+
+    const prompt = `You are grading a short answer question${subject ? ` for ${subject}` : ''}.
+
+Question: ${question}
+
+Sample correct answer: ${sampleAnswer}
+${rubricNotes ? `Grading notes from the teacher: ${rubricNotes}\n` : ''}
+Student's answer: ${studentAnswer}
+
+Grade the student's answer:
+- 80-100: captures the key concepts (correct)
+- 50-79: partially correct
+- 0-49: incorrect
+
+Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. Give 1-2 sentences of constructive feedback addressed to the student.
+
+Respond with ONLY a JSON object, no other text:
+{"score": <integer 0-100>, "feedback": "<1-2 sentences>"}`
+
+    const response = await this.anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 300,
+      temperature: 0.2,
+      messages: [{ role: 'user', content: prompt }]
+    })
+
+    const content = response.content[0]
+    if (content.type !== 'text') {
+      throw new Error('Unexpected response type from Claude API')
+    }
+
+    // Model is instructed to return bare JSON; strip code fences if present
+    const raw = content.text.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+    const parsed = JSON.parse(raw)
+    const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score))))
+    const feedback = typeof parsed.feedback === 'string' ? parsed.feedback : ''
+    if (Number.isNaN(score) || !feedback) {
+      throw new Error('Malformed grading response')
+    }
+
+    return { score, feedback, isCorrect: score >= 80 }
+  }
 }
