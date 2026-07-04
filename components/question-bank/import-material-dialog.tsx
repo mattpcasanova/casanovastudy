@@ -19,9 +19,10 @@ interface UploadedFile {
   type: string
 }
 
-// Import questions from existing material: upload PDFs/images → AI extracts
-// concept-tagged questions into the review queue. The teacher's years of
-// worksheets become a bank without retyping anything.
+// Build a question bank from the teacher's own content: PowerPoints, notes,
+// worksheets, past tests. The AI identifies concepts and both extracts
+// existing questions AND writes new ones covering the material — so a lecture
+// deck with zero questions still produces a reviewable bank.
 export default function ImportMaterialDialog({
   open,
   onOpenChange,
@@ -76,7 +77,7 @@ export default function ImportMaterialDialog({
         ? ` New concepts created: ${json.created_concepts.map((c: { name: string }) => c.name).join(", ")}.`
         : ""
       toast({
-        title: `${json.total_created} questions extracted — review them per concept`,
+        title: `${json.total_created} questions created — review them per concept`,
         description: `Everything is queued as suggestions until you approve.${conceptNote}`,
       })
       setFiles([])
@@ -93,10 +94,11 @@ export default function ImportMaterialDialog({
     <Dialog open={open} onOpenChange={v => !extracting && onOpenChange(v)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Import from your material</DialogTitle>
+          <DialogTitle>Create questions from your content</DialogTitle>
           <DialogDescription>
-            Upload worksheets, past tests, or textbook pages (PDF or photos). The AI extracts
-            questions, tags them to your concepts, and queues everything for your review.
+            Upload PowerPoints, notes, worksheets, or past tests (PPTX, PDF, DOCX, or photos).
+            The AI identifies the concepts your material covers and writes quiz questions for
+            them — everything queues for your review before students see it.
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +127,7 @@ export default function ImportMaterialDialog({
                 id="import-material-file"
                 type="file"
                 multiple
-                accept=".pdf,image/*,application/pdf"
+                accept=".pdf,.pptx,.docx,.txt,image/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 className="hidden"
                 onChange={e => handleUpload(e.target.files)}
                 disabled={uploading || extracting}
@@ -138,7 +140,7 @@ export default function ImportMaterialDialog({
                 disabled={uploading || extracting}
               >
                 {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                {uploading ? "Uploading…" : files.length === 0 ? "Upload PDF or photos" : "Add another file"}
+                {uploading ? "Uploading…" : files.length === 0 ? "Upload PowerPoint, PDF, or photos" : "Add another file"}
               </Button>
             </div>
           )}
@@ -150,7 +152,7 @@ export default function ImportMaterialDialog({
           </Button>
           <Button onClick={handleExtract} disabled={files.length === 0 || uploading || extracting}>
             {extracting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {extracting ? "Extracting… (can take a minute)" : "Extract questions"}
+            {extracting ? "Creating questions… (can take a minute)" : "Create questions"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -118,14 +118,22 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
       {concepts.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-            <p className="text-muted-foreground mb-1">No concepts yet.</p>
-            <p className="text-muted-foreground text-sm mb-4">
-              Concepts are the topics students master — e.g. &quot;Sampling Distributions&quot; or &quot;Stoichiometry&quot;.
+            <p className="font-medium mb-1">Start your question bank</p>
+            <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+              The fastest way: upload your existing PowerPoints, notes, or past tests and the AI
+              builds concepts and quiz questions from them — you approve everything before
+              students see it. Or create concepts by hand and add questions yourself.
             </p>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create your first concept
-            </Button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button onClick={() => setImportOpen(true)}>
+                <FileUp className="h-4 w-4 mr-2" />
+                Create from my content
+              </Button>
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create a concept manually
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

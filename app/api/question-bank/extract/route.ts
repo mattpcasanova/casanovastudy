@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { requireTeacher } from '@/lib/api-auth'
-import { extractQuestionsFromMaterial } from '@/lib/mastery/ai'
+import { extractQuestionsFromMaterial, type MaterialFile } from '@/lib/mastery/ai'
+import { FileProcessor } from '@/lib/file-processing'
 
 export const maxDuration = 300 // vision extraction over full documents
 
@@ -45,9 +46,28 @@ export async function POST(request: NextRequest) {
       .select('id, name, description')
       .eq('teacher_id', user.id)
 
-    // Fetch files into buffers
-    const files: Array<{ buffer: Buffer; mediaType: string; name?: string }> = []
+    // Fetch files. PDFs/images go to Claude natively (best fidelity for
+    // equations/diagrams); PowerPoint/Word/text are converted to text via the
+    // same FileProcessor the study-guide flow uses.
+    // (.ppt legacy binary format isn't supported by the zip-based parser)
+    const TEXT_EXTRACTED = new Set(['pptx', 'docx', 'txt'])
+    const files: MaterialFile[] = []
     for (const f of fileUrls) {
+      const extension = (f.name ?? f.url).split('?')[0].split('.').pop()?.toLowerCase() ?? ''
+      if (TEXT_EXTRACTED.has(extension)) {
+        try {
+          const processed = await FileProcessor.processFileFromUrl(f.url, f.name ?? `file.${extension}`)
+          files.push({ kind: 'text', text: processed.content, name: f.name })
+        } catch (err) {
+          console.error(`Text extraction failed for ${f.name}:`, err)
+          return NextResponse.json(
+            { error: `Couldn't read ${f.name ?? 'file'} — try exporting it as PDF` },
+            { status: 422 }
+          )
+        }
+        continue
+      }
+
       const res = await fetch(f.url)
       if (!res.ok) {
         return NextResponse.json({ error: `Could not fetch ${f.name ?? 'file'}` }, { status: 400 })
@@ -56,8 +76,8 @@ export async function POST(request: NextRequest) {
       if (buffer.length > MAX_FILE_BYTES) {
         return NextResponse.json({ error: `${f.name ?? 'File'} is too large (30MB max)` }, { status: 400 })
       }
-      const mediaType = f.type || res.headers.get('content-type') || 'application/pdf'
-      files.push({ buffer, mediaType: mediaType.split(';')[0], name: f.name })
+      const mediaType = (f.type || res.headers.get('content-type') || 'application/pdf').split(';')[0]
+      files.push({ kind: 'document', buffer, mediaType, name: f.name })
     }
 
     let extracted

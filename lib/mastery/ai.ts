@@ -127,16 +127,22 @@ const extractionResponseSchema = z.object({
 
 export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
 
+export type MaterialFile =
+  | { kind: 'document'; buffer: Buffer; mediaType: string; name?: string }
+  | { kind: 'text'; text: string; name?: string }
+
 export interface ExtractParams {
-  files: Array<{ buffer: Buffer; mediaType: string; name?: string }>
+  files: MaterialFile[]
   concepts: Array<{ id: string; name: string; description?: string | null }>
   subject?: string | null
 }
 
 /**
- * Extract concept-tagged questions from uploaded material (PDF pages or
- * images). Each question is tagged with an existing concept_id or a
- * proposed_new_concept name for material outside the current list.
+ * Build a question bank from a teacher's course material (slides, notes,
+ * worksheets, past tests). Extracts existing questions AND generates new ones
+ * covering the material's key ideas; each question is tagged with an existing
+ * concept_id or a proposed_new_concept name. This is the "PowerPoint in,
+ * mastery quiz out" pipeline — the material doesn't need to contain questions.
  */
 export async function extractQuestionsFromMaterial(
   params: ExtractParams
@@ -149,23 +155,37 @@ export async function extractQuestionsFromMaterial(
     .map(c => `- id: ${c.id} | ${c.name}${c.description ? ` — ${c.description}` : ''}`)
     .join('\n')
 
-  const instruction = `You are digitizing a teacher's existing material${params.subject ? ` for ${params.subject}` : ''} into a concept-tagged question bank.
+  const instruction = `You are turning a teacher's course material${params.subject ? ` for ${params.subject}` : ''} (slides, lecture notes, worksheets, past tests) into a concept-tagged question bank for adaptive mastery quizzes.
 
 The teacher's current concepts:
 ${conceptList || '(none yet)'}
 
-Extract every distinct assessment question you can find in the attached material (worksheets, past tests, textbook problems). Also convert clearly question-like exercises into proper questions. For each:
-- Tag it with the best-matching concept's "concept_id" from the list above. If nothing fits, set "concept_id" to null and set "proposed_new_concept" to a short concept name (e.g. "Equilibrium constants").
-- Convert to one of: multiple_choice (4 options + correct index — invent plausible distractors if the source wasn't MC), true_false ({"value": bool}), or short_answer ({"sample_answer": "...", "rubric_notes": "..."}).
-- Include a brief "explanation" and "difficulty" 1-3.
-- Skip pure instructions, headers, and answer keys (use answer keys to fill in correct answers).
+Work in two steps:
+
+1. Identify the distinct concepts the material teaches. Tag each to the best-matching "concept_id" from the list above; if nothing fits, set "concept_id" to null and "proposed_new_concept" to a short, specific name a student can master in one sitting (e.g. "Limiting reactants", not "Chemistry"). Reuse the same proposed name consistently across its questions.
+
+2. Build the questions:
+   - Extract any existing assessment questions from the material (use answer keys to fill in correct answers; skip pure headers/instructions).
+   - Then WRITE NEW questions that test the material's key ideas, definitions, procedures, and worked examples — the material does not need to contain questions. Ground every question in what the material actually covers; do not invent outside content.
+   - Aim for 4-6 questions per concept, mixed across types.
+
+Question shapes — one of:
+- multiple_choice: 4 "options" with plausible distractors, "correct_answer": {"index": <0-based>}
+- true_false: "correct_answer": {"value": true|false}
+- short_answer: "correct_answer": {"sample_answer": "...", "rubric_notes": "<what to accept/reject>"}
+Each question needs a brief "explanation" (shown after answering) and "difficulty" 1-3 (mostly 2).
 
 Respond with ONLY a JSON object:
 {"questions": [{"concept_id": "<id or null>", "proposed_new_concept": "<name or null>", "type": "...", "question_text": "...", "options": [...] or null, "correct_answer": {...}, "explanation": "...", "difficulty": 2}, ...]}`
 
   const content: Anthropic.ContentBlockParam[] = []
   for (const file of params.files) {
-    if (file.mediaType === 'application/pdf') {
+    if (file.kind === 'text') {
+      content.push({
+        type: 'text',
+        text: `Content of "${file.name ?? 'uploaded file'}":\n\n${file.text}`,
+      })
+    } else if (file.mediaType === 'application/pdf') {
       content.push({
         type: 'document',
         source: { type: 'base64', media_type: 'application/pdf', data: file.buffer.toString('base64') },
@@ -181,7 +201,9 @@ Respond with ONLY a JSON object:
       })
     }
   }
-  if (content.length === 0) throw new Error('No readable files (PDF or images only)')
+  if (content.length === 0) {
+    throw new Error('No readable files (PDF, PowerPoint, Word, text, or images)')
+  }
   content.push({ type: 'text', text: instruction })
 
   let lastError: unknown

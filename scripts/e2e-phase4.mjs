@@ -53,6 +53,29 @@ const WORKSHEET_LINES = [
   'Answer key: 1. b   2. True   3. 1.9   4. a',
 ]
 
+// Minimal .pptx (zip with slide XML) — lecture CONTENT with no questions,
+// exercising both PowerPoint parsing and generate-from-content.
+function makeLecturePptx() {
+  const PizZip = require('pizzip')
+  const zip = new PizZip()
+  const slide = (texts) =>
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld><p:spTree>${texts.map(t => `<p:sp><p:txBody><a:p><a:r><a:t>${t}</a:t></a:r></a:p></p:txBody></p:sp>`).join('')}</p:spTree></p:cSld></p:sld>`
+  zip.file('ppt/slides/slide1.xml', slide([
+    'AP Chemistry Unit 4: Limiting Reactants',
+    'The limiting reactant is the reactant that is completely consumed first and determines the maximum amount of product.',
+    'To find it: convert each reactant to moles of product using mole ratios; the reactant giving the LEAST product is limiting.',
+  ]))
+  zip.file('ppt/slides/slide2.xml', slide([
+    'Percent Yield',
+    'Percent yield = (actual yield / theoretical yield) x 100.',
+    'Theoretical yield comes from the limiting reactant calculation.',
+    'Example: if theoretical yield is 24.0 g and actual is 18.0 g, percent yield is 75.0%.',
+  ]))
+  return zip.generate({ type: 'nodebuffer' })
+}
+
 const env = {}
 for (const line of readFileSync(`${ROOT}/.env.local`, 'utf8').split('\n')) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
@@ -137,6 +160,32 @@ async function main() {
     body: JSON.stringify({ file_urls: [{ url: 'https://evil.example.com/x.pdf' }] }),
   })
   check('non-cloudinary URL rejected', badRes.status === 400, `got ${badRes.status}`)
+
+  console.log('\n== PowerPoint lecture (content only, no questions) ==')
+  const pptxBytes = makeLecturePptx()
+  const fd2 = new FormData()
+  fd2.append('file', new Blob([pptxBytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), 'e2e-lecture.pptx')
+  fd2.append('folder', 'casanovastudy/question-bank-imports')
+  const up2 = await fetch(`${BASE}/api/upload-to-cloudinary`, { method: 'POST', headers: { Cookie: cookie }, body: fd2 })
+  const up2Json = await up2.json()
+  check('pptx upload accepted', up2.ok && !!up2Json.url, `got ${up2.status}: ${JSON.stringify(up2Json).slice(0, 200)}`)
+
+  const before = new Set(((await admin.from('concepts').select('id').eq('teacher_id', created.teacherId)).data ?? []).map(c => c.id))
+  const ex2 = await fetch(`${BASE}/api/question-bank/extract`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ file_urls: [{ url: up2Json.url, name: 'e2e-lecture.pptx', type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }] }),
+  })
+  const ex2Json = await ex2.json()
+  check('pptx extraction returns 201', ex2.status === 201, `got ${ex2.status}: ${JSON.stringify(ex2Json).slice(0, 300)}`)
+  check('questions GENERATED from question-free content', (ex2Json.total_created ?? 0) >= 4, `got ${ex2Json.total_created}`)
+  console.log(`  (created ${ex2Json.total_created}; new concepts: ${(ex2Json.created_concepts ?? []).map(c => c.name).join(', ') || 'none'})`)
+  check('new concepts proposed from slide content', (ex2Json.created_concepts ?? []).length >= 1, JSON.stringify(ex2Json.created_concepts))
+
+  const { data: newQs } = await admin.from('question_bank_questions')
+    .select('concept_id, status, source').eq('teacher_id', created.teacherId).eq('source', 'ai_extracted')
+  const newConceptQs = (newQs ?? []).filter(q => !before.has(q.concept_id))
+  check('generated questions attached to the new concepts', newConceptQs.length >= 4, `got ${newConceptQs.length}`)
+  check('all queued as suggestions', (newQs ?? []).every(q => q.status === 'suggested'))
 }
 
 async function cleanup() {
