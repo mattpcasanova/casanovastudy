@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
+import MasteryProgressMatrix from "@/components/teacher-assignments/mastery-progress-matrix"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -462,10 +463,12 @@ export default function TeacherAssignmentDetailPage() {
           </Card>
         )}
 
+        {isMasteryQuiz && <MasteryProgressMatrix assignmentId={assignment.id} />}
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-lg">Submissions</h2>
+              <h2 className="font-semibold text-lg">{isMasteryQuiz ? "Grades" : "Submissions"}</h2>
               <Badge variant="secondary">{submissions.length}</Badge>
             </div>
 

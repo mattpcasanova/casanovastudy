@@ -1681,6 +1681,11 @@ Respond with ONLY a JSON object, no other text:
       throw new Error('Unexpected response type from Claude API')
     }
 
+    console.log('✅ Short answer grading - Token Usage:', {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    })
+
     // Model is instructed to return bare JSON; strip code fences if present
     const raw = content.text.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
     const parsed = JSON.parse(raw)

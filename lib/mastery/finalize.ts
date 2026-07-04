@@ -31,16 +31,19 @@ export async function ensureSubmissionRow(
 /**
  * Complete an attempt: mark it completed, write a grading_results row
  * (mastered/total concepts), and flip the submission to 'graded'.
- * No-ops if the attempt is already completed or concepts are still in progress.
+ * No-ops if the attempt is already completed or concepts are still in
+ * progress — unless `force` (teacher finalizing after the due date), which
+ * grades as-is: unfinished concepts count as not mastered.
  */
 export async function finalizeAttempt(
   supabase: SupabaseClient,
   attempt: AttemptRow,
   context: MasteryContext,
-  rollups: ConceptRollup[]
+  rollups: ConceptRollup[],
+  options?: { force?: boolean }
 ): Promise<{ mastered: number; total: number; percentage: number } | null> {
   if (attempt.status === 'completed') return computeFinalScore(rollups)
-  if (!isAttemptComplete(rollups)) return null
+  if (!isAttemptComplete(rollups) && !options?.force) return null
 
   const score = computeFinalScore(rollups)
   const completedAt = new Date().toISOString()
@@ -53,7 +56,7 @@ export async function finalizeAttempt(
     explanation:
       r.status === 'mastered'
         ? `Mastered after ${r.answered_count} question${r.answered_count === 1 ? '' : 's'} (${r.correct_count} correct).`
-        : `Not yet mastered — answered ${r.answered_count} questions (${r.correct_count} correct) before reaching the limit.`,
+        : `Not yet mastered — answered ${r.answered_count} question${r.answered_count === 1 ? '' : 's'} (${r.correct_count} correct).`,
   }))
 
   const contentLines = [

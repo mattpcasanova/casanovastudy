@@ -7,6 +7,11 @@ import { finalizeAttempt } from '@/lib/mastery/finalize'
 
 export const maxDuration = 60 // short-answer grading calls Claude
 
+// AI-cost guardrail: a student can burn through at most this many AI-graded
+// short answers per day across all mastery quizzes (~pennies of Haiku, but
+// stops runaway loops cold)
+const DAILY_SA_GRADING_CAP = 150
+
 interface AnswerBody {
   response_id?: string
   answer?: { index?: number; value?: boolean; text?: string }
@@ -86,6 +91,21 @@ export async function POST(
       if (!text) return NextResponse.json({ error: 'Write an answer first' }, { status: 400 })
       if (text.length > 2000) {
         return NextResponse.json({ error: 'Answer is too long' }, { status: 400 })
+      }
+
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const { count: gradedToday } = await supabase
+        .from('mastery_responses')
+        .select('id, mastery_attempts!inner(student_id)', { count: 'exact', head: true })
+        .eq('mastery_attempts.student_id', user.id)
+        .not('score', 'is', null)
+        .gte('answered_at', todayStart.toISOString())
+      if ((gradedToday ?? 0) >= DAILY_SA_GRADING_CAP) {
+        return NextResponse.json(
+          { error: "You've hit today's limit for AI-graded answers — pick up again tomorrow" },
+          { status: 429 }
+        )
       }
 
       const { data: cls } = await supabase

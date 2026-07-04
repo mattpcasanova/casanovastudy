@@ -243,6 +243,10 @@ export async function generateMasteryQuestions(
       lastError = new Error('No text block in response')
       continue
     }
+    console.log('✅ Question generation - Token Usage:', {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    })
     try {
       return parseGeneration(content.text).slice(0, params.count)
     } catch (err) {
