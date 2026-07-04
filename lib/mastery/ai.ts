@@ -96,10 +96,121 @@ Respond with ONLY a JSON object, no other text:
 {"questions": [{"type": "...", "question_text": "...", "options": [...] or null, "correct_answer": {...}, "explanation": "...", "difficulty": 2}, ...]}`
 }
 
+/**
+ * Pull the outermost JSON object out of a model response — tolerates
+ * preamble text, code fences, and trailing commentary.
+ */
+function extractJsonObject(raw: string): unknown {
+  const start = raw.indexOf('{')
+  const end = raw.lastIndexOf('}')
+  if (start === -1 || end <= start) throw new Error('No JSON object in response')
+  return JSON.parse(raw.slice(start, end + 1))
+}
+
 function parseGeneration(raw: string): GeneratedQuestion[] {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
-  const parsed = generationResponseSchema.parse(JSON.parse(cleaned))
+  const parsed = generationResponseSchema.parse(extractJsonObject(raw))
   return parsed.questions
+}
+
+// --- Extraction from uploaded material ---
+
+const extractedQuestionSchema = generatedQuestionSchema.and(
+  z.object({
+    concept_id: z.string().nullish(),
+    proposed_new_concept: z.string().min(2).max(120).nullish(),
+  })
+)
+
+const extractionResponseSchema = z.object({
+  questions: z.array(extractedQuestionSchema),
+})
+
+export type ExtractedQuestion = z.infer<typeof extractedQuestionSchema>
+
+export interface ExtractParams {
+  files: Array<{ buffer: Buffer; mediaType: string; name?: string }>
+  concepts: Array<{ id: string; name: string; description?: string | null }>
+  subject?: string | null
+}
+
+/**
+ * Extract concept-tagged questions from uploaded material (PDF pages or
+ * images). Each question is tagged with an existing concept_id or a
+ * proposed_new_concept name for material outside the current list.
+ */
+export async function extractQuestionsFromMaterial(
+  params: ExtractParams
+): Promise<ExtractedQuestion[]> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured')
+  const anthropic = new Anthropic({ apiKey })
+
+  const conceptList = params.concepts
+    .map(c => `- id: ${c.id} | ${c.name}${c.description ? ` — ${c.description}` : ''}`)
+    .join('\n')
+
+  const instruction = `You are digitizing a teacher's existing material${params.subject ? ` for ${params.subject}` : ''} into a concept-tagged question bank.
+
+The teacher's current concepts:
+${conceptList || '(none yet)'}
+
+Extract every distinct assessment question you can find in the attached material (worksheets, past tests, textbook problems). Also convert clearly question-like exercises into proper questions. For each:
+- Tag it with the best-matching concept's "concept_id" from the list above. If nothing fits, set "concept_id" to null and set "proposed_new_concept" to a short concept name (e.g. "Equilibrium constants").
+- Convert to one of: multiple_choice (4 options + correct index — invent plausible distractors if the source wasn't MC), true_false ({"value": bool}), or short_answer ({"sample_answer": "...", "rubric_notes": "..."}).
+- Include a brief "explanation" and "difficulty" 1-3.
+- Skip pure instructions, headers, and answer keys (use answer keys to fill in correct answers).
+
+Respond with ONLY a JSON object:
+{"questions": [{"concept_id": "<id or null>", "proposed_new_concept": "<name or null>", "type": "...", "question_text": "...", "options": [...] or null, "correct_answer": {...}, "explanation": "...", "difficulty": 2}, ...]}`
+
+  const content: Anthropic.ContentBlockParam[] = []
+  for (const file of params.files) {
+    if (file.mediaType === 'application/pdf') {
+      content.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: file.buffer.toString('base64') },
+      })
+    } else if (file.mediaType.startsWith('image/')) {
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: file.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+          data: file.buffer.toString('base64'),
+        },
+      })
+    }
+  }
+  if (content.length === 0) throw new Error('No readable files (PDF or images only)')
+  content.push({ type: 'text', text: instruction })
+
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // Stream: extraction outputs can be large and non-streaming requests
+    // above ~16K output risk HTTP timeouts
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-5',
+      max_tokens: 32000,
+      messages: [{ role: 'user', content }],
+    })
+    const response = await stream.finalMessage()
+    const block = response.content.find(
+      (b): b is Extract<(typeof response.content)[number], { type: 'text' }> => b.type === 'text'
+    )
+    if (!block) {
+      lastError = new Error('No text block in response')
+      continue
+    }
+    try {
+      return extractionResponseSchema.parse(extractJsonObject(block.text)).questions
+    } catch (err) {
+      lastError = err
+      console.error('Extraction parse failure (attempt', attempt + 1, '):', err)
+    }
+  }
+  throw new Error(
+    `AI extraction failed: ${lastError instanceof Error ? lastError.message : 'unknown'}`
+  )
 }
 
 /**

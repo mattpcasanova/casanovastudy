@@ -6,15 +6,49 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ChevronRight, Library, Sparkles } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, ChevronRight, FileUp, Library, Loader2, Sparkles } from "lucide-react"
 import ConceptFormDialog from "@/components/question-bank/concept-form-dialog"
+import ImportMaterialDialog from "@/components/question-bank/import-material-dialog"
 import type { ConceptWithCounts } from "@/lib/types/question-bank"
 
 // Client island for the question bank home. Data arrives from the server
 // component; mutations go through the API routes, then router.refresh().
 export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCounts[] }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [fillingGaps, setFillingGaps] = useState(false)
+
+  const emptyConcepts = concepts.filter(c => c.approved_count === 0 && c.suggested_count === 0)
+
+  const handleFillGaps = async () => {
+    setFillingGaps(true)
+    try {
+      // Suggest route caps at 5 concepts per call
+      const targets = emptyConcepts.slice(0, 5).map(c => c.id)
+      const res = await fetch("/api/question-bank/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ concept_ids: targets, count: 5 }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error ?? "Failed to generate suggestions", variant: "destructive" })
+        return
+      }
+      toast({
+        title: `${json.total_created} suggestions ready to review`,
+        description: "Open each concept to approve, edit, or decline them.",
+      })
+      router.refresh()
+    } catch {
+      toast({ title: "Network error", variant: "destructive" })
+    } finally {
+      setFillingGaps(false)
+    }
+  }
 
   const byUnit = useMemo(() => {
     const groups = new Map<string, ConceptWithCounts[]>()
@@ -39,15 +73,21 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
             Organize questions by concept. Mastery quizzes pull from approved questions.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New concept
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4 mr-2" />
+            Import from material
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New concept
+          </Button>
+        </div>
       </div>
 
       {concepts.length > 0 && (
         <Card className="mb-6">
-          <CardContent className="py-4 flex items-center gap-6 flex-wrap text-sm">
+          <CardContent className="py-4 flex items-center gap-x-6 gap-y-2 flex-wrap text-sm">
             <span className="flex items-center gap-2">
               <Library className="h-4 w-4 text-muted-foreground" />
               <strong>{covered}</strong>&nbsp;of&nbsp;<strong>{concepts.length}</strong>&nbsp;concepts have approved questions
@@ -56,6 +96,19 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
               <span className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
                 <Sparkles className="h-4 w-4" />
                 {pendingSuggestions} suggestion{pendingSuggestions === 1 ? "" : "s"} awaiting review
+              </span>
+            )}
+            {emptyConcepts.length > 0 && (
+              <span className="flex items-center gap-2 ml-auto">
+                <span className="text-muted-foreground">
+                  {emptyConcepts.length} concept{emptyConcepts.length === 1 ? "" : "s"} with no questions
+                </span>
+                <Button size="sm" variant="outline" onClick={handleFillGaps} disabled={fillingGaps}>
+                  {fillingGaps
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                  {fillingGaps ? "Generating…" : `Suggest with AI${emptyConcepts.length > 5 ? " (first 5)" : ""}`}
+                </Button>
               </span>
             )}
           </CardContent>
@@ -124,6 +177,12 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
         onOpenChange={setCreateOpen}
         mode="create"
         onSaved={() => router.refresh()}
+      />
+
+      <ImportMaterialDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => router.refresh()}
       />
     </>
   )
