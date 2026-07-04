@@ -25,12 +25,37 @@ Next.js 15 application (using Turbopack) for creating AI-powered study guides. U
 npm run dev      # Start dev server (Turbopack)
 npm run build    # Production build
 npm run lint     # Run ESLint
+npm test         # Unit tests (vitest — currently the mastery engine)
+node scripts/e2e-mastery.mjs  # Live E2E smoke tests (needs dev server on :3000;
+                              # e2e-phase3/4/5.mjs cover AI suggestion/extract/matrix)
 ```
 
 ## Database Schema
-- `user_profiles` - User data (id, email, user_type, first_name, last_name, birth_date, clever_id)
+- `user_profiles` - User data (id, email, user_type, first_name, last_name, birth_date, clever_id, pref_* grading defaults)
 - `study_guides` - Generated study guides (linked to user_id)
-- `grading_results` - Graded exams
+- `grading_results` - Graded exams (also the gradebook projection target for mastery quizzes)
+- `classes`, `class_enrollments` - Classes with 6-char enrollment codes
+- `assignments` (+ `assignment_class_links`, `assignment_submissions`) - `type` column: 'file_upload' (default) | 'mastery_quiz'
+- `concepts`, `question_bank_questions`, `question_review_events` - Teacher question bank; questions have source (manual/ai_suggested/ai_extracted/ai_runtime) and status (suggested/approved/declined/archived); review events store approve/edit/decline signals
+- `assignment_mastery_config`, `assignment_mastery_concepts` - Per-assignment mastery settings + concept links
+- `mastery_attempts`, `mastery_attempt_concepts`, `mastery_responses` - One resumable attempt per (assignment, student); responses freeze a question_snapshot at serve time (answer NULL = resumable); students have NO SELECT on responses/bank (answers live there — API strips them)
+
+## Mastery Quizzes (adaptive assignments)
+Teacher posts a 'Mastery Quiz' assignment; students loop through concept-tagged
+questions until each concept hits the threshold (default 80% over the last 5
+answers, min 3 answered; cap 15/concept then partial credit).
+- Engine: `lib/mastery/engine.ts` (pure functions, unit-tested in engine.test.ts)
+- Round construction/AI: `lib/mastery/rounds.ts`, `lib/mastery/ai.ts` (question
+  generation + extraction on claude-sonnet-5; SA grading on claude-haiku-4-5
+  via `ClaudeService.gradeShortAnswer`)
+- Gradebook projection: `lib/mastery/finalize.ts` writes grading_results +
+  flips assignment_submissions — existing gradebook needs no changes
+- Trust gradient: all AI questions land as status='suggested' until the teacher
+  approves (runtime-generated ones too); review events are captured for future tuning
+- Question bank UI: `/teacher/question-bank` (server components + client islands
+  in `components/question-bank/`); player in `components/mastery/`
+- Guardrails: 150 AI-graded short answers/student/day; runtime generation capped
+  at 10/concept/attempt; extract route only accepts Cloudinary URLs
 
 ## Authentication Flow
 
@@ -62,6 +87,9 @@ npm run lint     # Run ESLint
 - **Profile Fetch**: Can be slow on first load (~5s) due to Supabase cold starts. Has 5-second timeout.
 - **Auth Events**: onAuthStateChange fires SIGNED_IN before INITIAL_SESSION. Auth init skips events until getSession completes.
 - **Clever SSO**: Requires district approval in Clever dashboard. Without approval, users see "Your district has not yet set up this application" error.
+- **Deprecated Claude model**: the study-guide/grading pipeline in `lib/claude-api.ts` still uses `claude-sonnet-4-20250514`, which is deprecated (retirement announced for mid-2026). New mastery code uses `claude-sonnet-5` / `claude-haiku-4-5`. Migrate the legacy call sites before the old model is retired.
+- **Sonnet 5 responses start with a thinking block**: never read `response.content[0]` and assume text — use `content.find(b => b.type === 'text')` (bit us in `lib/mastery/ai.ts`).
+- **`ignoreBuildErrors: true`** in next.config.mjs means tsc errors ship silently. Baseline is 55 pre-existing errors — run `npx tsc --noEmit` and don't add to it.
 
 ## Environment Variables
 Required in `.env.local`:
@@ -105,6 +133,9 @@ GMAIL_APP_PASSWORD=              # Gmail app password for mattpcasanova@gmail.co
 - `/my-guides` - User's saved study guides (with search, filter, sort, delete)
 - `/grade-exam` - Exam grading feature
 - `/study-guide/[id]` - View a specific study guide
+- `/teacher/question-bank` (+ `/[conceptId]`) - Concept-organized question bank (manual entry, AI suggest, import-from-material)
+- `/teacher/assignments/[id]` - Assignment detail; shows the mastery progress matrix for mastery quizzes
+- `/classes/[id]/assignments/[assignmentId]` - Student assignment page (server component branches: file upload vs mastery player)
 
 ## Study Guide Management
 
