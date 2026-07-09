@@ -242,7 +242,7 @@ function formatContent(content: string): string {
   if (!cleanContent) return ''
 
   // Handle markdown tables with separator row
-  const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
+  const tableRegex = /\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|\n?)+/gm
   let processedContent = cleanContent.replace(tableRegex, (match) => {
     const lines = match.trim().split('\n')
     if (lines.length < 2) return match
@@ -272,7 +272,7 @@ function formatContent(content: string): string {
   })
 
   // Handle simpler tables without separator row (consecutive lines with pipes)
-  const simpleTableRegex = /(\|[^|\n]+\|[^|\n]*\|?\n?){2,}/gm
+  const simpleTableRegex = /(?:^.*\|.*\|.*$\n?){2,}/gm
   processedContent = processedContent.replace(simpleTableRegex, (match) => {
     // Check if already processed (contains HTML)
     if (match.includes('<table') || match.includes('<div')) return match

@@ -477,11 +477,15 @@ function parseFlashcards(content: string): Flashcard[] {
 
     if (qIndex !== -1 && aIndex !== -1) {
       question = lines[qIndex].replace(/^(Q:|Question:)\s*/i, '').trim()
-      answer = lines.slice(aIndex).join(' ').replace(/^(A:|Answer:)\s*/i, '').trim()
+      // Join with newlines (not spaces) so multi-line answers — especially
+      // markdown tables — keep their structure. Flattening a table onto one
+      // pipe-filled line makes formatContent's table regex miss it and dumps
+      // it on the fallback regex, which ReDoS-hangs the page (page unresponsive).
+      answer = lines.slice(aIndex).join('\n').replace(/^(A:|Answer:)\s*/i, '').trim()
     } else if (lines.length >= 2) {
       // Assume first line is question, rest is answer
       question = lines[0].trim()
-      answer = lines.slice(1).join(' ').trim()
+      answer = lines.slice(1).join('\n').trim()
     }
 
     if (question && answer) {
@@ -498,7 +502,7 @@ function parseFlashcards(content: string): Flashcard[] {
 
 function formatContent(content: string): string {
   // Handle markdown tables with separator row
-  const tableRegex = /\|(.+\|)+\n\|[-:\s|]+\|\n(\|.+\|(\n)?)+/gm
+  const tableRegex = /\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|\n?)+/gm
   let processedContent = content.replace(tableRegex, (match) => {
     const lines = match.trim().split('\n')
     if (lines.length < 2) return match
@@ -528,7 +532,7 @@ function formatContent(content: string): string {
   })
 
   // Handle simpler tables without separator row (consecutive lines with pipes)
-  const simpleTableRegex = /(\|[^|\n]+\|[^|\n]*\|?\n?){2,}/gm
+  const simpleTableRegex = /(?:^.*\|.*\|.*$\n?){2,}/gm
   processedContent = processedContent.replace(simpleTableRegex, (match) => {
     // Check if already processed (contains HTML)
     if (match.includes('<table') || match.includes('<div')) return match
