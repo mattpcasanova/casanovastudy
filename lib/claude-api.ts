@@ -31,9 +31,9 @@ export class ClaudeService {
       })
 
       const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 4000,
-        temperature: 0.7,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -78,9 +78,9 @@ export class ClaudeService {
       console.log('📊 Starting streaming generation...')
 
       const stream = await this.anthropic.messages.stream({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 4000,
-        temperature: 0.7,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -472,9 +472,9 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     console.log('📤 Sending to Claude API with', content.length, 'content items')
 
     const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 16384,
-      temperature: 0.1, // Lower temperature for more consistent grading (was 0.3)
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -721,9 +721,9 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     console.log('📤 Starting streaming grading with', content.length, 'content items')
 
     const stream = await this.anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 16384,
-      temperature: 0.1,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -880,9 +880,9 @@ CRITICAL RULES:
     console.log(`📤 Grading ${missingQuestions.length} missing questions...`)
 
     const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 4096,
-      temperature: 0.1,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -1035,9 +1035,9 @@ Remember: This is a learning opportunity. Be supportive and help them understand
     console.log('📤 Sending to Claude API with tutoring mode')
 
     const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 4000,
-      temperature: 0.5, // Higher temperature for more conversational, varied responses
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -1190,9 +1190,9 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
       })
       
       const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 4000,
-        temperature: 0.3,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -1248,9 +1248,9 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
       })
       
       const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         max_tokens: 4000,
-        temperature: 0.3, // Lower temperature for more consistent grading
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -1600,9 +1600,9 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     }
 
     const stream = await this.anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 8000,
-      temperature: 0.7,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
