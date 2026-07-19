@@ -51,6 +51,7 @@ interface Props {
   initialValues?: InitialValues
   assignmentId?: string
   defaultClassId?: string
+  defaultType?: "file_upload" | "mastery_quiz"
   onSaved: (a: { id: string }) => void
 }
 
@@ -81,6 +82,7 @@ export default function CreateAssignmentDialog({
   initialValues,
   assignmentId,
   defaultClassId,
+  defaultType,
   onSaved,
 }: Props) {
   const { toast } = useToast()
@@ -91,7 +93,7 @@ export default function CreateAssignmentDialog({
   const [uploadingMarkScheme, setUploadingMarkScheme] = useState(false)
   const [savingDefaults, setSavingDefaults] = useState(false)
   // Assignment type is chosen at creation and fixed afterwards
-  const [assignmentType, setAssignmentType] = useState<"file_upload" | "mastery_quiz">("file_upload")
+  const [assignmentType, setAssignmentType] = useState<"file_upload" | "mastery_quiz">(defaultType ?? "file_upload")
   const [masteryConfig, setMasteryConfig] = useState<MasteryConfigValues>(DEFAULT_MASTERY_CONFIG)
   const isMastery = mode === "create" && assignmentType === "mastery_quiz"
 
@@ -120,7 +122,7 @@ export default function CreateAssignmentDialog({
     } else {
       setValues(initialValues ?? EMPTY)
     }
-    setAssignmentType("file_upload")
+    setAssignmentType(defaultType ?? "file_upload")
     setMasteryConfig(DEFAULT_MASTERY_CONFIG)
 
     setClassesLoading(true)
@@ -132,7 +134,7 @@ export default function CreateAssignmentDialog({
       })
       .finally(() => { if (!cancelled) setClassesLoading(false) })
     return () => { cancelled = true }
-  }, [open, initialValues, defaultClassId, mode])
+  }, [open, initialValues, defaultClassId, defaultType, mode])
 
   const saveDefaults = async () => {
     setSavingDefaults(true)

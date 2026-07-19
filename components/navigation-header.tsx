@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, LayoutDashboard, CalendarDays } from 'lucide-react'
+import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, LayoutDashboard, CalendarDays, Library, Target } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +55,8 @@ export default function NavigationHeader() {
   const isJoinClassActive = pathname?.startsWith('/classes/join')
   const isDashboardActive = pathname === '/' || pathname?.startsWith('/dashboard')
   const isCalendarActive = pathname?.startsWith('/calendar')
+  const isQuizzesActive = pathname?.startsWith('/teacher/quizzes')
+  const isQuestionBankActive = pathname?.startsWith('/teacher/question-bank')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
   const isTeacher = user?.user_type === 'teacher'
 
@@ -232,9 +234,9 @@ export default function NavigationHeader() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isMyClassesActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
+                      variant={isMyClassesActive || isDashboardActive || isCalendarActive || isQuizzesActive || isQuestionBankActive ? 'secondary' : 'ghost'}
                       className={`h-10 rounded-full px-4 transition-all duration-200 ${
-                        isMyClassesActive || isDashboardActive || isCalendarActive
+                        isMyClassesActive || isDashboardActive || isCalendarActive || isQuizzesActive || isQuestionBankActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
@@ -261,6 +263,18 @@ export default function NavigationHeader() {
                       <Link href="/calendar" className="flex items-center cursor-pointer">
                         <CalendarDays className="h-4 w-4 mr-2" />
                         Calendar
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/teacher/quizzes" className="flex items-center cursor-pointer">
+                        <Target className="h-4 w-4 mr-2" />
+                        Quizzes
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/teacher/question-bank" className="flex items-center cursor-pointer">
+                        <Library className="h-4 w-4 mr-2" />
+                        Question Bank
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -503,6 +517,24 @@ export default function NavigationHeader() {
                 >
                   <CalendarDays className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">Calendar</span>
+                </Link>
+                <Link
+                  href="/teacher/quizzes"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isQuizzesActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Target className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Quizzes</span>
+                </Link>
+                <Link
+                  href="/teacher/question-bank"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isQuestionBankActive ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Library className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Question Bank</span>
                 </Link>
                 <Link
                   href="/my-students"
