@@ -237,9 +237,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Hero Section - Simplified */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div
             className="absolute inset-0"
@@ -267,7 +267,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 <span className="text-white font-medium">Always accessible</span>
               </div>
               <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
-                <Sparkles className="h-5 w-5 text-purple-300" />
+                <Sparkles className="h-5 w-5 text-blue-300" />
                 <span className="text-white font-medium">4 interactive formats</span>
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           </div>
 
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-indigo-100/50 rounded-2xl blur-xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-blue-100/50 rounded-2xl blur-xl"></div>
             <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8">
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
@@ -376,7 +376,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         {/* Configuration Section */}
         <section className="mb-16">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full"></div>
+            <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Configure Your Study Guide</h2>
               <p className="text-sm text-gray-600">Customize to match your learning needs</p>
@@ -386,10 +386,10 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           <div className="space-y-8">
             {/* Required Fields */}
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-100/50 to-purple-100/50 rounded-2xl blur-xl"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-blue-100/50 rounded-2xl blur-xl"></div>
               <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8">
                 <div className="flex items-center gap-2 mb-6">
-                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">REQUIRED</span>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">REQUIRED</span>
                 </div>
 
                 <div className="space-y-6">
@@ -615,9 +615,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 </div>
               )}
 
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="font-semibold text-purple-800 text-sm">{unsupportedFileName.endsWith('.key') ? 'Option 2' : 'Option 3'}: Use Google Slides (Free)</p>
-                <ol className="text-sm text-purple-700 mt-1 list-decimal list-inside space-y-1">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="font-semibold text-blue-800 text-sm">{unsupportedFileName.endsWith('.key') ? 'Option 2' : 'Option 3'}: Use Google Slides (Free)</p>
+                <ol className="text-sm text-blue-700 mt-1 list-decimal list-inside space-y-1">
                   <li>Go to <a href="https://slides.google.com" target="_blank" rel="noopener noreferrer" className="underline">slides.google.com</a></li>
                   <li>Upload your file</li>
                   <li>Download as <strong>PDF</strong></li>

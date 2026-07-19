@@ -306,7 +306,7 @@ export default function MarineScienceStudyGuide() {
       </div>
 
       {/* Title Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden relative">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white print:hidden relative">
         <button
           type="button"
           onClick={() => router.back()}

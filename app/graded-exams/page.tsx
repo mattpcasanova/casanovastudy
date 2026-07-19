@@ -410,11 +410,11 @@ export default function GradedExamsPage() {
   const hasActiveFilters = classFilter !== 'all' || periodFilter !== 'all' || examTitleFilter !== 'all' || searchQuery.trim()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <NavigationHeader />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 py-10">
           <div className="relative">
             <div className="text-center">
@@ -761,7 +761,7 @@ export default function GradedExamsPage() {
                               </Badge>
                             )}
                             {result.class_name && (
-                              <Badge variant="outline" className="text-xs bg-purple-50 border-purple-200 text-purple-700">
+                              <Badge variant="outline" className="text-xs bg-cyan-50 border-cyan-200 text-cyan-700">
                                 {result.class_name}
                               </Badge>
                             )}

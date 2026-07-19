@@ -59,25 +59,29 @@ export default function NavigationHeader() {
   const isTeacher = user?.user_type === 'teacher'
 
   return (
-    <header className="bg-gradient-to-r from-primary via-secondary to-accent text-white shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between py-4">
-          {/* Logo */}
-          <Link href="/" className="transition-all duration-200 hover:scale-105">
+    <header className="relative bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 text-white shadow-lg sticky top-0 z-50">
+      {/* Luminous depth — soft glows lift the bar from flat to premium */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-20 right-1/4 h-52 w-[30rem] rounded-full bg-cyan-300/25 blur-3xl" />
+        <div className="absolute -bottom-24 left-8 h-52 w-96 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+      </div>
+      <div className="container relative z-10 mx-auto px-4">
+        <div className="flex items-center justify-between py-3">
+          {/* Logo lockup — the brand mark is a dim neon-on-dark image, so we show
+              the (brightened) icon on a dark chip and set the wordmark as crisp
+              white text, guaranteeing it reads on the blue bar. */}
+          <Link href="/" className="group flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]">
             <Image
               src="/images/casanova-study-icon.png"
               alt="Casanova Study"
               width={80}
               height={80}
-              className="h-14 w-auto md:hidden drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+              className="h-10 w-auto mix-blend-screen [filter:brightness(1.5)_saturate(1.2)]"
             />
-            <Image
-              src="/images/casanova-study-logo.png"
-              alt="Casanova Study"
-              width={280}
-              height={105}
-              className="hidden md:block h-20 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] hover:drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-            />
+            <span className="text-xl font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+              Casanova Study
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -88,10 +92,10 @@ export default function NavigationHeader() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant={isStudyGuidesActive ? 'secondary' : 'ghost'}
-                    className={`h-10 ${
+                    className={`h-10 rounded-full px-4 transition-all duration-200 ${
                       isStudyGuidesActive
-                        ? 'bg-white/20 text-white hover:bg-white/30'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                        ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                        : 'text-white/90 hover:text-white hover:bg-white/10'
                     }`}
                   >
                     <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -131,10 +135,10 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isGradingActive ? 'secondary' : 'ghost'}
-                      className={`h-10 ${
+                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
                         isGradingActive
-                          ? 'bg-white/20 text-white hover:bg-white/30'
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                          ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                          : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <GraduationCap className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -165,10 +169,10 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
-                      className={`h-10 ${
+                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
                         isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive
-                          ? 'bg-white/20 text-white hover:bg-white/30'
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                          ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                          : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <School className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -209,10 +213,10 @@ export default function NavigationHeader() {
               {mounted && user && !isTeacher && (
                 <Button
                   variant={isMyTeachersActive ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
+                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
                     isMyTeachersActive
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                      ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
                   }`}
                   asChild
                 >
@@ -229,10 +233,10 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isMyClassesActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
-                      className={`h-10 ${
+                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
                         isMyClassesActive || isDashboardActive || isCalendarActive
-                          ? 'bg-white/20 text-white hover:bg-white/30'
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                          ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                          : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <School className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -267,10 +271,10 @@ export default function NavigationHeader() {
               {mounted && user && isTeacher && (
                 <Button
                   variant={isMyStudentsActive ? 'secondary' : 'ghost'}
-                  className={`h-10 ${
+                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
                     isMyStudentsActive
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                      ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
                   }`}
                   asChild
                 >
@@ -287,7 +291,7 @@ export default function NavigationHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="w-10 h-10 rounded-full bg-white text-primary font-bold text-sm flex items-center justify-center hover:ring-2 hover:ring-white/50 transition-all duration-200 shadow-md"
+                    className="w-10 h-10 rounded-full bg-white text-primary font-bold text-sm flex items-center justify-center ring-2 ring-white/40 hover:ring-white/70 hover:scale-105 transition-all duration-200 shadow-md"
                     aria-label="User menu"
                   >
                     {initials}

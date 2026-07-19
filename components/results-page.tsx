@@ -60,8 +60,8 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-10 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-cyan-50">
+      <div className="bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-600 text-white py-10 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
           <div
@@ -75,7 +75,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
 
         {/* Animated background orbs */}
         <div className="absolute top-10 left-10 w-72 h-72 bg-blue-400/30 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-cyan-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
         <div className="container mx-auto px-4 py-4 relative">
           <div className="flex items-center gap-4 mb-6">
@@ -202,7 +202,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
           </Card>
 
           <Card className="shadow-2xl border-0 overflow-hidden transition-all duration-300 hover:shadow-3xl animate-in slide-in-from-bottom-8 duration-700 [animation-delay:200ms] max-w-4xl mx-auto p-0">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-6">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-500 text-white py-6">
               <h3 className="text-xl font-semibold flex items-center gap-2 justify-center">
                 <BookOpen className="h-5 w-5" />
                 Access Your Study Guide
@@ -221,7 +221,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                 <Button
                   onClick={handleViewStudyGuide}
                   disabled={!studyGuideResponse?.studyGuideUrl}
-                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-base font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 text-white text-base font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                 >
                   <BookOpen className="h-5 w-5 mr-2" />
                   {studyGuideResponse?.studyGuideUrl ? 'View Interactive Study Guide' : 'Generating...'}
@@ -239,7 +239,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                 <Button
                   onClick={onCreateAnother}
                   variant="outline"
-                  className="w-full h-11 border-2 border-indigo-400 text-indigo-600 hover:bg-indigo-600 hover:text-white bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg font-semibold"
+                  className="w-full h-11 border-2 border-blue-400 text-blue-600 hover:bg-blue-600 hover:text-white bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg font-semibold"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   Create Another Study Guide

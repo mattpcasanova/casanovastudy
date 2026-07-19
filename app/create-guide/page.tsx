@@ -116,7 +116,7 @@ export default function CreateGuidePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <NavigationHeader />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div
               className="absolute inset-0"
@@ -148,7 +148,7 @@ export default function CreateGuidePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <NavigationHeader />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div
               className="absolute inset-0"
@@ -176,7 +176,7 @@ export default function CreateGuidePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <NavigationHeader />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div
               className="absolute inset-0"
@@ -236,7 +236,7 @@ export default function CreateGuidePage() {
       <NavigationHeader />
 
       {/* Hero Section - Matching Home Page Style */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div
             className="absolute inset-0"

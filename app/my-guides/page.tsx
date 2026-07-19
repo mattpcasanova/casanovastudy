@@ -60,7 +60,7 @@ const formatIcons: Record<string, React.ComponentType<{ className?: string }>> =
 const subjectColors = {
   mathematics: 'bg-blue-100 text-blue-800 border-blue-300',
   science: 'bg-green-100 text-green-800 border-green-300',
-  english: 'bg-purple-100 text-purple-800 border-purple-300',
+  english: 'bg-blue-100 text-blue-800 border-blue-300',
   history: 'bg-amber-100 text-amber-800 border-amber-300',
   'foreign-language': 'bg-pink-100 text-pink-800 border-pink-300',
   other: 'bg-gray-100 text-gray-800 border-gray-300'
@@ -249,11 +249,11 @@ export default function MyGuidesPage() {
   }, [studyGuides])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <NavigationHeader />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 py-10">
           <div className="relative">
             <div className="text-center">

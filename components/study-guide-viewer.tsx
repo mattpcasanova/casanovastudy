@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Download, Share2, Home, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, ArrowLeft } from 'lucide-react'
+import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -28,6 +28,18 @@ import EmailShareDialog from '@/components/email-share-dialog'
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
+import { cn } from '@/lib/utils'
+import { displaySerif } from '@/lib/formats/fonts'
+import { fontDisplay, formatAccent, capitalizeFirst } from '@/lib/formats/design'
+import PageBanner from '@/components/page-banner'
+
+const FORMAT_META = {
+  outline: { accent: formatAccent.outline, icon: List, label: 'Outline' },
+  flashcards: { accent: formatAccent.flashcards, icon: CreditCard, label: 'Flashcards' },
+  quiz: { accent: formatAccent.quiz, icon: HelpCircle, label: 'Quiz' },
+  summary: { accent: formatAccent.summary, icon: ScrollText, label: 'Summary' },
+  custom: { accent: formatAccent.summary, icon: Sparkles, label: 'Guide' },
+} as const
 
 interface StudyGuideViewerProps {
   studyGuide: StudyGuideRecord
@@ -37,7 +49,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const { user, signOut } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -47,6 +58,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
   const canSave = user && !isOwner
+  const fmt = FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary
 
   const handleSaveToMyGuides = async () => {
     if (!user) return
@@ -121,44 +133,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     window.print()
   }
 
-  const handleGeneratePDF = async () => {
-    setIsGeneratingPDF(true)
-    try {
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          studyGuideId: studyGuide.id
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF')
-      }
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${studyGuide.title}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('PDF generation error:', error)
-      toast({
-        title: "Error",
-        description: "Failed to generate PDF. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingPDF(false)
-    }
-  }
-
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -200,7 +174,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50')}>
       {/* Navigation Header */}
       <div className="print:hidden">
         <NavigationHeader
@@ -210,43 +184,29 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       </div>
 
       {/* Title Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white print:hidden relative">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="absolute top-4 left-4 sm:left-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-        <div className="container mx-auto px-4 py-10">
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              {studyGuide.title}
-            </h1>
-            <p className="text-xs sm:text-sm opacity-75">
-              Grade Level: {studyGuide.grade_level} • Format: {studyGuide.format.charAt(0).toUpperCase() + studyGuide.format.slice(1)}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageBanner
+        title={studyGuide.title}
+        meta={`${capitalizeFirst(studyGuide.grade_level)} · ${(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).label}`}
+        accent={(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).accent}
+        icon={(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).icon}
+        onBack={() => router.back()}
+      />
 
       {/* Save Banner - Show for logged-in users viewing someone else's guide */}
       {canSave && (
-        <div className="bg-blue-50 border-b-2 border-blue-200 print:hidden">
+        <div className="bg-slate-50 border-b border-slate-200 print:hidden">
           <div className="container mx-auto px-4 py-3">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-blue-800">
+              <div className="flex items-center gap-2 text-slate-700">
                 <BookmarkPlus className="h-5 w-5" />
                 <span className="text-sm sm:text-base font-medium">
-                  Like this study guide? Save it to your collection!
+                  Like this study guide? Save it to your collection.
                 </span>
               </div>
               <Button
                 onClick={handleSaveToMyGuides}
                 disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white')}
               >
                 <BookmarkPlus className="h-4 w-4 mr-2" />
                 {isSaving ? 'Saving...' : 'Save to My Guides'}
@@ -264,7 +224,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             <Button
               onClick={() => { handleSaveToMyGuides(); setIsMenuOpen(false); }}
               disabled={isSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+              className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white shadow-lg')}
               size="lg"
             >
               <BookmarkPlus className="h-4 w-4 mr-2" />
@@ -290,20 +250,11 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
           )}
           <Button
             onClick={() => { handlePrintToPDF(); setIsMenuOpen(false); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+            className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white shadow-lg')}
             size="lg"
           >
             <Printer className="h-4 w-4 mr-2" />
             Print to PDF
-          </Button>
-          <Button
-            onClick={() => { handleGeneratePDF(); setIsMenuOpen(false); }}
-            disabled={isGeneratingPDF}
-            className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-            size="lg"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
           </Button>
           <Button
             onClick={() => { handleShare(); setIsMenuOpen(false); }}
@@ -329,17 +280,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
               </Button>
             }
           />
-          <Button
-            asChild
-            variant="outline"
-            className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
-            size="lg"
-          >
-            <Link href="/">
-              <Home className="h-4 w-4 mr-2" />
-              Home
-            </Link>
-          </Button>
           {isOwner && studyGuide.format === 'custom' && (
             <Button
               asChild
@@ -390,7 +330,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         {/* Toggle Button */}
         <Button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 ${isMenuOpen ? 'bg-gray-700 hover:bg-gray-800' : 'bg-blue-600 hover:bg-blue-700'}`}
+          className={cn('h-14 w-14 rounded-full shadow-xl transition-all duration-300', isMenuOpen ? 'bg-slate-700 hover:bg-slate-800' : cn(fmt.accent.solid, fmt.accent.hover))}
           size="icon"
         >
           {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -404,10 +344,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       {/* Print-only header */}
       <div className="hidden print:block">
-        <div className="text-center mb-8 pb-4 border-b-2 border-blue-600">
-          <h1 className="text-3xl font-bold text-blue-600 mb-2">{studyGuide.title}</h1>
-          <p className="text-lg text-gray-600">{studyGuide.subject} • Grade {studyGuide.grade_level}</p>
-          <p className="text-sm text-gray-500 mt-2">Generated with CasanovaStudy</p>
+        <div className="text-center mb-8 pb-4 border-b-2 border-slate-300">
+          <h1 className={cn(fontDisplay, 'text-3xl font-semibold text-slate-900 mb-2')}>{studyGuide.title}</h1>
+          <p className="text-lg text-slate-600">{studyGuide.subject} • Grade {studyGuide.grade_level}</p>
+          <p className="text-sm text-slate-400 mt-2">Generated with CasanovaStudy</p>
         </div>
       </div>
 

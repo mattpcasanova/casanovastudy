@@ -475,11 +475,11 @@ export default function GradeExamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <NavigationHeader />
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white py-16 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div
             className="absolute inset-0"
@@ -512,7 +512,7 @@ export default function GradeExamPage() {
               </div>
 
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-indigo-100/50 rounded-2xl blur-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-blue-100/50 rounded-2xl blur-xl"></div>
                 <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8 space-y-6">
                   {/* Student Exam Upload */}
                   <div className="space-y-3">
@@ -637,7 +637,7 @@ export default function GradeExamPage() {
             {/* Additional Options Section */}
             <section>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full"></div>
+                <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-cyan-600 rounded-full"></div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Additional Options</h2>
                   <p className="text-sm text-gray-600">Customize grading instructions and report details</p>
@@ -645,7 +645,7 @@ export default function GradeExamPage() {
               </div>
 
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-100/50 to-purple-100/50 rounded-2xl blur-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-cyan-100/50 rounded-2xl blur-xl"></div>
                 <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8 space-y-6">
                   {/* Grading Instructions */}
                   <div className="space-y-3">

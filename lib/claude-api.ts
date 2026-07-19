@@ -25,15 +25,18 @@ export class ClaudeService {
       console.log('📊 Token Usage Analysis:', {
         promptLength: prompt.length,
         estimatedInputTokens,
-        maxOutputTokens: 4000,
-        totalEstimatedTokens: estimatedInputTokens + 4000,
+        maxOutputTokens: 12000,
+        totalEstimatedTokens: estimatedInputTokens + 12000,
         contentPreview: prompt.substring(0, 200) + '...'
       })
 
       const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-5',
-        max_tokens: 4000,
-        thinking: { type: 'disabled' },
+        model: 'claude-opus-4-8',
+        max_tokens: 12000,
+        // SDK 0.61 types predate adaptive thinking (only 'enabled'|'disabled'),
+        // but the value is forwarded to the API verbatim at runtime. Cast to
+        // keep the stale type from blocking; Opus 4.8 accepts adaptive.
+        thinking: { type: 'adaptive' } as any,
         messages: [
           {
             role: 'user',
@@ -42,8 +45,10 @@ export class ClaudeService {
         ]
       })
 
-      const content = response.content[0]
-      if (content.type !== 'text') {
+      // Adaptive thinking emits a thinking block first, so content[0] is NOT the
+      // text — find the text block explicitly (see CLAUDE.md model-migration gotcha).
+      const content = response.content.find(b => b.type === 'text')
+      if (!content || content.type !== 'text') {
         throw new Error('Unexpected response type from Claude API')
       }
 
@@ -78,9 +83,10 @@ export class ClaudeService {
       console.log('📊 Starting streaming generation...')
 
       const stream = await this.anthropic.messages.stream({
-        model: 'claude-sonnet-5',
-        max_tokens: 4000,
-        thinking: { type: 'disabled' },
+        model: 'claude-opus-4-8',
+        max_tokens: 12000,
+        // See note above: SDK 0.61 types lack 'adaptive'; forwarded at runtime.
+        thinking: { type: 'adaptive' } as any,
         messages: [
           {
             role: 'user',

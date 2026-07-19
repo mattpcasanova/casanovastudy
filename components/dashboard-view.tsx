@@ -330,7 +330,7 @@ export default function DashboardView() {
         <ClassesSectionNav />
 
         {/* Hero card */}
-        <div className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-r from-primary via-secondary to-accent text-white shadow-lg">
+        <div className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white shadow-lg">
           <div className="absolute inset-0 opacity-20">
             <div
               className="absolute inset-0"

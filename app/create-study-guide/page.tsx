@@ -168,7 +168,7 @@ export default function CreateStudyGuidePage() {
         {!isGenerating ? (
           <UploadPageRedesigned onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
         ) : (
-          <div className="min-h-screen bg-gradient-to-r from-primary via-secondary to-accent relative overflow-hidden">
+          <div className="min-h-screen bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 relative overflow-hidden">
             <div className="absolute inset-0 opacity-10">
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
               <div

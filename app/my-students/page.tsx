@@ -590,7 +590,7 @@ export default function MyStudentsPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <NavigationHeader />
         {/* Hero Banner */}
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
           <div className="container mx-auto px-4 py-10">
             <div className="text-center">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Students</h1>
@@ -620,7 +620,7 @@ export default function MyStudentsPage() {
       <NavigationHeader />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 py-10">
           <div className="relative">
             <div className="text-center">

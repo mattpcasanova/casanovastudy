@@ -208,7 +208,7 @@ export default function StudentDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <NavigationHeader />
-        <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+        <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
           <div className="container mx-auto px-4 py-10">
             <Skeleton className="h-8 w-48 bg-white/20" />
           </div>
@@ -233,7 +233,7 @@ export default function StudentDetailPage() {
       <NavigationHeader />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 py-10">
           <div className="flex items-center gap-4">
             <Button

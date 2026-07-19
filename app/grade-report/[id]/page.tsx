@@ -206,7 +206,7 @@ export default function GradeReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
         <NavigationHeader />
         <div className="container mx-auto px-4 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
@@ -220,7 +220,7 @@ export default function GradeReportPage() {
 
   if (error || !gradingResult) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
         <NavigationHeader />
         <div className="container mx-auto px-4 py-16">
           <Card className="max-w-md mx-auto">
@@ -238,11 +238,11 @@ export default function GradeReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <NavigationHeader />
 
       {/* Title Banner */}
-      <div className="bg-gradient-to-r from-primary via-secondary to-accent text-white">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 py-10">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
@@ -285,7 +285,7 @@ export default function GradeReportPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Score Summary */}
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border">
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-50 rounded-xl border">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-primary">{gradingResult.totalMarks}/{gradingResult.totalPossibleMarks}</p>
                   <p className="text-sm text-muted-foreground">Total Marks</p>
@@ -675,7 +675,7 @@ export default function GradeReportPage() {
                     printWindow.document.close()
                     printWindow.print()
                   }}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-primary/90 hover:to-secondary/90"
                   size="lg"
                 >
                   <Printer className="h-5 w-5 mr-2" />
