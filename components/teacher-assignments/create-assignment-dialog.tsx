@@ -267,7 +267,7 @@ export default function CreateAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Create Assignment" : "Edit Assignment"}</DialogTitle>
           <DialogDescription>
@@ -381,7 +381,7 @@ export default function CreateAssignmentDialog({
                     <label
                       key={c.id}
                       className={cn(
-                        "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-accent",
+                        "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-muted/50",
                         checked && "bg-primary/5"
                       )}
                     >

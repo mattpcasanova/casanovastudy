@@ -116,7 +116,7 @@ export default function MasteryConfigFields({
                   key={concept.id}
                   className={cn(
                     "relative flex items-center gap-3 px-3 py-2.5 select-none transition-colors",
-                    empty ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:bg-accent",
+                    empty ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50",
                     checked && "bg-primary/5"
                   )}
                 >
