@@ -267,17 +267,17 @@ export default function CreateAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create Assignment" : "Edit Assignment"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 [&>button]:top-5 [&>button]:right-5 [&>button]:text-white/80 [&>button:hover]:text-white">
+        <DialogHeader className="rounded-t-lg bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 px-6 py-5 text-white">
+          <DialogTitle className="text-lg text-white">{mode === "create" ? "Create Assignment" : "Edit Assignment"}</DialogTitle>
+          <DialogDescription className="text-blue-50/90">
             {mode === "create"
               ? "Post this to one or more of your classes. You can add or change the mark scheme later."
               : "Edit assignment details. Changing class links replaces the current set."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 px-6 pt-5">
           {mode === "create" && (
             <div className="space-y-2">
               <Label>Assignment type</Label>
@@ -520,7 +520,7 @@ export default function CreateAssignmentDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 pb-6 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
