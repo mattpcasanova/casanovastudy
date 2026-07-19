@@ -1,6 +1,56 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
-import { CustomGuideContent, CustomSection } from '@/lib/types/custom-guide'
+import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
+
+// Turn structured "specific control" directives into an instruction block the
+// custom-guide generator can honor. Returns '' when nothing is specified so the
+// model is free to design the guide itself ("generic" mode).
+function buildControlsInstructions(controls?: GuideControls): string {
+  if (!controls) return ''
+
+  const formatLabels: Record<string, string> = {
+    outline: 'an Outline section (a collapsible "section" with nested child sections)',
+    summary: 'a Summary section (a "section" containing summary prose in a "text" child)',
+    flashcards: 'one or more Flashcards decks ("flashcards" sections)',
+    quiz: 'a Quiz ("quiz" section)',
+    definition: 'Definition blocks for key terms',
+    table: 'a comparison Table where useful',
+  }
+
+  const lines: string[] = []
+
+  if (controls.formats && controls.formats.length > 0) {
+    const wanted = controls.formats.map(f => formatLabels[f] || f)
+    lines.push(`- INCLUDE these formats (and prefer them over others): ${wanted.join('; ')}.`)
+    lines.push(`- Do NOT add formats the user did not ask for.`)
+  }
+  if (typeof controls.flashcardCount === 'number' && controls.flashcardCount > 0) {
+    lines.push(`- Each flashcards deck should contain approximately ${controls.flashcardCount} cards.`)
+  }
+  if (typeof controls.quizCount === 'number' && controls.quizCount > 0) {
+    lines.push(`- Each quiz should contain approximately ${controls.quizCount} questions.`)
+  }
+  if (controls.splitBy === 'topic') {
+    lines.push(`- Organize the guide as one top-level collapsible "section" per topic/chapter, with the requested formats nested inside each.`)
+  } else if (controls.splitBy === 'single') {
+    lines.push(`- Keep the guide as one combined set of sections rather than splitting per topic.`)
+  }
+  if (controls.difficulty) {
+    lines.push(`- Target a ${controls.difficulty} difficulty level.`)
+  }
+  if (controls.length === 'concise') {
+    lines.push(`- Keep it CONCISE: short explanations (1-2 sentences per concept), no filler.`)
+  } else if (controls.length === 'detailed') {
+    lines.push(`- Make it DETAILED and thorough in its coverage.`)
+  }
+
+  if (lines.length === 0) return ''
+
+  return `
+🎯 STRUCTURED REQUIREMENTS (the user configured these — follow them exactly):
+${lines.join('\n')}
+`
+}
 
 export class ClaudeService {
   private anthropic: Anthropic
@@ -1306,9 +1356,21 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
     existingContent?: string
     sourceContent?: string
     mode?: 'replace' | 'add'
+    controls?: GuideControls // structured "specific" directives (empty = AI decides)
     pdfDocuments?: Array<{ buffer: Buffer; filename: string }> // PDFs to send directly to Claude
   }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
-    const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', pdfDocuments } = params
+    const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', controls, pdfDocuments } = params
+
+    // Build the "specific control" requirements block from structured directives.
+    // When no controls are supplied we leave this empty so the model designs the
+    // guide itself (the "generic / let AI decide" path).
+    const controlsInstructions = buildControlsInstructions(controls)
+
+    // If the user gave no free-text description, fall back to a generic brief so
+    // the "just make me a guide" path still works (esp. with source materials).
+    const effectiveDescription = description?.trim()
+      ? description
+      : 'Create a comprehensive, well-organized study guide covering the key material. Choose whatever mix of formats best helps a student learn and review this content.'
 
     const modeInstructions = mode === 'add'
       ? `🚨 IMPORTANT: You are MODIFYING an existing study guide. 🚨
@@ -1407,9 +1469,10 @@ ${sourceInstructions}
 
 ${modeInstructions}
 
-USER REQUEST: ${description}
+USER REQUEST: ${effectiveDescription}
 ${subject ? `SUBJECT: ${subject}` : ''}
 ${gradeLevel ? `GRADE LEVEL: ${gradeLevel}` : ''}
+${controlsInstructions}
 
 🎯 FOLLOW THE USER'S INSTRUCTIONS EXACTLY:
 - If they say "concise", "brief", or "short" → Use SHORT explanations (1-2 sentences max per concept)
@@ -1549,6 +1612,20 @@ SECTION TYPES YOU CAN USE:
   }
 }
 
+8. FLASHCARDS (a deck of front/back study cards):
+{
+  "id": "unique-id",
+  "type": "flashcards",
+  "title": "Key Terms",
+  "content": {
+    "type": "flashcards",
+    "cards": [
+      { "id": "card1", "front": "Term or question", "back": "Definition or answer" },
+      { "id": "card2", "front": "Photosynthesis", "back": "The process by which plants convert light into chemical energy" }
+    ]
+  }
+}
+
 GUIDELINES:
 1. Generate unique IDs for all sections (use format like "sec-1", "def-2", "quiz-3")
 2. Create a logical structure with clear hierarchy
@@ -1559,14 +1636,16 @@ GUIDELINES:
 7. Use tables for comparisons or data
 8. Include definitions for key terms
 9. Add checklists for actionable items
+10. Use flashcards decks for memorizable term/definition or question/answer pairs
 
 🚫 CRITICAL - NEVER DUPLICATE CONTENT:
-10. **NEVER repeat content** - Each concept, checklist item, definition, or quiz question should appear EXACTLY ONCE
-11. **Check before adding** - Before creating any item, mentally verify it doesn't duplicate existing content
-12. **Consolidate repetition** - If source material repeats information, consolidate it into ONE location
-13. **Unique checklist items** - Every checklist item must have a distinct, unique label - never repeat the same task
-14. **Unique quiz questions** - Every quiz question must test a different concept
-15. **Unique definitions** - Define each term only once, even if mentioned multiple times in source
+11. **NEVER repeat content** - Each concept, checklist item, definition, or quiz question should appear EXACTLY ONCE
+12. **Check before adding** - Before creating any item, mentally verify it doesn't duplicate existing content
+13. **Consolidate repetition** - If source material repeats information, consolidate it into ONE location
+14. **Unique checklist items** - Every checklist item must have a distinct, unique label - never repeat the same task
+15. **Unique quiz questions** - Every quiz question must test a different concept
+16. **Unique definitions** - Define each term only once, even if mentioned multiple times in source
+17. **Unique flashcards** - Every card in a deck must be distinct
 
 IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON must be valid and parseable.`
 
@@ -1605,10 +1684,17 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
       messageContent = prompt
     }
 
+    // Opus 4.8 with adaptive thinking for richer, better-structured multi-format
+    // guides (matches generateStudyGuide). Opus rejects non-default temperature —
+    // do NOT add one here. The loop below only accumulates `text_delta`, so the
+    // leading thinking block is skipped automatically; never buffer thinking deltas
+    // into the JSON. (Same trap as reading response.content[0] in the non-stream path.)
     const stream = await this.anthropic.messages.stream({
-      model: 'claude-sonnet-5',
-      max_tokens: 8000,
-      thinking: { type: 'disabled' },
+      model: 'claude-opus-4-8',
+      max_tokens: 12000,
+      // SDK 0.61 types predate adaptive thinking ('enabled'|'disabled' only);
+      // cast to keep the stale type from blocking. Opus 4.8 accepts adaptive.
+      thinking: { type: 'adaptive' } as any,
       messages: [
         {
           role: 'user',

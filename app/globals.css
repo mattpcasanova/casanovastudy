@@ -9,7 +9,7 @@
   --card: oklch(0.99 0 0); /* #f8f9fa */
   --card-foreground: oklch(0.4 0.01 258); /* #666666 */
   --popover: oklch(1 0 0); /* #ffffff */
-  --popover-foreground: oklch(0.4 0.01 258); /* #666666 */
+  --popover-foreground: oklch(0.3 0.035 258); /* slate-800 — crisper dropdown text */
   --primary: oklch(0.546 0.245 262.881); /* blue-600 #2563eb */
   --primary-foreground: oklch(1 0 0); /* #ffffff */
   --secondary: oklch(0.609 0.126 221.723); /* cyan-600 #0891b2 */

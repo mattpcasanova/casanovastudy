@@ -12,9 +12,23 @@ export interface CustomGuideMetadata {
   tags?: string[]
 }
 
+// The formats a user can ask the AI to include when directing generation.
+export type GuideFormatChoice = 'outline' | 'summary' | 'flashcards' | 'quiz' | 'definition' | 'table'
+
+// Structured "specific control" directives for AI generation. All optional —
+// when omitted the AI decides ("generic" mode).
+export interface GuideControls {
+  formats?: GuideFormatChoice[] // which formats to include
+  flashcardCount?: number // target cards per flashcard deck
+  quizCount?: number // target questions per quiz
+  splitBy?: 'topic' | 'single' // one section per topic/chapter, or one combined guide
+  difficulty?: 'beginner' | 'intermediate' | 'advanced'
+  length?: 'concise' | 'detailed'
+}
+
 export interface CustomSection {
   id: string
-  type: 'section' | 'definition' | 'alert' | 'quiz' | 'checklist' | 'table' | 'text'
+  type: 'section' | 'definition' | 'alert' | 'quiz' | 'checklist' | 'table' | 'text' | 'flashcards'
   title?: string
   collapsed?: boolean
   content: SectionContent
@@ -28,6 +42,7 @@ export type SectionContent =
   | QuizContent
   | ChecklistContent
   | TableContent
+  | FlashcardsContent
 
 export interface TextContent {
   type: 'text'
@@ -82,6 +97,17 @@ export interface TableContent {
   headerStyle?: 'default' | 'blue' | 'green' | 'purple'
 }
 
+export interface FlashCard {
+  id: string
+  front: string
+  back: string
+}
+
+export interface FlashcardsContent {
+  type: 'flashcards'
+  cards: FlashCard[]
+}
+
 // Helper type guard functions
 export function isTextContent(content: SectionContent): content is TextContent {
   return content.type === 'text'
@@ -105,4 +131,8 @@ export function isChecklistContent(content: SectionContent): content is Checklis
 
 export function isTableContent(content: SectionContent): content is TableContent {
   return content.type === 'table'
+}
+
+export function isFlashcardsContent(content: SectionContent): content is FlashcardsContent {
+  return content.type === 'flashcards'
 }

@@ -18,7 +18,8 @@ import {
   Table2,
   HelpCircle,
   CheckSquare,
-  BookOpen
+  BookOpen,
+  CreditCard
 } from "lucide-react"
 
 export interface BlockWrapperProps {
@@ -46,6 +47,7 @@ const typeConfig: Record<BlockType, { icon: React.ComponentType<{ className?: st
   quiz: { icon: HelpCircle, label: 'Quiz', color: 'bg-purple-100 text-purple-700' },
   checklist: { icon: CheckSquare, label: 'Checklist', color: 'bg-teal-100 text-teal-700' },
   definition: { icon: BookOpen, label: 'Definition', color: 'bg-indigo-100 text-indigo-700' },
+  flashcards: { icon: CreditCard, label: 'Flashcards', color: 'bg-indigo-100 text-indigo-700' },
 }
 
 export function BlockWrapper({

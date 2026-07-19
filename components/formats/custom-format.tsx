@@ -21,7 +21,9 @@ import {
   AlertTriangle,
   Star,
   CheckSquare,
-  RefreshCw
+  RefreshCw,
+  CreditCard,
+  RotateCw
 } from 'lucide-react'
 import {
   CustomGuideContent,
@@ -32,9 +34,12 @@ import {
   isQuizContent,
   isChecklistContent,
   isTableContent,
+  isFlashcardsContent,
   QuizQuestion,
+  FlashCard,
   DefinitionColorVariant
 } from '@/lib/types/custom-guide'
+import { fontDisplay } from '@/lib/formats/design'
 
 interface CustomFormatProps {
   content: CustomGuideContent
@@ -240,6 +245,12 @@ function SectionRenderer({
     case 'quiz':
       if (isQuizContent(section.content)) {
         return <QuizBlock questions={section.content.questions} sectionId={section.id} />
+      }
+      return null
+
+    case 'flashcards':
+      if (isFlashcardsContent(section.content)) {
+        return <FlashcardsBlock cards={section.content.cards} title={section.title} />
       }
       return null
 
@@ -710,6 +721,121 @@ function QuizBlock({
               Next
             </Button>
           )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Flashcards Block (a real 3D flip-card deck — mirrors the standalone
+// flashcards format's look using the global perspective/backface utilities).
+function FlashcardsBlock({
+  cards,
+  title
+}: {
+  cards: FlashCard[]
+  title?: string
+}) {
+  const [order, setOrder] = useState(cards)
+  const [index, setIndex] = useState(0)
+  const [flipped, setFlipped] = useState(false)
+
+  if (cards.length === 0) return null
+
+  const card = order[index]
+
+  const go = (delta: number) => {
+    const next = index + delta
+    if (next < 0 || next >= order.length) return
+    setIndex(next)
+    setFlipped(false)
+  }
+
+  const shuffle = () => {
+    setOrder([...cards].sort(() => Math.random() - 0.5))
+    setIndex(0)
+    setFlipped(false)
+  }
+
+  // Both faces share this base; the back face adds rotate-y-180 so it sits on
+  // the reverse side of the 3D card.
+  const face =
+    'absolute inset-0 backface-hidden overflow-hidden rounded-2xl border border-slate-200 shadow-md flex flex-col'
+
+  return (
+    <Card className="border-2 border-indigo-200">
+      <CardHeader className="bg-indigo-50">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-indigo-600" />
+            {title || 'Flashcards'}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              {index + 1} / {order.length}
+            </Badge>
+            <Button variant="ghost" size="sm" onClick={shuffle} title="Shuffle deck">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-4">
+        {/* 3D flip card */}
+        <div className="relative h-[260px] perspective-1000">
+          <div
+            className={`relative h-full w-full cursor-pointer transition-transform duration-500 transform-style-3d motion-reduce:transition-none ${flipped ? 'rotate-y-180' : ''}`}
+            onClick={() => setFlipped(f => !f)}
+            role="button"
+            tabIndex={0}
+            aria-label="Flip card"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setFlipped(f => !f)
+              }
+            }}
+          >
+            {/* Front */}
+            <div className={`${face} bg-white`}>
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
+                <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-indigo-600">Front</span>
+              </div>
+              <div className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-6">
+                <p className={`${fontDisplay} text-center text-2xl font-medium leading-snug text-slate-900`}>
+                  {card.front || <span className="text-slate-400 italic">(empty)</span>}
+                </p>
+              </div>
+              <p className="pb-4 text-center text-xs text-slate-400">Click, or press Space, to flip</p>
+            </div>
+
+            {/* Back */}
+            <div className={`${face} rotate-y-180 bg-indigo-50`}>
+              <div className="flex items-center justify-between border-b border-indigo-200/70 bg-white/60 px-6 py-3">
+                <span className="inline-flex items-center rounded-full bg-indigo-600 px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-wide text-white">Back</span>
+              </div>
+              <div className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-6">
+                <p className={`${fontDisplay} text-center text-xl font-medium leading-snug text-slate-900`}>
+                  {card.back || <span className="text-slate-400 italic">(empty)</span>}
+                </p>
+              </div>
+              <p className="pb-4 text-center text-xs text-slate-400">Click to flip back</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between pt-2 border-t">
+          <Button variant="outline" onClick={() => go(-1)} disabled={index === 0}>
+            Previous
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setFlipped(f => !f)}>
+            <RotateCw className="h-4 w-4 mr-1" />
+            Flip
+          </Button>
+          <Button variant="outline" onClick={() => go(1)} disabled={index === order.length - 1}>
+            Next
+          </Button>
         </div>
       </CardContent>
     </Card>

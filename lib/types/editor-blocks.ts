@@ -3,7 +3,7 @@
 import { CustomGuideContent, CustomSection, SectionContent, DefinitionColorVariant } from './custom-guide'
 
 // Block types that can be created in the editor
-export type BlockType = 'text' | 'section' | 'alert' | 'table' | 'quiz' | 'checklist' | 'definition'
+export type BlockType = 'text' | 'section' | 'alert' | 'table' | 'quiz' | 'checklist' | 'definition' | 'flashcards'
 
 // Editor block structure
 export interface EditorBlock {
@@ -23,6 +23,7 @@ export type EditorBlockData =
   | QuizBlockData
   | ChecklistBlockData
   | DefinitionBlockData
+  | FlashcardsBlockData
 
 // Text block
 export interface TextBlockData {
@@ -87,6 +88,18 @@ export interface DefinitionBlockData {
   colorVariant?: DefinitionColorVariant
 }
 
+// Flashcards block (a deck of front/back cards)
+export interface FlashcardsBlockData {
+  type: 'flashcards'
+  cards: EditorFlashCard[]
+}
+
+export interface EditorFlashCard {
+  id: string
+  front: string
+  back: string
+}
+
 // Guide metadata for the editor
 export interface EditorGuideMetadata {
   title: string
@@ -111,6 +124,11 @@ export function generateQuestionId(): string {
 // Generate a unique checklist item ID
 export function generateChecklistItemId(): string {
   return `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// Generate a unique flashcard ID
+export function generateFlashcardId(): string {
+  return `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
 
 // Create a new empty block of a specific type
@@ -193,6 +211,17 @@ export function createEmptyBlock(type: BlockType): EditorBlock {
         }
       }
 
+    case 'flashcards':
+      return {
+        id,
+        type: 'flashcards',
+        title: 'Flashcards',
+        data: {
+          type: 'flashcards',
+          cards: [{ id: generateFlashcardId(), front: '', back: '' }]
+        }
+      }
+
     default:
       return {
         id,
@@ -200,6 +229,28 @@ export function createEmptyBlock(type: BlockType): EditorBlock {
         data: { type: 'text', markdown: '' }
       }
   }
+}
+
+// Preset "study format" blocks that are structured on top of existing block
+// types (so the toolbar can surface all 4 study-guide categories without
+// redundant renderers). Outline = a collapsible section pre-nested with a few
+// child sections; Summary = a section with a text body to write prose into.
+export function createPresetBlock(kind: 'outline' | 'summary'): EditorBlock {
+  if (kind === 'outline') {
+    const parent = createEmptyBlock('section')
+    parent.title = 'Outline'
+    parent.children = [
+      { ...createEmptyBlock('section'), title: 'Main Topic 1' },
+      { ...createEmptyBlock('section'), title: 'Main Topic 2' }
+    ]
+    return parent
+  }
+
+  // summary
+  const section = createEmptyBlock('section')
+  section.title = 'Summary'
+  section.children = [createEmptyBlock('text')]
+  return section
 }
 
 // Convert EditorBlock array to CustomGuideContent
@@ -294,6 +345,16 @@ function blockDataToSectionContent(data: EditorBlockData): SectionContent {
         definition: data.definition,
         examples: data.examples,
         colorVariant: data.colorVariant
+      }
+
+    case 'flashcards':
+      return {
+        type: 'flashcards',
+        cards: data.cards.map(card => ({
+          id: card.id,
+          front: card.front,
+          back: card.back
+        }))
       }
 
     default:
@@ -399,6 +460,19 @@ function sectionContentToBlockData(type: string, content: SectionContent, regene
           definition: content.definition,
           examples: content.examples,
           colorVariant: content.colorVariant || 'purple'
+        }
+      }
+      break
+
+    case 'flashcards':
+      if (content.type === 'flashcards') {
+        return {
+          type: 'flashcards',
+          cards: content.cards.map(card => ({
+            id: regenerateIds ? generateFlashcardId() : card.id,
+            front: card.front,
+            back: card.back
+          }))
         }
       }
       break

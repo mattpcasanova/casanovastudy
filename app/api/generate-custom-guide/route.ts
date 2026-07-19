@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode } = body
+  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls } = body
+
+  const hasFiles = !!cloudinaryFiles && cloudinaryFiles.length > 0
+  const hasControls = !!controls && Array.isArray(controls.formats) && controls.formats.length > 0
 
   // Debug logging
   console.log('📚 Generate Custom Guide API - Received request:', {
@@ -100,14 +103,17 @@ export async function POST(request: NextRequest) {
     subject,
     gradeLevel,
     mode,
-    hasCloudinaryFiles: !!cloudinaryFiles && cloudinaryFiles.length > 0,
+    hasCloudinaryFiles: hasFiles,
     fileCount: cloudinaryFiles?.length || 0,
+    hasControls,
     hasExistingContent: !!existingContent,
     existingContentLength: existingContent?.length || 0
   })
 
-  if (!description?.trim()) {
-    return NextResponse.json({ error: 'Please provide a description for your study guide' }, { status: 400 })
+  // A description is optional in "generic" mode as long as the user gave the AI
+  // something else to work from — source files or structured format controls.
+  if (!description?.trim() && !hasFiles && !hasControls) {
+    return NextResponse.json({ error: 'Add a description, upload source materials, or choose formats for the AI to generate' }, { status: 400 })
   }
 
   // Initialize Claude service before starting stream
@@ -215,12 +221,13 @@ export async function POST(request: NextRequest) {
         let lastProgressUpdate = Date.now()
 
         const streamGenerator = claudeService.generateCustomGuideStream({
-          description,
+          description: description || '',
           subject,
           gradeLevel,
           existingContent,
           sourceContent,
           mode,
+          controls,
           // Pass PDF documents for Claude's native PDF reading when text extraction failed
           pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined
         })

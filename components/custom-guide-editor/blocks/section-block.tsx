@@ -17,6 +17,7 @@ import { TableBlock } from "./table-block"
 import { QuizBlock } from "./quiz-block"
 import { ChecklistBlock } from "./checklist-block"
 import { DefinitionBlock } from "./definition-block"
+import { FlashcardsBlock } from "./flashcards-block"
 import {
   Plus,
   ChevronDown,
@@ -26,7 +27,8 @@ import {
   Table2,
   HelpCircle,
   CheckSquare,
-  BookOpen
+  BookOpen,
+  CreditCard
 } from "lucide-react"
 import { useState } from "react"
 
@@ -48,6 +50,7 @@ const childBlockTypes: { type: BlockType; icon: React.ComponentType<{ className?
   { type: 'quiz', icon: HelpCircle, label: 'Quiz' },
   { type: 'checklist', icon: CheckSquare, label: 'Checklist' },
   { type: 'definition', icon: BookOpen, label: 'Definition' },
+  { type: 'flashcards', icon: CreditCard, label: 'Flashcards' },
 ]
 
 export function SectionBlock({
@@ -119,6 +122,13 @@ export function SectionBlock({
         case 'definition':
           return (
             <DefinitionBlock
+              block={childBlock}
+              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
+            />
+          )
+        case 'flashcards':
+          return (
+            <FlashcardsBlock
               block={childBlock}
               onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
             />

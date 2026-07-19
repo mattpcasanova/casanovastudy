@@ -29,7 +29,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEditor, EditorProvider } from "@/lib/contexts/editor-context"
-import { BlockType, EditorBlock, blocksToCustomContent, sectionToBlock, DefinitionColorVariant, DefinitionBlockData } from "@/lib/types/editor-blocks"
+import { BlockType, EditorBlock, blocksToCustomContent, sectionToBlock, createPresetBlock, DefinitionColorVariant, DefinitionBlockData } from "@/lib/types/editor-blocks"
+import { PresetKind } from "./block-toolbar"
 import { CustomGuideContent, CustomSection } from "@/lib/types/custom-guide"
 import {
   DropdownMenu,
@@ -48,9 +49,11 @@ import { TableBlock } from "./blocks/table-block"
 import { QuizBlock } from "./blocks/quiz-block"
 import { ChecklistBlock } from "./blocks/checklist-block"
 import { DefinitionBlock } from "./blocks/definition-block"
+import { FlashcardsBlock } from "./blocks/flashcards-block"
 import { SectionBlock } from "./blocks/section-block"
 import { AIAssistant } from "./ai-assistant"
 import CustomFormat from "@/components/formats/custom-format"
+import { displaySerif } from "@/lib/formats/fonts"
 import { ClientCompression } from "@/lib/client-compression"
 import { deduplicateBlocks, countDuplicates } from "@/lib/deduplication"
 import { Eye, Edit3, Save, RotateCcw, FileText, FileImage, File, Loader2, Upload, X, FileUp, Palette, ChevronDown, Sparkles } from "lucide-react"
@@ -358,6 +361,12 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
     addBlock(type, selectedBlockId || undefined)
   }
 
+  const handleAddPreset = (kind: PresetKind) => {
+    const preset = createPresetBlock(kind)
+    appendBlocks([preset])
+    selectBlock(preset.id)
+  }
+
   // Bulk update all definition colors
   const handleBulkUpdateDefinitionColors = (colorVariant: DefinitionColorVariant) => {
     const updatedBlocks = updateAllDefinitionColors(blocks, colorVariant)
@@ -435,6 +444,13 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
         case 'definition':
           return (
             <DefinitionBlock
+              block={block}
+              onUpdate={(updates) => updateBlock(block.id, updates)}
+            />
+          )
+        case 'flashcards':
+          return (
+            <FlashcardsBlock
               block={block}
               onUpdate={(updates) => updateBlock(block.id, updates)}
             />
@@ -706,7 +722,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
 
         <TabsContent value="edit" className="space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <BlockToolbar onAddBlock={handleAddBlock} />
+            <BlockToolbar onAddBlock={handleAddBlock} onAddPreset={handleAddPreset} />
 
             {/* Bulk Actions dropdown - show when there are blocks */}
             {blocks.length > 0 && (
@@ -753,14 +769,35 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
 
           {blocks.length === 0 ? (
             <Card className="border-dashed">
-              <CardContent className="py-12 text-center">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Start Building Your Study Guide
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Add blocks using the toolbar above to create your custom study guide.
-                </p>
+              <CardContent className="py-10">
+                <div className="max-w-xl mx-auto text-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    Build your guide two ways
+                  </h3>
+                  <p className="text-muted-foreground mb-6">
+                    Mix flashcards, outlines, summaries, and quizzes into one guide.
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-3 text-left">
+                    <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                      <div className="flex items-center gap-2 font-medium text-blue-800 mb-1">
+                        <Sparkles className="h-4 w-4" />
+                        Generate with AI
+                      </div>
+                      <p className="text-sm text-blue-700/80">
+                        Open the AI Assistant above — describe what you want, or pick formats and let it build.
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-center gap-2 font-medium text-gray-800 mb-1">
+                        <FileText className="h-4 w-4" />
+                        Build by hand
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Add blocks from the toolbar above and fill them in yourself.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -781,7 +818,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
           )}
 
           {blocks.length > 0 && (
-            <BlockToolbar onAddBlock={handleAddBlock} />
+            <BlockToolbar onAddBlock={handleAddBlock} onAddPreset={handleAddPreset} />
           )}
         </TabsContent>
 
@@ -799,7 +836,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, initialMetadata
               </CardContent>
             </Card>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className={`${displaySerif.variable} bg-white rounded-lg shadow-sm p-6`}>
               <CustomFormat content={previewContent} studyGuideId="preview" />
             </div>
           )}
