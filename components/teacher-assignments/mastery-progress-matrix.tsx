@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { CheckCircle2, Flag, Loader2 } from "lucide-react"
+import StudentAttemptDialog from "./student-attempt-dialog"
 
 interface ConceptCol {
   id: string
@@ -43,6 +44,7 @@ export default function MasteryProgressMatrix({ assignmentId }: { assignmentId: 
   const [dueAt, setDueAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [finalizingId, setFinalizingId] = useState<string | null>(null)
+  const [selectedAttempt, setSelectedAttempt] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -140,7 +142,13 @@ export default function MasteryProgressMatrix({ assignmentId }: { assignmentId: 
                   {students.map(s => (
                     <tr key={s.attempt_id}>
                       <td className="py-1.5 pr-4 sticky left-0 bg-background">
-                        <span className="font-medium">{s.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAttempt(s.attempt_id)}
+                          className="font-medium text-left hover:text-primary hover:underline"
+                        >
+                          {s.name}
+                        </button>
                         {s.status === "completed" ? (
                           <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
                             <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
@@ -201,6 +209,11 @@ export default function MasteryProgressMatrix({ assignmentId }: { assignmentId: 
             </div>
           </TooltipProvider>
         )}
+        <StudentAttemptDialog
+          assignmentId={assignmentId}
+          attemptId={selectedAttempt}
+          onClose={() => setSelectedAttempt(null)}
+        />
       </CardContent>
     </Card>
   )
