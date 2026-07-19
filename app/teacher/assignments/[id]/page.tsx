@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
 import MasteryProgressMatrix from "@/components/teacher-assignments/mastery-progress-matrix"
+import MasteryInsights from "@/components/teacher-assignments/mastery-insights"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -463,7 +465,20 @@ export default function TeacherAssignmentDetailPage() {
           </Card>
         )}
 
-        {isMasteryQuiz && <MasteryProgressMatrix assignmentId={assignment.id} />}
+        {isMasteryQuiz && (
+          <Tabs defaultValue="progress">
+            <TabsList className="mb-3">
+              <TabsTrigger value="progress">Progress</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+            </TabsList>
+            <TabsContent value="progress">
+              <MasteryProgressMatrix assignmentId={assignment.id} />
+            </TabsContent>
+            <TabsContent value="insights">
+              <MasteryInsights assignmentId={assignment.id} />
+            </TabsContent>
+          </Tabs>
+        )}
 
         <Card>
           <CardContent className="p-6">
