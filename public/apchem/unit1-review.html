@@ -29,7 +29,7 @@
   p{margin:.4em 0}
   header{padding:56px 0 28px;border-bottom:2px solid var(--ink)}
   header .sub{color:var(--mute);margin-top:10px;max-width:56ch}
-  .gate{margin-top:26px;display:grid;grid-template-columns:1fr 210px 110px;gap:12px}
+  .gate{margin-top:26px;display:grid;grid-template-columns:1fr 1fr 210px 110px;gap:12px}
   .gate label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
   input[type=text],select,input[type=number]{font:inherit;color:var(--ink);padding:10px 12px;border:1.5px solid var(--line);border-radius:6px;background:#fff;width:100%}
   input:focus,select:focus,button:focus-visible,.tile:focus-visible,.slot:focus-visible,.box:focus-visible,.bar:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
@@ -117,7 +117,8 @@
     <h1>Unit 1 Review</h1>
     <p class="sub">Atomic structure and properties, 1.1 through 1.8. Every student gets different numbers, so work your own. Calculator and periodic table allowed. Type answers to 3 significant figures unless asked otherwise.</p>
     <div class="gate" id="gate">
-      <div><label for="name">Full name</label><input type="text" id="name" autocomplete="off" placeholder="First Last"></div>
+      <div><label for="first">First name</label><input type="text" id="first" autocomplete="off" placeholder="First"></div>
+      <div><label for="last">Last name</label><input type="text" id="last" autocomplete="off" placeholder="Last"></div>
       <div><label for="program">School</label><select id="program"><option value="">—</option><option value="HS">HS · High School</option><option value="AC">AC · Arts Conservatory</option></select></div>
       <div><label for="period">Period</label><select id="period"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
     </div>
@@ -360,7 +361,7 @@ function render(p){
     q('q3',4,`The mass spectrum below is from a pure sample of one element.`,
       specSVG(sp.iso)+
       `<div class="row" style="margin-top:10px"><span class="lbl">How many isotopes?</span>${numIn('q3a','')}</div>
-       <div class="row"><span class="lbl">Which element is it?</span><select data-ans="q3b" style="width:auto"><option value="">—</option>${shuffle(['Mg','Cl','Cu','B','Si','Ga','Br','Li','N','C']).map(e=>`<option>${e}</option>`).join('')}</select></div>
+       <div class="row"><span class="lbl">Which element is it?</span><select data-ans="q3b" style="width:auto"><option value="">—</option>${shuffle(shuffle(['Mg','Cl','Cu','B','Si','Ga','Br','Li','N','C'].filter(e=>e!==sp.el)).slice(0,3).concat(sp.el)).map(e=>`<option>${e}</option>`).join('')}</select></div>
        <div class="row"><span class="lbl">Average atomic mass from this spectrum (2 decimals):</span>${numIn('q3c','amu')}</div>`));
   h+=topic('1.3','Elemental composition of pure substances',
     q('q4',2,`What is the mass percent of <b>${p.el3}</b> in <b>${fmtF(p.c3.f)}</b>? Use the AP periodic table.`,numIn('q4','%'))+
@@ -378,7 +379,7 @@ function render(p){
   h+=topic('1.6','Photoelectron spectroscopy',
     q('q11',4,`The photoelectron spectrum below is for a neutral atom of one element.`,
       pesSVG(p.pes,'q11')+
-      `<div class="row" style="margin-top:10px"><span class="lbl">Which element?</span><select data-ans="q11a" style="width:auto"><option value="">—</option>${Object.keys(PES).map(e=>`<option>${e}</option>`).join('')}</select></div>
+      `<div class="row" style="margin-top:10px"><span class="lbl">Which element?</span><select data-ans="q11a" style="width:auto"><option value="">—</option>${shuffle(Object.keys(PES).filter(e=>e!==p.pesEl).sort((a,b)=>Math.abs(Z[a]-Z[p.pesEl])-Math.abs(Z[b]-Z[p.pesEl])).slice(0,3).concat(p.pesEl)).map(e=>`<option>${e}</option>`).join('')}</select></div>
        <div class="row"><span class="lbl">Click the peak that comes from the <b>${p.pesAsk}</b> subshell.</span> <span class="lbl" id="q11b-echo">(none selected)</span></div>
        <div class="row"><span class="lbl">How many electrons are in the peak with the <b>lowest</b> binding energy?</span>${numIn('q11c','')}</div>`)+
     mcBlock(p.mc[1]));
@@ -449,7 +450,8 @@ async function submit(){
   const pct=Math.round(score/max*100);
   $('#resultBox').innerHTML=`<h2>Turned in</h2><div class="big">${score} / ${max}</div><p class="note">${pct}%. Scroll up — every item now shows the answer for your numbers. Anything red is what to study tonight.</p><p class="note" id="saveState">Saving…</p>`;
   $('#resultBox').classList.remove('hidden');
-  const payload={student_name:$('#name').value.trim(),program:$('#program').value,period:$('#period').value,seed:P.seed,score,max_score:max,answers:{...A,detail}};
+  const first=$('#first').value.trim().replace(/\s+/g,' '), last=$('#last').value.trim().replace(/\s+/g,' ');
+  const payload={student_name:first+' '+last,first_name:first,last_name:last,program:$('#program').value,period:$('#period').value,seed:P.seed,score,max_score:max,answers:{...A,detail}};
   try{ const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(!r.ok)throw new Error(await r.text());
     $('#saveState').textContent='Saved to Mr. Casanova\'s gradebook feed.'; }
   catch(err){ $('#saveState').innerHTML=`Could not save automatically. Show this screen to Mr. Casanova, or screenshot it. <span style="opacity:.7">(${String(err).slice(0,80)})</span>`; }
@@ -458,10 +460,11 @@ async function submit(){
 
 /* ---------- START ---------- */
 $('#start').addEventListener('click',()=>{
-  const name=$('#name').value.trim().replace(/\s+/g,' '); const per=$('#period').value; const prog=$('#program').value;
-  if(name.split(' ').length<2){alert('Enter your first and last name.');return;} if(!prog){alert('Pick HS or AC.');return;} if(!per){alert('Pick your period.');return;}
+  const first=$('#first').value.trim().replace(/\s+/g,' '); const last=$('#last').value.trim().replace(/\s+/g,' ');
+  const name=first+' '+last; const per=$('#period').value; const prog=$('#program').value;
+  if(!first||!last){alert('Enter your first and last name.');return;} if(!prog){alert('Pick HS or AC.');return;} if(!per){alert('Pick your period.');return;}
   const seed=hashStr(name.toLowerCase()+'|'+per)>>>0; P=buildPaper(seed); P.seed=seed;
-  $('#name').disabled=true;$('#period').disabled=true;$('#program').disabled=true;$('#start').classList.add('hidden');
+  $('#first').disabled=true;$('#last').disabled=true;$('#period').disabled=true;$('#program').disabled=true;$('#start').classList.add('hidden');
   render(P); $('#main').classList.remove('hidden'); $('#foot').classList.remove('hidden');
   const key=new URLSearchParams(location.search).get('key');
   if(key===TEACHER_KEY){ const list=items(P); const kb=el(`<div class="q" style="border-color:var(--gold)"><p class="prompt">Answer key for ${name}, ${prog} period ${per} (seed ${seed})</p>${list.map(i=>`<div class="lbl"><b>${i.id}</b> (${i.pts}): ${i.key}</div>`).join('')}</div>`); $('#main').prepend(kb); }

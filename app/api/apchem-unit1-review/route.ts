@@ -18,14 +18,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
 
-  const name = String(body.student_name ?? "").trim().slice(0, 80);
+  const first = String(body.first_name ?? "").trim().slice(0, 40);
+  const last = String(body.last_name ?? "").trim().slice(0, 40);
+  const name = `${first} ${last}`.trim();
   const period = String(body.period ?? "").trim().slice(0, 4);
   const program = String(body.program ?? "").trim().toUpperCase();
   const seed = Number(body.seed);
   const score = Number(body.score);
   const max = Number(body.max_score);
 
-  if (name.split(/\s+/).length < 2) return NextResponse.json({ error: "First and last name required." }, { status: 400 });
+  if (!first || !last) return NextResponse.json({ error: "First and last name required." }, { status: 400 });
   if (!period) return NextResponse.json({ error: "Period required." }, { status: 400 });
   if (!["HS", "AC"].includes(program)) return NextResponse.json({ error: "Program must be HS or AC." }, { status: 400 });
   if (![seed, score, max].every(Number.isFinite) || max <= 0 || score < 0 || score > max)
@@ -33,6 +35,8 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabase.from(TABLE).insert({
     student_name: name,
+    first_name: first,
+    last_name: last,
     program,
     period,
     seed,
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// GET /api/apchem-unit1-review?key=TEACHER_EXPORT_KEY[&program=HS][&period=3]  — CSV of submissions, newest first
+// GET /api/apchem-unit1-review?key=TEACHER_EXPORT_KEY[&program=HS][&period=3]  — CSV of submissions, sorted by last name within program
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
   if (!key || key !== process.env.APCHEM_EXPORT_KEY)
@@ -56,7 +60,10 @@ export async function GET(req: NextRequest) {
   const program = req.nextUrl.searchParams.get("program");
   let q = supabase
     .from(TABLE)
-    .select("created_at, student_name, program, period, score, max_score, percent, seed")
+    .select("created_at, first_name, last_name, program, period, score, max_score, percent, seed")
+    .order("program", { ascending: true })
+    .order("last_name", { ascending: true })
+    .order("first_name", { ascending: true })
     .order("created_at", { ascending: false });
   if (period) q = q.eq("period", period);
   if (program) q = q.eq("program", program.toUpperCase());
@@ -66,9 +73,9 @@ export async function GET(req: NextRequest) {
 
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const rows = [
-    ["submitted_at", "student", "program", "period", "score", "max", "percent", "seed"].join(","),
+    ["last_name", "first_name", "program", "period", "score", "max", "percent", "submitted_at", "seed"].join(","),
     ...(data ?? []).map((r) =>
-      [r.created_at, r.student_name, r.program, r.period, r.score, r.max_score, r.percent, r.seed].map(esc).join(",")
+      [r.last_name, r.first_name, r.program, r.period, r.score, r.max_score, r.percent, r.created_at, r.seed].map(esc).join(",")
     ),
   ];
   return new NextResponse(rows.join("\n"), {
