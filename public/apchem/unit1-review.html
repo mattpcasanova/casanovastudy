@@ -458,6 +458,29 @@ async function submit(){
   $('#resultBox').scrollIntoView({behavior:'smooth'});
 }
 
+/* ---------- CROSS-COMPUTER PROGRESS (saved to the server) ---------- */
+function progressPayload(){ collect(); return JSON.stringify({seed:P.seed,program:$('#program').value,period:$('#period').value,student_name:$('#first').value.trim().replace(/\s+/g,' ')+' '+$('#last').value.trim().replace(/\s+/g,' '),answers:A}); }
+let saveTimer=null;
+function queueSave(){ if($('#submit').disabled)return; clearTimeout(saveTimer); saveTimer=setTimeout(saveProgress,1500); }
+async function saveProgress(){ if($('#submit').disabled)return;
+  try{ const r=await fetch(API+'/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:progressPayload()});
+    if(r.ok)$('#status').textContent='Progress saved — you can close this and finish on any computer.'; }catch(e){}
+}
+async function loadProgress(){
+  try{ const r=await fetch(`${API}/progress?seed=${P.seed}&program=${encodeURIComponent($('#program').value)}`); if(!r.ok)return;
+    const d=await r.json(); if(d&&d.answers&&Object.keys(d.answers).length){ restore(d.answers); $('#status').textContent='Welcome back — your saved answers were restored.'; } }catch(e){}
+}
+function restore(S){
+  document.querySelectorAll('[data-ans]').forEach(i=>{ const v=S[i.dataset.ans]; if(typeof v==='string')i.value=v; });
+  for(const id of ['q1','q2']){ const o=S[id+'a']; if(!o)continue; for(const k in o){ if(!o[k])continue;
+    const t=document.querySelector(`.tile[data-tile="${o[k]}"][data-bank="${id}"]`); const s=document.querySelector(`.slot[data-slot="${id}:${k}"]`); if(t&&s)placeTile(t,s); } }
+  if(S.q8)document.querySelectorAll('.box[data-orb="q8"]').forEach(b=>{ const v=(S.q8[b.dataset.sub]||[])[+b.dataset.i]||0; b.dataset.v=v; b.textContent=v===1?'↑':v===2?'↑↓':''; });
+  if(S.q11b){ const bar=document.querySelector(`.bar[data-peak="${S.q11b}"][data-pq="q11"]`); if(bar){ bar.classList.add('sel'); A.q11b=S.q11b; $('#q11b-echo').textContent='selected a peak'; } }
+  P.mc.forEach(m=>{ const v=S['mc_'+m.id]; if(!v)return; const i=m.opts.indexOf(v); if(i<0)return; const r=document.querySelector(`input[name="mc_${m.id}"][value="${i}"]`); if(r)r.checked=true; });
+  if(Array.isArray(S.q14))S.q14.forEach((v,i)=>{ if(!v)return; const b=document.querySelector(`.stmt[data-i="${i}"] button[data-v="${v}"]`); if(b)b.classList.add('on'); });
+  if(Array.isArray(S.q15))S.q15.forEach((v,i)=>{ const s=document.querySelector(`select[data-rank="q15"][data-i="${i}"]`); if(v&&s)s.value=v; });
+}
+
 /* ---------- REMEMBER WHO THEY ARE ---------- */
 const ID_KEY='apchem_u1_identity';
 function saveIdentity(){ try{ localStorage.setItem(ID_KEY,JSON.stringify({first:$('#first').value,last:$('#last').value,program:$('#program').value,period:$('#period').value})); }catch(e){} }
@@ -473,11 +496,15 @@ $('#start').addEventListener('click',()=>{
   const seed=hashStr(name.toLowerCase()+'|'+per)>>>0; P=buildPaper(seed); P.seed=seed;
   $('#first').disabled=true;$('#last').disabled=true;$('#period').disabled=true;$('#program').disabled=true;$('#start').classList.add('hidden');
   render(P); $('#main').classList.remove('hidden'); $('#foot').classList.remove('hidden');
+  loadProgress();
+  $('#main').addEventListener('input',queueSave);
+  $('#main').addEventListener('click',queueSave);
   const key=new URLSearchParams(location.search).get('key');
   if(key===TEACHER_KEY){ const list=items(P); const kb=el(`<div class="q" style="border-color:var(--gold)"><p class="prompt">Answer key for ${name}, ${prog} period ${per} (seed ${seed})</p>${list.map(i=>`<div class="lbl"><b>${i.id}</b> (${i.pts}): ${i.key}</div>`).join('')}</div>`); $('#main').prepend(kb); }
 });
 $('#submit').addEventListener('click',()=>{ collect(); const blanks=Object.entries(A).filter(([k,v])=>v===''||v===null).length; if(blanks&&!confirm(`You left ${blanks} answer${blanks>1?'s':''} blank. Turn in anyway?`))return; submit(); });
 window.addEventListener('beforeunload',e=>{ if(!$('#main').classList.contains('hidden')&&!$('#submit').disabled){e.preventDefault();e.returnValue='';} });
+window.addEventListener('pagehide',()=>{ if(!$('#main').classList.contains('hidden')&&!$('#submit').disabled){ try{ navigator.sendBeacon(API+'/progress',new Blob([progressPayload()],{type:'application/json'})); }catch(e){} } });
 </script>
 </body>
 </html>

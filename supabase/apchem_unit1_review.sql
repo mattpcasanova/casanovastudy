@@ -22,6 +22,19 @@ alter table public.apchem_unit1_review enable row level security;
 create index if not exists apchem_unit1_review_period_idx on public.apchem_unit1_review (program, period, created_at desc);
 create index if not exists apchem_unit1_review_name_idx on public.apchem_unit1_review (program, last_name, first_name);
 
+-- In-progress answers, keyed by the student's seeded paper so work follows
+-- them across computers. Autosaved by the page; row is deleted on submit.
+create table if not exists public.apchem_unit1_progress (
+  seed          bigint not null,
+  program       text not null check (program in ('HS','AC')),
+  period        text not null,
+  student_name  text not null,
+  answers       jsonb not null default '{}'::jsonb,
+  updated_at    timestamptz not null default now(),
+  primary key (seed, program)
+);
+alter table public.apchem_unit1_progress enable row level security;
+
 -- Handy view: best attempt per student (in case someone reloads and resubmits),
 -- sorted the way grading happens: by program, then period, then last name.
 create or replace view public.apchem_unit1_review_best as

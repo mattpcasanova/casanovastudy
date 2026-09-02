@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Turned in — clear any saved in-progress answers for this paper.
+  await supabase.from("apchem_unit1_progress").delete().eq("seed", seed).eq("program", program);
+
   return NextResponse.json({ ok: true });
 }
 
