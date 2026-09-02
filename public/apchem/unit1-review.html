@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP Chemistry · Unit 1 Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1F3A2E;      /* course green */
+    --ink-2:#3A5548;
+    --gold:#B8924A;
+    --gold-soft:#F3E9D6;
+    --paper:#FFFFFF;
+    --mist:#F2F5F3;
+    --line:#D9E0DB;
+    --ok:#2F7D4F;
+    --bad:#B23B3B;
+    --mute:#6B7A72;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"DM Sans",system-ui,sans-serif;font-size:17px;line-height:1.5}
+  body{padding:0 20px 96px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1,h2{font-family:"Playfair Display",Georgia,serif;font-weight:600;margin:0}
+  h1{font-size:2.4rem;line-height:1.1;letter-spacing:-.01em}
+  h2{font-size:1.45rem;line-height:1.2}
+  p{margin:.4em 0}
+  header{padding:56px 0 28px;border-bottom:2px solid var(--ink)}
+  header .sub{color:var(--mute);margin-top:10px;max-width:56ch}
+  .gate{margin-top:26px;display:grid;grid-template-columns:1fr 210px 110px;gap:12px}
+  .gate label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+  input[type=text],select,input[type=number]{font:inherit;color:var(--ink);padding:10px 12px;border:1.5px solid var(--line);border-radius:6px;background:#fff;width:100%}
+  input:focus,select:focus,button:focus-visible,.tile:focus-visible,.slot:focus-visible,.box:focus-visible,.bar:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .btn{font:inherit;font-weight:600;background:var(--ink);color:#fff;border:0;border-radius:6px;padding:12px 20px;cursor:pointer}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+  #start{margin-top:16px}
+  .hidden{display:none !important}
+  .done .tile,.done .slot,.done .bar,.done .stmt button{pointer-events:none}
+
+  section.topic{padding:36px 0 8px;border-bottom:1px solid var(--line)}
+  section.topic .num{font-family:"DM Mono",monospace;color:var(--gold);font-size:.95rem;margin-bottom:6px}
+  .q{margin:26px 0 8px;padding:20px;border:1.5px solid var(--line);border-radius:10px;position:relative}
+  .q .pts{position:absolute;right:14px;top:12px;font-family:"DM Mono",monospace;font-size:.8rem;color:var(--mute)}
+  .q .prompt{font-weight:500;margin:0 0 12px;padding-right:56px}
+  .q .prompt small{font-weight:400;color:var(--mute)}
+  .q.right{border-color:var(--ok)}
+  .q.wrong{border-color:var(--bad)}
+  .fb{margin-top:12px;padding:10px 12px;border-radius:6px;background:var(--mist);font-size:.95rem}
+  .fb.ok{background:#E9F4EC;color:var(--ok)}
+  .fb.no{background:#F9E9E9;color:var(--bad)}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .lbl{color:var(--mute);font-size:.9rem}
+  .row input.short{width:150px;flex:0 0 150px}
+  .unit{font-family:"DM Mono",monospace;color:var(--mute)}
+
+  /* multiple choice */
+  .mc{display:grid;gap:8px}
+  .mc label{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1.5px solid var(--line);border-radius:6px;cursor:pointer}
+  .mc label:has(input:checked){border-color:var(--ink);background:var(--mist)}
+  .mc input{margin-top:4px}
+
+  /* formula assembly */
+  .assembly{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 14px}
+  .frac{display:inline-grid;grid-template-rows:auto auto;gap:4px;justify-items:center}
+  .frac .slot:first-child{border-bottom:2px solid var(--ink);border-radius:6px 6px 0 0}
+  .slot{min-width:118px;min-height:46px;display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;background:#FBFCFB}
+  .slot.over{border-color:var(--gold);background:var(--gold-soft)}
+  .slot .tile{cursor:pointer}
+  .bank{display:flex;gap:8px;flex-wrap:wrap;padding:10px;background:var(--mist);border-radius:8px}
+  .tile{font-family:"DM Mono",monospace;font-size:.95rem;background:#fff;border:1.5px solid var(--ink);color:var(--ink);border-radius:6px;padding:6px 10px;cursor:grab;user-select:none}
+  .tile.picked{background:var(--gold-soft);border-color:var(--gold)}
+  .op{font-family:"DM Mono",monospace;font-size:1.3rem}
+  .eq{font-family:"DM Mono",monospace;font-size:1.1rem}
+
+  /* orbital boxes */
+  .orb{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin:8px 0 6px}
+  .sub{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .sub .boxes{display:flex;gap:4px}
+  .box{width:40px;height:40px;border:1.5px solid var(--ink);border-radius:4px;background:#fff;font-family:"DM Mono",monospace;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;letter-spacing:-2px}
+  .sub .name{font-family:"DM Mono",monospace;font-size:.9rem;color:var(--ink-2)}
+
+  /* spectra */
+  svg{max-width:100%;height:auto;display:block}
+  .bar{cursor:pointer}
+  .bar.sel rect{fill:var(--gold)}
+  .axis{font-family:"DM Mono",monospace;font-size:11px;fill:var(--mute)}
+
+  /* bucket sort */
+  .sortlist{display:grid;gap:8px}
+  .stmt{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;flex-wrap:wrap}
+  .stmt .txt{flex:1 1 300px}
+  .stmt .choice{display:flex;gap:6px}
+  .stmt button{font:inherit;font-size:.85rem;padding:5px 9px;border-radius:5px;border:1.5px solid var(--line);background:#fff;cursor:pointer}
+  .stmt button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .ranks{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .ranks select{width:auto}
+
+  footer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--line);padding:12px 20px}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  #status{color:var(--mute);font-size:.95rem}
+  .result{margin-top:34px;padding:24px;background:var(--ink);color:#fff;border-radius:10px}
+  .result h2{color:#fff}
+  .result .big{font-family:"Playfair Display",serif;font-size:3rem;line-height:1;margin:8px 0}
+  .result .note{color:#CFDBD4}
+  @media (max-width:560px){ h1{font-size:1.9rem} .gate{grid-template-columns:1fr} .box{width:34px;height:34px} }
+  @media (prefers-reduced-motion:no-preference){ .q{transition:border-color .2s} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Unit 1 Review</h1>
+    <p class="sub">Atomic structure and properties, 1.1 through 1.8. Every student gets different numbers, so work your own. Calculator and periodic table allowed. Type answers to 3 significant figures unless asked otherwise.</p>
+    <div class="gate" id="gate">
+      <div><label for="name">Full name</label><input type="text" id="name" autocomplete="off" placeholder="First Last"></div>
+      <div><label for="program">School</label><select id="program"><option value="">—</option><option value="HS">HS · High School</option><option value="AC">AC · Arts Conservatory</option></select></div>
+      <div><label for="period">Period</label><select id="period"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+    </div>
+    <button class="btn" id="start">Get my questions</button>
+  </header>
+
+  <main id="main" class="hidden"></main>
+  <div id="resultBox" class="result hidden"></div>
+</div>
+
+<footer id="foot" class="hidden"><div class="wrap"><span id="status">Answers are checked when you turn it in.</span><button class="btn" id="submit">Turn in</button></div></footer>
+
+<script>
+/* ---------- CONFIG ---------- */
+const API = '/api/apchem-unit1-review';
+const TEACHER_KEY = 'b7f4beab19840b34a9b6cd7772b16e956fe2cd3dca0fa204';   // ?key=... in the URL shows the answer key for that name. Change this.
+
+/* ---------- SEEDED RNG ---------- */
+function hashStr(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (h2>>>0)*4294967296+(h1>>>0);}
+function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+let R;const pick=arr=>arr[Math.floor(R()*arr.length)];const between=(lo,hi,step=1)=>{const n=Math.round((hi-lo)/step);const d=(String(step).split('.')[1]||'').length;return +(lo+step*Math.floor(R()*(n+1))).toFixed(d);};
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ---------- CHEM DATA ---------- */
+const AM={H:1.01,Li:6.94,Be:9.01,B:10.81,C:12.01,N:14.01,O:16.00,F:19.00,Ne:20.18,Na:22.99,Mg:24.31,Al:26.98,Si:28.09,P:30.97,S:32.06,Cl:35.45,Ar:39.95,K:39.10,Ca:40.08,Fe:55.85,Cu:63.55,Zn:65.38,Br:79.90,Kr:83.80,He:4.00};
+const Z={H:1,He:2,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Ne:10,Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,Ar:18,K:19,Ca:20,Sc:21,Ti:22,V:23,Cr:24,Mn:25,Fe:26,Co:27,Ni:28,Cu:29,Zn:30,Ga:31,Ge:32,As:33,Se:34,Br:35,Kr:36,Rb:37,Sr:38,I:53,Cs:55};
+const NAMES={Li:'lithium',Be:'beryllium',B:'boron',C:'carbon',N:'nitrogen',O:'oxygen',F:'fluorine',Ne:'neon',Na:'sodium',Mg:'magnesium',Al:'aluminum',Si:'silicon',P:'phosphorus',S:'sulfur',Cl:'chlorine',Ar:'argon',K:'potassium',Ca:'calcium',Sc:'scandium',Ti:'titanium',V:'vanadium',Mn:'manganese',Fe:'iron',Co:'cobalt',Ni:'nickel',Zn:'zinc',Ga:'gallium',As:'arsenic',Br:'bromine',Se:'selenium',Kr:'krypton'};
+const COMPOUNDS=[
+  {f:'MgO',atoms:{Mg:1,O:1}},{f:'NaCl',atoms:{Na:1,Cl:1}},{f:'CaCO3',atoms:{Ca:1,C:1,O:3}},{f:'KBr',atoms:{K:1,Br:1}},
+  {f:'Al2O3',atoms:{Al:2,O:3}},{f:'Na2SO4',atoms:{Na:2,S:1,O:4}},{f:'CaBr2',atoms:{Ca:1,Br:2}},{f:'Fe2O3',atoms:{Fe:2,O:3}},
+  {f:'K2CO3',atoms:{K:2,C:1,O:3}},{f:'MgCl2',atoms:{Mg:1,Cl:2}},{f:'CuSO4',atoms:{Cu:1,S:1,O:4}},{f:'NH4Cl',atoms:{N:1,H:4,Cl:1}}
+];
+const molar=c=>Object.entries(c.atoms).reduce((s,[e,n])=>s+AM[e]*n,0);
+const fmtF=f=>f.replace(/(\d+)/g,'<sub>$1</sub>');
+const MONO=['Ar','Ne','He','Kr','Cu','Fe','Al','Zn'];
+const SPEC=[ // real isotopes, abundances in %
+  {el:'Mg',iso:[[24,79.0],[25,10.0],[26,11.0]]},{el:'Cl',iso:[[35,75.8],[37,24.2]]},{el:'Cu',iso:[[63,69.2],[65,30.8]]},
+  {el:'B',iso:[[10,19.9],[11,80.1]]},{el:'Si',iso:[[28,92.2],[29,4.7],[30,3.1]]},{el:'Ga',iso:[[69,60.1],[71,39.9]]},
+  {el:'Br',iso:[[79,50.7],[81,49.3]]},{el:'Li',iso:[[6,7.6],[7,92.4]]}
+];
+const EMP=[
+  {emp:'CH2O',atoms:{C:1,H:2,O:1},dis:['CHO','CH3O','C2HO'],mult:[2,3,6]},
+  {emp:'CH2',atoms:{C:1,H:2},dis:['CH','CH3','C2H'],mult:[2,3,4,5]},
+  {emp:'NO2',atoms:{N:1,O:2},dis:['NO','N2O','NO3'],mult:[1,2]},
+  {emp:'CH',atoms:{C:1,H:1},dis:['CH2','C2H','CH3'],mult:[2,6,8]},
+  {emp:'NH2',atoms:{N:1,H:2},dis:['NH','NH3','N2H'],mult:[1,2]},
+  {emp:'C2H5',atoms:{C:2,H:5},dis:['CH2','CH3','C2H4'],mult:[2]}
+];
+const multF=(atoms,n)=>Object.entries(atoms).map(([e,c])=>e+(c*n>1?c*n:'')).join('');
+const PES={ // binding energies MJ/mol, subshell:[e-,BE]
+  Li:{'1s':[2,6.26],'2s':[1,0.52]},Be:{'1s':[2,11.5],'2s':[2,0.90]},B:{'1s':[2,19.3],'2s':[2,1.36],'2p':[1,0.80]},
+  C:{'1s':[2,28.6],'2s':[2,1.72],'2p':[2,1.09]},N:{'1s':[2,39.6],'2s':[2,2.45],'2p':[3,1.40]},O:{'1s':[2,52.6],'2s':[2,3.12],'2p':[4,1.31]},
+  F:{'1s':[2,67.2],'2s':[2,3.88],'2p':[5,1.68]},Ne:{'1s':[2,84.0],'2s':[2,4.68],'2p':[6,2.08]},
+  Na:{'1s':[2,104],'2s':[2,6.84],'2p':[6,3.67],'3s':[1,0.50]},Mg:{'1s':[2,126],'2s':[2,9.07],'2p':[6,5.31],'3s':[2,0.74]},
+  Al:{'1s':[2,151],'2s':[2,12.1],'2p':[6,7.19],'3s':[2,1.09],'3p':[1,0.58]},Si:{'1s':[2,178],'2s':[2,15.1],'2p':[6,10.3],'3s':[2,1.46],'3p':[2,0.79]},
+  P:{'1s':[2,208],'2s':[2,18.7],'2p':[6,13.5],'3s':[2,1.95],'3p':[3,1.01]},S:{'1s':[2,239],'2s':[2,22.7],'2p':[6,16.5],'3s':[2,2.05],'3p':[4,1.00]},
+  Cl:{'1s':[2,273],'2s':[2,25.4],'2p':[6,20.2],'3s':[2,2.44],'3p':[5,1.25]},Ar:{'1s':[2,309],'2s':[2,31.5],'2p':[6,24.1],'3s':[2,2.82],'3p':[6,1.52]}
+};
+const ORDER=[['1s',2],['2s',2],['2p',6],['3s',2],['3p',6],['4s',2],['3d',10],['4p',6]];
+function config(el,charge=0){ // returns map subshell->count
+  let e=Z[el]-charge; const m={};
+  if(charge<=0){ for(const [s,cap] of ORDER){ if(e<=0)break; const n=Math.min(cap,e); m[s]=n; e-=n; } return m; }
+  // cation: fill neutral, then remove from highest n (4p, 4s before 3d)
+  let n=Z[el]; for(const [s,cap] of ORDER){ if(n<=0)break; const k=Math.min(cap,n); m[s]=k; n-=k; }
+  let rm=charge; const removeOrder=['4p','4s','3d','3p','3s','2p','2s','1s'];
+  for(const s of removeOrder){ if(rm<=0)break; if(!m[s])continue; const k=Math.min(m[s],rm); m[s]-=k; rm-=k; if(m[s]===0)delete m[s]; }
+  return m;
+}
+function fmtConfig(m){return ORDER.filter(([s])=>m[s]).map(([s])=>s+'<sup>'+m[s]+'</sup>').join(' ');}
+function parseConfig(str){
+  if(!str)return null; let s=str.toLowerCase().replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g,c=>String('⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c))).replace(/\^/g,'');
+  const m={}; const core={'[he]':'He','[ne]':'Ne','[ar]':'Ar','[kr]':'Kr'};
+  for(const k in core){ if(s.includes(k)){ Object.assign(m,config(core[k])); s=s.replace(k,' '); } }
+  const re=/([1-7])([spdf])\s*(\d\d?)(?=\s*(?:[1-7][spdf]|$|\[))/g; let x; let any=false;
+  while((x=re.exec(s))){ any=true; const key=x[1]+x[2]; m[key]=(m[key]||0)+parseInt(x[3],10); }
+  return any||Object.keys(m).length?m:null;
+}
+const sameMap=(a,b)=>a&&b&&Object.keys(a).length===Object.keys(b).length&&Object.keys(a).every(k=>a[k]===b[k]);
+function valence(el){const z=Z[el];const group=groupOf(el);return group<=2?group:group-10;}
+const period=z=>z<=2?1:z<=10?2:z<=18?3:z<=36?4:5;
+function groupOf(el){const z=Z[el];if(z===1)return 1;if(z===2)return 18;if(z<=18){const r=z-(z<=10?2:10);return r>2?r+10:r;}return z-(z<=36?18:36);}
+const CATIONS=[['Li',1],['Na',1],['K',1],['Mg',2],['Ca',2],['Al',3]];
+const ANIONS=[['N',3],['O',2],['S',2],['F',1],['Cl',1],['Br',1]];
+function ionicFormula(c,cq,a,aq){const g=(x,y)=>y?g(y,x%y):x;const d=g(cq,aq);const nc=aq/d,na=cq/d;return c+(nc>1?nc:'')+a+(na>1?na:'');}
+const normF=s=>(s||'').replace(/[\s₀₁₂₃₄₅₆₇₈₉]/g,c=>{const i='₀₁₂₃₄₅₆₇₈₉'.indexOf(c);return i<0?'':String(i);});
+
+/* ---------- NUMBER HELPERS ---------- */
+const sig=(x,n=3)=>Number(x.toPrecision(n));
+function near(ans,truth,tol=0.02){const v=parseFloat(String(ans).replace(/\s*[x×*]\s*10\^?\s*/i,'e').replace(/[^0-9.eE+-]/g,''));if(isNaN(v))return false;if(truth===0)return Math.abs(v)<1e-9;return Math.abs(v-truth)/Math.abs(truth)<=tol;}
+const exactInt=(ans,t)=>parseInt(String(ans).trim(),10)===t;
+
+/* ---------- BUILD THE PAPER ---------- */
+let P={}; // the seeded paper: values + expected answers
+function buildPaper(seed){
+  R=rng(seed); const p={};
+  // 1.1
+  p.c1=pick(COMPOUNDS); p.m1=between(2.5,9.9,0.1); p.M1=sig(molar(p.c1),4); p.mol1=p.m1/p.M1;
+  p.e2=pick(MONO); p.m2=between(3.0,12.0,0.5); p.M2=AM[p.e2]; p.n2=p.m2/p.M2*6.022e23;
+  // 1.2
+  const sp=pick(SPEC); const iso=sp.iso.map(x=>x.slice()); const d=between(-2.5,2.5,0.5); iso[0][1]=+(iso[0][1]+d).toFixed(1); iso[iso.length-1][1]=+(iso[iso.length-1][1]-d).toFixed(1);
+  p.spec={el:sp.el,iso}; p.avg=iso.reduce((s,[m,a])=>s+m*a/100,0);
+  p.mostAb=iso.reduce((b,x)=>x[1]>b[1]?x:b,iso[0])[0];
+  // 1.3
+  let c3; do{c3=pick(COMPOUNDS);}while(c3===p.c1); p.c3=c3; const els=Object.keys(c3.atoms); p.el3=pick(els); p.M3=molar(c3); p.pct3=AM[p.el3]*c3.atoms[p.el3]/p.M3*100;
+  const em=pick(EMP); const M=Object.entries(em.atoms).reduce((s,[e,n])=>s+AM[e]*n,0); p.emp=em; p.empPct=Object.entries(em.atoms).map(([e,n])=>[e,+(AM[e]*n/M*100).toFixed(1)]);
+  p.empOpts=shuffle([em.emp,...em.dis]); p.mult=pick(em.mult); p.molM=+(M*p.mult).toFixed(1); p.molF=multF(em.atoms,p.mult);
+  p.molOpts=shuffle(shuffle([1,2,3,4,5,6,8].filter(n=>n!==p.mult)).slice(0,3).concat([p.mult])).map(n=>multF(em.atoms,n));
+  // 1.4
+  p.salt=between(12,48,1); p.water=between(150,400,10); p.masspct=p.salt/(p.salt+p.water)*100;
+  let c4; do{c4=pick(COMPOUNDS);}while(c4===p.c1||c4===c3||!Object.keys(c4.atoms).some(e=>e!=='O'&&e!=='H')); p.c4=c4; p.el4=pick(Object.keys(c4.atoms).filter(e=>e!=='O'&&e!=='H'));
+  p.purity=between(62,95,1); p.purePct=AM[p.el4]*c4.atoms[p.el4]/molar(c4)*100; p.foundPct=+(p.purePct*p.purity/100).toFixed(1); p.purityAns=p.foundPct/p.purePct*100;
+  // 1.5
+  p.orbEl=pick(['B','C','N','O','F','Al','Si','P','S','Cl']); p.orbCfg=config(p.orbEl);
+  const cfgPool=[['K',0],['Ca',0],['Sc',0],['Ti',0],['V',0],['Mn',0],['Fe',0],['Co',0],['Ni',0],['Zn',0],['Ga',0],['As',0],['Br',0],['Ca',2],['Fe',2],['Zn',2],['S',-2],['Cl',-1],['K',1]];
+  const cp=pick(cfgPool); p.cfgEl=cp[0]; p.cfgQ=cp[1]; p.cfgAns=config(cp[0],cp[1]);
+  // 1.6
+  p.pesEl=pick(Object.keys(PES)); p.pes=PES[p.pesEl]; const subs=Object.keys(p.pes); p.pesAsk=pick(subs.filter(s=>s!=='1s')); p.pesLowE=p.pes[subs[subs.length-1]][0];
+  // 1.7
+  p.zEl=pick(['Li','Be','B','C','N','O','F','Na','Mg','Al','Si','P','S','Cl']); p.core=Z[p.zEl]>10?10:2; p.zeff=Z[p.zEl]-p.core;
+  p.trendItems=shuffle([
+    ['Atomic radius shrinks from Na to Cl.','zeff'],['Atomic radius grows from Li to Cs.','dist'],['First ionization energy rises from Na to Ar.','zeff'],
+    ['First ionization energy falls from F to I.','dist'],['Electronegativity rises from B to F.','zeff'],['Electronegativity falls from Cl to Br.','dist']
+  ]);
+  const rankPool=[['Na','Al','Cl'],['Mg','Si','S'],['Li','B','F'],['Be','C','O'],['Li','Na','K'],['F','Cl','Br'],['Be','Mg','Ca'],['O','S','Se']];
+  const rs=pick(rankPool); p.rankEls=shuffle(rs);
+  // radius order smallest→largest: across period → reverse Z; down group → increasing Z
+  const sameRow=(a,b)=>period(Z[a])===period(Z[b]);
+  p.rankAns=sameRow(rs[0],rs[1])&&sameRow(rs[1],rs[2])?rs.slice().sort((a,b)=>Z[b]-Z[a]):rs.slice().sort((a,b)=>Z[a]-Z[b]);
+  // 1.8
+  const cat=pick(CATIONS), an=pick(ANIONS); p.cat=cat; p.an=an; p.ionF=ionicFormula(cat[0],cat[1],an[0],an[1]);
+  p.valEl=pick(['Mg','Al','Si','P','S','Cl','Ga','Ge','As','Se','Br','Sr']); p.val=valence(p.valEl);
+  // static MC (shuffled per student)
+  p.mc=[
+    {id:'coul',q:'In a lithium atom, why is a 1s electron held far more tightly than the 2s electron?',
+      ans:'It is closer to the nucleus and is not shielded by any inner electrons.',
+      dis:['It has a larger negative charge than the 2s electron.','The 2s electron is repelled by the nucleus.','Lower-energy electrons always have more kinetic energy.']},
+    {id:'pes',q:'The 1s peak of fluorine appears at a much higher binding energy than the 1s peak of carbon. Which statement best explains this?',
+      ans:'Fluorine has more protons, so its 1s electrons feel a stronger Coulombic attraction.',
+      dis:['Fluorine has more electrons, so its 1s electrons are more shielded.','Fluorine\'s 1s orbital is farther from the nucleus than carbon\'s.','Fluorine\'s 1s electrons have higher kinetic energy.']},
+    {id:'dip',q:'Oxygen has a lower first ionization energy than nitrogen even though it has a higher Zeff. Why?',
+      ans:'Oxygen\'s fourth 2p electron is paired in an orbital, and that repulsion makes it easier to remove.',
+      dis:['Oxygen has a larger atomic radius than nitrogen.','Nitrogen\'s 2p electrons are more shielded than oxygen\'s.','Oxygen\'s extra electron goes into the 3s subshell.']},
+    {id:'ie3',q:'Removing a third electron from Mg requires roughly ten times the energy of removing the second. Why?',
+      ans:'The third electron comes from a core shell (n = 2) that is closer to the nucleus and shielded by fewer electrons.',
+      dis:['Mg²⁺ has a stable octet that resists chemical change.','The third electron is a valence electron with a higher Zeff.','Mg²⁺ has a larger radius than Mg⁺, so the electron is harder to reach.']}
+  ].map(m=>({...m,opts:shuffle([m.ans,...m.dis])}));
+  return p;
+}
+
+/* ---------- GRADING SPEC ---------- */
+// each item: {id, pts, grade(ans)->0..pts, key: string shown after submit}
+function items(p){
+  const c=p.c1, sp=p.spec;
+  return [
+    {id:'q1a',pts:2,key:'grams on top, g/mol on the bottom',grade:a=>(a&&a.num==='mass'&&a.den==='molar')?2:0},
+    {id:'q1b',pts:2,key:sig(p.mol1)+' mol',grade:a=>near(a,p.mol1)?2:0},
+    {id:'q2a',pts:2,key:'mass ÷ molar mass, then × 6.02×10²³',grade:a=>(a&&a.num==='mass'&&a.den==='molar'&&a.mul==='avo')?2:0},
+    {id:'q2b',pts:2,key:p.n2.toExponential(2)+' atoms',grade:a=>near(a,p.n2,0.03)?2:0},
+    {id:'q3a',pts:1,key:String(sp.iso.length),grade:a=>exactInt(a,sp.iso.length)?1:0},
+    {id:'q3b',pts:1,key:sp.el,grade:a=>a===sp.el?1:0},
+    {id:'q3c',pts:2,key:p.avg.toFixed(2)+' amu',grade:a=>near(a,p.avg,0.004)?2:0},
+    {id:'q4',pts:2,key:p.pct3.toFixed(1)+' %',grade:a=>near(a,p.pct3,0.01)?2:0},
+    {id:'q5a',pts:2,key:p.emp.emp,grade:a=>a===p.emp.emp?2:0},
+    {id:'q5b',pts:1,key:p.molF,grade:a=>a===p.molF?1:0},
+    {id:'q6',pts:2,key:p.masspct.toFixed(1)+' %',grade:a=>near(a,p.masspct,0.025)?2:0},
+    {id:'q7',pts:3,key:p.purityAns.toFixed(1)+' %',grade:a=>near(a,p.purityAns,0.015)?3:0},
+    {id:'q8',pts:3,key:fmtConfig(p.orbCfg)+' with unpaired 2p/3p electrons in separate boxes',grade:a=>gradeOrb(a,p.orbCfg)},
+    {id:'q9',pts:2,key:fmtConfig(p.cfgAns),grade:a=>sameMap(parseConfig(a),p.cfgAns)?2:0},
+    {id:'mc_coul',pts:1,key:p.mc[0].ans,grade:a=>a===p.mc[0].ans?1:0},
+    {id:'q11a',pts:2,key:p.pesEl,grade:a=>a===p.pesEl?2:0},
+    {id:'q11b',pts:1,key:p.pesAsk,grade:a=>a===p.pesAsk?1:0},
+    {id:'q11c',pts:1,key:String(p.pesLowE),grade:a=>exactInt(a,p.pesLowE)?1:0},
+    {id:'mc_pes',pts:1,key:p.mc[1].ans,grade:a=>a===p.mc[1].ans?1:0},
+    {id:'q13a',pts:1,key:String(p.core),grade:a=>exactInt(a,p.core)?1:0},
+    {id:'q13b',pts:1,key:String(p.zeff),grade:a=>exactInt(a,p.zeff)?1:0},
+    {id:'q14',pts:3,key:'Across a period Zeff climbs; down a group distance climbs.',grade:a=>{if(!a)return 0;const n=p.trendItems.filter((t,i)=>a[i]===t[1]).length;return n===6?3:n>=4?2:n>=2?1:0;}},
+    {id:'q15',pts:2,key:p.rankAns.join(' < '),grade:a=>a&&a.join()===p.rankAns.join()?2:0},
+    {id:'mc_dip',pts:1,key:p.mc[2].ans,grade:a=>a===p.mc[2].ans?1:0},
+    {id:'q16a',pts:2,key:`${p.cat[0]} → ${p.cat[1]}+, ${p.an[0]} → ${p.an[1]}−`,grade:a=>(a&&a.c==p.cat[1]&&a.a==-p.an[1])?2:0},
+    {id:'q16b',pts:2,key:p.ionF,grade:a=>normF(a)===p.ionF?2:0},
+    {id:'q17',pts:1,key:String(p.val),grade:a=>exactInt(a,p.val)?1:0},
+    {id:'mc_ie3',pts:1,key:p.mc[3].ans,grade:a=>a===p.mc[3].ans?1:0}
+  ];
+}
+function gradeOrb(a,cfg){ // a: {sub:[fills]}  fill 0/1/2 per box
+  if(!a)return 0; const subs=['1s','2s','2p','3s','3p']; let ok=true, countOk=true;
+  for(const s of subs){const boxes=a[s]||[]; const n=boxes.reduce((x,y)=>x+y,0); const want=cfg[s]||0; if(n!==want){countOk=false;ok=false;continue;}
+    // Hund: no box should have 2 while another in same subshell has 0
+    if(boxes.some(b=>b===2)&&boxes.some(b=>b===0))ok=false;}
+  return ok?3:countOk?2:0;
+}
+
+/* ---------- RENDER ---------- */
+const $=s=>document.querySelector(s);
+const A={}; // answers by id
+function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;}
+function q(id,pts,prompt,inner){return `<div class="q" data-id="${id}"><span class="pts">${pts} pt${pts>1?'s':''}</span><p class="prompt">${prompt}</p>${inner}</div>`;}
+function numIn(id,unit='',ph=''){return `<div class="row"><input class="short" type="text" inputmode="decimal" data-ans="${id}" placeholder="${ph}"> <span class="unit">${unit}</span></div>`;}
+function mcBlock(m){return q('mc_'+m.id,1,m.q,`<div class="mc">${m.opts.map((o,i)=>`<label><input type="radio" name="mc_${m.id}" value="${i}">${o}</label>`).join('')}</div>`);}
+function assembly(id,slots,tiles,shape){ // shape: html with {num}{den}{mul}
+  const s=name=>`<div class="slot" data-slot="${id}:${name}" tabindex="0"></div>`;
+  let h=shape.replace('{num}',s('num')).replace('{den}',s('den')).replace('{mul}',s('mul'));
+  const bank=tiles.map(t=>`<div class="tile" draggable="true" tabindex="0" data-tile="${t.v}" data-bank="${id}">${t.t}</div>`).join('');
+  return `<div class="assembly">${h}</div><div class="bank" data-bank="${id}">${bank}</div>`;
+}
+function fracShape(){return `<div class="frac">{num}{den}</div>`;}
+
+function specSVG(iso){
+  const W=420,H=200,L=64,B=160,x0=iso[0][0]-2,x1=iso[iso.length-1][0]+2,sx=(W-L-20)/(x1-x0);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="mass spectrum"><line x1="${L}" y1="${B}" x2="${W-20}" y2="${B}" stroke="#1F3A2E"/><line x1="${L}" y1="20" x2="${L}" y2="${B}" stroke="#1F3A2E"/>`;
+  for(let m=x0;m<=x1;m++){const x=L+(m-x0)*sx;s+=`<line x1="${x}" y1="${B}" x2="${x}" y2="${B+4}" stroke="#1F3A2E"/><text class="axis" x="${x}" y="${B+16}" text-anchor="middle">${m}</text>`;}
+  for(const v of [0,25,50,75,100]){const y=B-v/100*(B-25);s+=`<text class="axis" x="${L-6}" y="${y+4}" text-anchor="end">${v}</text><line x1="${L-3}" y1="${y}" x2="${L}" y2="${y}" stroke="#1F3A2E"/>`;}
+  for(const [m,a] of iso){const x=L+(m-x0)*sx;const h=a/100*(B-25);s+=`<rect x="${x-6}" y="${B-h}" width="12" height="${h}" fill="#1F3A2E"/><text class="axis" x="${x}" y="${B-h-4}" text-anchor="middle">${a}%</text>`;}
+  s+=`<text class="axis" x="${(L+W-20)/2}" y="${H-4}" text-anchor="middle">Mass (amu)</text><text class="axis" transform="translate(14,${(B+20)/2}) rotate(-90)" text-anchor="middle">Relative abundance (%)</text></svg>`;return s;
+}
+function pesSVG(pes,qid){
+  const W=460,H=220,L=40,B=170,lo=Math.log10(0.3),hi=Math.log10(400),sx=(W-L-20)/(hi-lo);
+  const X=be=>W-20-(Math.log10(be)-lo)*sx;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="photoelectron spectrum"><line x1="${L}" y1="${B}" x2="${W-20}" y2="${B}" stroke="#1F3A2E"/>`;
+  for(const t of [300,100,30,10,3,1,0.3]){const x=X(t);s+=`<line x1="${x}" y1="${B}" x2="${x}" y2="${B+4}" stroke="#1F3A2E"/><text class="axis" x="${x}" y="${B+16}" text-anchor="middle">${t}</text>`;}
+  const subs=Object.keys(pes);
+  subs.forEach((sub,i)=>{const [n,be]=pes[sub];const x=X(be);const h=n/6*(B-30);
+    s+=`<g class="bar" data-peak="${sub}" data-pq="${qid}" tabindex="0"><rect x="${x-5}" y="${B-h}" width="10" height="${h}" fill="#1F3A2E"/><rect x="${x-14}" y="${B-h-14}" width="28" height="${h+18}" fill="transparent"/></g>`;});
+  s+=`<text class="axis" x="${(L+W-20)/2}" y="${H-4}" text-anchor="middle">Binding energy (MJ/mol) — note the scale</text><text class="axis" x="${L}" y="18">Relative number of electrons ↑</text></svg>`;return s;
+}
+function orbBoxes(id){const subs=[['1s',1],['2s',1],['2p',3],['3s',1],['3p',3]];return `<div class="orb">${subs.map(([s,n])=>`<div class="sub"><div class="boxes">${Array.from({length:n},(_,i)=>`<button type="button" class="box" data-orb="${id}" data-sub="${s}" data-i="${i}" aria-label="${s} box ${i+1}"></button>`).join('')}</div><span class="name">${s}</span></div>`).join('')}</div><p class="lbl">Click a box to cycle: empty → ↑ → ↑↓. Extra boxes are shown on purpose.</p>`;}
+
+function render(p){
+  const c=p.c1,sp=p.spec;
+  const topic=(n,t,body)=>`<section class="topic"><div class="num">§ ${n}</div><h2>${t}</h2>${body}</section>`;
+  let h='';
+  h+=topic('1.1','Moles and molar mass',
+    q('q1',4,`A sample of <b>${fmtF(c.f)}</b> has a mass of <b>${p.m1.toFixed(1)} g</b>. The molar mass of ${fmtF(c.f)} is <b>${p.M1} g/mol</b>.<br>Build the expression that gives the number of moles, then calculate it.`,
+      assembly('q1',null,[{v:'mass',t:p.m1.toFixed(1)+' g'},{v:'molar',t:p.M1+' g/mol'},{v:'avo',t:'6.02×10²³ /mol'},{v:'one',t:'1'}],`<span class="eq">n =</span>${fracShape()}`)+
+      `<div class="row"><span class="lbl">n =</span>${numIn('q1b','mol')}</div>`)+
+    q('q2',4,`A sample of <b>${NAMES[p.e2]||p.e2} (${p.e2})</b> has a mass of <b>${p.m2.toFixed(1)} g</b> (molar mass ${p.M2} g/mol).<br>Build the expression for the number of atoms, then calculate it.`,
+      assembly('q2',null,[{v:'mass',t:p.m2.toFixed(1)+' g'},{v:'molar',t:p.M2+' g/mol'},{v:'avo',t:'6.02×10²³ /mol'},{v:'one',t:'1'}],`<span class="eq">atoms =</span>${fracShape()}<span class="op">×</span>{mul}`)+
+      `<div class="row"><span class="lbl">atoms =</span>${numIn('q2b','atoms','e.g. 1.23e23')}</div>`));
+  h+=topic('1.2','Mass spectra of elements',
+    q('q3',4,`The mass spectrum below is from a pure sample of one element.`,
+      specSVG(sp.iso)+
+      `<div class="row" style="margin-top:10px"><span class="lbl">How many isotopes?</span>${numIn('q3a','')}</div>
+       <div class="row"><span class="lbl">Which element is it?</span><select data-ans="q3b" style="width:auto"><option value="">—</option>${shuffle(['Mg','Cl','Cu','B','Si','Ga','Br','Li','N','C']).map(e=>`<option>${e}</option>`).join('')}</select></div>
+       <div class="row"><span class="lbl">Average atomic mass from this spectrum (2 decimals):</span>${numIn('q3c','amu')}</div>`));
+  h+=topic('1.3','Elemental composition of pure substances',
+    q('q4',2,`What is the mass percent of <b>${p.el3}</b> in <b>${fmtF(p.c3.f)}</b>? Use the AP periodic table.`,numIn('q4','%'))+
+    q('q5',3,`A compound is <b>${p.empPct.map(([e,v])=>`${v}% ${e}`).join(', ')}</b> by mass. Its molar mass is <b>${p.molM} g/mol</b>.`,
+      `<div class="row"><span class="lbl">Empirical formula:</span><select data-ans="q5a" style="width:auto"><option value="">—</option>${p.empOpts.map(o=>`<option value="${o}">${o.replace(/(\d+)/g,'$1')}</option>`).join('')}</select></div>
+       <div class="row"><span class="lbl">Molecular formula:</span><select data-ans="q5b" style="width:auto"><option value="">—</option>${p.molOpts.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></div>`));
+  h+=topic('1.4','Composition of mixtures',
+    q('q6',2,`You dissolve <b>${p.salt} g</b> of NaCl in <b>${p.water} g</b> of water. What is the mass percent of NaCl in the solution?`,numIn('q6','%'))+
+    q('q7',3,`A bottle labeled "pure ${fmtF(p.c4.f)}" is sent for elemental analysis, which reports <b>${p.foundPct.toFixed(1)}% ${p.el4}</b> by mass. The impurity contains no ${p.el4}.<br>What percent of the sample (by mass) is actually ${fmtF(p.c4.f)}? <small>Hint: first find what pure ${fmtF(p.c4.f)} should be.</small>`,numIn('q7','%')));
+  h+=topic('1.5','Atomic structure and electron configuration',
+    q('q8',3,`Fill in the orbital diagram for a ground-state atom of <b>${NAMES[p.orbEl]} (${p.orbEl})</b>.`,orbBoxes('q8'))+
+    q('q9',2,`Write the full ground-state electron configuration for <b>${p.cfgEl}${p.cfgQ>0?'<sup>'+(p.cfgQ>1?p.cfgQ:'')+'+</sup>':p.cfgQ<0?'<sup>'+(-p.cfgQ>1?-p.cfgQ:'')+'−</sup>':''}</b>. <small>Type it like 1s2 2s2 2p6 … (noble-gas shorthand is fine).</small>`,
+      `<input type="text" data-ans="q9" autocomplete="off" spellcheck="false" placeholder="1s2 2s2 2p6 ...">`)+
+    mcBlock(p.mc[0]));
+  h+=topic('1.6','Photoelectron spectroscopy',
+    q('q11',4,`The photoelectron spectrum below is for a neutral atom of one element.`,
+      pesSVG(p.pes,'q11')+
+      `<div class="row" style="margin-top:10px"><span class="lbl">Which element?</span><select data-ans="q11a" style="width:auto"><option value="">—</option>${Object.keys(PES).map(e=>`<option>${e}</option>`).join('')}</select></div>
+       <div class="row"><span class="lbl">Click the peak that comes from the <b>${p.pesAsk}</b> subshell.</span> <span class="lbl" id="q11b-echo">(none selected)</span></div>
+       <div class="row"><span class="lbl">How many electrons are in the peak with the <b>lowest</b> binding energy?</span>${numIn('q11c','')}</div>`)+
+    mcBlock(p.mc[1]));
+  h+=topic('1.7','Periodic trends',
+    q('q13',2,`For the outermost electron in <b>${NAMES[p.zEl]} (${p.zEl})</b>, using Z<sub>eff</sub> ≈ Z − core electrons:`,
+      `<div class="row"><span class="lbl">Core electrons:</span>${numIn('q13a','')}</div><div class="row"><span class="lbl">Z<sub>eff</sub> ≈</span>${numIn('q13b','')}</div>`)+
+    q('q14',3,`For each trend, which variable is doing the work?`,
+      `<div class="sortlist">${p.trendItems.map((t,i)=>`<div class="stmt" data-sort="q14" data-i="${i}"><span class="txt">${t[0]}</span><span class="choice"><button type="button" data-v="zeff">Z<sub>eff</sub> went up</button><button type="button" data-v="dist">Distance went up</button></span></div>`).join('')}</div>`)+
+    q('q15',2,`Rank <b>${p.rankEls.join(', ')}</b> by atomic radius.`,
+      `<div class="ranks"><span class="lbl">smallest</span>${[0,1,2].map(i=>`<select data-rank="q15" data-i="${i}"><option value="">—</option>${p.rankEls.map(e=>`<option>${e}</option>`).join('')}</select>`).join('<span class="op">&lt;</span>')}<span class="lbl">largest</span></div>`)+
+    mcBlock(p.mc[2]));
+  h+=topic('1.8','Valence electrons and ionic compounds',
+    q('q16',4,`<b>${NAMES[p.cat[0]]} (${p.cat[0]})</b> and <b>${NAMES[p.an[0]]} (${p.an[0]})</b> form an ionic compound.`,
+      `<div class="row"><span class="lbl">Charge on the ${p.cat[0]} ion:</span><select data-ans="q16c" style="width:auto"><option value="">—</option>${[1,2,3].map(v=>`<option value="${v}">${v}+</option>`).join('')}${[1,2,3].map(v=>`<option value="${-v}">${v}−</option>`).join('')}</select>
+       <span class="lbl">Charge on the ${p.an[0]} ion:</span><select data-ans="q16d" style="width:auto"><option value="">—</option>${[1,2,3].map(v=>`<option value="${v}">${v}+</option>`).join('')}${[1,2,3].map(v=>`<option value="${-v}">${v}−</option>`).join('')}</select></div>
+       <div class="row" style="margin-top:8px"><span class="lbl">Formula of the compound:</span><input class="short" type="text" data-ans="q16b" autocomplete="off" spellcheck="false" placeholder="e.g. NaCl"></div>`)+
+    q('q17',1,`How many valence electrons does a neutral atom of <b>${p.valEl}</b> have?`,numIn('q17',''))+
+    mcBlock(p.mc[3]));
+  $('#main').innerHTML=h;
+  wire();
+}
+
+/* ---------- INTERACTION ---------- */
+let pickedTile=null;
+function wire(){
+  // tiles: drag + tap
+  document.querySelectorAll('.tile').forEach(t=>{
+    t.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',t.dataset.tile+'|'+t.dataset.bank);});
+    t.addEventListener('click',()=>{ if(t.parentElement.classList.contains('slot')){ returnTile(t); return; } document.querySelectorAll('.tile.picked').forEach(x=>x.classList.remove('picked')); pickedTile=t; t.classList.add('picked'); });
+    t.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t.click();}});
+  });
+  document.querySelectorAll('.slot').forEach(s=>{
+    s.addEventListener('dragover',e=>{e.preventDefault();s.classList.add('over');});
+    s.addEventListener('dragleave',()=>s.classList.remove('over'));
+    s.addEventListener('drop',e=>{e.preventDefault();s.classList.remove('over');const [v,b]=e.dataTransfer.getData('text/plain').split('|');const t=document.querySelector(`.tile[data-tile="${v}"][data-bank="${b}"]`);if(t)placeTile(t,s);});
+    s.addEventListener('click',e=>{ if(e.target.classList.contains('tile'))return; if(pickedTile&&pickedTile.dataset.bank===s.dataset.slot.split(':')[0]){placeTile(pickedTile,s);pickedTile=null;} });
+    s.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();s.click();}});
+  });
+  // orbital boxes
+  document.querySelectorAll('.box').forEach(b=>b.addEventListener('click',()=>{const v=(parseInt(b.dataset.v||'0')+1)%3;b.dataset.v=v;b.textContent=v===1?'↑':v===2?'↑↓':'';}));
+  // PES peaks
+  document.querySelectorAll('.bar').forEach(b=>{const f=()=>{document.querySelectorAll(`.bar[data-pq="${b.dataset.pq}"]`).forEach(x=>x.classList.remove('sel'));b.classList.add('sel');A.q11b=b.dataset.peak;$('#q11b-echo').textContent='selected a peak';};b.addEventListener('click',f);b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f();}});});
+  // sort buttons
+  document.querySelectorAll('.stmt button').forEach(b=>b.addEventListener('click',()=>{b.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}));
+}
+function placeTile(t,s){ if(s.dataset.slot.split(':')[0]!==t.dataset.bank)return; const existing=s.querySelector('.tile'); if(existing)returnTile(existing); s.appendChild(t); t.classList.remove('picked'); }
+function returnTile(t){ document.querySelector(`.bank[data-bank="${t.dataset.bank}"]`).appendChild(t); }
+
+function collect(){
+  document.querySelectorAll('[data-ans]').forEach(i=>A[i.dataset.ans]=i.value.trim());
+  for(const id of ['q1','q2']){const o={};document.querySelectorAll(`.slot[data-slot^="${id}:"]`).forEach(s=>{const t=s.querySelector('.tile');o[s.dataset.slot.split(':')[1]]=t?t.dataset.tile:null;});A[id+'a']=o;}
+  const orb={};document.querySelectorAll('.box[data-orb="q8"]').forEach(b=>{(orb[b.dataset.sub]=orb[b.dataset.sub]||[])[+b.dataset.i]=parseInt(b.dataset.v||'0');});A.q8=orb;
+  document.querySelectorAll('input[type=radio]:checked').forEach(r=>{const m=P.mc.find(x=>'mc_'+x.id===r.name);A[r.name]=m.opts[+r.value];});
+  A.q14=P.trendItems.map((_,i)=>{const on=document.querySelector(`.stmt[data-i="${i}"] button.on`);return on?on.dataset.v:null;});
+  A.q15=[0,1,2].map(i=>document.querySelector(`select[data-rank="q15"][data-i="${i}"]`).value);
+  A.q16a={c:A.q16c,a:A.q16d};
+}
+
+/* ---------- SUBMIT ---------- */
+async function submit(){
+  collect(); const list=items(P); let score=0,max=0; const detail={};
+  for(const it of list){const got=it.grade(A[it.id]);score+=got;max+=it.pts;detail[it.id]={got,pts:it.pts};
+    const box=document.querySelector(`.q[data-id="${it.id}"]`)||document.querySelector(`.q[data-id="${it.id.slice(0,-1)}"]`);
+    if(box){ const fb=el(`<div class="fb ${got===it.pts?'ok':'no'}"><b>${it.id}:</b> ${got}/${it.pts}${got===it.pts?'':' — answer: '+it.key}</div>`); box.appendChild(fb); }
+  }
+  document.querySelectorAll('.q').forEach(b=>{const fbs=[...b.querySelectorAll('.fb')];if(!fbs.length)return;b.classList.add(fbs.every(f=>f.classList.contains('ok'))?'right':'wrong');});
+  $('#submit').disabled=true; document.body.classList.add('done'); document.querySelectorAll('input,select,button.box,.stmt button,.tile').forEach(x=>{x.disabled=true;x.setAttribute('draggable','false');});
+  const pct=Math.round(score/max*100);
+  $('#resultBox').innerHTML=`<h2>Turned in</h2><div class="big">${score} / ${max}</div><p class="note">${pct}%. Scroll up — every item now shows the answer for your numbers. Anything red is what to study tonight.</p><p class="note" id="saveState">Saving…</p>`;
+  $('#resultBox').classList.remove('hidden');
+  const payload={student_name:$('#name').value.trim(),program:$('#program').value,period:$('#period').value,seed:P.seed,score,max_score:max,answers:{...A,detail}};
+  try{ const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(!r.ok)throw new Error(await r.text());
+    $('#saveState').textContent='Saved to Mr. Casanova\'s gradebook feed.'; }
+  catch(err){ $('#saveState').innerHTML=`Could not save automatically. Show this screen to Mr. Casanova, or screenshot it. <span style="opacity:.7">(${String(err).slice(0,80)})</span>`; }
+  $('#resultBox').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------- START ---------- */
+$('#start').addEventListener('click',()=>{
+  const name=$('#name').value.trim().replace(/\s+/g,' '); const per=$('#period').value; const prog=$('#program').value;
+  if(name.split(' ').length<2){alert('Enter your first and last name.');return;} if(!prog){alert('Pick HS or AC.');return;} if(!per){alert('Pick your period.');return;}
+  const seed=hashStr(name.toLowerCase()+'|'+per)>>>0; P=buildPaper(seed); P.seed=seed;
+  $('#name').disabled=true;$('#period').disabled=true;$('#program').disabled=true;$('#start').classList.add('hidden');
+  render(P); $('#main').classList.remove('hidden'); $('#foot').classList.remove('hidden');
+  const key=new URLSearchParams(location.search).get('key');
+  if(key===TEACHER_KEY){ const list=items(P); const kb=el(`<div class="q" style="border-color:var(--gold)"><p class="prompt">Answer key for ${name}, ${prog} period ${per} (seed ${seed})</p>${list.map(i=>`<div class="lbl"><b>${i.id}</b> (${i.pts}): ${i.key}</div>`).join('')}</div>`); $('#main').prepend(kb); }
+});
+$('#submit').addEventListener('click',()=>{ collect(); const blanks=Object.entries(A).filter(([k,v])=>v===''||v===null).length; if(blanks&&!confirm(`You left ${blanks} answer${blanks>1?'s':''} blank. Turn in anyway?`))return; submit(); });
+window.addEventListener('beforeunload',e=>{ if(!$('#main').classList.contains('hidden')&&!$('#submit').disabled){e.preventDefault();e.returnValue='';} });
+</script>
+</body>
+</html>
