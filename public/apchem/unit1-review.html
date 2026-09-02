@@ -458,6 +458,13 @@ async function submit(){
   $('#resultBox').scrollIntoView({behavior:'smooth'});
 }
 
+/* ---------- REMEMBER WHO THEY ARE ---------- */
+const ID_KEY='apchem_u1_identity';
+function saveIdentity(){ try{ localStorage.setItem(ID_KEY,JSON.stringify({first:$('#first').value,last:$('#last').value,program:$('#program').value,period:$('#period').value})); }catch(e){} }
+function loadIdentity(){ try{ const d=JSON.parse(localStorage.getItem(ID_KEY)); if(!d)return; if(d.first)$('#first').value=d.first; if(d.last)$('#last').value=d.last; if(d.program)$('#program').value=d.program; if(d.period)$('#period').value=d.period; }catch(e){} }
+loadIdentity();
+['first','last','program','period'].forEach(id=>{ const f=document.getElementById(id); f.addEventListener('input',saveIdentity); f.addEventListener('change',saveIdentity); });
+
 /* ---------- START ---------- */
 $('#start').addEventListener('click',()=>{
   const first=$('#first').value.trim().replace(/\s+/g,' '); const last=$('#last').value.trim().replace(/\s+/g,' ');
