@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit 1 Group Review — results</title>
+<style>
+  :root{--paper:#eef1f3;--card:#fff;--ink:#16222c;--soft:#4a5a66;--rule:#c9d4db;--mark:#2f4f8f;--mark-soft:#e3e9f6;--no:#9e3a26}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Inter","Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:30px 18px 80px}
+  h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;font-size:28px;margin:0 0 4px}
+  p.sub{color:var(--soft);margin:0 0 18px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;background:var(--card);border:1px solid var(--rule);padding:14px;margin-bottom:16px}
+  label{display:block;font-size:12px;color:var(--soft);margin-bottom:3px}
+  input,select{font:inherit;padding:8px 10px;border:1px solid var(--rule);background:var(--paper);border-radius:2px;color:var(--ink)}
+  button{font:inherit;font-size:14px;padding:9px 14px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;border-radius:2px}
+  button.ghost{background:var(--card);color:var(--ink)}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--soft);font-size:14px;margin:0 0 10px}
+  .stats b{color:var(--ink)}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--rule);font-size:14px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+  th{background:var(--mark-soft);cursor:pointer;user-select:none;position:sticky;top:0}
+  th.on::after{content:" \25BE";color:var(--mark)}
+  th.on.desc::after{content:" \25B4"}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.grp-a td{background:#fff}
+  tr.grp-b td{background:#f6f8fa}
+  .err{color:var(--no);margin:10px 0}
+  .empty{padding:30px;text-align:center;color:var(--soft);background:var(--card);border:1px solid var(--rule)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Unit 1 Group Review results</h1>
+  <p class="sub">One row per student. Group members share a score. Click a column header to sort; the default order matches gradebook entry.</p>
+
+  <div class="bar">
+    <div><label for="key">Export key</label><input type="password" id="key" size="28" autocomplete="off"></div>
+    <div><label for="program">School</label><select id="program"><option value="">Both</option><option value="HS">HS</option><option value="AC">AC</option></select></div>
+    <div><label for="period">Period</label><select id="period"><option value="">All</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
+    <div><label for="best">Attempts</label><select id="best"><option value="1">Best per student</option><option value="0">Every submission</option></select></div>
+    <button id="load">Load results</button>
+    <button class="ghost" id="csv" disabled>Download this view as CSV</button>
+  </div>
+  <p class="err" id="err"></p>
+  <div class="stats" id="stats"></div>
+  <div id="out" class="empty">Enter the export key and load results.</div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var rows=[], sortKey='gradebook', sortDesc=false;
+  var cols=[
+    {k:'program',t:'School'},{k:'period',t:'Period',num:true},{k:'last_name',t:'Last name'},{k:'first_name',t:'First name'},
+    {k:'group_name',t:'Group'},{k:'score',t:'Score',num:true},{k:'percent',t:'%',num:true},{k:'created_at',t:'Submitted'}
+  ];
+  try { $('key').value = sessionStorage.getItem('apstats_export_key') || ''; } catch(e){}
+  $('load').addEventListener('click',function(){
+    var key=$('key').value.trim(); if(!key){ $('err').textContent='Export key is required.'; return; }
+    try { sessionStorage.setItem('apstats_export_key',key); } catch(e){}
+    var u='/api/apstats-unit1-review?format=json&key='+encodeURIComponent(key)+'&best='+$('best').value;
+    if($('program').value) u+='&program='+$('program').value;
+    if($('period').value) u+='&period='+$('period').value;
+    $('err').textContent=''; $('out').className='empty'; $('out').textContent='Loading…';
+    fetch(u).then(function(r){ if(r.status===401) throw new Error('That export key was rejected.'); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(j){ rows=j.rows||[]; sortKey='gradebook'; sortDesc=false; render(); $('csv').disabled=!rows.length; })
+      .catch(function(e){ $('err').textContent=e.message; $('out').textContent='Nothing loaded.'; });
+  });
+  function cmp(a,b,k){
+    if(k==='gradebook') return a.program.localeCompare(b.program)||(+a.period-+b.period)||a.last_name.localeCompare(b.last_name,'en',{sensitivity:'base'})||a.first_name.localeCompare(b.first_name,'en',{sensitivity:'base'});
+    var c=cols.filter(function(c){return c.k===k;})[0];
+    if(c&&c.num) return (+a[k])-(+b[k]);
+    return String(a[k]).localeCompare(String(b[k]),'en',{sensitivity:'base'});
+  }
+  function sorted(){
+    var r=rows.slice().sort(function(a,b){ var v=cmp(a,b,sortKey); return (sortDesc?-v:v)||cmp(a,b,'gradebook'); });
+    return r;
+  }
+  function render(){
+    if(!rows.length){ $('out').className='empty'; $('out').textContent='No submissions match those filters yet.'; $('stats').innerHTML=''; return; }
+    var r=sorted(), groups={}; rows.forEach(function(x){groups[x.group_id]=1;});
+    var mean=rows.reduce(function(a,x){return a+(+x.percent);},0)/rows.length;
+    $('stats').innerHTML='<span><b>'+rows.length+'</b> students</span><span><b>'+Object.keys(groups).length+'</b> groups</span><span>mean <b>'+mean.toFixed(1)+'%</b></span>';
+    var h='<table><thead><tr>'+cols.map(function(c){return '<th data-k="'+c.k+'" class="'+(sortKey===c.k?'on'+(sortDesc?' desc':''):'')+'">'+c.t+'</th>';}).join('')+'</tr></thead><tbody>';
+    var lastG=null, alt=false;
+    r.forEach(function(x){
+      if(x.group_id!==lastG){ alt=!alt; lastG=x.group_id; }
+      h+='<tr class="'+(alt?'grp-a':'grp-b')+'">'+cols.map(function(c){
+        var v=x[c.k]; if(c.k==='created_at') v=new Date(v).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+        if(c.k==='score') v=x.score+' / '+x.max_score;
+        return '<td class="'+(c.num?'num':'')+'">'+v+'</td>';
+      }).join('')+'</tr>';
+    });
+    $('out').className=''; $('out').innerHTML=h+'</tbody></table>';
+    $('out').querySelectorAll('th').forEach(function(th){ th.addEventListener('click',function(){ var k=th.getAttribute('data-k'); if(sortKey===k) sortDesc=!sortDesc; else { sortKey=k; sortDesc=false; } render(); }); });
+  }
+  $('csv').addEventListener('click',function(){
+    var esc=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+    var lines=[['school','period','last_name','first_name','group','score','max_score','percent','submitted_at'].join(',')];
+    sorted().forEach(function(x){ lines.push([x.program,x.period,x.last_name,x.first_name,x.group_name,x.score,x.max_score,x.percent,x.created_at].map(esc).join(',')); });
+    var blob=new Blob([lines.join('\n')],{type:'text/csv'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='apstats-unit1-review'+($('program').value?'-'+$('program').value:'')+($('period').value?'-p'+$('period').value:'')+'.csv'; a.click();
+  });
+})();
+</script>
+</body>
+</html>
