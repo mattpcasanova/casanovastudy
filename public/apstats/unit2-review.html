@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP Statistics — Unit 2 Group Review (2.1–2.6)</title>
+<style>
+  :root{
+    --paper:#eef1f3; --card:#fff; --ink:#16222c; --ink-soft:#4a5a66;
+    --rule:#c9d4db; --mark:#2f4f8f; --mark-soft:#e3e9f6;
+    --yes:#1c6b4c; --yes-soft:#e0f0e8; --no:#9e3a26; --no-soft:#f8e5e0;
+    --grid:#dbe3e8; --hot:#b8741a; --gold:#fff3d6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;color:var(--ink);
+    font:16px/1.55 "Inter","Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:840px;margin:0 auto;padding:0 18px 90px}
+  h1,h2{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;margin:0}
+  header.top{padding:40px 0 22px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
+  h1{font-size:34px;line-height:1.1;letter-spacing:-.01em;margin-bottom:8px}
+  header p{margin:0;color:var(--ink-soft);max-width:56ch}
+
+  /* gate */
+  .gate{background:var(--card);border:1px solid var(--rule);border-top:4px solid var(--mark);padding:22px 22px 18px;margin:0 0 30px}
+  .gate h2{font-size:20px;margin-bottom:4px}
+  .gate .hint{color:var(--ink-soft);font-size:14px;margin:0 0 16px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 190px auto;gap:10px;align-items:end}
+  @media (max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+  label.f{display:block;font-size:13px;color:var(--ink-soft);margin:10px 0 4px}
+  input[type=text],input[type=number],select{
+    width:100%;font:inherit;padding:9px 10px;border:1px solid var(--rule);background:var(--paper);border-radius:2px;color:var(--ink)
+  }
+  input:focus,select:focus,.choice:focus-within,.chip:focus,.tile:focus{outline:2px solid var(--mark);outline-offset:1px}
+  .seg{display:flex;gap:0;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+  .seg button{flex:1;font:inherit;padding:9px;border:0;background:var(--card);color:var(--ink-soft);cursor:pointer}
+  .seg button.on{background:var(--ink);color:#fff}
+  .member .seg button{padding:8px 4px;font-size:13px}
+  .member{border-top:1px dashed var(--rule);padding-top:6px;margin-top:8px}
+  .member .rm{font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--card);color:var(--no);padding:8px 10px;cursor:pointer;border-radius:2px}
+  .err{color:var(--no);font-size:14px;margin-top:8px;display:none}
+
+  /* rail */
+  .rail{position:sticky;top:0;z-index:20;margin:0 -18px 28px;padding:10px 18px;background:rgba(238,241,243,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:14px}
+  .rail b{font-variant-numeric:tabular-nums}
+  .rail .who{color:var(--ink-soft)}
+  .bar{flex:1;min-width:140px;height:7px;background:#d7dee3}
+  .bar span{display:block;height:100%;width:0;background:var(--mark);transition:width .3s}
+
+  section{margin:0 0 44px}
+  .sechead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:20px}
+  .sechead h2{font-size:22px}
+  .sechead em{font-style:normal;color:var(--ink-soft);font-size:14px;white-space:nowrap}
+  .q{background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--rule);padding:18px 20px;margin:0 0 16px}
+  .q.done{border-left-color:var(--mark)}
+  .qnum{color:var(--ink-soft);font-size:13px;margin-bottom:4px;display:flex;justify-content:space-between}
+  .stem{margin:0 0 12px}
+  .stem small{color:var(--ink-soft)}
+  .data{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;letter-spacing:.04em;background:var(--paper);border:1px solid var(--rule);padding:10px 12px;margin:0 0 12px;overflow-x:auto;white-space:nowrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:8px 0 4px}
+  .grid label.f{margin-top:0;min-height:2.6em}
+  .prob{font-family:"SF Mono",Menlo,Consolas,monospace}
+
+  /* two-way table */
+  table.tw{border-collapse:collapse;margin:6px 0 14px;font-variant-numeric:tabular-nums;background:var(--card)}
+  table.tw th,table.tw td{border:1px solid var(--rule);padding:8px 14px;text-align:center;font-size:15px}
+  table.tw th{background:var(--paper);font-weight:600;color:var(--ink-soft);font-size:13px}
+  table.tw tbody th{text-align:left}
+  table.tw td.tot,table.tw tr.tot td{background:var(--paper);color:var(--ink-soft)}
+  table.tw td.hl{background:var(--gold);outline:2px solid var(--hot);outline-offset:-2px;font-weight:600}
+  table.tw.tap td{cursor:pointer}
+  table.tw.tap td:hover{background:var(--mark-soft)}
+  table.tw td.sel{background:var(--ink)!important;color:#fff}
+  .twwrap{overflow-x:auto}
+
+  /* chips + bins */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .chip{border:1px solid var(--rule);background:var(--card);padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;border-radius:2px;text-align:left}
+  .chip.sel{border-color:var(--mark);background:var(--mark-soft)}
+  .bins{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+  .bin{border:1px dashed var(--rule);background:var(--paper);padding:10px;min-height:90px;cursor:pointer}
+  .bin h4{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-soft)}
+  .bin .chip{display:block;width:100%;margin-bottom:6px}
+
+  /* value tiles */
+  .strip{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+  .tile{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:16px;min-width:46px;padding:9px 6px;text-align:center;border:1px solid var(--rule);background:var(--card);cursor:pointer;border-radius:2px}
+  .tile.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tile.win{background:var(--yes-soft);border-color:var(--yes);color:var(--yes)}
+  .tile.face{font-size:20px;min-width:52px}
+
+  /* dice grid */
+  .dice{display:grid;grid-template-columns:auto repeat(6,1fr);gap:4px;max-width:420px;margin:8px 0 14px}
+  .dice .hd{font-size:12px;color:var(--ink-soft);text-align:center;align-self:center;padding:4px}
+  .dice .hd.rowhd{text-align:right;padding-right:8px;white-space:nowrap}
+  .dice .tile{min-width:0;padding:8px 2px;font-size:13px}
+  .dice .corner{font-size:11px;color:var(--ink-soft);text-align:right;padding-right:6px;align-self:end}
+
+  /* claims */
+  .claim{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--rule)}
+  .claim:first-child{border-top:0}
+  .claim .seg{width:230px}
+  @media (max-width:560px){.claim{grid-template-columns:1fr}.claim .seg{width:100%}}
+
+  /* scenario cards */
+  .scen{border-top:1px solid var(--rule);padding:11px 0}
+  .scen:first-child{border-top:0}
+  .scen p{margin:0 0 8px}
+  .scen .chips{margin:0}
+  .scen .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  figure{margin:0 0 14px;background:var(--card);border:1px solid var(--rule);padding:8px}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{font-size:13px;color:var(--ink-soft);padding:2px 4px 0}
+  .fig-sm{max-width:300px}
+
+  .btn{font:inherit;font-size:14px;padding:9px 16px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;border-radius:2px}
+  .btn:hover{background:#0d1a22}
+  .btn.ghost{background:var(--card);color:var(--ink)}
+  .btn.ghost:hover{background:var(--mark-soft)}
+  .btn[disabled]{opacity:.45;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .tick{font-size:13px;color:var(--ink-soft)}
+  .tick.ok{color:var(--yes)}
+
+  .submitbox{background:var(--card);border:1px solid var(--rule);border-top:4px solid var(--ink);padding:22px}
+  .result{display:none;margin-top:16px}
+  .result.show{display:block}
+  .big{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:42px;line-height:1;margin:6px 0 10px}
+  table.sec{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+  table.sec td{padding:6px 4px;border-top:1px solid var(--rule)}
+  table.sec td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  .keypanel{background:#fff8e6;border:1px solid var(--hot);padding:14px;margin:0 0 20px;font-size:14px;white-space:pre-wrap;font-family:"SF Mono",Menlo,Consolas,monospace;display:none}
+  .hidden{display:none}
+  footer{border-top:1px solid var(--rule);padding-top:16px;font-size:14px;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Unit 2 Group Review</h1>
+    <p>Topics 2.1&ndash;2.6: two-way tables, association, simulation, sample spaces, mutually exclusive events, and conditional probability. Your group gets its own numbers, so talk it through together. Your work saves as you go, so you can leave and come back. Nothing is graded until you submit at the bottom, and you only submit once.</p>
+  </div>
+  <svg width="120" height="76" viewBox="0 0 120 76" aria-hidden="true">
+    <rect x="4" y="6" width="112" height="64" fill="none" stroke="#16222c" stroke-width="1.5"/>
+    <circle cx="48" cy="38" r="24" fill="#e3e9f6" stroke="#2f4f8f" stroke-width="1.5"/>
+    <circle cx="74" cy="38" r="24" fill="#e3e9f6" stroke="#2f4f8f" stroke-width="1.5" fill-opacity=".6"/>
+    <path d="M61 17.4 A24 24 0 0 1 61 58.6 A24 24 0 0 1 61 17.4 Z" fill="#9e3a26" fill-opacity=".55"/>
+    <text x="30" y="42" font-size="11" fill="#2f4f8f" font-weight="600">A</text>
+    <text x="88" y="42" font-size="11" fill="#2f4f8f" font-weight="600">B</text>
+  </svg>
+</header>
+
+<!-- ============ GATE ============ -->
+<div class="gate" id="gate">
+  <h2>Find your group</h2>
+  <p class="hint">Use the same period and group name every time and your work will be waiting for you.</p>
+  <div class="g2">
+    <div>
+      <label class="f" for="period">Period</label>
+      <select id="period">
+        <option value="">Choose</option>
+        <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+      </select>
+    </div>
+    <div>
+      <label class="f" for="gname">Group name</label>
+      <input type="text" id="gname" placeholder="Something your group agrees on" maxlength="40" autocomplete="off">
+    </div>
+  </div>
+  <div class="row"><button type="button" class="btn" id="find">Continue</button></div>
+  <p class="err" id="gateErr"></p>
+
+  <div id="gate2" class="hidden">
+    <p class="hint" id="gateMsg" style="margin-top:18px"></p>
+    <h2 style="font-size:17px">Who's in this group?</h2>
+    <p class="hint">Everyone gets the same score, so every name has to be here, spelled the way it is in the gradebook. Each person picks their own school.</p>
+    <div id="members"></div>
+    <div class="row">
+      <button type="button" class="btn ghost" id="addMember">Add a group member</button>
+      <button type="button" class="btn" id="start">Start the review</button>
+    </div>
+    <p class="err" id="gateErr2"></p>
+  </div>
+</div>
+
+<div id="assignment" class="hidden">
+
+<div class="rail">
+  <b id="prog">0 of 14 parts answered</b>
+  <div class="bar"><span id="fill"></span></div>
+  <span class="who" id="who"></span>
+  <span class="who" id="saved"></span>
+  <button type="button" class="btn ghost" id="leave" style="padding:6px 12px;font-size:13px">Save and leave</button>
+</div>
+
+<pre class="keypanel" id="keypanel"></pre>
+
+<p class="stem" style="color:var(--ink-soft);font-size:14px">Probabilities can be typed as a decimal (0.25) or a fraction (9/36). Round decimals to two places.</p>
+
+<!-- ============ PART A ============ -->
+<section>
+  <div class="sechead"><h2>Part A. Two-way tables and association</h2><em>17 points</em></div>
+  <p class="stem" id="Aintro"></p>
+  <div class="twwrap" id="Atable"></div>
+
+  <div class="q" id="A1">
+    <div class="qnum"><span>A1</span><span>4 points</span></div>
+    <p class="stem">The highlighted cell answers four different questions, depending on the denominator. Find each proportion. <small>Round to two decimal places.</small></p>
+    <div class="grid" id="A1grid"></div>
+  </div>
+
+  <div class="q" id="A2">
+    <div class="qnum"><span>A2</span><span>4 points</span></div>
+    <p class="stem">Four true statements about this table. Tap a statement, then tap the kind of relative frequency it is.</p>
+    <div class="chips" id="A2pool"></div>
+    <div class="bins" id="A2bins"></div>
+  </div>
+
+  <div class="q" id="A3">
+    <div class="qnum"><span>A3</span><span>4 points</span></div>
+    <p class="stem">The question picks the graph. For each question, choose the bar graph that answers it honestly.</p>
+    <div id="A3list"></div>
+  </div>
+
+  <div class="q" id="A4">
+    <div class="qnum"><span>A4</span><span>5 points</span></div>
+    <p class="stem" id="A4stem"></p>
+    <div class="grid" id="A4grid"></div>
+    <p class="stem" style="margin-top:14px" id="A4q"></p>
+    <div class="seg" id="A4assoc" style="max-width:360px">
+      <button type="button" data-v="yes">Associated</button>
+      <button type="button" data-v="no">Not associated</button>
+    </div>
+    <p class="stem" style="margin-top:14px">Which sentence justifies that answer the way the exam wants it?</p>
+    <div id="A4just"></div>
+    <p class="stem" style="margin-top:14px" id="A4trapStem"></p>
+    <div class="seg" id="A4trap" style="max-width:360px">
+      <button type="button" data-v="yes">Yes, on its own</button>
+      <button type="button" data-v="no">No, not on its own</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART B ============ -->
+<section>
+  <div class="sechead"><h2>Part B. Probability and simulation</h2><em>13 points</em></div>
+
+  <div class="q" id="B1">
+    <div class="qnum"><span>B1</span><span>5 points</span></div>
+    <p class="stem" id="B1stem"></p>
+    <p class="stem">How should the digits be assigned?</p>
+    <div id="B1assign"></div>
+    <p class="stem" style="margin-top:12px">Each group of three digits is one trial. Using the correct assignment, tap every trial that counts as a success.</p>
+    <div class="strip" id="B1strip"></div>
+    <div class="grid" style="max-width:420px">
+      <div><label class="f" for="B1est">Estimated probability from these trials</label><input type="text" inputmode="decimal" class="prob" id="B1est" placeholder="e.g. 0.75 or 6/8"></div>
+    </div>
+    <p class="stem" style="margin-top:12px">If your group ran 500 trials instead of 8, the estimate would most likely&hellip;</p>
+    <div id="B1lln"></div>
+  </div>
+
+  <div class="q" id="B2">
+    <div class="qnum"><span>B2</span><span>3 points</span></div>
+    <p class="stem" id="B2stem"></p>
+    <p class="stem">Why will single digits not model this probability?</p>
+    <div id="B2why"></div>
+    <p class="stem" style="margin-top:12px">Which assignment fixes it?</p>
+    <div id="B2assign"></div>
+    <div class="grid" style="max-width:420px;margin-top:12px">
+      <div><label class="f" for="B2n" id="B2nlabel"></label><input type="number" id="B2n"></div>
+    </div>
+  </div>
+
+  <div class="q" id="B3">
+    <div class="qnum"><span>B3</span><span>5 points</span></div>
+    <p class="stem">What probability means. For each statement, decide whether it is true or false.</p>
+    <div id="B3claims"></div>
+  </div>
+</section>
+
+<!-- ============ PART C ============ -->
+<section>
+  <div class="sechead"><h2>Part C. Sample spaces and the rules of chance</h2><em>18 points</em></div>
+
+  <div class="q" id="C1">
+    <div class="qnum"><span>C1</span><span>6 points</span></div>
+    <p class="stem" id="C1stem"></p>
+    <div class="dice" id="C1grid"></div>
+    <div class="grid" id="C1grid2"></div>
+  </div>
+
+  <div class="q" id="C2">
+    <div class="qnum"><span>C2</span><span>4 points</span></div>
+    <p class="stem" id="C2stem"></p>
+    <figure class="fig-sm"><svg id="C2svg" viewBox="0 0 200 200" role="img" aria-label="Spinner"></svg></figure>
+    <div class="grid" id="C2grid"></div>
+    <p class="stem" style="margin-top:12px">Favorable over total works for this spinner because&hellip;</p>
+    <div id="C2why"></div>
+  </div>
+
+  <div class="q" id="C3">
+    <div class="qnum"><span>C3</span><span>5 points</span></div>
+    <p class="stem">You roll one fair six-sided die. For each pair of events, decide whether they are mutually exclusive.</p>
+    <div id="C3list"></div>
+    <p class="stem" style="margin-top:14px" id="C3orStem"></p>
+    <div class="grid" style="max-width:300px"><div><input type="text" inputmode="decimal" class="prob" id="C3or" placeholder="e.g. 0.33 or 2/6"></div></div>
+  </div>
+
+  <div class="q" id="C4">
+    <div class="qnum"><span>C4</span><span>3 points</span></div>
+    <p class="stem" id="C4stem"></p>
+    <p class="stem"><b>A or B</b> (the union). Tap every face that is in A or B.</p>
+    <div class="strip" id="C4union"></div>
+    <p class="stem"><b>A and B</b> (the intersection). Tap every face that is in both.</p>
+    <div class="strip" id="C4inter"></div>
+    <p class="stem" id="C4sumStem"></p>
+    <div class="grid" style="max-width:300px"><div><input type="text" inputmode="decimal" class="prob" id="C4true" placeholder="e.g. 0.67 or 4/6"></div></div>
+  </div>
+</section>
+
+<!-- ============ PART D ============ -->
+<section>
+  <div class="sechead"><h2>Part D. Conditional probability</h2><em>12 points</em></div>
+
+  <div class="q" id="D1">
+    <div class="qnum"><span>D1</span><span>5 points</span></div>
+    <p class="stem" id="D1stem"></p>
+    <div class="twwrap" id="Dtable"></div>
+    <div class="grid" id="D1grid"></div>
+    <p class="stem" style="margin-top:14px" id="D1tapStem"></p>
+    <p class="stem" style="margin-top:14px" id="D1claim"></p>
+    <div class="seg" id="D1eq" style="max-width:300px">
+      <button type="button" data-v="true">True</button>
+      <button type="button" data-v="false">False</button>
+    </div>
+  </div>
+
+  <div class="q" id="D2">
+    <div class="qnum"><span>D2</span><span>4 points</span></div>
+    <p class="stem" id="D2stem"></p>
+    <figure class="fig-sm"><svg id="D2svg" viewBox="0 0 300 60" role="img" aria-label="Marbles in a bag"></svg></figure>
+    <div class="grid" id="D2grid"></div>
+  </div>
+
+  <div class="q" id="D3">
+    <div class="qnum"><span>D3</span><span>3 points</span></div>
+    <p class="stem">Back to the Part A table. Tap a question, then tap the notation that asks it.</p>
+    <div class="chips" id="D3pool"></div>
+    <div class="bins" id="D3bins"></div>
+  </div>
+</section>
+
+<!-- ============ SUBMIT ============ -->
+<div class="submitbox" id="submitbox">
+  <h2 style="font-size:20px">Submit for the group</h2>
+  <p class="tick" id="left"></p>
+  <div class="row"><button type="button" class="btn" id="submit">Submit answers</button></div>
+  <p class="err" id="subErr"></p>
+  <div class="result" id="result">
+    <div class="big" id="scoreBig"></div>
+    <p id="scoreMsg"></p>
+    <table class="sec" id="secTable"></table>
+  </div>
+</div>
+
+<footer><p>Your group's table, random digits, dice events, spinner, and marbles were generated from your group name and period. Another group's numbers will not match yours.</p></footer>
+</div>
+</div>
+
+<script>
+/*GEN-START*/
+function hashStr(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function rng(seed){var a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function ri(r,lo,hi){return lo+Math.floor(r()*(hi-lo+1));}
+function shuffle(r,arr){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(r()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function pct(x){return Math.round(x*100)+'%';}
+function generate(seedStr){
+  var r=rng(hashStr(seedStr));
+  /* ---- the two-way table used in Parts A and D ---- */
+  var contexts=[
+    {who:"students",rel:"who",rowVar:"grade level",colVar:"commute method",rows:["underclassmen","upperclassmen"],rowIs:["are underclassmen","are upperclassmen"],rs:["underclassman","upperclassman"],
+     cols:[{n:"Bus",v:"ride the bus",s:"bus"},{n:"Car",v:"ride in a car",s:"car"}],intro:"A school asked {N} students two questions: their grade level and how they get to school."},
+    {who:"shoppers",rel:"who",rowVar:"store",colVar:"coupon use",rows:["Store A shoppers","Store B shoppers"],rowIs:["shopped at Store A","shopped at Store B"],rs:["Store A","Store B"],
+     cols:[{n:"Coupon",v:"used a coupon",s:"coupon"},{n:"No coupon",v:"paid full price",s:"no coupon"}],intro:"Two stores tracked {N} shoppers: which store they visited and whether they used a coupon."},
+    {who:"members",rel:"who",rowVar:"program",colVar:"result",rows:["Program A members","Program B members"],rowIs:["are in Program A","are in Program B"],rs:["Program A","Program B"],
+     cols:[{n:"Hit goal",v:"hit their goal",s:"hit goal"},{n:"Missed goal",v:"missed their goal",s:"missed"}],intro:"A gym recorded {N} members: which program they joined and whether they hit their fitness goal."},
+    {who:"animals",rel:"that",rowVar:"species",colVar:"adoption status",rows:["cats","dogs"],rowIs:["are cats","are dogs"],rs:["cat","dog"],
+     cols:[{n:"Adopted",v:"were adopted",s:"adopted"},{n:"Waiting",v:"are still waiting",s:"waiting"}],intro:"A shelter logged {N} animals: whether each is a cat or a dog, and whether it was adopted last month."}
+  ];
+  var ctx=contexts[ri(r,0,3)];
+  var sizes=[60,80,100,120,140,160,200];
+  var R1=sizes[ri(r,0,6)], R2; do{ R2=sizes[ri(r,0,6)]; }while(R2===R1);
+  var assoc=r()<0.7;
+  var p1=ri(r,4,16)*0.05, p2;
+  if(assoc){ do{ p2=ri(r,4,16)*0.05; }while(Math.abs(p2-p1)<0.249); } else p2=p1;
+  p1=Math.round(p1*100)/100; p2=Math.round(p2*100)/100;
+  var a=Math.round(R1*p1), b=R1-a, c=Math.round(R2*p2), d=R2-c;
+  var T={cells:[[a,b],[c,d]],rows:[R1,R2],cols:[a+c,b+d],N:R1+R2,p:[p1,p2],assoc:assoc};
+  var A1cell=[ri(r,0,1),ri(r,0,1)];
+  var A2cell=[1-A1cell[0],1-A1cell[1]];
+  var D1cell=[1-A1cell[0],A1cell[1]];
+  /* A2 statements */
+  var cv=T.cells[A2cell[0]][A2cell[1]], rowN=T.rows[A2cell[0]], colN=T.cols[A2cell[1]];
+  var rw=ctx.rows[A2cell[0]], rwIs=ctx.rowIs[A2cell[0]], cl=ctx.cols[A2cell[1]];
+  var A2items=shuffle(r,[
+    {t:pct(cv/T.N)+' of all '+ctx.who+' '+rwIs+' and '+cl.v+'.',b:'joint'},
+    {t:pct(colN/T.N)+' of all '+ctx.who+' '+cl.v+'.',b:'marg'},
+    {t:pct(cv/rowN)+' of '+rw+' '+cl.v+'.',b:'crow'},
+    {t:pct(cv/colN)+' of the '+ctx.who+' '+ctx.rel+' '+cl.v+' '+rwIs+'.',b:'ccol'}
+  ]);
+  /* A3 which graph */
+  var A3items=shuffle(r,[
+    {t:'How many '+ctx.rows[0]+' '+ctx.cols[0].v+'?',v:'side'},
+    {t:'Is the share of '+ctx.rows[0]+' '+ctx.rel+' '+ctx.cols[0].v+' larger than the share of '+ctx.rows[1]+' '+ctx.rel+' '+ctx.cols[0].v+'?',v:'seg'},
+    {t:'Which group is larger, '+ctx.rows[0]+' or '+ctx.rows[1]+'?',v:'side'},
+    {t:'Is '+ctx.rowVar+' associated with '+ctx.colVar+'?',v:'seg'}
+  ]);
+  /* A4 justification + count trap */
+  var moreRow=(a!==c)?(a>c?0:1):(b>d?0:1), moreCol=(a!==c)?0:1;
+  var big=T.cells[moreRow][moreCol], small=T.cells[1-moreRow][moreCol];
+  var A4just=shuffle(r,[
+    {t:'The conditional distributions of '+ctx.colVar+' '+(assoc?'differ':'are the same')+' for '+ctx.rows[0]+' and '+ctx.rows[1]+' ('+pct(p1)+' vs '+pct(p2)+' '+ctx.cols[0].v+'), so '+ctx.rowVar+' and '+ctx.colVar+' are '+(assoc?'associated.':'not associated.'),v:'ok'},
+    {t:'More '+ctx.rows[moreRow]+' '+ctx.cols[moreCol].v+' than '+ctx.rows[1-moreRow]+' ('+big+' vs '+small+'), so '+ctx.rowVar+' and '+ctx.colVar+' are associated.',v:'count'},
+    {t:pct(p1)+' of '+ctx.rows[0]+' '+ctx.cols[0].v+' but '+pct(1-p1)+' of '+ctx.rows[0]+' '+ctx.cols[1].v+', so '+ctx.rowVar+' and '+ctx.colVar+' are associated.',v:'switch'},
+    {t:(assoc?'The two groups have different sizes ('+R1+' vs '+R2+'), so '+ctx.rowVar+' and '+ctx.colVar+' are not associated.':'The conditional distributions of '+ctx.colVar+' differ between the two groups, so '+ctx.rowVar+' and '+ctx.colVar+' are associated.'),v:'wrong'}
+  ]);
+  /* ---- B1 simulation ---- */
+  var sims=[
+    {thing:"A claw machine",does:"wins",succ:"win",fail:"lose",tri:"tries",one:"try"},
+    {thing:"A free-throw shooter",does:"makes her shot",succ:"make",fail:"miss",tri:"shots",one:"shot"},
+    {thing:"A weather app's rain forecast",does:"is right",succ:"right",fail:"wrong",tri:"days",one:"day"},
+    {thing:"A vending machine",does:"gives correct change",succ:"correct",fail:"wrong",tri:"purchases",one:"purchase"}
+  ];
+  var sim=sims[ri(r,0,3)];
+  var k=ri(r,1,2), p=(k===1?[0.2,0.3,0.4]:[0.3,0.4,0.6,0.7])[ri(r,0,k===1?2:3)], np=Math.round(p*10);
+  var trials,succ,tries=0;
+  while(true){
+    tries++; trials=[]; succ=[];
+    for(var i=0;i<8;i++){ var s=''; var n=0; for(var j=0;j<3;j++){ var dg=ri(r,0,9); s+=dg; if(dg<np) n++; } trials.push(s); succ.push(n>=k); }
+    var ns=succ.filter(Boolean).length;
+    if((ns>=2&&ns<=6)||tries>50) break;
+  }
+  var B1assign=shuffle(r,[
+    {t:'0–'+(np-1)+' = '+sim.succ+', '+np+'–9 = '+sim.fail,v:'ok'},
+    {t:'0–'+np+' = '+sim.succ+', '+(np+1)+'–9 = '+sim.fail,v:'w1'},
+    {t:'0–4 = '+sim.succ+', 5–9 = '+sim.fail,v:'w2'},
+    {t:'0–'+(9-np)+' = '+sim.succ+', '+(10-np)+'–9 = '+sim.fail,v:'w3'}
+  ]);
+  var B1lln=shuffle(r,[
+    {t:'settle closer to the true probability',v:'ok'},
+    {t:'swing more wildly from trial to trial',v:'w1'},
+    {t:'come out exactly the same as the 8-trial estimate',v:'w2'},
+    {t:'no longer be a valid probability',v:'w3'}
+  ]);
+  /* ---- B2 resolution ---- */
+  var q=[23,37,58,64,85][ri(r,0,4)], allk=ri(r,2,3);
+  var sim2=sims[(sims.indexOf(sim)+ri(r,1,3))%4];
+  var B2why=shuffle(r,[
+    {t:'Each single digit is worth 10%, and '+q+'% is not a multiple of 10%.',v:'ok'},
+    {t:'There are only ten digits, so ten trials is the most you can run.',v:'w1'},
+    {t:'Single digits can only model probabilities of exactly 50%.',v:'w2'},
+    {t:'Random digits are only accurate for probabilities above 50%.',v:'w3'}
+  ]);
+  var pad=function(x){return (x<10?'0':'')+x;};
+  var B2assign=shuffle(r,[
+    {t:'00–'+pad(q-1)+' = '+sim2.succ+', '+pad(q)+'–99 = '+sim2.fail,v:'ok'},
+    {t:'00–'+pad(q)+' = '+sim2.succ+', '+pad(q+1)+'–99 = '+sim2.fail,v:'w1'},
+    {t:'0–'+Math.round(q/10-1)+' = '+sim2.succ+', '+Math.round(q/10)+'–9 = '+sim2.fail,v:'w2'},
+    {t:'00–'+pad(99-q)+' = '+sim2.succ+', '+pad(100-q)+'–99 = '+sim2.fail,v:'w3'}
+  ]);
+  /* ---- B3 claims ---- */
+  var B3=shuffle(r,[
+    {t:sim.thing+' that '+sim.does+' 60% of the time will succeed on exactly 6 of any 10 '+sim.tri+'.',v:false},
+    {t:'After five failures in a row, a success is "due" on the next '+sim.one+'.',v:false},
+    {t:'Over thousands of '+sim.tri+', the proportion of successes settles near the true probability.',v:true},
+    {t:'A real sequence of 16 coin flips usually has longer streaks than a sequence a person makes up.',v:true},
+    {t:'Ten simulated trials are enough to pin a probability down to two decimal places.',v:false}
+  ]);
+  /* ---- C1 two dice ---- */
+  var s=[4,5,6,8,9,10][ri(r,0,5)], kk=ri(r,1,6);
+  var sumCells=[]; for(var d1=1;d1<=6;d1++) for(var d2=1;d2<=6;d2++) if(d1+d2===s) sumCells.push((d1-1)*6+(d2-1));
+  /* ---- C2 spinner ---- */
+  var n=[8,10,12][ri(r,0,2)], m=ri(r,Math.floor(n/2),n-2);
+  var C2why=shuffle(r,[
+    {t:'the '+n+' sections are equal, so every outcome is equally likely',v:'ok'},
+    {t:'the spinner has more than 5 sections',v:'w1'},
+    {t:'the numbers are printed in order',v:'w2'},
+    {t:'a spinner always lands on a whole number',v:'w3'}
+  ]);
+  /* ---- C3 pairs ---- */
+  var pairs=[
+    {A:'roll a 1',B:'roll a 6',sa:[1],sb:[6]},
+    {A:'roll an even number',B:'roll a number greater than 3',sa:[2,4,6],sb:[4,5,6]},
+    {A:'roll an odd number',B:'roll a number greater than 4',sa:[1,3,5],sb:[5,6]},
+    {A:'roll a number less than 3',B:'roll a number greater than 4',sa:[1,2],sb:[5,6]},
+    {A:'roll a prime number (2, 3, or 5)',B:'roll a 4 or a 6',sa:[2,3,5],sb:[4,6]},
+    {A:'roll a multiple of 3',B:'roll an even number',sa:[3,6],sb:[2,4,6]},
+    {A:'roll a 2',B:'roll a 3 or a 5',sa:[2],sb:[3,5]},
+    {A:'roll a number less than 4',B:'roll an odd number',sa:[1,2,3],sb:[1,3,5]}
+  ];
+  pairs.forEach(function(pr){ pr.shared=pr.sa.filter(function(x){return pr.sb.indexOf(x)>=0;}); pr.ex=pr.shared.length===0; });
+  var exs=shuffle(r,pairs.filter(function(x){return x.ex;})), nex=shuffle(r,pairs.filter(function(x){return !x.ex;}));
+  var C3=shuffle(r,exs.slice(0,2).concat(nex.slice(0,2)));
+  var C3or=exs[0];
+  /* ---- C4 overlap ---- */
+  var C4=nex[2];
+  var union=[1,2,3,4,5,6].filter(function(x){return C4.sa.indexOf(x)>=0||C4.sb.indexOf(x)>=0;});
+  /* ---- D2 marbles ---- */
+  var red=ri(r,4,6), blue=ri(r,2,4);
+  /* ---- D3 notation ---- */
+  var dr=ri(r,0,1), dc=ri(r,0,1);
+  var D3items=shuffle(r,[
+    {t:'Of the '+ctx.rows[dr]+', what proportion '+ctx.cols[dc].v+'?',b:'cgr'},
+    {t:'Of the '+ctx.who+' '+ctx.rel+' '+ctx.cols[dc].v+', what proportion '+ctx.rowIs[dr]+'?',b:'rgc'},
+    {t:'What proportion of all '+ctx.who+' '+ctx.rowIs[dr]+' and '+ctx.cols[dc].v+'?',b:'and'}
+  ]);
+  return {ctx:ctx,T:T,A1cell:A1cell,A2cell:A2cell,D1cell:D1cell,A2items:A2items,A3items:A3items,A4just:A4just,moreRow:moreRow,moreCol:moreCol,big:big,small:small,
+          sim:sim,p:p,k:k,np:np,trials:trials,succ:succ,B1assign:B1assign,B1lln:B1lln,
+          q:q,allk:allk,sim2:sim2,B2why:B2why,B2assign:B2assign,B3:B3,
+          s:s,kk:kk,sumCells:sumCells,n:n,m:m,C2why:C2why,C3:C3,C3or:C3or,C4:C4,union:union,
+          red:red,blue:blue,dr:dr,dc:dc,D3items:D3items};
+}
+/*GEN-END*/
+
+(function(){
+"use strict";
+var TEACHER_KEY='fe06dc3d81744d1bf46c097194b72aac';
+var $=function(id){return document.getElementById(id);};
+var G=null, state={}, locked=false, members=[];
+var PARTS=['A1','A2','A3','A4','B1','B2','B3','C1','C2','C3','C4','D1','D2','D3'];
+var MAX={A1:4,A2:4,A3:4,A4:5,B1:5,B2:3,B3:5,C1:6,C2:4,C3:5,C4:3,D1:5,D2:4,D3:3};
+var NAMES={A1:'Joint, marginal, conditional',A2:'Naming the denominator',A3:'Which bar graph',A4:'Association',B1:'Running a simulation',B2:'Two-digit resolution',B3:'What probability means',C1:'Two dice and the complement',C2:'Spinner',C3:'Mutually exclusive',C4:'Union, intersection, overlap',D1:'Conditional from a table',D2:'Without replacement',D3:'Reading the notation'};
+
+/* ---------------- gate ---------------- */
+var period='', gname='', groupKey='', draft=null;
+function memberRow(m){
+  var i=$('members').children.length; if(i>=4) return;
+  m=m||{};
+  var d=document.createElement('div'); d.className='member';
+  d.innerHTML='<div class="g3"><div><label class="f">First name</label><input type="text" class="fn" autocomplete="off" maxlength="40"></div>'+
+              '<div><label class="f">Last name</label><input type="text" class="ln" autocomplete="off" maxlength="40"></div>'+
+              '<div><label class="f">School</label><div class="seg pg"><button type="button" data-v="HS">HS</button><button type="button" data-v="AC">AC</button></div></div>'+
+              '<div><button type="button" class="rm">Remove</button></div></div>';
+  d.querySelector('.fn').value=m.first||''; d.querySelector('.ln').value=m.last||'';
+  d.querySelectorAll('.pg button').forEach(function(b){
+    if(m.program===b.getAttribute('data-v')) b.classList.add('on');
+    b.addEventListener('click',function(){ d.querySelectorAll('.pg button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); });
+  });
+  d.querySelector('.rm').addEventListener('click',function(){ if($('members').children.length>1) d.remove(); });
+  $('members').appendChild(d);
+}
+$('addMember').addEventListener('click',function(){ memberRow(); });
+function normKey(n){ return n.toLowerCase().replace(/\s+/g,' ').trim(); }
+
+$('find').addEventListener('click',function(){
+  var err=[];
+  period=$('period').value; gname=$('gname').value.trim();
+  if(!period) err.push('pick a period');
+  if(gname.length<2) err.push('enter a group name');
+  if(err.length){ $('gateErr').style.display='block'; $('gateErr').textContent='Before you continue: '+err.join(' and ')+'.'; return; }
+  $('gateErr').style.display='none'; groupKey=normKey(gname);
+  $('find').disabled=true; $('find').textContent='Looking…';
+  fetch('/api/apstats-unit2-review/draft?period='+encodeURIComponent(period)+'&group='+encodeURIComponent(groupKey))
+    .then(function(r){ return r.ok?r.json():{draft:null}; })
+    .catch(function(){ return {draft:null}; })
+    .then(function(j){
+      draft=j.draft||null;
+      $('members').innerHTML='';
+      if(draft && draft.members && draft.members.length){ draft.members.forEach(memberRow); }
+      else { memberRow(); memberRow(); }
+      if(draft && draft.submitted){ $('gateMsg').textContent='This group already submitted. You can open it to see the score, but nothing can be changed.'; $('start').textContent='Open the submitted review'; }
+      else if(draft){ $('gateMsg').textContent='Welcome back. Your saved work is here, and the member list is what you entered last time. Fix it if someone is missing.'; $('start').textContent='Continue the review'; }
+      else { $('gateMsg').textContent='New group. Add everyone below.'; $('start').textContent='Start the review'; }
+      $('gate2').classList.remove('hidden'); $('period').disabled=true; $('gname').disabled=true;
+      $('find').textContent='Continue';
+    });
+});
+
+$('start').addEventListener('click',function(){
+  var err=[]; members=[];
+  $('members').querySelectorAll('.member').forEach(function(m){
+    var f=m.querySelector('.fn').value.trim(), l=m.querySelector('.ln').value.trim(), on=m.querySelector('.pg .on');
+    if(f||l||on){ if(!f||!l) err.push('every member needs a first and last name'); else if(!on) err.push(f+' needs to pick HS or AC'); else members.push({first:f,last:l,program:on.getAttribute('data-v')}); }
+  });
+  if(!members.length) err.push('add at least one member');
+  if(err.length){ $('gateErr2').style.display='block'; $('gateErr2').textContent='Before you start: '+err.join(', ')+'.'; return; }
+  var seedStr=period+'|'+groupKey;
+  G=generate(seedStr); G.seedStr=seedStr; G.seed=hashStr(seedStr);
+  $('gate').classList.add('hidden'); $('assignment').classList.remove('hidden');
+  $('who').textContent=gname+' · P'+period+' · '+members.map(function(m){return m.first;}).join(', ');
+  build();
+  if(draft && draft.state) restore(draft.state);
+  if(draft && draft.submitted && draft.result){ lockAll(); showResult({score:draft.result.score,max_score:draft.result.max_score,sections:draft.result.sections||{},max:draft.result.max||MAX},true); $('submit').textContent='Already submitted'; }
+  else saveSoon();
+  var key=new URLSearchParams(location.search).get('key');
+  if(key && key===TEACHER_KEY) showKey();
+  window.scrollTo(0,0);
+});
+
+/* ---------------- save / restore ---------------- */
+var saveTimer=null, saving=false, dirty=false;
+function saveSoon(){ if(locked) return; dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(saveNow,1200); $('saved').textContent='Unsaved changes'; }
+function saveNow(extra){
+  if(!G||locked) return Promise.resolve();
+  clearTimeout(saveTimer);
+  var body={period:period,group:groupKey,group_name:gname,members:members,state:collect()};
+  if(extra) for(var k in extra) body[k]=extra[k];
+  saving=true;
+  return fetch('/api/apstats-unit2-review/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); dirty=false; $('saved').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}); })
+    .catch(function(){ $('saved').textContent='Could not save (check your connection)'; })
+    .then(function(){ saving=false; });
+}
+$('leave').addEventListener('click',function(){
+  if(locked){ location.reload(); return; }
+  $('leave').disabled=true; $('leave').textContent='Saving…';
+  saveNow().then(function(){ alert(dirty?'Saving failed. Stay on this page and try again in a moment.':'Saved. Come back with period '+period+' and the group name “'+gname+'” to pick up here.'); if(!dirty) location.reload(); else { $('leave').disabled=false; $('leave').textContent='Save and leave'; } });
+});
+window.addEventListener('beforeunload',function(e){ if(dirty&&!locked){ e.preventDefault(); e.returnValue=''; } });
+
+/* readers/setters registered by build() */
+var R={};   /* R[part] = {read:fn, set:fn} */
+function collect(){ var out={}; for(var k in R) out[k]=R[k].read(); return out; }
+function restore(st){
+  try{ for(var k in R){ if(st[k]!==undefined && st[k]!==null) R[k].set(st[k]); } }
+  catch(e){ console.error('restore',e); }
+  dirty=false; $('saved').textContent='Saved work loaded';
+}
+function lockAll(){
+  locked=true; clearTimeout(saveTimer); $('submit').disabled=true;
+  document.querySelectorAll('#assignment input, #assignment select').forEach(function(i){ i.disabled=true; });
+  $('leave').textContent='Back to start';
+}
+
+/* ---------------- helpers ---------------- */
+var ANSWERED={};
+function mark(id,done){ ANSWERED[id]=!!done; $(id).classList.toggle('done',!!done); paint(); saveSoon(); }
+function paint(){
+  var n=PARTS.filter(function(i){return ANSWERED[i];}).length, N=PARTS.length;
+  $('prog').textContent=n+' of '+N+' parts answered';
+  $('fill').style.width=(n/N*100)+'%';
+  $('left').textContent=n===N?'All '+N+' parts have an answer. Look everything over once more, then submit.':(N-n)+' part'+(N-n===1?'':'s')+' still blank. You can submit anyway, but blanks score zero.';
+  $('left').className='tick'+(n===N?' ok':'');
+}
+function parseFrac(v){
+  if(v===null||v===undefined) return null; v=String(v).trim(); if(v==='') return null;
+  var m=v.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/); if(m){ var den=parseFloat(m[2]); return den?parseFloat(m[1])/den:null; }
+  var f=parseFloat(v); return isNaN(f)?null:f;
+}
+function num(id){ return parseFrac($(id).value); }
+function near(v,a,tol){ return v!==null && Math.abs(v-a)<=(tol===undefined?0.006:tol); }
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function fmt(x){ return (Math.round(x*100)/100).toFixed(2); }
+function same(arr,key){ if(arr.length!==key.length) return false; var a=arr.slice().sort(function(x,y){return x-y;}), b=key.slice().sort(function(x,y){return x-y;}); return a.every(function(v,i){return v===b[i];}); }
+function setVal(id,v){ if(v===undefined||v===null) return; $(id).value=v; $(id).dispatchEvent(new Event('input',{bubbles:true})); $(id).dispatchEvent(new Event('change',{bubbles:true})); }
+function clickSeg(seg,v){ if(v===undefined||v===null) return; var b=seg.querySelector('button[data-v="'+v+'"]'); if(b) b.click(); }
+function inputs(ids,onInput){ ids.forEach(function(id){ $(id).addEventListener('input',onInput); }); }
+function allFilled(ids){ return ids.every(function(id){ return $(id).value.trim()!==''; }); }
+
+/* tap-then-bin sorter */
+function sorter(poolId, binsId, qId, items, bins, onChange){
+  var pool=$(poolId), bc=$(binsId), sel=null;
+  bins.forEach(function(b){ var d=document.createElement('div'); d.className='bin'; d.setAttribute('data-bin',b.v); d.innerHTML='<h4>'+b.t+'</h4>'; bc.appendChild(d); });
+  items.forEach(function(it,i){
+    var b=document.createElement('button'); b.type='button'; b.className='chip'; b.setAttribute('data-i',i);
+    b.innerHTML=it.t;
+    b.addEventListener('click',function(){
+      if(locked) return;
+      if(sel===b){b.classList.remove('sel');sel=null;return;}
+      if(sel) sel.classList.remove('sel'); sel=b; b.classList.add('sel');
+    });
+    pool.appendChild(b);
+  });
+  bc.querySelectorAll('.bin').forEach(function(bin){
+    bin.addEventListener('click',function(e){
+      if(locked||!sel) return;
+      if(e.target.closest('.chip')) return;
+      sel.classList.remove('sel'); bin.appendChild(sel); sel=null;
+      onChange();
+    });
+  });
+  function read(){ var out={}; bc.querySelectorAll('.bin').forEach(function(bin){ bin.querySelectorAll('.chip').forEach(function(c){ out[c.getAttribute('data-i')]=bin.getAttribute('data-bin'); }); }); return out; }
+  function set(st){ Object.keys(st||{}).forEach(function(i){ var c=pool.querySelector('[data-i="'+i+'"]'), bin=bc.querySelector('.bin[data-bin="'+st[i]+'"]'); if(c&&bin){ c.click(); bin.click(); } }); }
+  return {read:read,set:set,complete:function(){ return !pool.querySelector('.chip'); }};
+}
+function segPick(el, onPick){
+  el.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(locked) return;
+      el.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); onPick(b.getAttribute('data-v'));
+    });
+  });
+}
+/* list of prompts, each with single-choice chips */
+function scenarioList(container, items, choices, onChange){
+  var st={};
+  items.forEach(function(it,i){
+    var d=document.createElement('div'); d.className='scen';
+    d.innerHTML=(it.t?'<p>'+it.t+'</p>':'')+'<div class="chips"></div>';
+    var ch=d.querySelector('.chips');
+    (it.choices||choices).forEach(function(c){
+      var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=c.t; b.setAttribute('data-v',c.v);
+      b.addEventListener('click',function(){
+        if(locked) return;
+        ch.querySelectorAll('.chip').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+        st[i]=c.v; onChange();
+      });
+      ch.appendChild(b);
+    });
+    container.appendChild(d);
+  });
+  return {st:st,read:function(){return st;},set:function(s){ var sc=container.querySelectorAll('.scen'); Object.keys(s||{}).forEach(function(i){ var b=sc[i]&&Array.prototype.filter.call(sc[i].querySelectorAll('.chip'),function(c){return c.getAttribute('data-v')===s[i];})[0]; if(b) b.click(); }); },
+          complete:function(){ return items.every(function(_,i){ return st[i]!==undefined; }); }};
+}
+/* true/false claims */
+function claimList(container, items, labels, onChange){
+  var st={};
+  items.forEach(function(c,i){
+    var d=document.createElement('div'); d.className='claim';
+    d.innerHTML='<div>'+c.t+'</div><div class="seg"><button type="button" data-v="1">'+labels[0]+'</button><button type="button" data-v="0">'+labels[1]+'</button></div>';
+    segPick(d.querySelector('.seg'),function(v){ st[i]=(v==='1'); onChange(); });
+    container.appendChild(d);
+  });
+  return {st:st,read:function(){return st;},set:function(s){ var segs=container.querySelectorAll('.seg'); Object.keys(s||{}).forEach(function(i){ clickSeg(segs[i], s[i]?'1':'0'); }); },
+          complete:function(){ return items.every(function(_,i){ return st[i]!==undefined; }); }};
+}
+/* multi-select tiles */
+function tileSet(container, labels, cls, onChange, extraClass){
+  var sel={}, btns=[];
+  labels.forEach(function(l,i){
+    var t=document.createElement('button'); t.type='button'; t.className='tile'+(extraClass?' '+extraClass:''); t.innerHTML=l;
+    t.addEventListener('click',function(){ if(locked) return; sel[i]=!sel[i]; t.classList.toggle(cls,!!sel[i]); onChange(); });
+    container.appendChild(t); btns.push(t);
+  });
+  return {read:function(){ return Object.keys(sel).filter(function(k){return sel[k];}).map(Number).sort(function(a,b){return a-b;}); },
+          set:function(arr){ (arr||[]).forEach(function(i){ if(btns[i]&&!sel[i]) btns[i].click(); }); },
+          touched:function(){ return Object.keys(sel).length>0; }};
+}
+function segState(el, onPick){
+  var v=null; segPick(el,function(x){ v=x; onPick(x); });
+  return {read:function(){return v;},set:function(x){ clickSeg(el,x); },get:function(){return v;}};
+}
+function renderTable(id, hl, tap){
+  var t=G.T, c=G.ctx;
+  var h='<table class="tw'+(tap?' tap':'')+'"><thead><tr><th></th><th>'+c.cols[0].n+'</th><th>'+c.cols[1].n+'</th><th>Total</th></tr></thead><tbody>';
+  for(var i=0;i<2;i++){ h+='<tr><th>'+cap(c.rows[i])+'</th>'; for(var j=0;j<2;j++){ h+='<td data-cell="'+i+j+'"'+(hl&&hl[0]===i&&hl[1]===j?' class="hl"':'')+'>'+t.cells[i][j]+'</td>'; } h+='<td class="tot" data-cell="r'+i+'">'+t.rows[i]+'</td></tr>'; }
+  h+='<tr class="tot"><th>Total</th><td data-cell="c0">'+t.cols[0]+'</td><td data-cell="c1">'+t.cols[1]+'</td><td data-cell="N">'+t.N+'</td></tr></tbody></table>';
+  $(id).innerHTML=h;
+}
+function probInput(id,label,ph){ return '<div><label class="f" for="'+id+'">'+label+'</label><input type="text" inputmode="decimal" class="prob" id="'+id+'" placeholder="'+(ph||'0.00 or a/b')+'"></div>'; }
+
+/* ---------------- build all parts ---------------- */
+function build(){
+  var c=G.ctx, T=G.T;
+  $('Aintro').innerHTML=c.intro.replace('{N}',T.N)+' Use this table for all of Part A and for D1 and D3.';
+  renderTable('Atable',G.A1cell,false);
+
+  /* A1 */
+  var rI=G.A1cell[0], cI=G.A1cell[1], cell=T.cells[rI][cI];
+  var A1defs=[
+    {id:'A1joint',t:'Of all '+c.who+', the proportion '+c.rel+' '+c.rowIs[rI]+' and '+c.cols[cI].v,a:cell/T.N},
+    {id:'A1marg',t:'Of all '+c.who+', the proportion '+c.rel+' '+c.cols[cI].v,a:T.cols[cI]/T.N},
+    {id:'A1crow',t:'Of the '+c.rows[rI]+', the proportion '+c.rel+' '+c.cols[cI].v,a:cell/T.rows[rI]},
+    {id:'A1ccol',t:'Of the '+c.who+' '+c.rel+' '+c.cols[cI].v+', the proportion '+c.rel+' '+c.rowIs[rI],a:cell/T.cols[cI]}
+  ];
+  G.A1defs=A1defs;
+  $('A1grid').innerHTML=A1defs.map(function(d){return probInput(d.id,d.t);}).join('');
+  var A1ids=A1defs.map(function(d){return d.id;});
+  inputs(A1ids,function(){ mark('A1',allFilled(A1ids)); });
+  R.A1={read:function(){ var o={}; A1ids.forEach(function(i){o[i]=$(i).value;}); return o; },set:function(s){ A1ids.forEach(function(i){ setVal(i,s[i]); }); }};
+
+  /* A2 */
+  var A2=sorter('A2pool','A2bins','A2',G.A2items,[{t:'Joint relative frequency',v:'joint'},{t:'Marginal relative frequency',v:'marg'},{t:'Conditional on '+c.rowVar,v:'crow'},{t:'Conditional on '+c.colVar,v:'ccol'}],function(){ mark('A2',A2.complete()); });
+  R.A2=A2;
+
+  /* A3 */
+  var A3=scenarioList($('A3list'),G.A3items,[{t:'Side-by-side bar graph',v:'side'},{t:'Segmented (100%) bar graph',v:'seg'}],function(){ mark('A3',A3.complete()); });
+  R.A3=A3;
+
+  /* A4 */
+  $('A4stem').innerHTML='Compute the conditional distribution of '+c.colVar+' for each '+c.rowVar+' group. <small>Round to two decimal places.</small>';
+  $('A4grid').innerHTML=probInput('A4p1','Proportion of '+c.rows[0]+' '+c.rel+' '+c.cols[0].v)+probInput('A4p2','Proportion of '+c.rows[1]+' '+c.rel+' '+c.cols[0].v);
+  $('A4q').textContent='Are '+c.rowVar+' and '+c.colVar+' associated?';
+  $('A4trapStem').innerHTML='By raw count, more '+c.rows[G.moreRow]+' '+c.cols[G.moreCol].v+' than '+c.rows[1-G.moreRow]+' ('+G.big+' vs '+G.small+'). On its own, does that comparison of counts show whether the variables are associated?';
+  var A4assoc=segState($('A4assoc'),checkA4), A4trap=segState($('A4trap'),checkA4);
+  var A4just=scenarioList($('A4just'),[{t:''}],G.A4just.map(function(j){return {t:j.t,v:j.v};}),checkA4);
+  inputs(['A4p1','A4p2'],checkA4);
+  function checkA4(){ mark('A4', allFilled(['A4p1','A4p2']) && A4assoc.get()!==null && A4just.complete() && A4trap.get()!==null); }
+  R.A4={read:function(){ return {p1:$('A4p1').value,p2:$('A4p2').value,assoc:A4assoc.read(),just:A4just.read(),trap:A4trap.read()}; },
+        set:function(s){ setVal('A4p1',s.p1); setVal('A4p2',s.p2); A4assoc.set(s.assoc); A4just.set(s.just); A4trap.set(s.trap); },
+        assoc:A4assoc,just:A4just,trap:A4trap};
+
+  /* B1 */
+  var sm=G.sim;
+  $('B1stem').innerHTML=sm.thing+' '+sm.does+' '+pct(G.p)+' of the time. Your group wants to estimate the probability of '+(G.k===1?'at least one':'at least two')+' '+(G.k===1?'success':'successes')+' in 3 '+sm.tri+'. You are handed these random digits:<br><span class="data" style="display:inline-block;margin-top:8px">'+G.trials.join('&nbsp;&nbsp;')+'</span>';
+  var B1assign=scenarioList($('B1assign'),[{t:''}],G.B1assign,checkB1);
+  var B1tiles=tileSet($('B1strip'),G.trials,'win',checkB1);
+  var B1lln=scenarioList($('B1lln'),[{t:''}],G.B1lln,checkB1);
+  inputs(['B1est'],checkB1);
+  function checkB1(){ mark('B1', B1assign.complete() && B1tiles.touched() && $('B1est').value.trim()!=='' && B1lln.complete()); }
+  R.B1={read:function(){ return {assign:B1assign.read(),sel:B1tiles.read(),est:$('B1est').value,lln:B1lln.read()}; },
+        set:function(s){ B1assign.set(s.assign); B1tiles.set(s.sel); setVal('B1est',s.est); B1lln.set(s.lln); },
+        assign:B1assign,tiles:B1tiles,lln:B1lln};
+
+  /* B2 */
+  var s2=G.sim2;
+  $('B2stem').innerHTML=s2.thing+' '+s2.does+' '+G.q+'% of the time. You want to estimate the probability of '+(G.allk===3?'success on all 3 of the next 3':'at least 2 successes in the next 3')+' '+s2.tri+'.';
+  $('B2nlabel').textContent='How many two-digit numbers make up one trial?';
+  var B2why=scenarioList($('B2why'),[{t:''}],G.B2why,checkB2);
+  var B2assign=scenarioList($('B2assign'),[{t:''}],G.B2assign,checkB2);
+  inputs(['B2n'],checkB2);
+  function checkB2(){ mark('B2', B2why.complete() && B2assign.complete() && $('B2n').value!==''); }
+  R.B2={read:function(){ return {why:B2why.read(),assign:B2assign.read(),n:$('B2n').value}; },set:function(s){ B2why.set(s.why); B2assign.set(s.assign); setVal('B2n',s.n); },why:B2why,assign:B2assign};
+
+  /* B3 */
+  var B3=claimList($('B3claims'),G.B3,['True','False'],function(){ mark('B3',B3.complete()); });
+  R.B3=B3;
+
+  /* C1 */
+  $('C1stem').innerHTML='Roll two fair dice. The grid is the sample space: rows are die 1, columns are die 2. Tap every outcome in the event <b>the dice sum to '+G.s+'</b>.';
+  var g=$('C1grid'); g.innerHTML='<div class="corner">die 1 ↓ / die 2 →</div>';
+  for(var j=1;j<=6;j++){ var hd=document.createElement('div'); hd.className='hd'; hd.textContent=j; g.appendChild(hd); }
+  var labels=[]; for(var i2=1;i2<=6;i2++) for(var j2=1;j2<=6;j2++) labels.push(i2+','+j2);
+  var cellBtns=[], C1sel={};
+  for(var i3=1;i3<=6;i3++){
+    var rh=document.createElement('div'); rh.className='hd rowhd'; rh.textContent=i3; g.appendChild(rh);
+    for(var j3=1;j3<=6;j3++){ (function(idx){ var t=document.createElement('button'); t.type='button'; t.className='tile'; t.textContent=labels[idx];
+      t.addEventListener('click',function(){ if(locked) return; C1sel[idx]=!C1sel[idx]; t.classList.toggle('sel',!!C1sel[idx]); checkC1(); }); g.appendChild(t); cellBtns.push(t); })((i3-1)*6+(j3-1)); }
+  }
+  var C1tiles={read:function(){ return Object.keys(C1sel).filter(function(k){return C1sel[k];}).map(Number).sort(function(a,b){return a-b;}); },set:function(arr){ (arr||[]).forEach(function(i){ if(!C1sel[i]) cellBtns[i].click(); }); },touched:function(){ return Object.keys(C1sel).length>0; }};
+  $('C1grid2').innerHTML=probInput('C1p','P(sum = '+G.s+')')+probInput('C1not','P(sum is not '+G.s+')')+probInput('C1none','P(neither die shows a '+G.kk+')')+probInput('C1atl','P(at least one die shows a '+G.kk+')');
+  var C1ids=['C1p','C1not','C1none','C1atl'];
+  inputs(C1ids,checkC1);
+  function checkC1(){ mark('C1', C1tiles.touched() && allFilled(C1ids)); }
+  R.C1={read:function(){ var o={sel:C1tiles.read()}; C1ids.forEach(function(i){o[i]=$(i).value;}); return o; },set:function(s){ C1tiles.set(s.sel); C1ids.forEach(function(i){ setVal(i,s[i]); }); },tiles:C1tiles};
+
+  /* C2 */
+  $('C2stem').textContent='A spinner has '+G.n+' equal sections numbered 1 through '+G.n+'. You spin it once.';
+  drawSpinner();
+  $('C2grid').innerHTML=probInput('C2gt','P(a number greater than '+G.m+')')+probInput('C2le','Use the complement: P('+G.m+' or less)')+probInput('C2imp','P(land on '+(G.n+2)+')');
+  var C2ids=['C2gt','C2le','C2imp'];
+  var C2why=scenarioList($('C2why'),[{t:''}],G.C2why,checkC2);
+  inputs(C2ids,checkC2);
+  function checkC2(){ mark('C2', allFilled(C2ids) && C2why.complete()); }
+  R.C2={read:function(){ var o={why:C2why.read()}; C2ids.forEach(function(i){o[i]=$(i).value;}); return o; },set:function(s){ C2why.set(s.why); C2ids.forEach(function(i){ setVal(i,s[i]); }); },why:C2why};
+
+  /* C3 */
+  var C3=claimList($('C3list'),G.C3.map(function(p){ return {t:'<b>A:</b> '+p.A+' &nbsp;·&nbsp; <b>B:</b> '+p.B}; }),['Mutually exclusive','Not exclusive'],checkC3);
+  $('C3orStem').innerHTML='For the pair <b>A:</b> '+G.C3or.A+' and <b>B:</b> '+G.C3or.B+', find P(A or B).';
+  inputs(['C3or'],checkC3);
+  function checkC3(){ mark('C3', C3.complete() && $('C3or').value.trim()!==''); }
+  R.C3={read:function(){ return {ex:C3.read(),or:$('C3or').value}; },set:function(s){ C3.set(s.ex); setVal('C3or',s.or); },ex:C3};
+
+  /* C4 */
+  var P4=G.C4;
+  $('C4stem').innerHTML='One fair die again. Let <b>A</b> = '+P4.A+' and <b>B</b> = '+P4.B+'.';
+  var faces=['1','2','3','4','5','6'];
+  var C4u=tileSet($('C4union'),faces,'sel',checkC4,'face'), C4i=tileSet($('C4inter'),faces,'sel',checkC4,'face');
+  var naive=(P4.sa.length+P4.sb.length);
+  $('C4sumStem').innerHTML='Adding gives P(A) + P(B) = '+P4.sa.length+'/6 + '+P4.sb.length+'/6 = '+naive+'/6, but that double-counts the overlap. What is the true P(A or B)?';
+  inputs(['C4true'],checkC4);
+  function checkC4(){ mark('C4', C4u.touched() && C4i.touched() && $('C4true').value.trim()!==''); }
+  R.C4={read:function(){ return {u:C4u.read(),i:C4i.read(),t:$('C4true').value}; },set:function(s){ C4u.set(s.u); C4i.set(s.i); setVal('C4true',s.t); },u:C4u,i:C4i};
+
+  /* D1 */
+  var dr=G.D1cell[0], dc=G.D1cell[1], dcell=T.cells[dr][dc];
+  var Rn=c.rs[dr], Cn=c.cols[dc].s;
+  $('D1stem').innerHTML='The same '+T.N+' '+c.who+'. One is chosen at random. <small>Round to two decimal places.</small>';
+  renderTable('Dtable',null,true);
+  $('D1grid').innerHTML=probInput('D1cgr','P('+Cn+' | '+Rn+')')+probInput('D1rgc','P('+Rn+' | '+Cn+')')+probInput('D1and','P('+Rn+' and '+Cn+')');
+  $('D1tapStem').innerHTML='In the table above, tap the number you used as the denominator for P('+Cn+' | '+Rn+').';
+  $('D1claim').innerHTML='True or false: P('+Cn+' | '+Rn+') and P('+Rn+' | '+Cn+') must be equal, because both use the same '+dcell+' on top.';
+  var D1den=null, dtab=$('Dtable');
+  dtab.querySelectorAll('td').forEach(function(td){ td.addEventListener('click',function(){ if(locked) return; dtab.querySelectorAll('td').forEach(function(x){x.classList.remove('sel');}); td.classList.add('sel'); D1den=td.getAttribute('data-cell'); checkD1(); }); });
+  var D1eq=segState($('D1eq'),checkD1);
+  var D1ids=['D1cgr','D1rgc','D1and'];
+  inputs(D1ids,checkD1);
+  function checkD1(){ mark('D1', allFilled(D1ids) && D1den!==null && D1eq.get()!==null); }
+  R.D1={read:function(){ var o={den:D1den,eq:D1eq.read()}; D1ids.forEach(function(i){o[i]=$(i).value;}); return o; },
+        set:function(s){ D1ids.forEach(function(i){ setVal(i,s[i]); }); if(s.den){ var td=dtab.querySelector('td[data-cell="'+s.den+'"]'); if(td) td.click(); } D1eq.set(s.eq); },
+        den:function(){return D1den;},eq:D1eq};
+
+  /* D2 */
+  $('D2stem').innerHTML='A bag holds '+G.red+' red and '+G.blue+' blue marbles. You draw two marbles, one after the other, without putting the first back.';
+  drawMarbles();
+  $('D2grid').innerHTML=probInput('D2a','P(first marble is red)')+probInput('D2b','P(second is red | first was red)')+probInput('D2c','P(both red), by the multiplication rule')+probInput('D2d','If you had put the first marble back: P(second is red | first was red)');
+  var D2ids=['D2a','D2b','D2c','D2d'];
+  inputs(D2ids,function(){ mark('D2',allFilled(D2ids)); });
+  R.D2={read:function(){ var o={}; D2ids.forEach(function(i){o[i]=$(i).value;}); return o; },set:function(s){ D2ids.forEach(function(i){ setVal(i,s[i]); }); }};
+
+  /* D3 */
+  var Rn3=c.rs[G.dr], Cn3=c.cols[G.dc].s;
+  var D3=sorter('D3pool','D3bins','D3',G.D3items,[{t:'P('+Cn3+' | '+Rn3+')',v:'cgr'},{t:'P('+Rn3+' | '+Cn3+')',v:'rgc'},{t:'P('+Rn3+' and '+Cn3+')',v:'and'}],function(){ mark('D3',D3.complete()); });
+  R.D3=D3;
+
+  document.querySelectorAll('#assignment input, #assignment select').forEach(function(i){ i.addEventListener('input',saveSoon); i.addEventListener('change',saveSoon); });
+  paint();
+}
+
+/* ---------------- figures ---------------- */
+function drawSpinner(){
+  var svg=$('C2svg'), NS='http://www.w3.org/2000/svg', n=G.n, cx=100, cy=100, rr=88;
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  for(var i=0;i<n;i++){
+    var a0=-Math.PI/2+i*2*Math.PI/n, a1=a0+2*Math.PI/n;
+    var x0=cx+rr*Math.cos(a0), y0=cy+rr*Math.sin(a0), x1=cx+rr*Math.cos(a1), y1=cy+rr*Math.sin(a1);
+    svg.appendChild(el('path',{d:'M'+cx+' '+cy+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+rr+' '+rr+' 0 0 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+' Z',fill:i%2?'#e3e9f6':'#fff',stroke:'#2f4f8f','stroke-width':1.2}));
+    var am=(a0+a1)/2, tx=el('text',{x:(cx+rr*0.68*Math.cos(am)).toFixed(1),y:(cy+rr*0.68*Math.sin(am)+4).toFixed(1),'font-size':12,'text-anchor':'middle',fill:'#16222c','font-weight':600}); tx.textContent=i+1; svg.appendChild(tx);
+  }
+  svg.appendChild(el('polygon',{points:cx+','+(cy-30)+' '+(cx-6)+','+cy+' '+(cx+6)+','+cy,fill:'#9e3a26'}));
+  svg.appendChild(el('circle',{cx:cx,cy:cy,r:5,fill:'#16222c'}));
+}
+function drawMarbles(){
+  var svg=$('D2svg'), NS='http://www.w3.org/2000/svg';
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  svg.appendChild(el('rect',{x:4,y:4,width:292,height:52,rx:10,fill:'#f4f6f8',stroke:'#c9d4db'}));
+  var all=[]; for(var i=0;i<G.red;i++) all.push('#9e3a26'); for(var j=0;j<G.blue;j++) all.push('#2f4f8f');
+  var r2=rng(G.seed+7); all=shuffle(r2,all);
+  all.forEach(function(col,i){ svg.appendChild(el('circle',{cx:26+i*(248/Math.max(all.length-1,1)),cy:30,r:11,fill:col,stroke:'#16222c','stroke-width':.8})); });
+}
+
+/* ---------------- grading ---------------- */
+function grade(){
+  var S={}, ans={}, c=G.ctx, T=G.T;
+  /* A1 */
+  S.A1=0; ans.A1={}; G.A1defs.forEach(function(d){ var v=num(d.id); ans.A1[d.id]=v; if(near(v,d.a)) S.A1++; });
+  /* A2 */
+  var a2=R.A2.read(); S.A2=0; G.A2items.forEach(function(it,i){ if(a2[i]===it.b) S.A2++; }); ans.A2=a2;
+  /* A3 */
+  var a3=R.A3.read(); S.A3=0; G.A3items.forEach(function(it,i){ if(a3[i]===it.v) S.A3++; }); ans.A3=a3;
+  /* A4 */
+  S.A4=0; if(near(num('A4p1'),T.p[0])) S.A4++; if(near(num('A4p2'),T.p[1])) S.A4++;
+  if(R.A4.assoc.get()===(T.assoc?'yes':'no')) S.A4++;
+  var j=R.A4.just.read()[0]; if(j==='ok') S.A4++;
+  if(R.A4.trap.get()==='no') S.A4++;
+  ans.A4=R.A4.read();
+  /* B1 */
+  S.B1=0; if(R.B1.assign.read()[0]==='ok') S.B1++;
+  var key1=[]; G.succ.forEach(function(v,i){ if(v) key1.push(i); });
+  if(same(R.B1.tiles.read(),key1)) S.B1+=2;
+  if(near(num('B1est'),key1.length/8)) S.B1++;
+  if(R.B1.lln.read()[0]==='ok') S.B1++;
+  ans.B1=R.B1.read();
+  /* B2 */
+  S.B2=0; if(R.B2.why.read()[0]==='ok') S.B2++; if(R.B2.assign.read()[0]==='ok') S.B2++; if(near(parseFloat($('B2n').value),3,0.01)) S.B2++;
+  ans.B2=R.B2.read();
+  /* B3 */
+  var b3=R.B3.read(); S.B3=0; G.B3.forEach(function(cl,i){ if(b3[i]===cl.v) S.B3++; }); ans.B3=b3;
+  /* C1 */
+  S.C1=0; if(same(R.C1.tiles.read(),G.sumCells)) S.C1+=2;
+  var ps=G.sumCells.length/36;
+  if(near(num('C1p'),ps)) S.C1++; if(near(num('C1not'),1-ps)) S.C1++; if(near(num('C1none'),25/36)) S.C1++; if(near(num('C1atl'),11/36)) S.C1++;
+  ans.C1=R.C1.read();
+  /* C2 */
+  S.C2=0; if(near(num('C2gt'),(G.n-G.m)/G.n)) S.C2++; if(near(num('C2le'),G.m/G.n)) S.C2++; if(near(num('C2imp'),0,0.001)) S.C2++; if(R.C2.why.read()[0]==='ok') S.C2++;
+  ans.C2=R.C2.read();
+  /* C3 */
+  var c3=R.C3.ex.read(); S.C3=0; G.C3.forEach(function(p,i){ if(c3[i]===p.ex) S.C3++; });
+  if(near(num('C3or'),(G.C3or.sa.length+G.C3or.sb.length)/6)) S.C3++;
+  ans.C3=R.C3.read();
+  /* C4 */
+  S.C4=0; var uSel=R.C4.u.read().map(function(i){return i+1;}), iSel=R.C4.i.read().map(function(i){return i+1;});
+  if(same(uSel,G.union)) S.C4++; if(same(iSel,G.C4.shared)) S.C4++; if(near(num('C4true'),G.union.length/6)) S.C4++;
+  ans.C4=R.C4.read();
+  /* D1 */
+  var dr=G.D1cell[0], dc=G.D1cell[1], dcell=T.cells[dr][dc];
+  S.D1=0; if(near(num('D1cgr'),dcell/T.rows[dr])) S.D1++; if(near(num('D1rgc'),dcell/T.cols[dc])) S.D1++; if(near(num('D1and'),dcell/T.N)) S.D1++;
+  if(R.D1.den()==='r'+dr) S.D1++; if(R.D1.eq.get()==='false') S.D1++;
+  ans.D1=R.D1.read();
+  /* D2 */
+  var tot=G.red+G.blue;
+  S.D2=0; if(near(num('D2a'),G.red/tot)) S.D2++; if(near(num('D2b'),(G.red-1)/(tot-1))) S.D2++; if(near(num('D2c'),G.red/tot*(G.red-1)/(tot-1))) S.D2++; if(near(num('D2d'),G.red/tot)) S.D2++;
+  ans.D2=R.D2.read();
+  /* D3 */
+  var d3=R.D3.read(); S.D3=0; G.D3items.forEach(function(it,i){ if(d3[i]===it.b) S.D3++; }); ans.D3=d3;
+
+  var total=0,max=0; for(var s in MAX){ total+=S[s]; max+=MAX[s]; }
+  return {sections:S,max:MAX,score:total,max_score:max,answers:ans};
+}
+
+$('submit').addEventListener('click',function(){
+  if(locked) return;
+  var blanks=PARTS.length-PARTS.filter(function(k){return ANSWERED[k];}).length;
+  if(blanks>0 && !confirm(blanks+' part'+(blanks===1?' is':'s are')+' still blank and will score zero. Submit anyway?')) return;
+  var Rz=grade();
+  var payload={period:period,group_name:gname,group:groupKey,members:members,seed:G.seed,seed_str:G.seedStr,
+               score:Rz.score,max_score:Rz.max_score,section_scores:Rz.sections,max:Rz.max,answers:Rz.answers,state:collect()};
+  lockAll(); $('submit').textContent='Submitting…';
+  fetch('/api/apstats-unit2-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(){ showResult(Rz,true); dirty=false; $('saved').textContent='Submitted'; })
+    .catch(function(e){ showResult(Rz,false); $('subErr').style.display='block'; $('subErr').textContent='Your score is shown, but it did not save ('+e.message+'). Take a screenshot of this box and show Mr. Casanova.'; });
+});
+function showResult(Rz,saved){
+  $('submit').textContent=saved?'Submitted':'Submit failed';
+  $('result').classList.add('show');
+  $('scoreBig').textContent=Rz.score+' / '+Rz.max_score;
+  var pc=Math.round(Rz.score/Rz.max_score*100);
+  $('scoreMsg').textContent=(saved?'Saved for '+members.map(function(m){return m.first+' '+m.last+' ('+m.program+')';}).join(', ')+'. ':'')+pc+'%. The parts below show where the points came from, so the group knows what to go back and study.';
+  var rows=''; for(var k in Rz.max){ rows+='<tr><td>'+k+'</td><td>'+(NAMES[k]||'')+'</td><td>'+(Rz.sections[k]||0)+' / '+Rz.max[k]+'</td></tr>'; }
+  $('secTable').innerHTML=rows;
+  $('submitbox').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------------- teacher key ---------------- */
+function showKey(){
+  var T=G.T, c=G.ctx, L=[];
+  L.push('TEACHER KEY for '+G.seedStr+'  (seed '+G.seed+')');
+  L.push('Table ['+c.rows[0]+' / '+c.rows[1]+' x '+c.cols[0].n+' / '+c.cols[1].n+']: '+T.cells[0].join(' ')+' | '+T.cells[1].join(' ')+'  rows '+T.rows.join('/')+'  cols '+T.cols.join('/')+'  N '+T.N);
+  L.push('A1 (cell '+T.cells[G.A1cell[0]][G.A1cell[1]]+'): '+G.A1defs.map(function(d){return fmt(d.a);}).join(', ')+'  (joint, marginal, cond on row, cond on col)');
+  L.push('A2: '+G.A2items.map(function(it,i){return (i+1)+'='+it.b;}).join(' '));
+  L.push('A3: '+G.A3items.map(function(it,i){return (i+1)+'='+it.v;}).join(' '));
+  L.push('A4: '+fmt(T.p[0])+', '+fmt(T.p[1])+'; '+(T.assoc?'associated':'not associated')+'; justification #'+(G.A4just.map(function(j){return j.v;}).indexOf('ok')+1)+'; count trap = no');
+  L.push('B1: assignment #'+(G.B1assign.map(function(j){return j.v;}).indexOf('ok')+1)+' (0-'+(G.np-1)+'); successes '+G.trials.filter(function(t,i){return G.succ[i];}).join(' ')+' -> '+G.succ.filter(Boolean).length+'/8 = '+fmt(G.succ.filter(Boolean).length/8)+'; LLN #'+(G.B1lln.map(function(j){return j.v;}).indexOf('ok')+1));
+  L.push('B2: why #'+(G.B2why.map(function(j){return j.v;}).indexOf('ok')+1)+'; assignment #'+(G.B2assign.map(function(j){return j.v;}).indexOf('ok')+1)+' (00-'+(G.q-1)+'); 3 numbers per trial');
+  L.push('B3: '+G.B3.map(function(cl,i){return (i+1)+'='+(cl.v?'T':'F');}).join(' '));
+  L.push('C1: sum '+G.s+' -> '+G.sumCells.length+' cells, P='+fmt(G.sumCells.length/36)+', not='+fmt(1-G.sumCells.length/36)+'; no '+G.kk+' = 25/36 = 0.69; at least one = 11/36 = 0.31');
+  L.push('C2: n='+G.n+', >'+G.m+' = '+fmt((G.n-G.m)/G.n)+'; <= '+G.m+' = '+fmt(G.m/G.n)+'; 0; why #'+(G.C2why.map(function(j){return j.v;}).indexOf('ok')+1));
+  L.push('C3: '+G.C3.map(function(p,i){return (i+1)+'='+(p.ex?'ME':'not');}).join(' ')+'; P(A or B) = '+(G.C3or.sa.length+G.C3or.sb.length)+'/6 = '+fmt((G.C3or.sa.length+G.C3or.sb.length)/6));
+  L.push('C4: union {'+G.union.join(',')+'}; intersection {'+G.C4.shared.join(',')+'}; true = '+G.union.length+'/6 = '+fmt(G.union.length/6));
+  var dr=G.D1cell[0], dc=G.D1cell[1], dcell=T.cells[dr][dc];
+  L.push('D1 (cell '+dcell+'): '+fmt(dcell/T.rows[dr])+', '+fmt(dcell/T.cols[dc])+', '+fmt(dcell/T.N)+'; denominator = row total '+T.rows[dr]+'; equal? false');
+  var tot=G.red+G.blue;
+  L.push('D2: '+G.red+'/'+tot+' = '+fmt(G.red/tot)+'; '+(G.red-1)+'/'+(tot-1)+' = '+fmt((G.red-1)/(tot-1))+'; both = '+fmt(G.red/tot*(G.red-1)/(tot-1))+'; with replacement '+fmt(G.red/tot));
+  L.push('D3: '+G.D3items.map(function(it,i){return (i+1)+'='+it.b;}).join(' '));
+  $('keypanel').textContent=L.join('\n'); $('keypanel').style.display='block';
+}
+})();
+</script>
+</body>
+</html>
