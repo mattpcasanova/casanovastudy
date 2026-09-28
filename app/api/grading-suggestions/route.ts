@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
         .not(studentClassColumn, 'is', null)
 
       if (!classError && classData) {
-        studentClassValues = classData
-          .map((row: Record<string, string | null>) => row[studentClassColumn])
+        studentClassValues = (classData as unknown as Record<string, string | null>[])
+          .map((row) => row[studentClassColumn])
           .filter((val): val is string => val !== null && val.trim() !== '')
       }
     }
