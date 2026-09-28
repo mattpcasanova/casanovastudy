@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { parseGradingOutput } from '@/lib/grading/parse'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
 
   // Get authenticated user (try cookie auth first, fall back to FormData userId)
   let userId: string | null = null
-  const cookieUser = await getAuthenticatedUser(request)
+  const cookieUser = await getRequestUser(request)
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -104,14 +105,8 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData()
 
         // Authentication check
-        if (cookieUser) {
-          userId = cookieUser.id
-        } else {
-          const formUserId = formData.get('userId') as string | null
-          if (formUserId) {
-            userId = formUserId
-          }
-        }
+        // Identity comes only from the session (never a form userId).
+        if (cookieUser) userId = cookieUser.id
 
         if (!userId) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({

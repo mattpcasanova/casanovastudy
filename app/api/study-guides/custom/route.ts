@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { CustomGuideContent } from '@/lib/types/custom-guide'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { title, subject, gradeLevel, className, customContent, userId: bodyUserId } = body as {
+    const { title, subject, gradeLevel, className, customContent } = body as {
       title: string
       subject: string
       gradeLevel: string
@@ -14,13 +15,8 @@ export async function POST(request: NextRequest) {
       userId?: string
     }
 
-    // Get userId from request body or fall back to cookie auth
-    let userId: string | null = bodyUserId || null
-
-    if (!userId) {
-      const cookieUser = await getAuthenticatedUser(request)
-      userId = cookieUser?.id || null
-    }
+    // Identity comes only from the caller's session (never a body/query userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Create the study guide
     const { data: guide, error } = await supabase

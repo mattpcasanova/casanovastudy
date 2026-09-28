@@ -11,6 +11,7 @@ import { ClaudeService } from './claude-api'
 import { PDFShiftPDFGenerator } from './pdfshift-pdf-generator'
 import { storePDF } from '@/app/api/pdf/[filename]/route'
 import { createAdminClient } from './supabase-server'
+import { parseGradingOutput } from './grading/parse'
 
 export interface FileMeta {
   buffer: Buffer
@@ -125,39 +126,32 @@ export async function runGradingPipeline(input: GradingPipelineInput): Promise<G
     )
   }
 
-  // Parse grade breakdown
-  const gradeBreakdown = parseGradingBreakdown(gradingContent)
+  // Parse grade breakdown — same line-based parser as the streaming teacher
+  // path (lib/grading/parse.ts). The legacy multi-strategy parser is kept only
+  // as a fallback for responses that don't follow the requested format.
+  let gradeBreakdown: GradeBreakdownItem[] = parseGradingOutput(gradingContent).breakdown
+  if (gradeBreakdown.length === 0) gradeBreakdown = parseGradingBreakdown(gradingContent)
 
   let totalMarks = gradeBreakdown.reduce((sum, item) => sum + item.marksAwarded, 0)
   let totalPossibleMarks = gradeBreakdown.reduce((sum, item) => sum + item.marksPossible, 0)
 
-  const totalPatterns = [
-    /Total\s+(?:Mark|Marks)?[:\s]+(\d+)\s*\/\s*(\d+)/i,
-    /Overall.*?(\d+)\s*\/\s*(\d+)\s*(?:marks?|points?)/i,
-    /Total.*?(\d+)\s*\/\s*(\d+)\s*(?:marks?|points?)/i,
-    /(\d+)\s*\/\s*(\d+)\s*(?:marks?|points?)\s*\([^)]*%\)/i,
-  ]
-
-  for (const pattern of totalPatterns) {
-    const m = gradingContent.match(pattern)
-    if (m) {
-      const foundTotal = parseInt(m[1], 10)
-      const foundPossible = parseInt(m[2], 10)
-      if (foundPossible > totalPossibleMarks && foundTotal >= 0 && foundPossible > 0) {
-        totalMarks = foundTotal
-        totalPossibleMarks = foundPossible
+  // Only when no per-question lines were found, fall back to the model's own
+  // "Total: X/Y" line (otherwise the breakdown sum is authoritative, as in the
+  // streaming path — the model's total can disagree with its own marks).
+  if (totalPossibleMarks === 0) {
+    const totalPatterns = [
+      /Total\s+(?:Mark|Marks)?[:\s]+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i,
+      /Overall.*?(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*(?:marks?|points?)/i,
+      /Total.*?(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*(?:marks?|points?)?/i,
+    ]
+    for (const pattern of totalPatterns) {
+      const m = gradingContent.replace(/\*\*/g, '').match(pattern)
+      if (m && parseFloat(m[2]) > 0) {
+        totalMarks = parseFloat(m[1])
+        totalPossibleMarks = parseFloat(m[2])
         break
       }
     }
-  }
-
-  if (totalPossibleMarks === 0) {
-    let sumAwarded = 0, sumPossible = 0
-    for (const m of gradingContent.matchAll(/Question\s+\d+\s+Total[:\s]+(\d+)\s*\/\s*(\d+)/gi)) {
-      sumAwarded += parseInt(m[1], 10)
-      sumPossible += parseInt(m[2], 10)
-    }
-    if (sumPossible > 0) { totalMarks = sumAwarded; totalPossibleMarks = sumPossible }
   }
 
   // Generate graded PDF

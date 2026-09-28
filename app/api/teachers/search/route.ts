@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createRouteHandlerClient(request)
-    const searchTerm = query.trim()
+    // Strip PostgREST filter syntax and LIKE wildcards (the term is interpolated into .or(...)).
+    const searchTerm = query.trim().replace(/[,()*%_\\:."']/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+    if (!searchTerm) return NextResponse.json({ teachers: [] })
     const likeTerm = `%${searchTerm}%`
 
     // Search all teachers by name or email

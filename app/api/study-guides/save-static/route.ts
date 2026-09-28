@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 // POST - Save a reference to a static guide
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { guideId, title, subject, gradeLevel, staticRoute, userId } = body
+    const { guideId, title, subject, gradeLevel, staticRoute } = body
 
-    if (!guideId || !title || !subject || !gradeLevel || !staticRoute || !userId) {
+    // Identity comes only from the caller's session (never a body userId).
+    const userId = (await getRequestUser(request))?.id
+    if (!userId) {
+      return NextResponse.json({ error: 'Please sign in to save this guide' }, { status: 401 })
+    }
+
+    if (!guideId || !title || !subject || !gradeLevel || !staticRoute) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Check if user already has this static guide saved
     const { data: existing } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 interface MetadataUpdateBody {
   userId?: string
@@ -20,14 +21,8 @@ export async function PATCH(
     const body: MetadataUpdateBody = await request.json()
 
     // Get authenticated user from cookies or body
-    let userId: string | null = null
-    const cookieUser = await getAuthenticatedUser(request)
-
-    if (cookieUser) {
-      userId = cookieUser.id
-    } else if (body.userId) {
-      userId = body.userId
-    }
+    // Identity comes only from the caller's session (never a body userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -173,20 +168,8 @@ export async function DELETE(
     const { id } = await params
 
     // Get authenticated user from cookies
-    let userId: string | null = null
-    const cookieUser = await getAuthenticatedUser(request)
-
-    if (cookieUser) {
-      userId = cookieUser.id
-    } else {
-      // Fall back to body userId for backwards compatibility
-      try {
-        const body = await request.json()
-        userId = body.userId
-      } catch {
-        // No body provided
-      }
-    }
+    // Identity comes only from the caller's session (never a body userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(

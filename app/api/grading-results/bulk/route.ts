@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 interface BulkUpdateBody {
   userId?: string
@@ -14,14 +15,8 @@ export async function PATCH(request: NextRequest) {
     const body: BulkUpdateBody = await request.json()
 
     // Get authenticated user from cookies or body
-    let userId: string | null = null
-    const cookieUser = await getAuthenticatedUser(request)
-
-    if (cookieUser) {
-      userId = cookieUser.id
-    } else if (body.userId) {
-      userId = body.userId
-    }
+    // Identity comes only from the caller's session (never a body userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(

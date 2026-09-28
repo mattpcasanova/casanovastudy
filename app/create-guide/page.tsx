@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import NavigationHeader from "@/components/navigation-header"
 import CustomGuideEditor from "@/components/custom-guide-editor/custom-guide-editor"
 import { useAuth } from "@/lib/auth"
+import { authFetch } from "@/lib/auth-fetch"
 import { customContentToBlocks, EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { CustomGuideContent } from "@/lib/types/custom-guide"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -38,9 +39,7 @@ export default function CreateGuidePage() {
 
     const fetchGuide = async () => {
       try {
-        const response = await fetch(`/api/study-guides/${editId}/custom-content?userId=${user.id}`, {
-          credentials: 'include'
-        })
+        const response = await authFetch(`/api/study-guides/${editId}/custom-content`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -88,11 +87,10 @@ export default function CreateGuidePage() {
 
     const method = editId ? 'PUT' : 'POST'
 
-    const response = await fetch(endpoint, {
+    const response = await authFetch(endpoint, {
       method,
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, userId: user.id })
+      body: JSON.stringify(data)
     })
 
     const result = await response.json()

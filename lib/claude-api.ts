@@ -500,6 +500,40 @@ Rules:
    * Grade an exam with images (from client-side conversion or server-side)
    * This is the simplest approach - just use the images provided
    */
+  /**
+   * Shared call for the non-streaming graders. Adaptive thinking makes marking
+   * consistent run-to-run (thinking-off gave different marks for the same
+   * answer). It runs over a stream + finalMessage() because the SDK refuses
+   * non-streaming requests with large max_tokens (and long exams can take
+   * minutes). With thinking on, content[0] is a thinking block, so only text
+   * blocks are returned.
+   */
+  private async runGradingCall(content: Anthropic.MessageParam['content'], maxTokens: number): Promise<ClaudeApiResponse> {
+    const stream = this.anthropic.messages.stream({
+      model: 'claude-sonnet-5',
+      max_tokens: maxTokens,
+      // SDK 0.61 types lack 'adaptive'; forwarded at runtime.
+      thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,
+      messages: [{ role: 'user', content }],
+    })
+    const message = await stream.finalMessage()
+    const text = message.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+    if (!text.trim()) {
+      throw new Error(`Grading returned no text (stop reason: ${message.stop_reason})`)
+    }
+    return {
+      content: text,
+      usage: {
+        input_tokens: message.usage.input_tokens,
+        output_tokens: message.usage.output_tokens,
+        total_tokens: message.usage.input_tokens + message.usage.output_tokens,
+      },
+    }
+  }
+
   async gradeExamWithImages(params: {
     markSchemeText: string
     studentExamText: string
@@ -711,30 +745,8 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
 
     console.log('📤 Sending to Claude API with', content.length, 'content items')
 
-    const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 16384,
-      thinking: { type: 'disabled' },
-      messages: [
-        {
-          role: 'user',
-          content: content
-        }
-      ]
-    })
-
-    const responseContent = response.content[0]
-    if (responseContent.type !== 'text') {
-      throw new Error('Unexpected response type from Claude API')
-    }
-
-    return {
-      content: responseContent.text,
-      usage: {
-        input_tokens: response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens
-      }
-    }
+    // Room for thinking + long multi-question breakdowns (matches the stream grader).
+    return this.runGradingCall(content, 32000)
   }
 
   /**
@@ -1124,37 +1136,14 @@ CRITICAL RULES:
 
     console.log(`📤 Grading ${missingQuestions.length} missing questions...`)
 
-    const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 4096,
-      thinking: { type: 'disabled' },
-      messages: [
-        {
-          role: 'user',
-          content: content
-        }
-      ]
-    })
-
-    const responseContent = response.content[0]
-    if (responseContent.type !== 'text') {
-      throw new Error('Unexpected response type from Claude API')
-    }
-
-    console.log(`✅ Missing questions graded - Output tokens: ${response.usage.output_tokens}`)
-
-    return {
-      content: responseContent.text,
-      usage: {
-        input_tokens: response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens
-      }
-    }
+    const result = await this.runGradingCall(content, 8000)
+    console.log(`✅ Missing questions graded - Output tokens: ${result.usage.output_tokens}`)
+    return result
   }
 
   /**
    * Grade exam for students - tutoring/learning focused
-   * Uses encouraging tone and higher temperature for conversational feedback
+   * Uses an encouraging tone; same line-per-question format as the teacher grader
    */
   async gradeExamForStudent(params: {
     studentExamText: string
@@ -1224,11 +1213,14 @@ TUTORING PRINCIPLES:
 
     instructionText += `\n\nI've attached the student's practice work${markSchemeFile ? ' and an answer key' : ''}.
 
-Please format your response as follows:
-- For each question, provide: Question [number], Mark: X/Y - [encouraging feedback that explains the concept and how to approach this type of problem]
-- Focus on explaining WHY answers are correct or incorrect, not just stating they are
-- Give hints and tips for similar problems in the future
-- At the end, provide total marks, genuine encouragement, and specific learning tips
+RESPONSE FORMAT (follow exactly — the app parses it):
+- One line per question, in order, starting at the beginning of the line:
+  **Question [number]**, Mark: X/Y - [encouraging feedback that explains the concept and how to approach this type of problem]
+- Use the question label exactly as it appears on the work or answer key (e.g. 1, 2a, 3(b)(i)). Grade every question once; award 0 with a note if not attempted.
+- Focus on explaining WHY answers are correct or incorrect, not just stating they are, and give a tip for similar problems. Keep each question's feedback in that one entry (it may wrap onto following lines), with no separate headings between questions.
+- After the last question, write these lines:
+  **Total: X/Y**
+  **Feedback:** genuine encouragement and 2-3 specific learning tips.
 
 Remember: This is a learning opportunity. Be supportive and help them understand the material better!`
 
@@ -1279,30 +1271,7 @@ Remember: This is a learning opportunity. Be supportive and help them understand
 
     console.log('📤 Sending to Claude API with tutoring mode')
 
-    const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 4000,
-      thinking: { type: 'disabled' },
-      messages: [
-        {
-          role: 'user',
-          content: content
-        }
-      ]
-    })
-
-    const responseContent = response.content[0]
-    if (responseContent.type !== 'text') {
-      throw new Error('Unexpected response type from Claude API')
-    }
-
-    return {
-      content: responseContent.text,
-      usage: {
-        input_tokens: response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens
-      }
-    }
+    return this.runGradingCall(content, 16000)
   }
 
   /**

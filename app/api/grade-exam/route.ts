@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { runGradingPipeline, type FileMeta } from '@/lib/grade-exam-pipeline'
 
 export const maxDuration = 300
@@ -15,15 +16,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const formData = await request.formData()
 
-    // Auth: try cookie session first, fall back to userId field for internal calls
-    let userId: string | null = null
-    const cookieUser = await getAuthenticatedUser(request)
-    if (cookieUser) {
-      userId = cookieUser.id
-    } else {
-      const formUserId = formData.get('userId') as string | null
-      if (formUserId) userId = formUserId
-    }
+    // Identity comes only from the caller's session (never a form userId).
+    // Assignment grading calls runGradingPipeline directly, not this route.
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json({ success: false, error: 'You must be logged in to use the grading feature' }, { status: 401 })

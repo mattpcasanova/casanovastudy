@@ -11,11 +11,10 @@ import { useToast } from "@/hooks/use-toast"
 import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
 import { shouldBypassCloudinary, processFileClientSide } from "@/lib/client-file-processor"
-import { useAuth } from "@/lib/auth"
+import { authFetch } from "@/lib/auth-fetch"
 
 export default function Home() {
   const router = useRouter()
-  const { user } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
@@ -109,12 +108,10 @@ export default function Home() {
         materialsKind: data.materialsKind,
         planId: data.planId,
         planUnit: data.planUnit,
-        userId: user?.id
       }
 
-      const response = await fetch('/api/generate-study-guide-stream', {
+      const response = await authFetch('/api/generate-study-guide-stream', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },

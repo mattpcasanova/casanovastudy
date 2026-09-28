@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 interface CopyRequest {
   studyGuideId: string
@@ -10,13 +11,8 @@ export async function POST(request: NextRequest) {
   try {
     const body: CopyRequest = await request.json()
 
-    // Get userId from request body or fall back to cookie auth
-    let userId: string | null = body.userId || null
-
-    if (!userId) {
-      const cookieUser = await getAuthenticatedUser(request)
-      userId = cookieUser?.id || null
-    }
+    // Identity comes only from the caller's session (never a body/query userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -32,7 +28,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Fetch the original study guide
     const { data: originalGuide, error: fetchError } = await supabase

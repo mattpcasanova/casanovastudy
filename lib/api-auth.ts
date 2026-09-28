@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
-import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 type TeacherAuthResult =
   | { user: User; error: null }
@@ -11,7 +12,7 @@ type TeacherAuthResult =
  * Returns the user, or a ready-to-return NextResponse error.
  */
 export async function requireTeacher(request: NextRequest): Promise<TeacherAuthResult> {
-  const user = await getAuthenticatedUser(request)
+  const user = await getRequestUser(request)
   if (!user) {
     return { user: null, error: NextResponse.json({ error: 'You must be logged in' }, { status: 401 }) }
   }

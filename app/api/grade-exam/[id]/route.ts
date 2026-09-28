@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 interface GradeBreakdownItem {
   questionNumber: string
@@ -15,21 +16,11 @@ export async function PATCH(
   try {
     const { id } = await params
 
-    // Parse request body first to get userId fallback
     const body = await request.json()
-    const { gradeBreakdown, userId: bodyUserId } = body as {
-      gradeBreakdown: GradeBreakdownItem[]
-      userId?: string
-    }
+    const { gradeBreakdown } = body as { gradeBreakdown: GradeBreakdownItem[] }
 
-    // Authenticate user - try cookie auth first, fall back to userId from body
-    let userId: string | null = null
-    const cookieUser = await getAuthenticatedUser(request)
-    if (cookieUser) {
-      userId = cookieUser.id
-    } else if (bodyUserId) {
-      userId = bodyUserId
-    }
+    // Identity comes only from the caller's session (never a body userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -38,8 +29,8 @@ export async function PATCH(
       )
     }
 
-    // Use admin client when authenticating via body userId (no cookies), otherwise use route handler client
-    const supabase = cookieUser ? createRouteHandlerClient(request) : createAdminClient()
+    // Verified above; the admin client does the owner-checked update below.
+    const supabase = createAdminClient()
 
     // Check user is a teacher
     const { data: userProfile, error: profileError } = await supabase
@@ -183,9 +174,8 @@ export async function GET(
       )
     }
 
-    // Check if request includes userId to determine ownership
-    const url = new URL(request.url)
-    const requestUserId = url.searchParams.get('userId')
+    // Ownership (shows edit controls) comes from the session, not a query param.
+    const requestUserId = (await getRequestUser(request))?.id ?? null
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { CustomGuideContent } from '@/lib/types/custom-guide'
 
 export async function PUT(
@@ -10,7 +11,7 @@ export async function PUT(
     const { id } = await params
 
     const body = await request.json()
-    const { title, subject, gradeLevel, className, customContent, userId: bodyUserId } = body as {
+    const { title, subject, gradeLevel, className, customContent } = body as {
       title?: string
       subject?: string
       gradeLevel?: string
@@ -19,13 +20,8 @@ export async function PUT(
       userId?: string
     }
 
-    // Get userId from request body or fall back to cookie auth
-    let userId: string | null = bodyUserId || null
-
-    if (!userId) {
-      const cookieUser = await getAuthenticatedUser(request)
-      userId = cookieUser?.id || null
-    }
+    // Identity comes only from the caller's session (never a body/query userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -42,7 +38,7 @@ export async function PUT(
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // First verify the user owns this study guide
     const { data: guide, error: fetchError } = await supabase
@@ -124,14 +120,8 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Get userId from query param or fall back to cookie auth
-    const { searchParams } = new URL(request.url)
-    let userId: string | null = searchParams.get('userId')
-
-    if (!userId) {
-      const cookieUser = await getAuthenticatedUser(request)
-      userId = cookieUser?.id || null
-    }
+    // Identity comes only from the caller's session (never a query userId).
+    const userId: string | null = (await getRequestUser(request))?.id ?? null
 
     if (!userId) {
       return NextResponse.json(
@@ -140,7 +130,7 @@ export async function GET(
       )
     }
 
-    const supabase = createRouteHandlerClient(request)
+    const supabase = createAdminClient()
 
     // Fetch the study guide
     const { data: guide, error } = await supabase

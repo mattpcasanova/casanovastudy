@@ -2,16 +2,24 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { GOAL_VALUES, MATERIALS_KINDS, type MaterialsKind } from '@/lib/study-options'
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
   const startTime = Date.now()
 
-  // Get authenticated user (if any)
-  const user = await getAuthenticatedUser(request)
-  const supabase = createRouteHandlerClient(request)
+  // Identity comes only from the session (never a body userId). Writes use the
+  // admin client with that verified id, so they don't depend on RLS.
+  const user = await getRequestUser(request)
+  if (!user) {
+    return new Response('data: ' + JSON.stringify({ type: 'error', message: 'Please sign in to create a study guide' }) + '\n\n', {
+      status: 401,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })
+  }
+  const supabase = createAdminClient()
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -124,7 +132,7 @@ export async function POST(request: NextRequest) {
             .select('id, format, user_id')
             .eq('id', body.planId)
             .single()
-          const ownerId = body.userId || user?.id
+          const ownerId = user.id
           if (plan && plan.format === 'plan' && ownerId && plan.user_id === ownerId) {
             parentGuideId = plan.id
             planUnit = String(body.planUnit).slice(0, 40)
@@ -145,7 +153,7 @@ export async function POST(request: NextRequest) {
             additional_instructions: body.additionalInstructions,
             file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),
             token_usage: usage,
-            user_id: body.userId || user?.id || null,  // Use passed userId, fallback to cookie auth
+            user_id: user.id,
             parent_guide_id: parentGuideId,
             plan_unit: planUnit
           })

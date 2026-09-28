@@ -58,3 +58,22 @@ Lost 3 marks: 3/5 of the steps were missing.`).breakdown
     expect(b[0].explanation).toContain('Lost 3 marks')
   })
 })
+
+describe('student tutoring format', () => {
+  it('parses plain entries with wrapped encouraging feedback and stops at the closing sections', () => {
+    const r = parseGradingOutput(`Great effort on this practice set!
+
+Question 1, Mark: 2/2 - Nice work! You found the molar mass correctly.
+Tip: always write units so you can check your answer.
+Question 2a, Mark: 1/3 - You started well by dividing actual by theoretical yield.
+Remember to multiply by 100 to get a percentage.
+
+**Total: 3/5**
+**Feedback:** Keep practicing percent-yield problems.`)
+    expect(r.breakdown.map((q) => [q.questionNumber, q.marksAwarded, q.marksPossible])).toEqual([['1', 2, 2], ['2a', 1, 3]])
+    expect(r.breakdown[0].explanation).toBe('Nice work! You found the molar mass correctly. Tip: always write units so you can check your answer.')
+    expect(r.breakdown[1].explanation).toContain('multiply by 100 to get a percentage.')
+    expect(r.breakdown[1].explanation).not.toContain('Keep practicing')
+    expect(r).toMatchObject({ totalMarks: 3, totalPossible: 5 })
+  })
+})

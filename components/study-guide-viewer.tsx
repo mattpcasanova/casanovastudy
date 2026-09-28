@@ -26,6 +26,7 @@ import SummaryFormat from '@/components/formats/summary-format'
 import PracticeFormat from '@/components/formats/practice-format'
 import PlanFormat from '@/components/formats/plan-format'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/auth-fetch'
 import { CLASSES_ENABLED } from '@/lib/features'
 import { displaySubject, displayLevel } from '@/lib/study-options'
 import CustomFormat from '@/components/formats/custom-format'
@@ -83,16 +84,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     if (!user) return
     setIsSaving(true)
     try {
-      const response = await fetch('/api/study-guides/copy', {
+      const response = await authFetch('/api/study-guides/copy', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          studyGuideId: studyGuide.id,
-          userId: user.id,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studyGuideId: studyGuide.id }),
       })
 
       if (!response.ok) {
