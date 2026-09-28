@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
+import LearnCallout from '@/components/learn/learn-callout'
 
 const FORMAT_META = {
   outline: { accent: formatAccent.outline, icon: List, label: 'Outline' },
@@ -428,6 +429,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 print:max-w-none print:px-0 print:py-0">
+        <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
         {renderFormat()}
       </div>
 

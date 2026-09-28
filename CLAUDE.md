@@ -63,7 +63,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
 1. User signs up → Creates auth.users entry + user_profiles row
 2. Email confirmation required (Supabase sends email)
 3. User confirms → Can sign in
-4. Session stored in localStorage (Supabase default)
+4. Session stored in **cookies** (browser client is `@supabase/ssr` `createBrowserClient`), not localStorage
 
 ### Clever SSO (Colegia)
 1. User clicks "Log in with Colegia" → Redirects to Clever OAuth
@@ -82,6 +82,10 @@ answers, min 3 answered; cap 15/concept then partial credit).
 - Sign out clears user state immediately before calling Supabase
 
 ## Known Issues / Gotchas
+- **API identity comes from the session only (2026-09)**: routes call `getRequestUser(request)` (`lib/request-user.ts` — Bearer token first, then cookies) and ignore any `userId` in the body/query; writes use `createAdminClient()` with the verified id. Client calls use `authFetch` (`lib/auth-fetch.ts`: adds the Bearer token, `credentials: 'omit'` — avoids localhost 431s from bloated cookies). Never trust a client-sent user id.
+- **Progress sync**: `study_progress (user_id, study_guide_id, kind outline|plan|practice|learn, data jsonb)`, owner-only RLS. `lib/progress.ts` `loadProgress`/`saveProgress`; `usePersistentSet` keys shaped `cs:<kind>:<guideId>` sync automatically (localStorage first, account copy wins, debounced saves).
+- **Print / PDF**: every format has print CSS; `GET /api/pdf/guide/[id]` has PDFShift render the real page in print media (signed-in only; needs `NEXT_PUBLIC_APP_URL` + `PDFSHIFT_API_KEY`). pdf.js renders must use `intent: 'print'` (display intent stalls in background tabs).
+- **Learn mode**: `/study-guide/[id]/learn` — Leitner spaced repetition (`lib/learn/scheduler.ts`, intervals 0/1/2/4/7/15/30 days, mastered = box 5). Items come from `components/learn/items.ts` (`learnItemsFor`) for flashcards/quiz/practice/custom; **item ids must stay stable** (parser ids / block ids) since they key saved state. State saved as `study_progress` kind 'learn' + `cs:learn:<id>`. Viewer shows `LearnCallout` with the due count.
 - **Exam grading (2026-09-28)**: `gradeExamWithImagesStream` (teacher path) now runs `claude-sonnet-5` with `thinking: { type: 'adaptive' }` and `max_tokens: 32000` — with thinking disabled the same answer scored differently run-to-run. Only `text_delta` is streamed, so thinking never reaches the parser. Parsing lives in `lib/grading/parse.ts` (line-based, unit-tested; labels stored bare, e.g. "2a" — the report adds "Question"). The student/assignment path (`lib/grade-exam-pipeline.ts`) still has its own parser and thinking disabled.
 - **pdf.js renders must use `intent: 'print'`** (`lib/pdf-to-images.ts`): the default display intent paces on requestAnimationFrame, which browsers pause in background tabs — PDF→image conversion stalled indefinitely if the user switched tabs.
 - **Study guide deletes are owner-only (migration 036)**: `DELETE /api/study-guides/[id]` identifies the caller from their session token (never a body `userId`) and deletes as that user; RLS enforces `auth.uid() = user_id`. Note the INSERT policy on `study_guides` is still `WITH CHECK (true)`.

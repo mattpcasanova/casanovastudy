@@ -24,7 +24,7 @@ interface BaseQuestion {
 interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
 interface TrueFalseQuestion extends BaseQuestion { type: 'tf'; correctAnswer: boolean }
 interface ShortAnswerQuestion extends BaseQuestion { type: 'sa'; sampleAnswer: string }
-type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion
+export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion
 
 interface ShortAnswerScore {
   score: number
@@ -555,7 +555,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry 
   )
 }
 
-function parseQuizContent(content: string): Question[] {
+export function parseQuizContent(content: string): Question[] {
   const questions: Question[] = []
   const lines = content.split('\n').map((l) => l.trim()).filter(Boolean)
   let section = ''

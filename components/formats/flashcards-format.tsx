@@ -41,7 +41,7 @@ interface FlashcardsFormatProps {
   userId?: string
 }
 
-interface Flashcard {
+export interface Flashcard {
   id: string
   question: string
   answer: string
@@ -531,7 +531,7 @@ function CardList({ cards, mastered, difficult }: { cards: Flashcard[]; mastered
 
 // Card ids ("card-N", in document order across Q/A pairs and key-term lists)
 // are what saved progress is keyed on — keep this parse order stable.
-function parseFlashcards(content: string): Flashcard[] {
+export function parseFlashcards(content: string): Flashcard[] {
   const cards: Flashcard[] = []
   const lines = content.split('\n')
   let counter = 0

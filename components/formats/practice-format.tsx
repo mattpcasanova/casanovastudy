@@ -166,18 +166,14 @@ export function PracticeSession({
             <Icon className="h-3.5 w-3.5" /> {meta.label} · {index + 1} of {activities.length}
           </p>
         )}
-        {current.kind !== 'fill' && current.prompt && (
-          <p className={cn(fontDisplay, 'font-medium leading-snug text-slate-900', inline ? 'mb-4 text-lg' : 'mb-5 text-xl sm:text-[1.45rem]')}>
-            <InlineMarkdown text={current.prompt} />
-          </p>
-        )}
-        {current.code && current.kind !== 'bug' && <CodeBlock lang={current.code.lang} text={current.code.text} compact className="mb-5 mt-0" />}
-        {current.kind === 'match' && <MatchBoard activity={current} onDone={record} />}
-        {current.kind === 'fill' && <FillBlank activity={current} onDone={record} checked={checked} onContinue={advance} compact={inline} autoFocus={!inline || Object.keys(results).length > 0} />}
-        {current.kind === 'order' && <OrderList activity={current} onDone={record} checked={checked} />}
-        {current.kind === 'sort' && <SortBoard activity={current} onDone={record} checked={checked} />}
-        {current.kind === 'choice' && <Choice activity={current} onDone={record} checked={checked} />}
-        {current.kind === 'bug' && <BugHunt activity={current} onDone={record} checked={checked} />}
+        <ActivityBody
+          activity={current}
+          checked={checked}
+          onDone={record}
+          onContinue={advance}
+          compact={inline}
+          autoFocus={!inline || Object.keys(results).length > 0}
+        />
 
         {outcome && (
           <div className={cn('mt-6 animate-fade-up rounded-xl p-4', outcome.correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : outcome.note ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
@@ -257,6 +253,42 @@ export function PracticeSession({
       </div>
     </div>
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl')}>{worksheet}</div>
+    </>
+  )
+}
+
+/** Label + icon for an activity's kind (true/false shown separately from MC). */
+export function activityMeta(a: PracticeActivity): { label: string; icon: typeof Puzzle } {
+  return isTrueFalse(a) ? { label: 'True or false', icon: HelpCircle } : KIND_META[a.kind]
+}
+
+/**
+ * One activity's prompt, optional code snippet and interactive body. Shared by
+ * PracticeSession and Learn mode. `onDone(correct, note?)` fires once when the
+ * activity is answered; remount (via `key`) to reset it.
+ */
+export function ActivityBody({ activity, checked, onDone, onContinue, compact = false, autoFocus = true }: {
+  activity: PracticeActivity
+  checked: boolean
+  onDone: (correct: boolean, note?: string) => void
+  onContinue: () => void
+  compact?: boolean
+  autoFocus?: boolean
+}) {
+  return (
+    <>
+      {activity.kind !== 'fill' && activity.prompt && (
+        <p className={cn(fontDisplay, 'font-medium leading-snug text-slate-900', compact ? 'mb-4 text-lg' : 'mb-5 text-xl sm:text-[1.45rem]')}>
+          <InlineMarkdown text={activity.prompt} />
+        </p>
+      )}
+      {activity.code && activity.kind !== 'bug' && <CodeBlock lang={activity.code.lang} text={activity.code.text} compact className="mb-5 mt-0" />}
+      {activity.kind === 'match' && <MatchBoard activity={activity} onDone={onDone} />}
+      {activity.kind === 'fill' && <FillBlank activity={activity} onDone={onDone} checked={checked} onContinue={onContinue} compact={compact} autoFocus={autoFocus} />}
+      {activity.kind === 'order' && <OrderList activity={activity} onDone={onDone} checked={checked} />}
+      {activity.kind === 'sort' && <SortBoard activity={activity} onDone={onDone} checked={checked} />}
+      {activity.kind === 'choice' && <Choice activity={activity} onDone={onDone} checked={checked} />}
+      {activity.kind === 'bug' && <BugHunt activity={activity} onDone={onDone} checked={checked} />}
     </>
   )
 }
