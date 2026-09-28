@@ -122,13 +122,12 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     if (!user) return
     setIsDeleting(true)
     try {
+      // The API identifies the owner from the session token, not the body.
+      const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(`/api/study-guides/${studyGuide.id}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id }),
+        credentials: 'omit',
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
       })
 
       if (!response.ok) {

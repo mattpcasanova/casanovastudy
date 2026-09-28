@@ -496,7 +496,8 @@ function CodeTextarea({ value, onChange, placeholder, bindFirst }: { value: stri
       spellCheck={false}
       placeholder={placeholder}
       minRows={3}
-      className="rounded-lg bg-slate-900 px-3 py-2 font-mono text-[0.82rem] leading-relaxed text-slate-100 placeholder:text-slate-500"
+      // Override the inline-field hover/focus surfaces (slate-50 / white) so the dark editor stays dark.
+      className="rounded-lg bg-slate-900 px-3 py-2 font-mono text-[0.82rem] leading-relaxed text-slate-100 placeholder:text-slate-500 hover:bg-slate-800 focus:border-slate-600 focus:bg-slate-900 focus:ring-slate-700/50"
     />
   )
 }

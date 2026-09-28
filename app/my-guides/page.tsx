@@ -95,13 +95,14 @@ export default function MyGuidesPage() {
     setDeletingIds(new Set(idsToDelete))
 
     try {
+      // The API identifies the owner from the session token, not the body.
+      const { data: { session } } = await supabase.auth.getSession()
       const results = await Promise.allSettled(
         idsToDelete.map(id =>
           fetch(`/api/study-guides/${id}`, {
             method: 'DELETE',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id }),
+            credentials: 'omit',
+            headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
           })
         )
       )

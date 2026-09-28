@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 
+// Deletes a study guide the caller owns. Identity comes ONLY from the caller's
+// session (Bearer access token, or Supabase auth cookies) — never from the
+// request body. The delete runs as that user, so the owner-only RLS policy on
+// study_guides applies too.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -8,30 +13,18 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    // Get userId from request body or fall back to cookie auth
-    let userId: string | null = null
-    try {
-      const body = await request.json()
-      userId = body.userId
-    } catch {
-      // No body provided, try cookie auth
+    const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    const supabase = token
+      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        })
+      : createRouteHandlerClient(request)
+
+    const { data: { user } } = await supabase.auth.getUser(token || undefined)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!userId) {
-      const cookieUser = await getAuthenticatedUser(request)
-      userId = cookieUser?.id || null
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const supabase = createRouteHandlerClient(request)
-
-    // First verify the user owns this study guide
     const { data: guide, error: fetchError } = await supabase
       .from('study_guides')
       .select('user_id')
@@ -39,40 +32,31 @@ export async function DELETE(
       .single()
 
     if (fetchError || !guide) {
-      return NextResponse.json(
-        { error: 'Study guide not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Study guide not found' }, { status: 404 })
     }
 
-    if (guide.user_id !== userId) {
+    if (guide.user_id !== user.id) {
       return NextResponse.json(
         { error: 'You do not have permission to delete this study guide' },
         { status: 403 }
       )
     }
 
-    // Delete the study guide
-    const { error: deleteError } = await supabase
+    // .select() so a delete blocked by RLS (0 rows) is reported, not silently "successful".
+    const { data: deleted, error: deleteError } = await supabase
       .from('study_guides')
       .delete()
       .eq('id', id)
+      .select('id')
 
-    if (deleteError) {
-      console.error('Error deleting study guide:', deleteError)
-      return NextResponse.json(
-        { error: 'Failed to delete study guide' },
-        { status: 500 }
-      )
+    if (deleteError || !deleted || deleted.length === 0) {
+      console.error('Error deleting study guide:', deleteError ?? 'no rows deleted')
+      return NextResponse.json({ error: 'Failed to delete study guide' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-
   } catch (error) {
     console.error('Delete study guide error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
