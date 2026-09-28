@@ -1,14 +1,27 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Sparkles, Flag, Lightbulb, FileText, History } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Sparkles, Flag, Lightbulb, FileText, History, CalendarDays, Loader2, AlertCircle, X } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
-import { parsePlan, type PlanUnit, type PlanUnitFormat } from '@/lib/formats/plan'
+import { parsePlan, unitStudyRequest, type PlanUnit, type PlanUnitFormat } from '@/lib/formats/plan'
+import { scheduleUnits, fromISODate, toISODate, type PlanSchedule, type DaysPerWeek } from '@/lib/formats/schedule'
+import { loadProgress, saveProgress } from '@/lib/progress'
+import { generateGuide } from '@/lib/generate-guide'
 import { normalizeGuideMarkdown } from '@/lib/formats/normalize'
 import { StudyMarkdown } from './study-markdown'
 import { usePersistentSet } from './guide-parts'
@@ -16,6 +29,43 @@ import { usePersistentSet } from './guide-parts'
 interface PlanFormatProps {
   content: string
   studyGuideId: string
+  title: string
+  subject: string
+  gradeLevel: string
+  isOwner: boolean
+}
+
+type GenStatus = 'queued' | 'running' | 'error'
+
+// "2026-10-07" → "Wed, Oct 7" / "Today" / "Tomorrow"
+function friendlyDate(iso: string): string {
+  const today = toISODate(new Date())
+  const tomorrow = toISODate(new Date(Date.now() + 86_400_000))
+  if (iso === today) return 'Today'
+  if (iso === tomorrow) return 'Tomorrow'
+  return fromISODate(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+// Test-date schedule: browser copy for instant render, account copy wins.
+function usePlanSchedule(guideId: string): [PlanSchedule | null, (s: PlanSchedule | null) => void] {
+  const key = `cs:schedule:${guideId}`
+  const [schedule, setSchedule] = useState<PlanSchedule | null>(null)
+  useEffect(() => {
+    try { const raw = localStorage.getItem(key); if (raw) setSchedule(JSON.parse(raw)) } catch {}
+    let cancelled = false
+    loadProgress<{ schedule?: PlanSchedule | null }>(guideId, 'schedule').then((remote) => {
+      if (cancelled || !remote || !('schedule' in remote)) return
+      setSchedule(remote.schedule ?? null)
+      try { localStorage.setItem(key, JSON.stringify(remote.schedule ?? null)) } catch {}
+    })
+    return () => { cancelled = true }
+  }, [guideId, key])
+  const update = useCallback((next: PlanSchedule | null) => {
+    setSchedule(next)
+    try { localStorage.setItem(key, JSON.stringify(next)) } catch {}
+    void saveProgress(guideId, 'schedule', { schedule: next })
+  }, [guideId, key])
+  return [schedule, update]
 }
 
 const UNIT_FORMAT: Record<PlanUnitFormat, { label: string; icon: typeof List; text: string; bg: string }> = {
@@ -48,7 +98,7 @@ interface ChildGuide { id: string; title: string; plan_unit: string | null; crea
 // A plan is the roadmap; each unit becomes its own guide via the homepage
 // (/?plan=<id>&unit=<key> prefills the generator), linked back through
 // study_guides.parent_guide_id. "Studied" is a per-browser checkmark.
-export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
+export default function PlanFormat({ content, studyGuideId, title, subject, gradeLevel, isOwner }: PlanFormatProps) {
   const plan = useMemo(() => parsePlan(content), [content])
   const units = useMemo(() => plan.phases.flatMap((p) => p.units), [plan])
   const { user } = useAuth()
@@ -72,6 +122,57 @@ export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
       })
     return () => { cancelled = true }
   }, [studyGuideId, user])
+
+  const [schedule, setSchedule] = usePlanSchedule(studyGuideId)
+  const remainingKeys = useMemo(() => units.filter((u) => !studied.has(u.key)).map((u) => u.key), [units, studied])
+  const paced = useMemo(() => (schedule ? scheduleUnits(remainingKeys, schedule) : null), [schedule, remainingKeys])
+
+  // "Create all remaining guides": two at a time, each linked back to this plan.
+  const [gen, setGen] = useState<Record<string, GenStatus>>({})
+  const [confirmAll, setConfirmAll] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+  const running = Object.values(gen).some((g) => g === 'queued' || g === 'running')
+  const missing = units.filter((u) => !children[u.key])
+
+  useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => {
+    if (!running) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [running])
+
+  const generateAll = async () => {
+    const queue = [...missing]
+    if (!queue.length) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    setGen(Object.fromEntries(queue.map((u) => [u.key, 'queued' as GenStatus])))
+    const worker = async () => {
+      while (queue.length && !controller.signal.aborted) {
+        const unit = queue.shift()!
+        setGen((g) => ({ ...g, [unit.key]: 'running' }))
+        try {
+          const id = await generateGuide({
+            studyGuideName: unit.title,
+            subject: subject || 'general',
+            gradeLevel: gradeLevel || 'general',
+            format: unit.format,
+            studyRequest: unitStudyRequest(title, unit),
+            sourcePolicy: 'expand',
+            planId: studyGuideId,
+            planUnit: unit.key,
+          }, controller.signal)
+          setChildren((c) => ({ ...c, [unit.key]: { id, title: unit.title, plan_unit: unit.key, created_at: new Date().toISOString() } }))
+          setGen((g) => { const next = { ...g }; delete next[unit.key]; return next })
+        } catch {
+          if (controller.signal.aborted) return
+          setGen((g) => ({ ...g, [unit.key]: 'error' }))
+        }
+      }
+    }
+    await Promise.all([worker(), worker()])
+  }
 
   const totalMinutes = units.reduce((sum, u) => sum + minutesOf(u.time), 0)
   const doneCount = units.filter((u) => studied.has(u.key)).length
@@ -118,6 +219,42 @@ export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
         )}
       </div>
 
+      <ScheduleCard schedule={schedule} onChange={setSchedule} paced={paced} remaining={remainingKeys.length} />
+
+      {isOwner && (missing.length > 0 || running) && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <p className="text-sm text-slate-700">
+            {running
+              ? <><Loader2 className="mr-1.5 inline h-4 w-4 animate-spin text-teal-600" />Creating your guides — {Object.values(gen).filter((g) => g !== 'error').length} left. Keep this tab open; each unit links up as it finishes.</>
+              : <><span className="font-semibold text-slate-900">{missing.length} unit{missing.length === 1 ? '' : 's'}</span> {missing.length === 1 ? "doesn't have its" : "don't have their"} guide yet. Create them all at once instead of one by one.</>}
+          </p>
+          {running ? (
+            <button type="button" onClick={() => { abortRef.current?.abort(); setGen({}) }} className="shrink-0 rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white">
+              Stop
+            </button>
+          ) : (
+            <button type="button" onClick={() => setConfirmAll(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
+              <Sparkles className="h-4 w-4" /> Create all {missing.length} guides
+            </button>
+          )}
+        </div>
+      )}
+
+      <AlertDialog open={confirmAll} onOpenChange={setConfirmAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create {missing.length} guides?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Each unit gets its own guide in the format the plan suggests, linked back to this plan. It takes about {Math.max(1, Math.ceil(missing.length / 2))} minute{missing.length > 2 ? 's' : ''} — keep this tab open while it runs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-teal-600 hover:bg-teal-700" onClick={() => { void generateAll() }}>Create them</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {plan.overview && (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className={cn(fontDisplay, 'mb-3 text-xl font-semibold text-slate-900')}>{plan.overview.title}</h2>
@@ -143,6 +280,8 @@ export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
                 done={studied.has(unit.key)}
                 isNext={nextUp?.key === unit.key}
                 onToggle={() => toggleStudied(unit.key)}
+                dueDate={paced?.byUnit[unit.key]}
+                genStatus={gen[unit.key]}
               />
             ))}
           </ol>
@@ -161,13 +300,15 @@ export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
   )
 }
 
-function UnitCard({ unit, planId, child, done, isNext, onToggle }: {
+function UnitCard({ unit, planId, child, done, isNext, onToggle, dueDate, genStatus }: {
   unit: PlanUnit
   planId: string
   child?: ChildGuide
   done: boolean
   isNext: boolean
   onToggle: () => void
+  dueDate?: string
+  genStatus?: GenStatus
 }) {
   const fmt = UNIT_FORMAT[unit.format]
   const Icon = fmt.icon
@@ -202,6 +343,11 @@ function UnitCard({ unit, planId, child, done, isNext, onToggle }: {
             <span className="inline-flex items-center gap-1 text-slate-500"><Clock className="h-3.5 w-3.5" /> {unit.time}</span>
           )}
           {done && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Studied</span>}
+          {!done && dueDate && (
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5', dueDate === toISODate(new Date()) ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700')}>
+              <CalendarDays className="h-3.5 w-3.5" /> {friendlyDate(dueDate)}
+            </span>
+          )}
         </div>
         <h3 className={cn(fontDisplay, 'mt-2 text-lg font-semibold leading-snug', done ? 'text-slate-500' : 'text-slate-900')}>{unit.title}</h3>
         {unit.goal && <p className="mt-1 text-sm leading-relaxed text-slate-600">{unit.goal}</p>}
@@ -212,7 +358,14 @@ function UnitCard({ unit, planId, child, done, isNext, onToggle }: {
             ))}
           </div>
         )}
-        <UnitAction unit={unit} planId={planId} child={child} tone="light" />
+        {genStatus ? (
+          <p className={cn('mt-4 inline-flex items-center gap-1.5 text-sm font-medium print:hidden', genStatus === 'error' ? 'text-rose-600' : 'text-teal-700')}>
+            {genStatus === 'running' && <><Loader2 className="h-4 w-4 animate-spin" /> Creating this guide…</>}
+            {genStatus === 'queued' && <><Clock className="h-4 w-4" /> Waiting its turn…</>}
+            {genStatus === 'error' && <><AlertCircle className="h-4 w-4" /> Couldn&apos;t create it — try this one on its own.</>}
+          </p>
+        ) : null}
+        {genStatus !== 'running' && genStatus !== 'queued' && <UnitAction unit={unit} planId={planId} child={child} tone="light" />}
       </article>
     </li>
   )
@@ -240,6 +393,106 @@ function UnitAction({ unit, planId, child, tone }: { unit: PlanUnit; planId: str
           <Sparkles className="h-4 w-4" /> Create this guide
         </Link>
       )}
+    </div>
+  )
+}
+
+const DAY_OPTIONS: Array<{ value: DaysPerWeek; label: string }> = [
+  { value: 3, label: '3 days a week (Mon/Wed/Fri)' },
+  { value: 5, label: 'Weekdays' },
+  { value: 7, label: 'Every day' },
+]
+
+function ScheduleCard({ schedule, onChange, paced, remaining }: {
+  schedule: PlanSchedule | null
+  onChange: (s: PlanSchedule | null) => void
+  paced: ReturnType<typeof scheduleUnits> | null
+  remaining: number
+}) {
+  const [editing, setEditing] = useState(false)
+  const [date, setDate] = useState('')
+  const [days, setDays] = useState<DaysPerWeek>(5)
+  const tomorrow = toISODate(new Date(Date.now() + 86_400_000))
+
+  const startEdit = () => {
+    setDate(schedule?.testDate ?? '')
+    setDays(schedule?.daysPerWeek ?? 5)
+    setEditing(true)
+  }
+
+  if (editing || !schedule) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:hidden">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600"><CalendarDays className="h-5 w-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-slate-900">Have a test date?</p>
+            <p className="text-sm text-slate-500">Set it and we&apos;ll pace the units for you — it adjusts as you check units off.</p>
+            <form
+              className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!date) return
+                onChange({ testDate: date, daysPerWeek: days })
+                setEditing(false)
+              }}
+            >
+              <input
+                type="date"
+                required
+                min={tomorrow}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                aria-label="Test date"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+              />
+              <select
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value) as DaysPerWeek)}
+                aria-label="Study days per week"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+              >
+                {DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <div className="flex gap-2">
+                <button type="submit" className="h-10 rounded-lg bg-teal-600 px-4 text-sm font-semibold text-white transition hover:bg-teal-700">Set schedule</button>
+                {editing && (
+                  <button type="button" onClick={() => setEditing(false)} className="h-10 rounded-lg px-3 text-sm font-medium text-slate-500 hover:bg-slate-100">Cancel</button>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const past = !paced || paced.daysLeft <= 0
+  const dayLabel = DAY_OPTIONS.find((o) => o.value === schedule.daysPerWeek)?.label.replace(/ \(.*\)$/, '').toLowerCase()
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center print:hidden">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white"><CalendarDays className="h-5 w-5" /></span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-slate-900">
+          Test on {fromISODate(schedule.testDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+          {!past && <span className="font-normal text-slate-500"> · {paced!.daysLeft} day{paced!.daysLeft === 1 ? '' : 's'} left</span>}
+        </p>
+        <p className="text-sm text-slate-600">
+          {past
+            ? 'That date has passed — set a new one to keep pacing.'
+            : remaining === 0
+              ? 'Every unit is studied. Use the time left to review and retake quizzes.'
+              : paced!.studyDays === 0
+                ? 'No study days left before the test at this pace — try "Every day".'
+                : <>{remaining} unit{remaining === 1 ? '' : 's'} left · about <strong>{paced!.perWeek}</strong> a week ({dayLabel}){paced!.reviewDate ? <> · final review {friendlyDate(paced!.reviewDate)}</> : null}. Each unit shows its day below.</>}
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <button type="button" onClick={startEdit} className="rounded-lg px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50">Change</button>
+        <button type="button" onClick={() => onChange(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Remove schedule">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   )
 }

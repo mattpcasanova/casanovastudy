@@ -88,7 +88,7 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
           if (!ev.date) continue
           out.push({
             id: `t:${ev.key}`, kind: 'card', topic: era.title,
-            front: `When did this happen, and why did it matter?\n\n**${ev.title}**`,
+            front: `**${ev.title}** — when did it happen, and why did it matter?`,
             back: [`**${ev.date}**${ev.what ? ` — ${ev.what}` : ''}`, ev.why && `**Why it matters:** ${ev.why}`].filter(Boolean).join('\n\n'),
           })
         }

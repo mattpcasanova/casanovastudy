@@ -105,7 +105,7 @@ function EventItem({ ev, hidden, onReveal }: { ev: TimelineEvent; hidden: boolea
       onClick={onReveal}
       className="rounded-md bg-fuchsia-100 px-2 py-0.5 text-xs font-semibold text-fuchsia-700 ring-1 ring-inset ring-fuchsia-200 transition hover:bg-fuchsia-200 print:hidden"
     >
-      When? Tap to reveal
+      Show date
     </button>
   ) : (
     <span className="font-semibold tabular-nums text-fuchsia-700">{date}</span>
