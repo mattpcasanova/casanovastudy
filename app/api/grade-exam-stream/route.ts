@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { getAuthenticatedUser, createAdminClient } from '@/lib/supabase-server'
+import { parseGradingOutput } from '@/lib/grading/parse'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
 export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
@@ -83,102 +84,9 @@ function filterToMarkSchemeQuestions(
   })
 }
 
-// Helper to parse the grading response into structured breakdown
-function parseGradingResponse(content: string) {
-  const breakdown: Array<{
-    questionNumber: string
-    marksAwarded: number
-    marksPossible: number
-    explanation: string
-  }> = []
-
-  // Remove markdown formatting for easier parsing
-  const cleanContent = content.replace(/\*\*/g, '')
-
-  // Highly flexible pattern that captures ANY question-like entry with marks
-  // Matches: "Question X", "Section A 1(a)", "1a", "1(a)(i)", "Part A 1", "Option 1", etc. followed by Mark: X/Y
-  // The lookahead handles many boundary patterns for versatility across different exam formats:
-  // - "Question X" (standard)
-  // - "Section [A-Z]" (UK A-level style)
-  // - "Part [A-Z0-9]" (some US exams)
-  // - "Option [0-9]" (choice questions)
-  // - "[number][letter], Mark:" (bare numbered questions like "2b, Mark:")
-  // - Standard endings: Total, Percentage, Grade, Feedback, Strengths, Areas
-  // NOTE: The pattern `\d+[a-z]?\s*[),:]+\s*Mark` requires punctuation (comma, colon, or paren) before "Mark"
-  // to avoid false matches on phrases like "Lost 3 marks" which would truncate feedback
-  const questionPattern = /(?:Question\s+)?([A-Za-z0-9\s()]+?)[,:\s]+Mark[s]?[:\s]*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*[-–—:]?\s*(.*?)(?=(?:Question\s+\S)|(?:Section\s+[A-Z])|(?:Part\s+[A-Z0-9])|(?:Option\s+[0-9])|(?:\d+[a-z]?\s*[),:]+\s*Mark)|Total[:\s]|Percentage[:\s]|Grade[:\s]|Feedback\s*:|Strengths\s*:|Areas\s*:|$)/gis
-
-  const seenQuestions = new Set<string>()
-  const results: Array<{
-    questionNumber: string
-    marksAwarded: number
-    marksPossible: number
-    explanation: string
-    index: number
-  }> = []
-
-  let match
-  while ((match = questionPattern.exec(cleanContent)) !== null) {
-    const rawQuestionNum = match[1].trim()
-
-    // Validate question number format:
-    // - Should be short (real question numbers are < 50 chars to allow "Section C Option 2(a)")
-    // - Should not contain instruction-like phrases
-    // - Should start with digit, letter, or "Section"
-    if (rawQuestionNum.length > 50 ||
-        /according|scheme|grading|instruct|evaluat|systematic|shows|correct|identified|explained/i.test(rawQuestionNum) ||
-        !/^(\d|[a-z]|section|part|option)/i.test(rawQuestionNum)) continue
-
-    // Additional validation: must look like a question identifier
-    // Should contain at least one digit or be a section reference
-    if (!/\d/.test(rawQuestionNum) && !/^section/i.test(rawQuestionNum)) continue
-
-    const normalizedNum = normalizeQuestionNumber(rawQuestionNum)
-
-    // Skip duplicates
-    if (seenQuestions.has(normalizedNum)) continue
-    seenQuestions.add(normalizedNum)
-
-    results.push({
-      questionNumber: rawQuestionNum,
-      marksAwarded: parseFloat(match[2]),
-      marksPossible: parseFloat(match[3]),
-      explanation: match[4].trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ').substring(0, 2000),
-      index: match.index
-    })
-  }
-
-  // Sort by index to maintain order in which they appeared
-  results.sort((a, b) => a.index - b.index)
-
-  // Add to breakdown without the index
-  for (const r of results) {
-    breakdown.push({
-      questionNumber: r.questionNumber,
-      marksAwarded: r.marksAwarded,
-      marksPossible: r.marksPossible,
-      explanation: r.explanation
-    })
-  }
-
-  // NOTE: Questions are kept in the order Claude outputs them (mark scheme order)
-  // No sorting - chronological order as they appear on the test/mark scheme
-
-  // Always calculate totals from the breakdown (more accurate than Claude's Total line)
-  const totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
-  const totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
-
-  // Always calculate grade from percentage (American scale)
-  // Don't trust Claude's grade - it might use different scales (e.g., "E" which isn't American)
-  const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
-  let grade = 'F'
-  if (percentage >= 90) grade = 'A'
-  else if (percentage >= 80) grade = 'B'
-  else if (percentage >= 70) grade = 'C'
-  else if (percentage >= 60) grade = 'D'
-
-  return { breakdown, totalMarks, totalPossible, grade }
-}
+// Line-based parser (lib/grading/parse.ts) — the old single regex truncated
+// feedback at words like "percentage"/"total" and mixed "Question 1"/"2" labels.
+const parseGradingResponse = parseGradingOutput
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()

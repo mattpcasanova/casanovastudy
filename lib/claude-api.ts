@@ -960,10 +960,15 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
 
     console.log('📤 Starting streaming grading with', content.length, 'content items')
 
+    // Adaptive thinking: marking against a scheme is multi-step reasoning, and
+    // without it the same answer scored differently run-to-run (and feedback
+    // argued with itself). Only text_delta chunks are yielded below, so the
+    // thinking never reaches the parser. max_tokens leaves room for thinking +
+    // long multi-question breakdowns. (SDK 0.61 types lack 'adaptive'.)
     const stream = await this.anthropic.messages.stream({
       model: 'claude-sonnet-5',
-      max_tokens: 16384,
-      thinking: { type: 'disabled' },
+      max_tokens: 32000,
+      thinking: { type: 'adaptive' } as any,
       messages: [
         {
           role: 'user',

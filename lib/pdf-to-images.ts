@@ -141,9 +141,13 @@ export async function convertPdfToImages(
     }
 
     // Render page to canvas
+    // intent 'print': the default 'display' intent paces rendering with
+    // requestAnimationFrame, which browsers pause in background tabs — so a
+    // teacher who switched tabs while grading would see it stall indefinitely.
     await page.render({
       canvasContext: ctx,
       viewport: scaledViewport,
+      intent: 'print',
     }).promise
 
     // Compress the image
