@@ -47,6 +47,7 @@ import { fontDisplay } from '@/lib/formats/design'
 import { LibraryHeader, SearchBox, FilterChip, SelectToggle, relativeDate, CardSkeletonGrid } from '@/components/library/library-parts'
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
 import { CLASSES_ENABLED } from '@/lib/features'
+import { displaySubject, displayLevel } from '@/lib/study-options'
 
 // Cover styling per format. Class strings are literal so Tailwind keeps them.
 const FORMAT_CARD = {
@@ -187,11 +188,7 @@ export default function MyGuidesPage() {
     fetchMyGuides()
   }, [user, authLoading, router])
 
-  const formatSubject = (subject: string) => {
-    return subject.split('-').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ')
-  }
+
 
   // Filtered and sorted study guides
   const filteredAndSortedGuides = useMemo(() => {
@@ -280,7 +277,7 @@ export default function MyGuidesPage() {
                   <SelectContent>
                     <SelectItem value="all">All subjects</SelectItem>
                     {availableSubjects.filter((s) => s !== 'general').map(subject => (
-                      <SelectItem key={subject} value={subject}>{formatSubject(subject)}</SelectItem>
+                      <SelectItem key={subject} value={subject}>{displaySubject(subject)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -350,7 +347,7 @@ export default function MyGuidesPage() {
                 const meta = FORMAT_CARD[guide.format as keyof typeof FORMAT_CARD] ?? FORMAT_CARD.custom
                 const Icon = meta.icon
                 const isSelected = selectedIds.has(guide.id)
-                const details = [guide.subject, guide.grade_level].filter((v) => v && v !== 'general').map(formatSubject)
+                const details = [displaySubject(guide.subject), displayLevel(guide.grade_level)].filter(Boolean)
                 return (
                   <article
                     key={guide.id}

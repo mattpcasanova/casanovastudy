@@ -2,6 +2,9 @@ export interface StudyGuideData {
   files: File[]
   studyRequest?: string // what the student typed they want to study (may replace files)
   autoTitle?: boolean // name was left blank — use the generated guide's own title
+  goal?: string // what they're studying for (see GOALS in lib/study-options.ts)
+  sourcePolicy?: 'strict' | 'expand' // may the guide go beyond uploaded materials?
+  materialsKind?: 'notes' | 'assessment' | 'topic_list' // detected type of the uploads
   studyGuideName: string
   subject: string
   gradeLevel: string
@@ -44,6 +47,9 @@ export interface StudyGuideRequest {
   additionalInstructions?: string
   studyRequest?: string  // Typed topic/notes; lets students generate without files
   autoTitle?: boolean  // Replace studyGuideName with the generated H1 title
+  goal?: string
+  sourcePolicy?: string
+  materialsKind?: string
   userId?: string  // User ID to associate with the study guide
 }
 
@@ -96,6 +102,9 @@ export interface ClaudeApiRequest {
   difficultyLevel?: string
   additionalInstructions?: string
   studyRequest?: string
+  goal?: string
+  sourcePolicy?: 'strict' | 'expand'
+  materialsKind?: 'notes' | 'assessment' | 'topic_list'
 }
 
 export interface ClaudeApiResponse {

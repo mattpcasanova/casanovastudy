@@ -6,7 +6,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import {
   X,
@@ -23,6 +24,12 @@ import {
   Upload,
   PenLine,
   Puzzle,
+  Lightbulb,
+  GraduationCap,
+  Trophy,
+  Briefcase,
+  BadgeCheck,
+  Compass,
   ChevronDown,
   Check,
   PenSquare,
@@ -42,6 +49,7 @@ import { fontDisplay } from "@/lib/formats/design"
 import type { StudyGuideData } from "@/types"
 import { supabase } from "@/lib/supabase"
 import { extractMaterialExcerpt } from "@/lib/material-excerpt"
+import { SUBJECTS, LEVEL_GROUPS, GOALS, type StudyGoal, type MaterialsKind } from "@/lib/study-options"
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
@@ -157,29 +165,20 @@ const FORMATS: Array<{
   },
 ]
 
-const SUBJECTS = [
-  { value: "mathematics", label: "Mathematics" },
-  { value: "science", label: "Science" },
-  { value: "english", label: "English" },
-  { value: "history", label: "History / Social Studies" },
-  { value: "foreign-language", label: "Foreign Language" },
-  { value: "other", label: "Other" },
-]
-
-const GRADES = [
-  { value: "6th-8th", label: "6th–8th Grade" },
-  { value: "9th", label: "9th Grade" },
-  { value: "10th", label: "10th Grade" },
-  { value: "11th", label: "11th Grade" },
-  { value: "12th", label: "12th Grade" },
-  { value: "college", label: "College" },
-]
+const GOAL_ICONS: Record<StudyGoal, typeof GraduationCap> = {
+  class: GraduationCap,
+  exam: Trophy,
+  interview: Briefcase,
+  certification: BadgeCheck,
+  learning: Compass,
+}
 
 const EXAMPLES = [
   "Photosynthesis and cellular respiration",
-  "Causes of World War I",
-  "Solving quadratic equations",
+  "SAT Math: linear equations and functions",
+  "Coding interview: arrays, hashing, and two pointers",
   "Spanish preterite vs. imperfect",
+  "AWS Cloud Practitioner basics",
 ]
 
 
@@ -202,7 +201,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [gradeLevel, setGradeLevel] = useState("")
   const [format, setFormat] = useState<FormatValue | "">("")
   const [topicFocus, setTopicFocus] = useState("")
-  const [difficultyLevel, setDifficultyLevel] = useState("")
+  const [goal, setGoal] = useState<StudyGoal | "">("")
+  const [strictSources, setStrictSources] = useState(true)
+  const [materialsKind, setMaterialsKind] = useState<MaterialsKind | null>(null)
   const [additionalInstructions, setAdditionalInstructions] = useState("")
   const [showMore, setShowMore] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -223,6 +224,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const { toast } = useToast()
 
   useEffect(() => {
+    if (files.length === 0) setMaterialsKind(null)
     if (files.length === 0 || isGenerating) return
     if (studyRequest.trim() && !autoFilled) return
     const run = ++describeRun.current
@@ -245,7 +247,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           body: JSON.stringify({ files: excerpts }),
         })
         if (!res.ok || run !== describeRun.current) return
-        const { description, subject: suggested } = await res.json()
+        const { description, subject: suggested, kind } = await res.json()
         if (run !== describeRun.current) return
         if (description) {
           // Re-check: the student may have started typing while we waited.
@@ -257,6 +259,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           })
         }
         if (suggested) setSubject((cur) => cur || suggested)
+        if (kind) setMaterialsKind(kind)
       } catch (err) {
         console.warn("Could not describe materials:", err)
       } finally {
@@ -370,7 +373,10 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       gradeLevel: gradeLevel || "general",
       format: format as FormatValue,
       topicFocus: topicFocus || undefined,
-      difficultyLevel: (difficultyLevel || undefined) as StudyGuideData["difficultyLevel"],
+      goal: goal || undefined,
+      // Quizzes and topic lists need teaching beyond the file itself.
+      sourcePolicy: files.length > 0 && strictSources && materialsKind !== "assessment" && materialsKind !== "topic_list" ? "strict" : "expand",
+      materialsKind: files.length > 0 ? materialsKind ?? undefined : undefined,
       additionalInstructions: additionalInstructions || undefined,
     })
   }
@@ -432,7 +438,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             <span className="block text-yellow-300">to study today?</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-50 sm:text-xl">
-            Type a topic, paste your notes, or upload your class slides — and get a study guide built for your next test.
+            Type a topic, paste your notes, or upload your materials — and get a study guide built for your class, exam, interview, or just for learning.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
             {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice"].map((l) => (
@@ -491,7 +497,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 }}
                 disabled={isGenerating}
                 rows={6}
-                placeholder={"e.g. The French Revolution — causes, key events, and outcomes for my unit test on Friday."}
+                placeholder={"e.g. The French Revolution for my unit test on Friday — or SAT reading, a coding interview, AWS certification…"}
                 className="min-h-[10rem] flex-1 resize-none border-0 bg-transparent px-4 pb-4 pt-2 text-base leading-relaxed shadow-none placeholder:text-slate-400 focus-visible:ring-0 sm:text-[1.05rem]"
               />
             </div>
@@ -510,7 +516,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-600/30 transition group-hover:scale-105">
                   <Upload className="h-6 w-6" />
                 </span>
-                <span className="font-semibold text-slate-900">{files.length ? "Add more files" : "Upload class materials"}</span>
+                <span className="font-semibold text-slate-900">{files.length ? "Add more files" : "Upload your materials"}</span>
                 <span className="mt-1 text-sm text-slate-500">
                   Drag &amp; drop or <span className="font-semibold text-blue-700 underline-offset-2 group-hover:underline">browse</span>
                 </span>
@@ -554,6 +560,32 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               )}
             </div>
           </div>
+
+          {/* How the uploads are used */}
+          {files.length > 0 && (
+            materialsKind === "assessment" || materialsKind === "topic_list" ? (
+              <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+                <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <span>
+                  {materialsKind === "assessment"
+                    ? <><strong>This looks like a quiz or test.</strong> Your guide will teach what each question is testing, show how to solve them, and add fresh practice like it.</>
+                    : <><strong>This looks like a list of topics.</strong> Your guide will teach each one, in the same order.</>}
+                </span>
+              </div>
+            ) : (
+              <label className="mt-4 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+                <span className="text-sm">
+                  <span className="block font-semibold text-slate-800">Only use what&apos;s in my files</span>
+                  <span className="text-slate-500">
+                    {strictSources
+                      ? "Sticks to your materials — best when your teacher tests exactly what's in them."
+                      : "Uses your files as the backbone and fills gaps with outside knowledge."}
+                  </span>
+                </span>
+                <Switch checked={strictSources} onCheckedChange={setStrictSources} disabled={isGenerating} className="mt-0.5" />
+              </label>
+            )
+          )}
 
           {!studyRequest && files.length === 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -625,32 +657,64 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         <section className="mt-14">
           <StepHeading n={3} title="Add details" />
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="mb-6">
+              <Label className="mb-2.5 block text-base font-semibold text-slate-800">
+                What are you studying for? <span className="font-normal text-slate-400">(optional)</span>
+              </Label>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup">
+                {GOALS.map((g) => {
+                  const Icon = GOAL_ICONS[g.value]
+                  const on = goal === g.value
+                  return (
+                    <button
+                      key={g.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={isGenerating}
+                      onClick={() => setGoal(on ? "" : g.value)}
+                      className={cn(
+                        "flex flex-col items-start rounded-xl border-2 px-3.5 py-3 text-left transition",
+                        on ? "border-blue-500 bg-blue-50/70 ring-4 ring-blue-500/10" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                      )}
+                    >
+                      <Icon className={cn("mb-2 h-5 w-5", on ? "text-blue-600" : "text-slate-400")} />
+                      <span className="font-semibold leading-tight text-slate-900">{g.label}</span>
+                      <span className="mt-0.5 text-xs leading-snug text-slate-500">{g.hint}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label className="mb-2 block text-base font-semibold text-slate-800">Subject <span className="font-normal text-slate-400">(optional)</span></Label>
-                <Select value={subject} onValueChange={(v) => { setSubject(v); setErrors((p) => ({ ...p, subject: "" })) }} disabled={isGenerating}>
-                  <SelectTrigger className={cn("h-12 w-full bg-white text-base", errors.subject && "border-rose-400")}>
-                    <SelectValue placeholder="Any subject" />
+                <Select value={subject} onValueChange={setSubject} disabled={isGenerating}>
+                  <SelectTrigger className="h-12 w-full bg-white text-base">
+                    <SelectValue placeholder="Figure it out for me" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">Any subject</SelectItem>
+                    <SelectItem value="general">Figure it out for me</SelectItem>
                     {SUBJECTS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {errors.subject && <p className="mt-1 text-sm text-rose-600">{errors.subject}</p>}
               </div>
               <div>
-                <Label className="mb-2 block text-base font-semibold text-slate-800">Grade level <span className="font-normal text-slate-400">(optional)</span></Label>
-                <Select value={gradeLevel} onValueChange={(v) => { setGradeLevel(v); setErrors((p) => ({ ...p, gradeLevel: "" })) }} disabled={isGenerating}>
-                  <SelectTrigger className={cn("h-12 w-full bg-white text-base", errors.gradeLevel && "border-rose-400")}>
-                    <SelectValue placeholder="Any level" />
+                <Label className="mb-2 block text-base font-semibold text-slate-800">Your level <span className="font-normal text-slate-400">(optional)</span></Label>
+                <Select value={gradeLevel} onValueChange={setGradeLevel} disabled={isGenerating}>
+                  <SelectTrigger className="h-12 w-full bg-white text-base">
+                    <SelectValue placeholder="Figure it out for me" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">Any level</SelectItem>
-                    {GRADES.map((g) => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
+                    <SelectItem value="general">Figure it out for me</SelectItem>
+                    {LEVEL_GROUPS.map((group) => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel className="text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</SelectLabel>
+                        {group.levels.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                      </SelectGroup>
+                    ))}
                   </SelectContent>
                 </Select>
-                {errors.gradeLevel && <p className="mt-1 text-sm text-rose-600">{errors.gradeLevel}</p>}
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="studyGuideName" className="mb-2 block text-base font-semibold text-slate-800">
@@ -680,43 +744,22 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             <div className={cn("grid transition-all duration-300 ease-out", showMore ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
               <div className="overflow-hidden">
                 <div className="grid gap-4 pb-1 sm:grid-cols-2">
-                  <div>
+                  <div className="sm:col-span-2">
                     <Label htmlFor="topic-focus" className="mb-1.5 block text-sm font-medium text-slate-700">Focus on</Label>
                     <Input
                       id="topic-focus"
-                      placeholder="e.g. Chapters 3–4 only"
+                      placeholder="e.g. Chapters 3–4 only, or just the dynamic programming problems"
                       value={topicFocus}
                       onChange={(e) => setTopicFocus(e.target.value)}
                       disabled={isGenerating}
                       className="h-11"
                     />
                   </div>
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-medium text-slate-700">Difficulty</Label>
-                    <div className="grid h-11 grid-cols-3 rounded-lg bg-slate-100 p-1" role="radiogroup">
-                      {["beginner", "intermediate", "advanced"].map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          role="radio"
-                          aria-checked={difficultyLevel === d}
-                          onClick={() => setDifficultyLevel(difficultyLevel === d ? "" : d)}
-                          disabled={isGenerating}
-                          className={cn(
-                            "rounded-md text-sm font-medium capitalize transition",
-                            difficultyLevel === d ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                          )}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                   <div className="sm:col-span-2">
                     <Label htmlFor="instructions" className="mb-1.5 block text-sm font-medium text-slate-700">Anything else?</Label>
                     <Textarea
                       id="instructions"
-                      placeholder="e.g. Include more practice with vocabulary, keep explanations short"
+                      placeholder="e.g. Use Java for code examples, keep explanations short, more practice problems"
                       value={additionalInstructions}
                       onChange={(e) => setAdditionalInstructions(e.target.value)}
                       rows={3}

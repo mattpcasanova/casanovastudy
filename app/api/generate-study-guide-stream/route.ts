@@ -3,6 +3,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
 import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { GOAL_VALUES, MATERIALS_KINDS, type MaterialsKind } from '@/lib/study-options'
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
@@ -85,7 +86,10 @@ export async function POST(request: NextRequest) {
           topicFocus: body.topicFocus,
           difficultyLevel: body.difficultyLevel,
           additionalInstructions: body.additionalInstructions,
-          studyRequest: studyRequest || undefined
+          studyRequest: studyRequest || undefined,
+          goal: body.goal && GOAL_VALUES.includes(body.goal) ? body.goal : undefined,
+          sourcePolicy: body.sourcePolicy === 'expand' ? 'expand' : 'strict',
+          materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
         })
 
         for await (const chunk of streamGenerator) {

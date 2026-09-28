@@ -104,6 +104,9 @@ export default function Home() {
         additionalInstructions: data.additionalInstructions,
         studyRequest: data.studyRequest,
         autoTitle: data.autoTitle,
+        goal: data.goal,
+        sourcePolicy: data.sourcePolicy,
+        materialsKind: data.materialsKind,
         userId: user?.id
       }
 

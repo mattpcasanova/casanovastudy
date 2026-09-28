@@ -25,6 +25,7 @@ import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
 import PracticeFormat from '@/components/formats/practice-format'
 import { CLASSES_ENABLED } from '@/lib/features'
+import { displaySubject, displayLevel } from '@/lib/study-options'
 import CustomFormat from '@/components/formats/custom-format'
 import EmailShareDialog from '@/components/email-share-dialog'
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
@@ -32,7 +33,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
-import { fontDisplay, formatAccent, capitalizeFirst } from '@/lib/formats/design'
+import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
 
 const FORMAT_META = {
@@ -192,7 +193,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       <PageBanner
         title={studyGuide.title}
         label={fmt.label}
-        meta={[studyGuide.subject, studyGuide.grade_level].filter((v) => v && v !== 'general').map(capitalizeFirst).join(' · ') || undefined}
+        meta={[displaySubject(studyGuide.subject), displayLevel(studyGuide.grade_level)].filter(Boolean).join(' · ') || undefined}
         accent={fmt.accent}
         icon={fmt.icon}
         onBack={() => router.back()}
