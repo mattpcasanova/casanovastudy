@@ -264,16 +264,35 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
         )}
       </div>
 
-      {/* Print version */}
-      <div className="hidden space-y-5 print:block">
-        {allQuestions.map((q, i) => (
-          <div key={q.id} className="break-inside-avoid rounded-lg border border-slate-300 p-5">
-            <p className="mb-3 font-semibold">{i + 1}. <InlineMarkdown text={q.question} /></p>
-            {q.type === 'mc' && <div className="ml-6 space-y-1">{q.options.map((o, oi) => <div key={oi}>{String.fromCharCode(65 + oi)}. <InlineMarkdown text={o} /></div>)}</div>}
-            {q.type === 'tf' && <div className="ml-6">○ True &nbsp;&nbsp; ○ False</div>}
-            {q.type === 'sa' && <div className="ml-6 space-y-2"><div className="h-8 border-b border-slate-300" /><div className="h-8 border-b border-slate-300" /></div>}
-          </div>
-        ))}
+      {/* Print version: the questions, then an answer key on its own page */}
+      <div className="hidden print:block">
+        <ol className="divide-y divide-slate-200">
+          {allQuestions.map((q, i) => (
+            <li key={q.id} className="break-inside-avoid py-3 text-sm">
+              {q.section && (i === 0 || allQuestions[i - 1].section !== q.section) && (
+                <p className={cn(fontDisplay, 'break-after-avoid pb-2 text-base font-semibold text-slate-900')}>{q.section}</p>
+              )}
+              <p className="mb-2 font-semibold text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+              {q.type === 'mc' && <div className="ml-5 space-y-1">{q.options.map((o, oi) => <div key={oi}>○ <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span> <InlineMarkdown text={o} /></div>)}</div>}
+              {q.type === 'tf' && <div className="ml-5">○ True &nbsp;&nbsp;&nbsp; ○ False</div>}
+              {q.type === 'sa' && <div className="ml-5 space-y-2"><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /></div>}
+            </li>
+          ))}
+        </ol>
+        <div className="break-before-page pt-2">
+          <h3 className={cn(fontDisplay, 'border-b border-slate-300 pb-1 text-lg font-semibold text-slate-900')}>Answer key</h3>
+          <ol className="mt-2 space-y-1.5 text-sm">
+            {allQuestions.map((q, i) => (
+              <li key={q.id} className="break-inside-avoid">
+                <span className="font-semibold">{i + 1}.</span>{' '}
+                {q.type === 'mc' && <><span className="font-semibold">{String.fromCharCode(65 + q.options.indexOf(q.correctAnswer))}.</span> <InlineMarkdown text={q.correctAnswer} /></>}
+                {q.type === 'tf' && (q.correctAnswer ? 'True' : 'False')}
+                {q.type === 'sa' && <InlineMarkdown text={q.sampleAnswer} />}
+                {q.explanation && <span className="text-slate-500"> — <InlineMarkdown text={q.explanation} /></span>}
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </div>
   )
@@ -611,7 +630,7 @@ function parseQuizContent(content: string): Question[] {
           sampleAnswer = strip(l.replace(/^\*{0,2}(?:sample |model )?answer\s*:\*{0,2}\s*/i, ''))
           for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
             const next = lines[k]
-            if (isQuestion(next) || /^#{1,6}\s/.test(next) || explanationOf(next)) break
+            if (isQuestion(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next)) break
             sampleAnswer += ' ' + strip(next)
           }
         }

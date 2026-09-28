@@ -188,7 +188,7 @@ function buildComponents(compact: boolean): Components {
       <input type="checkbox" defaultChecked={!!checked} className="mr-2 h-4 w-4 translate-y-0.5 rounded border-slate-300 accent-blue-600" />
     ),
     table: ({ children }) => (
-      <div className="not-prose my-5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm print:break-inside-avoid">
+      <div className="not-prose my-5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full border-collapse text-left text-sm">{children}</table>
       </div>
     ),

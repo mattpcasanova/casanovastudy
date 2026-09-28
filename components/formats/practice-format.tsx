@@ -12,6 +12,7 @@ import {
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
 import { CodeBlock, CodeLines } from './code-view'
+import { PracticeWorksheet } from './practice-worksheet'
 
 interface PracticeFormatProps {
   content: string
@@ -116,9 +117,18 @@ export function PracticeSession({
   if (all.length === 0) return null
 
   const correctCount = activities.filter((a) => results[a.id]?.correct).length
+  // Printing swaps the one-at-a-time session for a full worksheet + answer key.
+  const worksheet = <PracticeWorksheet activities={all} title={inline ? title : undefined} className={cn('hidden print:block', inline && 'my-4')} />
 
   if (done) {
-    return <Results activities={activities} results={results} bestStreak={bestStreak} onRestart={restart} isRetry={!!subset} inline={inline} title={title} />
+    return (
+      <>
+        <div className="print:hidden">
+          <Results activities={activities} results={results} bestStreak={bestStreak} onRestart={restart} isRetry={!!subset} inline={inline} title={title} />
+        </div>
+        {worksheet}
+      </>
+    )
   }
 
   const meta = isTrueFalse(current) ? { label: 'True or false', icon: HelpCircle } : KIND_META[current.kind]
@@ -201,6 +211,7 @@ export function PracticeSession({
 
   if (inline) {
     return (
+      <>
       <div ref={topRef} onKeyDown={onEnter} className="scroll-mt-36 overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-sm print:hidden">
         <div className="space-y-2 border-b border-orange-100 bg-orange-50/60 px-5 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -214,11 +225,14 @@ export function PracticeSession({
         </div>
         <div key={`${current.id}-${round}`} className="animate-fade-up">{body}</div>
       </div>
+      {worksheet}
+      </>
     )
   }
 
   return (
-    <div ref={topRef} className={cn(displaySerif.variable, 'mx-auto max-w-3xl scroll-mt-6 space-y-5')}>
+    <>
+    <div ref={topRef} className={cn(displaySerif.variable, 'mx-auto max-w-3xl scroll-mt-6 space-y-5 print:hidden')}>
       {/* Progress */}
       <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div className="mb-2.5 flex items-center justify-between gap-3 text-sm">
@@ -242,6 +256,8 @@ export function PracticeSession({
         {body}
       </div>
     </div>
+    <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl')}>{worksheet}</div>
+    </>
   )
 }
 

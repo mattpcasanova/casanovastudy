@@ -75,7 +75,7 @@ function SummarySection({ card, standalone = false }: { card: GuideCard; standal
   const { text } = splitNumbering(card.title)
   if (card.kind === 'review') {
     return (
-      <section id={card.id} className="mt-12 scroll-mt-6 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-5 sm:p-6 print:break-inside-avoid">
+      <section id={card.id} className="mt-12 scroll-mt-6 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-5 sm:p-6">
         <p className={cn(eyebrow, 'mb-1 flex items-center gap-1.5 text-green-800')}><Sparkles className="h-3.5 w-3.5" /> Wrap-up</p>
         <h2 className={cn(fontDisplay, 'mb-3 text-2xl font-semibold text-slate-900')}>{text}</h2>
         <StudyMarkdown content={card.body} />

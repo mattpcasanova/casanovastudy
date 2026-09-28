@@ -327,11 +327,11 @@ function SectionCard({ section, ctx, level }: { section: CustomSection; ctx: Ren
     <section
       id={`sec-${section.id}`}
       className={cn(
-        'scroll-mt-36 print:break-inside-avoid',
+        'scroll-mt-36',
         top ? 'rounded-2xl border border-slate-200 bg-white shadow-sm' : 'border-l-2 border-slate-200 pl-4'
       )}
     >
-      <div className={cn('flex items-center gap-3', top ? 'px-5 py-4 sm:px-6' : 'py-1')}>
+      <div className={cn('flex items-center gap-3 print:break-after-avoid', top ? 'px-5 py-4 sm:px-6' : 'py-1')}>
         <button
           type="button"
           role="checkbox"
@@ -456,7 +456,7 @@ function TableBlock({
 }) {
   const s = TABLE_HEADER_STYLES[headerStyle || 'default'] ?? TABLE_HEADER_STYLES.default
   return (
-    <figure className="print:break-inside-avoid">
+    <figure>
       {title && <figcaption className="mb-2 text-sm font-semibold text-slate-700">{title}</figcaption>}
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full border-collapse text-sm">

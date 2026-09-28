@@ -206,7 +206,42 @@
   }
 
   @page {
-    margin: 1in;
+    margin: 0.6in 0.65in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Keep headings with the content that follows them; never split small blocks. */
+  h1, h2, h3, h4, h5, h6, figcaption {
+    break-after: avoid;
+  }
+  /* Small blocks stay whole; tables split between rows (header repeats). */
+  figure:not(:has(table)), pre, .study-code, aside, tr {
+    break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+
+  /* Scroll containers would clip wide tables/diagrams on paper. */
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  /* Paper doesn't need drop shadows. */
+  .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  .break-before-page {
+    break-before: page;
+  }
+  .break-after-avoid {
+    break-after: avoid;
   }
 }
 
@@ -256,4 +291,6 @@
   .study-code .hljs-number, .study-code .hljs-literal { color: #0550ae; }
   .study-code .hljs-title, .study-code .hljs-title.function_ { color: #8250df; }
   .study-code .hljs-built_in, .study-code .hljs-type, .study-code .hljs-title.class_ { color: #953800; }
+  .study-code .hljs-params, .study-code .hljs-variable, .study-code .hljs-attr, .study-code .hljs-property,
+  .study-code .hljs-subst, .study-code .hljs-punctuation, .study-code .hljs-operator { color: #24292f; }
 }

@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -60,6 +60,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [parentPlan, setParentPlan] = useState<{ id: string; title: string } | null>(null)
 
   // Guides generated from a study plan unit link back to the plan.
@@ -146,6 +147,40 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     window.print()
   }
 
+  // Server renders this page in print mode via PDFShift, so the file matches Print.
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sign in to download PDFs.')
+      const res = await fetch(`/api/pdf/guide/${studyGuide.id}`, {
+        credentials: 'omit',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || 'Could not create the PDF.')
+      }
+      const url = URL.createObjectURL(await res.blob())
+      const match = res.headers.get('content-disposition')?.match(/filename="([^"]+)"/)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = match?.[1] || 'study-guide.pdf'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch (err) {
+      toast({
+        title: 'Download failed',
+        description: err instanceof Error ? err.message : 'Could not create the PDF.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -191,7 +226,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   }
 
   return (
-    <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50')}>
+    <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50 print:min-h-0 print:bg-white')}>
       {/* Navigation Header */}
       <div className="print:hidden">
         <NavigationHeader
@@ -288,6 +323,18 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             <Printer className="h-4 w-4 mr-2" />
             Print to PDF
           </Button>
+          {user && (
+            <Button
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+              variant="outline"
+              className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
+              size="lg"
+            >
+              {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+              {isDownloading ? 'Preparing PDF…' : 'Download PDF'}
+            </Button>
+          )}
           <Button
             onClick={() => { handleShare(); setIsMenuOpen(false); }}
             variant="outline"
@@ -369,19 +416,22 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         </Button>
       </div>
 
+      {/* Print-only header — must come before the content so it prints on page 1 */}
+      <header className="hidden print:block">
+        <div className="mb-6 border-b-2 border-slate-800 pb-3">
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            {[fmt.label, displaySubject(studyGuide.subject), displayLevel(studyGuide.grade_level)].filter(Boolean).join(' · ')}
+          </p>
+          <h1 className={cn(fontDisplay, 'mt-1 text-3xl font-semibold leading-tight text-slate-900')}>{studyGuide.title}</h1>
+        </div>
+      </header>
+
       {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 print:max-w-none print:px-0 print:py-0">
         {renderFormat()}
       </div>
 
-      {/* Print-only header */}
-      <div className="hidden print:block">
-        <div className="text-center mb-8 pb-4 border-b-2 border-slate-300">
-          <h1 className={cn(fontDisplay, 'text-3xl font-semibold text-slate-900 mb-2')}>{studyGuide.title}</h1>
-          <p className="text-lg text-slate-600">{studyGuide.subject} • Grade {studyGuide.grade_level}</p>
-          <p className="text-sm text-slate-400 mt-2">Generated with CasanovaStudy</p>
-        </div>
-      </div>
+      <p className="hidden pt-6 text-center text-[0.7rem] text-slate-400 print:block">Made with Casanova Study</p>
 
       <Toaster />
     </div>

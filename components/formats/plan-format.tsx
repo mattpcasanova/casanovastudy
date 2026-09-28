@@ -88,7 +88,7 @@ export default function PlanFormat({ content, studyGuideId }: PlanFormatProps) {
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-4xl space-y-8')}>
       {/* Progress summary */}
-      <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
+      <div className="grid gap-4 md:grid-cols-[1fr_1.2fr] print:hidden">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className={cn(eyebrow, 'text-teal-700')}>Your progress</p>
           <p className={cn(fontDisplay, 'mt-2 text-4xl font-semibold text-slate-900')}>
@@ -190,6 +190,8 @@ function UnitCard({ unit, planId, child, done, isNext, onToggle }: {
         )}
       >
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          {/* Printed plans get a box to tick off by hand */}
+          <span aria-hidden className="hidden h-4 w-4 rounded-sm border-2 border-slate-500 print:inline-block" />
           <span className="text-slate-400">Unit {unit.number}</span>
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5', fmt.bg, fmt.text)}>
             <Icon className="h-3.5 w-3.5" /> {fmt.label}

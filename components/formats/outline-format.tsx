@@ -187,13 +187,13 @@ function TopicCard({
     <article
       id={card.id}
       className={cn(
-        'scroll-mt-28 overflow-hidden rounded-xl border border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md print:break-inside-avoid print:shadow-none',
+        'scroll-mt-28 overflow-hidden rounded-xl border border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md print:shadow-none',
         isReview ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200',
         edge,
         done && 'bg-slate-50/80'
       )}
     >
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-3 px-4 py-3 print:break-after-avoid">
         {isReview ? (
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><ClipboardCheck className="h-4 w-4" /></span>
         ) : (
