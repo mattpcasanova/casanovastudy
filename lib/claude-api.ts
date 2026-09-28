@@ -1288,7 +1288,7 @@ Remember: This is a learning opportunity. Be supportive and help them understand
     const { markSchemeText, studentExamText, markSchemeFile, studentExamFile } = params
     
     // Build content array - mix of text and images
-    const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = []
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: 'image/png' | 'image/jpeg'; data: string } }> = []
     
     // Start with the instruction
     content.push({

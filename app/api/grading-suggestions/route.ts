@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Extract unique values from grading results
-    const gradingValues = data
-      .map((row: Record<string, string | null>) => row[dbColumn])
+    const gradingValues = (data as unknown as Record<string, string | null>[])
+      .map((row) => row[dbColumn])
       .filter((val): val is string => val !== null && val.trim() !== '')
 
     // For className and classPeriod, also fetch from student_classes

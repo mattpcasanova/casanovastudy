@@ -233,8 +233,6 @@ export async function POST(request: NextRequest) {
       magicLink: sessionData.properties?.hashed_token
         ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?token_hash=${sessionData.properties.hashed_token}&type=magiclink`
         : null,
-      // Fallback: return verification URL if available
-      verificationUrl: sessionData.properties?.verification_token
     })
 
     return response

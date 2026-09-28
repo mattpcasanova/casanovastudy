@@ -27,21 +27,21 @@ interface GradingResult {
   exam_title: string | null
 }
 
-interface EditReportDialogProps {
+interface EditReportDialogProps<T extends GradingResult> {
   open: boolean
   onOpenChange: (open: boolean) => void
-  selectedReports: GradingResult[]
-  onSave: (updatedReports: GradingResult[]) => void
+  selectedReports: T[]
+  onSave: (updatedReports: T[]) => void
   userId: string | null
 }
 
-export function EditReportDialog({
+export function EditReportDialog<T extends GradingResult>({
   open,
   onOpenChange,
   selectedReports,
   onSave,
   userId
-}: EditReportDialogProps) {
+}: EditReportDialogProps<T>) {
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -153,7 +153,7 @@ export function EditReportDialog({
         }
 
         // Update local state
-        const updatedReport: GradingResult = {
+        const updatedReport: T = {
           ...singleReport,
           student_name: result.data.studentName,
           student_first_name: result.data.studentFirstName,

@@ -7,12 +7,12 @@ import { createCanvas } from 'canvas'
 if (typeof globalThis.DOMMatrix === 'undefined') {
   // Simple DOMMatrix polyfill for pdfjs-dist
   class DOMMatrixPolyfill {
-    a: number
-    b: number
-    c: number
-    d: number
-    e: number
-    f: number
+    a!: number
+    b!: number
+    c!: number
+    d!: number
+    e!: number
+    f!: number
     
     constructor(init?: string | number[]) {
       if (typeof init === 'string') {
@@ -157,10 +157,12 @@ export async function convertPDFToImages(pdfBuffer: Buffer, maxPages: number = 1
         }
         
         // Render the PDF page to the canvas
+        // node-canvas stands in for the DOM canvas pdf.js types expect. Pass only
+        // the context: with `canvas` set, pdf.js ignores it and makes its own.
         const renderContext = {
           canvasContext: context,
           viewport: viewport
-        }
+        } as unknown as Parameters<typeof page.render>[0]
         
         await page.render(renderContext).promise
         

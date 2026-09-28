@@ -48,7 +48,7 @@ export async function GET(
     const guides = (data ?? []).map(row => ({
       assignmentId: row.id,
       assignedAt: row.assigned_at,
-      ...(row.study_guides as Record<string, unknown>),
+      ...(row.study_guides as unknown as Record<string, unknown>),
     }))
 
     return NextResponse.json({ guides })

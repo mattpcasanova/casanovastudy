@@ -100,15 +100,15 @@ export async function POST(request: NextRequest) {
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
         })
 
-        for await (const chunk of streamGenerator) {
-          if (typeof chunk === 'string') {
-            fullContent += chunk
-            // Send content chunk
-            controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'content', chunk }) + '\n\n'))
-          } else {
-            // Final result with usage
-            usage = chunk.usage
+        // Iterate manually: for-await drops the generator's return value (the usage).
+        while (true) {
+          const next = await streamGenerator.next()
+          if (next.done) {
+            usage = next.value?.usage ?? null
+            break
           }
+          fullContent += next.value
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'content', chunk: next.value }) + '\n\n'))
         }
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Saving to database...' }) + '\n\n'))

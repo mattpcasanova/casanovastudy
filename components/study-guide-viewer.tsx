@@ -55,7 +55,7 @@ interface StudyGuideViewerProps {
 }
 
 export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -230,10 +230,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50 print:min-h-0 print:bg-white')}>
       {/* Navigation Header */}
       <div className="print:hidden">
-        <NavigationHeader
-          user={user}
-          onSignOut={signOut}
-        />
+        <NavigationHeader />
       </div>
 
       {/* Title Banner */}
@@ -285,7 +282,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       )}
 
       {/* Floating Action Menu */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden">
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end print:hidden">
         {/* Expandable Menu */}
         <div className={`flex flex-col gap-2 mb-3 transition-all duration-300 ${isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
           {canSave && (
