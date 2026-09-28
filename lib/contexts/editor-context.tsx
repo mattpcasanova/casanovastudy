@@ -40,8 +40,8 @@ const EditorContext = createContext<EditorContextValue | undefined>(undefined)
 
 const defaultMetadata: EditorGuideMetadata = {
   title: '',
-  subject: 'other',
-  gradeLevel: '9th-10th'
+  subject: 'general',
+  gradeLevel: 'general'
 }
 
 // ── Immutable tree helpers ───────────────────────────────────────────────────

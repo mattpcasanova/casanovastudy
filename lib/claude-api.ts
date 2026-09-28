@@ -487,7 +487,8 @@ Any activity may include ONE fenced code block (with the language name) right af
 Any activity may be followed by one line:
 Explanation: <one sentence explaining the answer>
 Rules:
-- For programming topics (or an interview goal involving coding), make at least half the activities code-based: predict the output, find the bug, pick the time/space complexity, choose the missing line. Keep snippets short (≤12 lines) and runnable-looking; default to Python unless another language is requested. Never put option lines or answers inside the code fence.
+- For programming topics (or an interview goal involving coding), make AT LEAST HALF of all activities code-based — count them before you finish: predict the output (MC with a snippet), find the bug, pick the time/space complexity (MC with a snippet), choose the missing line (MC or FILL with a snippet). Keep snippets short (≤12 lines) and runnable-looking; default to Python unless another language is requested. Never put option lines or answers inside the code fence.
+- FIND_BUG snippets must contain EXACTLY ONE bug on ONE line; every other line must be correct, so that applying the Fix line makes the whole snippet correct. Double-check the fixed code works.
 - 3-5 topic sections, 14-20 activities total. Mix the types: every topic should use at least three different activity types; roughly equal numbers of MATCH, FILL, ORDER/SORT and questions overall. Use ORDER only for real sequences and SORT only for real categories.
 - Give an Explanation for every FILL, ORDER, MC and TF activity.
 - Put nothing else in the guide — no objectives, callouts, tables or notes.`,
@@ -1653,8 +1654,8 @@ ${sourceInstructions}
 ${modeInstructions}
 
 USER REQUEST: ${effectiveDescription}
-${subject ? `SUBJECT: ${subject}` : ''}
-${gradeLevel ? `GRADE LEVEL: ${gradeLevel}` : ''}
+${subject && subject !== 'general' ? `SUBJECT: ${subject}` : ''}
+${gradeLevel && gradeLevel !== 'general' ? `LEARNER LEVEL: ${describeLevel(gradeLevel)}` : ''}
 ${controlsInstructions}
 
 🎯 FOLLOW THE USER'S INSTRUCTIONS EXACTLY:
@@ -1828,7 +1829,7 @@ SECTION TYPES YOU CAN USE:
     ]
   }
 }
-Practice rules: 5-10 activities per practice section, mixing at least three kinds. "match": 3-6 pairs with short, distinct definitions. "fill": one sentence with 1-2 answers in [brackets] (alternates separated by |). "order": 3-6 items listed in the CORRECT order (the app shuffles). "sort": 2-3 buckets, 2-4 short items each. "multiple-choice": 2-6 options, "correctAnswer" exactly equal to one option. "true-false": "correctAnswer" is "True" or "False". Any activity may carry an optional "code": { "lang", "text" } snippet (shown above it; use \\n for newlines). "bug": "code" is required (4-12 lines), "bugLines" lists the 1-based buggy line(s), "fix" is the corrected line. For programming topics make at least half the activities code-based (predict the output, find the bug, time/space complexity, missing line); default to Python.
+Practice rules: 5-10 activities per practice section, mixing at least three kinds. "match": 3-6 pairs with short, distinct definitions. "fill": one sentence with 1-2 answers in [brackets] (alternates separated by |). "order": 3-6 items listed in the CORRECT order (the app shuffles). "sort": 2-3 buckets, 2-4 short items each. "multiple-choice": 2-6 options, "correctAnswer" exactly equal to one option. "true-false": "correctAnswer" is "True" or "False". Any activity may carry an optional "code": { "lang", "text" } snippet (shown above it; use \\n for newlines). "bug": "code" is required (4-12 lines) with EXACTLY ONE buggy line (everything else correct, so applying "fix" makes the code correct), "bugLines" is that 1-based line, "fix" is the corrected line. For programming topics make at least half the activities code-based (predict the output, find the bug, time/space complexity, missing line); default to Python.
 
 GUIDELINES:
 1. Generate unique IDs for all sections (use format like "sec-1", "def-2", "quiz-3")

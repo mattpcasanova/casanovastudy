@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { SUBJECTS, LEVEL_GROUPS } from '@/lib/study-options'
 import {
   DndContext,
   DragOverlay,
@@ -99,22 +100,12 @@ interface CustomGuideEditorProps {
   draftKey?: string
 }
 
-const subjects = [
-  { value: 'mathematics', label: 'Mathematics' },
-  { value: 'science', label: 'Science' },
-  { value: 'english', label: 'English' },
-  { value: 'history', label: 'History' },
-  { value: 'foreign-language', label: 'Foreign Language' },
-  { value: 'other', label: 'Other subject' },
-]
+// Same options as the homepage generator ('general' = not specified).
+const subjects = [{ value: 'general', label: 'Any subject' }, ...SUBJECTS.map((x) => ({ value: x.value, label: x.label }))]
 
 const gradeLevels = [
-  { value: '6th-8th', label: '6th–8th grade' },
-  { value: '9th', label: '9th grade' },
-  { value: '10th', label: '10th grade' },
-  { value: '11th', label: '11th grade' },
-  { value: '12th', label: '12th grade' },
-  { value: 'college', label: 'College' },
+  { value: 'general', label: 'Any level' },
+  ...LEVEL_GROUPS.flatMap((g) => g.levels.map((l) => ({ value: l.value, label: l.label.split(' — ')[0] }))),
 ]
 
 const definitionColorOptions = (Object.keys(DEFINITION_COLORS) as DefinitionColorVariant[]).map(value => ({
@@ -667,7 +658,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
                       onChange={(e) => setMetadata({ subject: e.target.value })}
                       className={pillSelect}
                     >
-                      {subjects.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      {(subjects.some(s => s.value === metadata.subject) ? subjects : [{ value: metadata.subject, label: metadata.subject }, ...subjects]).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
                   </span>
