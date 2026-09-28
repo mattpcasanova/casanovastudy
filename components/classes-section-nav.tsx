@@ -3,10 +3,10 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, School, CalendarDays, Plus, ClipboardCheck, Library, Target } from "lucide-react"
+import { School, CalendarDays, Plus, ClipboardCheck, Library, Target } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 
-// Sub-nav for the classes section. Rendered at the top of /dashboard, /calendar,
+// Sub-nav for the classes section. Rendered at the top of /calendar,
 // /my-classes (student), /teacher/classes, and /classes/join. The buttons stay
 // visible while navigating between them so it feels like one workspace.
 export default function ClassesSectionNav() {
@@ -16,12 +16,6 @@ export default function ClassesSectionNav() {
   const myClassesHref = isTeacher ? "/teacher/classes" : "/my-classes"
 
   const items: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }>; match: (p: string | null) => boolean }> = [
-    {
-      href: "/",
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      match: p => p === "/" || (!!p && p.startsWith("/dashboard")),
-    },
     {
       href: myClassesHref,
       label: "My Classes",

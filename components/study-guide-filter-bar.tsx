@@ -97,6 +97,7 @@ export default function StudyGuideFilterBar({
                 <SelectItem value="flashcards">Flashcards</SelectItem>
                 <SelectItem value="quiz">Quiz</SelectItem>
                 <SelectItem value="summary">Summary</SelectItem>
+                <SelectItem value="practice">Practice</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>

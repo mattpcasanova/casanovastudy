@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { BookOpen, GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, LayoutDashboard, CalendarDays, Library, Target } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from '@/lib/auth'
+import { CLASSES_ENABLED } from '@/lib/features'
 
 // Get user initials from name or email
 function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
@@ -47,13 +48,11 @@ export default function NavigationHeader() {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  const isStudyGuidesActive = pathname?.startsWith('/create-study-guide') || pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')
-  const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
+    const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
   const isMyStudentsActive = pathname?.startsWith('/my-students')
   const isMyClassesActive = pathname?.startsWith('/teacher/classes')
   const isStudentClassesActive = pathname?.startsWith('/my-classes') || (pathname?.startsWith('/classes') && !pathname?.startsWith('/classes/join'))
   const isJoinClassActive = pathname?.startsWith('/classes/join')
-  const isDashboardActive = pathname === '/' || pathname?.startsWith('/dashboard')
   const isCalendarActive = pathname?.startsWith('/calendar')
   const isQuizzesActive = pathname?.startsWith('/teacher/quizzes')
   const isQuestionBankActive = pathname?.startsWith('/teacher/question-bank')
@@ -89,47 +88,28 @@ export default function NavigationHeader() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-3">
             <nav className="flex items-center gap-2">
-              {/* Study Guides Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant={isStudyGuidesActive ? 'secondary' : 'ghost'}
-                    className={`h-10 rounded-full px-4 transition-all duration-200 ${
-                      isStudyGuidesActive
-                        ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
-                        : 'text-white/90 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <BookOpen className="h-4 w-4 mr-2 flex-shrink-0" />
-                    Study Guides
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link href="/create-study-guide" className="flex items-center cursor-pointer">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Guide
-                    </Link>
-                  </DropdownMenuItem>
-                  {mounted && user && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/create-guide" className="flex items-center cursor-pointer">
-                          <PenSquare className="h-4 w-4 mr-2" />
-                          Create Custom Guide
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/my-guides" className="flex items-center cursor-pointer">
-                          <FileText className="h-4 w-4 mr-2" />
-                          My Guides
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Study guides — the core of the product, so plain top-level links */}
+              {[
+                { href: '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
+                { href: '/create-guide', label: 'Custom Builder', icon: PenSquare, active: !!pathname?.startsWith('/create-guide'), show: mounted && !!user },
+                { href: '/my-guides', label: 'My Guides', icon: FileText, active: !!(pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')), show: mounted && !!user },
+              ].filter((l) => l.show).map(({ href, label, icon: Icon, active }) => (
+                <Button
+                  key={href}
+                  variant={active ? 'secondary' : 'ghost'}
+                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                    active
+                      ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
+                      : 'text-white/90 hover:text-white hover:bg-white/10'
+                  }`}
+                  asChild
+                >
+                  <Link href={href}>
+                    <Icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    {label}
+                  </Link>
+                </Button>
+              ))}
 
               {/* Grading Dropdown - Only for teachers */}
               {mounted && user && isTeacher && (
@@ -166,13 +146,13 @@ export default function NavigationHeader() {
               )}
 
               {/* Classes Dropdown - For logged-in students */}
-              {mounted && user && !isTeacher && (
+              {CLASSES_ENABLED && mounted && user && !isTeacher && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive ? 'secondary' : 'ghost'}
+                      variant={isStudentClassesActive || isJoinClassActive || isCalendarActive ? 'secondary' : 'ghost'}
                       className={`h-10 rounded-full px-4 transition-all duration-200 ${
-                        isStudentClassesActive || isJoinClassActive || isDashboardActive || isCalendarActive
+                        isStudentClassesActive || isJoinClassActive || isCalendarActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
@@ -183,12 +163,6 @@ export default function NavigationHeader() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href="/" className="flex items-center cursor-pointer">
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/my-classes" className="flex items-center cursor-pointer">
                         <School className="h-4 w-4 mr-2" />
@@ -212,7 +186,7 @@ export default function NavigationHeader() {
               )}
 
               {/* My Teachers Button - For logged-in students */}
-              {mounted && user && !isTeacher && (
+              {CLASSES_ENABLED && mounted && user && !isTeacher && (
                 <Button
                   variant={isMyTeachersActive ? 'secondary' : 'ghost'}
                   className={`h-10 rounded-full px-4 transition-all duration-200 ${
@@ -230,13 +204,13 @@ export default function NavigationHeader() {
               )}
 
               {/* Classes Dropdown - For teachers */}
-              {mounted && user && isTeacher && (
+              {CLASSES_ENABLED && mounted && user && isTeacher && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isMyClassesActive || isDashboardActive || isCalendarActive || isQuizzesActive || isQuestionBankActive ? 'secondary' : 'ghost'}
+                      variant={isMyClassesActive || isCalendarActive || isQuizzesActive || isQuestionBankActive ? 'secondary' : 'ghost'}
                       className={`h-10 rounded-full px-4 transition-all duration-200 ${
-                        isMyClassesActive || isDashboardActive || isCalendarActive || isQuizzesActive || isQuestionBankActive
+                        isMyClassesActive || isCalendarActive || isQuizzesActive || isQuestionBankActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
                       }`}
@@ -247,12 +221,6 @@ export default function NavigationHeader() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href="/" className="flex items-center cursor-pointer">
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/teacher/classes" className="flex items-center cursor-pointer">
                         <School className="h-4 w-4 mr-2" />
@@ -282,7 +250,7 @@ export default function NavigationHeader() {
               )}
 
               {/* My Students Button - For teachers */}
-              {mounted && user && isTeacher && (
+              {CLASSES_ENABLED && mounted && user && isTeacher && (
                 <Button
                   variant={isMyStudentsActive ? 'secondary' : 'ghost'}
                   className={`h-10 rounded-full px-4 transition-all duration-200 ${
@@ -379,13 +347,13 @@ export default function NavigationHeader() {
             {/* Study Guides section */}
             <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Study Guides</p>
             <Link
-              href="/create-study-guide"
+              href="/"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                pathname?.startsWith('/create-study-guide') ? 'bg-white/20' : 'hover:bg-white/10'
+                pathname === '/' ? 'bg-white/20' : 'hover:bg-white/10'
               }`}
             >
               <Plus className="h-4 w-4 flex-shrink-0" />
-              <span className="text-sm font-medium">Create Guide</span>
+              <span className="text-sm font-medium">New Guide</span>
             </Link>
             {mounted && user && (
               <>
@@ -396,7 +364,7 @@ export default function NavigationHeader() {
                   }`}
                 >
                   <PenSquare className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm font-medium">Create Custom Guide</span>
+                  <span className="text-sm font-medium">Custom Builder</span>
                 </Link>
                 <Link
                   href="/my-guides"
@@ -437,18 +405,9 @@ export default function NavigationHeader() {
             )}
 
             {/* Classes & Teachers - Students only */}
-            {mounted && user && !isTeacher && (
+            {CLASSES_ENABLED && mounted && user && !isTeacher && (
               <>
                 <div className="h-px bg-white/10 my-1" />
-                <Link
-                  href="/"
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    isDashboardActive ? 'bg-white/20' : 'hover:bg-white/10'
-                  }`}
-                >
-                  <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm font-medium">Dashboard</span>
-                </Link>
                 <Link
                   href="/my-classes"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
@@ -489,17 +448,9 @@ export default function NavigationHeader() {
             )}
 
             {/* My Classes & My Students - Teachers only */}
-            {mounted && user && isTeacher && (
+            {CLASSES_ENABLED && mounted && user && isTeacher && (
               <>
-                <Link
-                  href="/"
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    isDashboardActive ? 'bg-white/20' : 'hover:bg-white/10'
-                  }`}
-                >
-                  <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm font-medium">Dashboard</span>
-                </Link>
+                <div className="h-px bg-white/10 my-1" />
                 <Link
                   href="/teacher/classes"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${

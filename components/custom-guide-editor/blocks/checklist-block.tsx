@@ -1,98 +1,76 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { useRef } from "react"
 import { EditorBlock, ChecklistBlockData, generateChecklistItemId } from "@/lib/types/editor-blocks"
-import { Plus, Trash2, GripVertical, Square } from "lucide-react"
+import { Plus, X } from "lucide-react"
+import { AddRowButton, focusLater, inlineField } from "../editor-ui"
+import { cn } from "@/lib/utils"
 
 interface ChecklistBlockProps {
   block: EditorBlock
   onUpdate: (updates: Partial<EditorBlock>) => void
 }
 
+// Keyboard-first list: Enter adds the next item, Backspace on an empty item
+// removes it — the flow you'd expect from a notes app.
 export function ChecklistBlock({ block, onUpdate }: ChecklistBlockProps) {
   const data = block.data as ChecklistBlockData
+  const inputs = useRef<Map<string, HTMLInputElement>>(new Map())
 
-  const handleChange = (updates: Partial<ChecklistBlockData>) => {
-    onUpdate({
-      data: { ...data, ...updates }
-    })
+  const setItems = (items: ChecklistBlockData["items"]) => {
+    onUpdate({ data: { ...data, items } })
   }
 
-  const updateItem = (id: string, label: string) => {
-    const newItems = data.items.map(item =>
-      item.id === id ? { ...item, label } : item
-    )
-    handleChange({ items: newItems })
+  const insertAfter = (index: number) => {
+    const item = { id: generateChecklistItemId(), label: "" }
+    setItems([...data.items.slice(0, index + 1), item, ...data.items.slice(index + 1)])
+    focusLater(() => inputs.current.get(item.id))
   }
 
-  const addItem = () => {
-    const newItem = {
-      id: generateChecklistItemId(),
-      label: ''
-    }
-    handleChange({ items: [...data.items, newItem] })
-  }
-
-  const removeItem = (id: string) => {
+  const removeAt = (index: number, focusPrev: boolean) => {
     if (data.items.length <= 1) return
-    handleChange({ items: data.items.filter(item => item.id !== id) })
-  }
-
-  const moveItem = (index: number, direction: 'up' | 'down') => {
-    const newIndex = direction === 'up' ? index - 1 : index + 1
-    if (newIndex < 0 || newIndex >= data.items.length) return
-
-    const newItems = [...data.items]
-    const [removed] = newItems.splice(index, 1)
-    newItems.splice(newIndex, 0, removed)
-    handleChange({ items: newItems })
+    const prev = data.items[index - 1]
+    setItems(data.items.filter((_, i) => i !== index))
+    if (focusPrev && prev) focusLater(() => inputs.current.get(prev.id))
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-0.5">
       {data.items.map((item, index) => (
-        <div key={item.id} className="flex items-center gap-2 group">
-          <div className="flex flex-col">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 opacity-0 group-hover:opacity-100"
-              onClick={() => moveItem(index, 'up')}
-              disabled={index === 0}
-            >
-              <GripVertical className="h-3 w-3" />
-            </Button>
-          </div>
-          <Square className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <Input
+        <div key={item.id} className="group/item flex items-center gap-2">
+          <span className="ml-2 h-4 w-4 shrink-0 rounded border-2 border-slate-300" aria-hidden />
+          <input
+            ref={(el) => { if (el) inputs.current.set(item.id, el); else inputs.current.delete(item.id) }}
             value={item.label}
-            onChange={(e) => updateItem(item.id, e.target.value)}
-            placeholder="Checklist item..."
-            className="flex-1"
+            onChange={(e) => setItems(data.items.map(i => (i.id === item.id ? { ...i, label: e.target.value } : i)))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                insertAfter(index)
+              } else if (e.key === "Backspace" && !item.label && data.items.length > 1) {
+                e.preventDefault()
+                removeAt(index, true)
+              }
+            }}
+            placeholder="To review…"
+            className={cn(inlineField, "flex-1")}
           />
           {data.items.length > 1 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
-              onClick={() => removeItem(item.id)}
+            <button
+              type="button"
+              onClick={() => removeAt(index, false)}
+              aria-label="Remove item"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 opacity-100 transition hover:bg-rose-50 hover:text-rose-600 md:opacity-0 md:group-hover/item:opacity-100"
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
           )}
         </div>
       ))}
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={addItem}
-        className="w-full mt-2 bg-teal-50 border-teal-300 text-teal-700 hover:bg-teal-100 hover:border-teal-400"
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Add Item
-      </Button>
+      <AddRowButton onClick={() => insertAfter(data.items.length - 1)}>
+        <Plus className="h-4 w-4" /> Add item
+        <span className="ml-auto text-[0.7rem] font-normal text-slate-300">or press Enter</span>
+      </AddRowButton>
     </div>
   )
 }

@@ -1,43 +1,29 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, X, RotateCcw } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
-import { surface, surfaceMuted, fontDisplay, eyebrow, answer as answerStyle } from '@/lib/formats/design'
+import { fontDisplay, eyebrow } from '@/lib/formats/design'
+import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
+import { InlineMarkdown } from './study-markdown'
 
 interface QuizFormatProps {
   content: string
   subject: string
 }
 
-interface MultipleChoiceQuestion {
-  type: 'mc'
+interface BaseQuestion {
   id: string
   question: string
-  options: string[]
-  correctAnswer: string
+  section: string
+  explanation?: string
 }
-
-interface TrueFalseQuestion {
-  type: 'tf'
-  id: string
-  question: string
-  correctAnswer: boolean
-}
-
-interface ShortAnswerQuestion {
-  type: 'sa'
-  id: string
-  question: string
-  sampleAnswer: string
-}
-
+interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
+interface TrueFalseQuestion extends BaseQuestion { type: 'tf'; correctAnswer: boolean }
+interface ShortAnswerQuestion extends BaseQuestion { type: 'sa'; sampleAnswer: string }
 type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion
 
 interface ShortAnswerScore {
@@ -46,280 +32,246 @@ interface ShortAnswerScore {
   isCorrect: boolean
 }
 
+type Mode = 'practice' | 'test'
+
+const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer' }
+
 export default function QuizFormat({ content, subject }: QuizFormatProps) {
-  const questions = parseQuizContent(content)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const allQuestions = useMemo(() => parseQuizContent(content), [content])
+  const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
+  const questions = useMemo(() => (subset ? allQuestions.filter((q) => subset.includes(q.id)) : allQuestions), [allQuestions, subset])
+
+  const [mode, setMode] = useState<Mode>('practice')
+  const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [submitted, setSubmitted] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const [shortAnswerScores, setShortAnswerScores] = useState<Record<string, ShortAnswerScore>>({})
-  const [isScoring, setIsScoring] = useState(false)
+  const [checked, setChecked] = useState<Record<string, boolean>>({}) // practice-mode reveals
+  const [saScores, setSaScores] = useState<Record<string, ShortAnswerScore>>({})
+  const [scoring, setScoring] = useState<Record<string, boolean>>({})
+  const [finished, setFinished] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const currentQuestion = questions[currentQuestionIndex]
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100
+  const current = questions[Math.min(index, questions.length - 1)]
 
-  const handleAnswerChange = (questionId: string, answer: string) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }))
-  }
-
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) setCurrentQuestionIndex(prev => prev + 1)
-  }
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) setCurrentQuestionIndex(prev => prev - 1)
-  }
-
-  const handleSubmit = async () => {
-    setSubmitted(true)
-    setIsScoring(true)
-
-    const shortAnswerQuestions = questions.filter(q => q.type === 'sa') as ShortAnswerQuestion[]
-    const scores: Record<string, ShortAnswerScore> = {}
-
-    for (const question of shortAnswerQuestions) {
-      const studentAnswer = answers[question.id]
-      if (studentAnswer && studentAnswer.trim()) {
-        try {
-          const response = await fetch('/api/score-short-answer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              question: question.question,
-              sampleAnswer: question.sampleAnswer,
-              studentAnswer: studentAnswer,
-              subject: subject
-            })
-          })
-          const result = await response.json()
-          if (result.success) scores[question.id] = result.data
-        } catch (error) {
-          console.error('Error scoring short answer:', error)
-        }
+  const scoreShortAnswer = async (q: ShortAnswerQuestion): Promise<ShortAnswerScore | null> => {
+    const studentAnswer = answers[q.id]
+    if (!studentAnswer?.trim()) return null
+    setScoring((s) => ({ ...s, [q.id]: true }))
+    try {
+      const response = await fetch('/api/score-short-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q.question, sampleAnswer: q.sampleAnswer, studentAnswer, subject }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        setSaScores((s) => ({ ...s, [q.id]: result.data }))
+        return result.data
       }
+    } catch (error) {
+      console.error('Error scoring short answer:', error)
+    } finally {
+      setScoring((s) => ({ ...s, [q.id]: false }))
     }
-
-    setShortAnswerScores(scores)
-    setIsScoring(false)
-    setShowResults(true)
+    return null
   }
 
-  const handleReset = () => {
+  const choose = (q: Question, value: string) => {
+    if (finished || (mode === 'practice' && checked[q.id])) return
+    setAnswers((a) => ({ ...a, [q.id]: value }))
+    // Practice mode: objective questions check themselves on click.
+    if (mode === 'practice' && q.type !== 'sa') setChecked((c) => ({ ...c, [q.id]: true }))
+  }
+
+  const checkShortAnswer = async (q: ShortAnswerQuestion) => {
+    setChecked((c) => ({ ...c, [q.id]: true }))
+    await scoreShortAnswer(q)
+  }
+
+  const finish = async () => {
+    setSubmitting(true)
+    const pending = questions.filter((q): q is ShortAnswerQuestion => q.type === 'sa' && !saScores[q.id] && !!answers[q.id]?.trim())
+    await Promise.all(pending.map(scoreShortAnswer))
+    setSubmitting(false)
+    setFinished(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const restart = (ids: string[] | null) => {
+    setSubset(ids)
     setAnswers({})
-    setSubmitted(false)
-    setShowResults(false)
-    setCurrentQuestionIndex(0)
-    setShortAnswerScores({})
-    setIsScoring(false)
+    setChecked({})
+    setSaScores({})
+    setIndex(0)
+    setFinished(false)
   }
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (submitted) return
-    if (e.key === 'ArrowLeft') handlePrevious()
-    else if (e.key === 'ArrowRight') handleNext()
-  }, [submitted, currentQuestionIndex, questions.length])
+    if (finished) return
+    const t = e.target as HTMLElement | null
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return
+    if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
+    else if (e.key === 'ArrowRight') setIndex((i) => Math.min(questions.length - 1, i + 1))
+  }, [finished, questions.length])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  const calculateScore = () => {
-    let correct = 0
-    let total = 0
-    questions.forEach(q => {
-      if (q.type === 'mc') { total++; if (answers[q.id] === q.correctAnswer) correct++ }
-      else if (q.type === 'tf') { total++; if (answers[q.id] === (q.correctAnswer ? 'true' : 'false')) correct++ }
-      else if (q.type === 'sa') { if (shortAnswerScores[q.id]) { total++; if (shortAnswerScores[q.id].isCorrect) correct++ } }
-    })
-    return { correct, total, percentage: total > 0 ? Math.round((correct / total) * 100) : 0 }
+  if (allQuestions.length === 0) {
+    return <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">No quiz questions were found in this guide.</div>
   }
 
-  if (showResults) {
-    const score = calculateScore()
-    return (
-      <QuizResults
-        score={score}
-        questions={questions}
-        answers={answers}
-        shortAnswerScores={shortAnswerScores}
-        onReset={handleReset}
-      />
-    )
+  const status = (q: Question): 'correct' | 'wrong' | 'answered' | 'open' => {
+    const revealed = finished || (mode === 'practice' && checked[q.id])
+    if (q.type === 'sa') {
+      const s = saScores[q.id]
+      if (revealed && s) return s.isCorrect ? 'correct' : 'wrong'
+      return answers[q.id]?.trim() ? 'answered' : 'open'
+    }
+    if (!answers[q.id]) return 'open'
+    if (!revealed) return 'answered'
+    return isObjectiveCorrect(q, answers[q.id]) ? 'correct' : 'wrong'
   }
 
-  const answeredCount = Object.keys(answers).length
+  if (finished) {
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} onRestart={restart} isRetry={!!subset} />
+  }
+
+  const answeredCount = questions.filter((q) => status(q) !== 'open').length
+  const revealed = mode === 'practice' && !!checked[current.id]
+  const isLast = index === questions.length - 1
 
   return (
-    <div className={cn(displaySerif.variable, 'max-w-2xl mx-auto space-y-5')}>
-      {/* Progress */}
-      <div className={cn(surface, 'p-5 print:hidden')}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-600">
-            Question <span className="text-slate-900 font-semibold">{currentQuestionIndex + 1}</span> of {questions.length}
-          </span>
-          <span className="text-sm font-medium text-slate-500">{answeredCount}/{questions.length} answered</span>
+    <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
+      {/* Header: mode + navigator */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">{answeredCount}</span> of {questions.length} answered
+            {subset && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">Retrying missed</span>}
+          </p>
+          <div className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
+            {([['practice', Zap, 'Practice'], ['test', ClipboardList, 'Test']] as const).map(([m, Icon, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                title={m === 'practice' ? 'See if you got it right after every question' : 'Answer everything, then see your score'}
+                className={cn('inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition', mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <Progress value={progress} className="h-1.5" />
+        <Navigator questions={questions} index={index} status={status} onJump={setIndex} />
       </div>
 
       {/* Question */}
-      <div className={cn(surface, 'p-6 border-l-4 border-l-purple-500 print:hidden')}>
-        <p className={cn(eyebrow, 'text-purple-600 mb-2')}>Question {currentQuestionIndex + 1}</p>
-        <p className={cn(fontDisplay, 'text-xl font-medium text-slate-900 leading-snug mb-6')}>{currentQuestion.question}</p>
+      <div key={current.id} className="animate-fade-up rounded-2xl border border-slate-200 border-t-4 border-t-purple-500 bg-white p-5 shadow-sm sm:p-7 print:hidden">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className={cn(eyebrow, 'text-purple-700')}>Question {index + 1}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-xs font-medium text-slate-500">{TYPE_LABEL[current.type]}</span>
+          {current.section && <span className="ml-auto max-w-[60%] truncate rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{current.section}</span>}
+        </div>
+        <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
+          <InlineMarkdown text={current.question} />
+        </p>
 
-        {currentQuestion.type === 'mc' && (
-          <RadioGroup
-            value={answers[currentQuestion.id] || ''}
-            onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
-            disabled={submitted}
-          >
-            <div className="space-y-2.5">
-              {currentQuestion.options.map((option, index) => {
-                const letter = String.fromCharCode(65 + index)
-                const isCorrect = submitted && option === currentQuestion.correctAnswer
-                const isSelected = answers[currentQuestion.id] === option
-                const isWrong = submitted && isSelected && option !== currentQuestion.correctAnswer
-                return (
-                  <div
-                    key={index}
-                    onClick={() => !submitted && handleAnswerChange(currentQuestion.id, option)}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg border p-3.5 transition-colors',
-                      isCorrect ? answerStyle.correct : isWrong ? answerStyle.wrong : isSelected ? answerStyle.selected : answerStyle.idle,
-                      !submitted && 'cursor-pointer'
-                    )}
-                  >
-                    <RadioGroupItem value={option} id={`${currentQuestion.id}-${index}`} />
-                    <Label htmlFor={`${currentQuestion.id}-${index}`} className="flex flex-1 cursor-pointer items-center gap-2.5">
-                      <span className={cn('font-semibold', isCorrect ? 'text-emerald-700' : isWrong ? 'text-rose-700' : 'text-slate-400')}>{letter}</span>
-                      <span className={cn('text-slate-700', isCorrect && 'font-medium text-slate-900')}>{option}</span>
-                      {isCorrect && <CheckCircle2 className="ml-auto h-5 w-5 text-emerald-600" />}
-                      {isWrong && <X className="ml-auto h-5 w-5 text-rose-600" />}
-                    </Label>
-                  </div>
-                )
-              })}
-            </div>
-          </RadioGroup>
+        {current.type === 'mc' && (
+          <div className="space-y-2.5" role="radiogroup">
+            {current.options.map((option, i) => (
+              <OptionButton
+                key={i}
+                letter={String.fromCharCode(65 + i)}
+                label={option}
+                selected={answers[current.id] === option}
+                correct={revealed && option === current.correctAnswer}
+                wrong={revealed && answers[current.id] === option && option !== current.correctAnswer}
+                locked={revealed}
+                onClick={() => choose(current, option)}
+              />
+            ))}
+          </div>
         )}
 
-        {currentQuestion.type === 'tf' && (
-          <RadioGroup
-            value={answers[currentQuestion.id] || ''}
-            onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
-            disabled={submitted}
-          >
-            <div className="flex gap-3">
-              {['true', 'false'].map((value) => {
-                const isCorrect = submitted && (value === 'true') === currentQuestion.correctAnswer
-                const isSelected = answers[currentQuestion.id] === value
-                const isWrong = submitted && isSelected && (value === 'true') !== currentQuestion.correctAnswer
-                return (
-                  <div
-                    key={value}
-                    onClick={() => !submitted && handleAnswerChange(currentQuestion.id, value)}
-                    className={cn(
-                      'flex flex-1 items-center gap-3 rounded-lg border p-3.5 transition-colors',
-                      isCorrect ? answerStyle.correct : isWrong ? answerStyle.wrong : isSelected ? answerStyle.selected : answerStyle.idle,
-                      !submitted && 'cursor-pointer'
-                    )}
-                  >
-                    <RadioGroupItem value={value} id={`${currentQuestion.id}-${value}`} />
-                    <Label htmlFor={`${currentQuestion.id}-${value}`} className="flex-1 cursor-pointer font-medium capitalize text-slate-700">
-                      {value}
-                      {isCorrect && <CheckCircle2 className="ml-2 inline h-5 w-5 text-emerald-600" />}
-                      {isWrong && <X className="ml-2 inline h-5 w-5 text-rose-600" />}
-                    </Label>
-                  </div>
-                )
-              })}
-            </div>
-          </RadioGroup>
+        {current.type === 'tf' && (
+          <div className="grid grid-cols-2 gap-3" role="radiogroup">
+            {['true', 'false'].map((v) => (
+              <OptionButton
+                key={v}
+                label={v === 'true' ? 'True' : 'False'}
+                selected={answers[current.id] === v}
+                correct={revealed && (v === 'true') === current.correctAnswer}
+                wrong={revealed && answers[current.id] === v && (v === 'true') !== current.correctAnswer}
+                locked={revealed}
+                onClick={() => choose(current, v)}
+                center
+              />
+            ))}
+          </div>
         )}
 
-        {currentQuestion.type === 'sa' && (
+        {current.type === 'sa' && (
           <div className="space-y-3">
             <Textarea
-              value={answers[currentQuestion.id] || ''}
-              onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-              placeholder="Type your answer here…"
+              value={answers[current.id] || ''}
+              onChange={(e) => setAnswers((a) => ({ ...a, [current.id]: e.target.value }))}
+              placeholder="Type your answer…"
               rows={5}
-              disabled={submitted}
+              disabled={revealed}
               className="resize-none text-base"
             />
-            {submitted && isScoring && (
-              <div className={cn(surfaceMuted, 'p-4')}>
-                <p className="font-medium text-slate-700">Scoring your answer…</p>
-              </div>
+            {mode === 'practice' && !revealed && (
+              <Button
+                onClick={() => checkShortAnswer(current)}
+                disabled={!answers[current.id]?.trim()}
+                className="bg-purple-600 text-white hover:bg-purple-700"
+              >
+                Check my answer
+              </Button>
             )}
-            {submitted && !isScoring && shortAnswerScores[currentQuestion.id] && (
-              <div className={cn('rounded-lg border p-4', shortAnswerScores[currentQuestion.id].isCorrect ? answerStyle.correct : answerStyle.wrong)}>
-                <div className="mb-2 flex items-center gap-2">
-                  {shortAnswerScores[currentQuestion.id].isCorrect
-                    ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                    : <X className="h-5 w-5 text-rose-600" />}
-                  <p className="font-semibold text-slate-900">Score: {shortAnswerScores[currentQuestion.id].score}/100</p>
-                </div>
-                <p className="text-slate-700">{shortAnswerScores[currentQuestion.id].feedback}</p>
-                <div className="mt-3 border-t border-slate-200 pt-3">
-                  <p className={cn(eyebrow, 'text-slate-500 mb-1')}>Sample answer</p>
-                  <p className="text-slate-700">{currentQuestion.sampleAnswer}</p>
-                </div>
-              </div>
-            )}
-            {submitted && !isScoring && !shortAnswerScores[currentQuestion.id] && (
-              <div className={cn(surfaceMuted, 'p-4')}>
-                <p className={cn(eyebrow, 'text-slate-500 mb-1')}>Sample answer</p>
-                <p className="text-slate-700">{currentQuestion.sampleAnswer}</p>
-                <p className="mt-2 text-sm italic text-slate-400">No answer provided</p>
-              </div>
+            {revealed && (
+              scoring[current.id] ? (
+                <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" /> Scoring your answer…</div>
+              ) : (
+                <ShortAnswerFeedback score={saScores[current.id]} sample={current.sampleAnswer} />
+              )
             )}
           </div>
+        )}
+
+        {revealed && current.type !== 'sa' && (
+          <Feedback correct={isObjectiveCorrect(current, answers[current.id])} explanation={current.explanation} correctLabel={correctLabel(current)} />
         )}
       </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between gap-4 print:hidden">
-        <Button onClick={handlePrevious} disabled={currentQuestionIndex === 0} variant="ghost" className="text-slate-600">
-          Previous
+        <Button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} variant="ghost" className="text-slate-600">
+          <ChevronLeft className="mr-1 h-4 w-4" /> Previous
         </Button>
-        {currentQuestionIndex === questions.length - 1 && !submitted ? (
-          <Button onClick={handleSubmit} disabled={answeredCount === 0} size="lg" className="bg-emerald-600 hover:bg-emerald-700">
-            Submit quiz
+        {isLast ? (
+          <Button onClick={finish} disabled={answeredCount === 0 || submitting} size="lg" className="bg-emerald-600 text-white hover:bg-emerald-700">
+            {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scoring…</> : mode === 'practice' ? 'See results' : 'Submit quiz'}
           </Button>
         ) : (
-          <Button
-            onClick={handleNext}
-            disabled={currentQuestionIndex === questions.length - 1 || submitted}
-            size="lg"
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            Next
+          <Button onClick={() => setIndex((i) => i + 1)} size="lg" className="bg-purple-600 text-white hover:bg-purple-700">
+            Next <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
       </div>
 
       {/* Print version */}
-      <div className="hidden print:block space-y-6">
-        {questions.map((question, index) => (
-          <div key={question.id} className="rounded-lg border border-slate-300 p-6 break-inside-avoid">
-            <p className="font-semibold text-lg mb-4">{index + 1}. {question.question}</p>
-            {question.type === 'mc' && (
-              <div className="space-y-2 ml-6">
-                {question.options.map((option, optIndex) => (
-                  <div key={optIndex}>{String.fromCharCode(65 + optIndex)}. {option}</div>
-                ))}
-              </div>
-            )}
-            {question.type === 'tf' && (<div className="ml-6"><div>○ True</div><div>○ False</div></div>)}
-            {question.type === 'sa' && (
-              <div className="ml-6 space-y-2">
-                <div className="border-b border-slate-300 h-8" />
-                <div className="border-b border-slate-300 h-8" />
-                <div className="border-b border-slate-300 h-8" />
-              </div>
-            )}
+      <div className="hidden space-y-5 print:block">
+        {allQuestions.map((q, i) => (
+          <div key={q.id} className="break-inside-avoid rounded-lg border border-slate-300 p-5">
+            <p className="mb-3 font-semibold">{i + 1}. <InlineMarkdown text={q.question} /></p>
+            {q.type === 'mc' && <div className="ml-6 space-y-1">{q.options.map((o, oi) => <div key={oi}>{String.fromCharCode(65 + oi)}. <InlineMarkdown text={o} /></div>)}</div>}
+            {q.type === 'tf' && <div className="ml-6">○ True &nbsp;&nbsp; ○ False</div>}
+            {q.type === 'sa' && <div className="ml-6 space-y-2"><div className="h-8 border-b border-slate-300" /><div className="h-8 border-b border-slate-300" /></div>}
           </div>
         ))}
       </div>
@@ -327,106 +279,258 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
   )
 }
 
-function QuizResults({
-  score,
-  questions,
-  answers,
-  shortAnswerScores,
-  onReset
-}: {
-  score: { correct: number; total: number; percentage: number }
-  questions: Question[]
-  answers: Record<string, string>
-  shortAnswerScores: Record<string, ShortAnswerScore>
-  onReset: () => void
-}) {
-  const getGrade = (percentage: number) => {
-    if (percentage >= 90) return { letter: 'A', color: 'text-emerald-600' }
-    if (percentage >= 80) return { letter: 'B', color: 'text-purple-600' }
-    if (percentage >= 70) return { letter: 'C', color: 'text-amber-600' }
-    if (percentage >= 60) return { letter: 'D', color: 'text-orange-600' }
-    return { letter: 'F', color: 'text-rose-600' }
-  }
+function isObjectiveCorrect(q: Question, answer: string | undefined): boolean {
+  if (q.type === 'mc') return answer === q.correctAnswer
+  if (q.type === 'tf') return answer === (q.correctAnswer ? 'true' : 'false')
+  return false
+}
 
-  const grade = getGrade(score.percentage)
+function correctLabel(q: Question): string {
+  if (q.type === 'mc') return `${String.fromCharCode(65 + q.options.indexOf(q.correctAnswer))}. ${q.correctAnswer}`
+  if (q.type === 'tf') return q.correctAnswer ? 'True' : 'False'
+  return q.sampleAnswer
+}
 
+const STATUS_DOT = {
+  correct: 'bg-emerald-500 text-white',
+  wrong: 'bg-rose-500 text-white',
+  answered: 'bg-purple-600 text-white',
+  open: 'bg-slate-100 text-slate-500 hover:bg-slate-200',
+} as const
+
+function Navigator({ questions, index, status, onJump }: { questions: Question[]; index: number; status: (q: Question) => keyof typeof STATUS_DOT; onJump: (i: number) => void }) {
+  // Group consecutive questions by section so the navigator mirrors the quiz's topics.
+  const groups: Array<{ section: string; items: Array<{ q: Question; i: number }> }> = []
+  questions.forEach((q, i) => {
+    const g = groups[groups.length - 1]
+    if (g && g.section === q.section) g.items.push({ q, i })
+    else groups.push({ section: q.section, items: [{ q, i }] })
+  })
+  const showLabels = groups.length > 1 && groups.some((g) => g.section)
   return (
-    <div className={cn(displaySerif.variable, 'max-w-2xl mx-auto space-y-5')}>
-      {/* Score */}
-      <div className={cn(surface, 'p-8 text-center')}>
-        <p className={cn(eyebrow, 'text-slate-500 mb-3')}>Your result</p>
-        <div className={cn(fontDisplay, 'text-7xl font-semibold leading-none', grade.color)}>{grade.letter}</div>
-        <p className="mt-3 text-lg font-medium text-slate-900">{score.correct} / {score.total} correct</p>
-        <p className="text-slate-500">{score.percentage}%</p>
-        <Button onClick={onReset} size="lg" className="mt-6 bg-purple-600 hover:bg-purple-700">
-          <RotateCcw className="h-4 w-4 mr-2" /> Retake quiz
-        </Button>
-      </div>
-
-      {/* Review */}
-      <div className={cn(surface, 'p-6')}>
-        <h3 className={cn(fontDisplay, 'text-lg font-semibold text-slate-900 mb-4')}>Answer review</h3>
-        <div className="space-y-3">
-          {questions.map((question, index) => {
-            let isCorrect = false
-            let saScore: ShortAnswerScore | undefined
-
-            if (question.type === 'mc') isCorrect = answers[question.id] === question.correctAnswer
-            else if (question.type === 'tf') isCorrect = answers[question.id] === (question.correctAnswer ? 'true' : 'false')
-            else if (question.type === 'sa') { saScore = shortAnswerScores[question.id]; isCorrect = saScore?.isCorrect || false }
-
-            const unscored = question.type === 'sa' && !saScore
-
-            return (
-              <div
-                key={question.id}
+    <div className={cn('mt-4 flex flex-wrap gap-x-5 gap-y-3', !showLabels && 'gap-x-1.5')}>
+      {groups.map((g, gi) => (
+        <div key={gi} className="min-w-0">
+          {showLabels && <p className="mb-1.5 max-w-[14rem] truncate text-[0.7rem] font-medium uppercase tracking-wide text-slate-400">{g.section || 'Questions'}</p>}
+          <div className="flex flex-wrap gap-1.5">
+            {g.items.map(({ q, i }) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => onJump(i)}
+                aria-label={`Question ${i + 1}`}
+                aria-current={i === index}
                 className={cn(
-                  'rounded-lg border p-4',
-                  unscored ? 'border-slate-200 bg-slate-50' : isCorrect ? answerStyle.correct : answerStyle.wrong
+                  'h-8 w-8 rounded-lg text-xs font-semibold tabular-nums transition',
+                  STATUS_DOT[status(q)],
+                  i === index && 'ring-2 ring-purple-500 ring-offset-2'
                 )}
               >
-                <div className="flex items-start gap-3">
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function OptionButton({ letter, label, selected, correct, wrong, locked, onClick, center }: {
+  letter?: string
+  label: string
+  selected: boolean
+  correct: boolean
+  wrong: boolean
+  locked: boolean
+  onClick: () => void
+  center?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      disabled={locked && !selected && !correct}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
+        center && 'justify-center',
+        correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/40',
+        locked && !correct && !wrong && 'opacity-60'
+      )}
+    >
+      {letter && (
+        <span className={cn(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold',
+          correct ? 'bg-emerald-500 text-white' : wrong ? 'bg-rose-500 text-white' : selected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
+        )}>
+          {letter}
+        </span>
+      )}
+      <span className={cn('leading-snug text-slate-800', center && 'font-semibold')}><InlineMarkdown text={label} /></span>
+      {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
+      {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
+    </button>
+  )
+}
+
+function Feedback({ correct, explanation, correctLabel }: { correct: boolean; explanation?: string; correctLabel: string }) {
+  return (
+    <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
+      <p className={cn('flex items-center gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
+        {correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+        {correct ? 'Correct!' : <>Not quite — the answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></>}
+      </p>
+      {explanation && (
+        <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <span><InlineMarkdown text={explanation} /></span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ShortAnswerFeedback({ score, sample }: { score?: ShortAnswerScore; sample: string }) {
+  return (
+    <div className={cn('rounded-xl p-4', !score ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : score.isCorrect ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-amber-50 ring-1 ring-inset ring-amber-200')}>
+      {score ? (
+        <>
+          <p className="flex items-center gap-2 font-semibold text-slate-900">
+            {score.isCorrect ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-amber-600" />}
+            {score.score}/100
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-700">{score.feedback}</p>
+        </>
+      ) : (
+        <p className="text-sm italic text-slate-500">Not answered</p>
+      )}
+      <div className="mt-3 border-t border-black/5 pt-3">
+        <p className={cn(eyebrow, 'mb-1 text-slate-500')}>Model answer</p>
+        <p className="text-sm leading-relaxed text-slate-700"><InlineMarkdown text={sample} /></p>
+      </div>
+    </div>
+  )
+}
+
+function QuizResults({ questions, answers, saScores, status, onRestart, isRetry }: {
+  questions: Question[]
+  answers: Record<string, string>
+  saScores: Record<string, ShortAnswerScore>
+  status: (q: Question) => 'correct' | 'wrong' | 'answered' | 'open'
+  onRestart: (ids: string[] | null) => void
+  isRetry: boolean
+}) {
+  const graded = questions.filter((q) => q.type !== 'sa' || saScores[q.id])
+  const correct = graded.filter((q) => status(q) === 'correct').length
+  const pct = graded.length ? Math.round((correct / graded.length) * 100) : 0
+  const missed = questions.filter((q) => status(q) !== 'correct')
+  const tone = pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-purple-600' : pct >= 50 ? 'text-amber-600' : 'text-rose-600'
+  const message = pct >= 90 ? 'Excellent — you know this material.' : pct >= 70 ? 'Solid. Review the ones you missed.' : pct >= 50 ? 'Getting there. Focus on the topics below.' : 'Keep going — retry the missed questions.'
+
+  const sections: Array<{ name: string; right: number; total: number }> = []
+  for (const q of graded) {
+    const name = q.section || 'Questions'
+    let s = sections.find((x) => x.name === name)
+    if (!s) sections.push((s = { name, right: 0, total: 0 }))
+    s.total++
+    if (status(q) === 'correct') s.right++
+  }
+
+  const circumference = 2 * Math.PI * 52
+
+  return (
+    <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+          <div className="relative h-32 w-32 shrink-0">
+            <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="10" className="text-slate-100" />
+              <circle
+                cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round"
+                className={cn(tone, 'transition-[stroke-dashoffset] duration-700')}
+                strokeDasharray={circumference}
+                strokeDashoffset={circumference * (1 - pct / 100)}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={cn(fontDisplay, 'text-3xl font-semibold', tone)}>{pct}%</span>
+              <span className="text-xs text-slate-500">{correct}/{graded.length}</span>
+            </div>
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry result' : 'Your result'}</p>
+            <p className={cn(fontDisplay, 'mt-1 text-2xl font-semibold text-slate-900')}>{message}</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+              {missed.length > 0 && (
+                <Button onClick={() => onRestart(missed.map((q) => q.id))} className="bg-purple-600 text-white hover:bg-purple-700">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Retry {missed.length} missed
+                </Button>
+              )}
+              <Button onClick={() => onRestart(null)} variant="outline">Start over</Button>
+            </div>
+          </div>
+        </div>
+
+        {sections.length > 1 && (
+          <div className="mt-6 grid gap-2.5 border-t border-slate-100 pt-5 sm:grid-cols-2">
+            {sections.map((s) => {
+              const p = Math.round((s.right / s.total) * 100)
+              return (
+                <div key={s.name}>
+                  <div className="mb-1 flex justify-between gap-2 text-sm">
+                    <span className="truncate font-medium text-slate-700">{s.name}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">{s.right}/{s.total}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className={cn('h-full rounded-full', p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-400' : 'bg-rose-400')} style={{ width: `${p}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>Answer review</h3>
+        <ol className="space-y-3">
+          {questions.map((q, i) => {
+            const st = status(q)
+            const ok = st === 'correct'
+            const unscored = q.type === 'sa' && !saScores[q.id]
+            return (
+              <li key={q.id} className={cn('rounded-xl border p-4', unscored ? 'border-slate-200 bg-slate-50' : ok ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/50')}>
+                <div className="flex gap-3">
                   <span className="mt-0.5 shrink-0">
-                    {unscored ? <span className="block h-5 w-5" /> : isCorrect ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <X className="h-5 w-5 text-rose-600" />}
+                    {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
                   </span>
-                  <div className="flex-1">
-                    <p className="font-medium text-slate-900 mb-2">{index + 1}. {question.question}</p>
-                    {question.type === 'mc' && (
-                      <div className="space-y-1 text-sm">
-                        <p><span className="font-medium text-slate-600">Your answer:</span> <span className={isCorrect ? 'text-emerald-700' : 'text-rose-700'}>{answers[question.id] || 'Not answered'}</span></p>
-                        {!isCorrect && <p><span className="font-medium text-slate-600">Correct answer:</span> <span className="text-emerald-700">{question.correctAnswer}</span></p>}
-                      </div>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+                    {q.type !== 'sa' && (
+                      <>
+                        <p className="text-slate-600">Your answer: <span className={ok ? 'font-medium text-emerald-700' : 'font-medium text-rose-700'}>
+                          {answers[q.id] ? <InlineMarkdown text={q.type === 'tf' ? (answers[q.id] === 'true' ? 'True' : 'False') : answers[q.id]} /> : 'Not answered'}
+                        </span></p>
+                        {!ok && <p className="text-slate-600">Correct answer: <span className="font-medium text-emerald-700"><InlineMarkdown text={correctLabel(q)} /></span></p>}
+                      </>
                     )}
-                    {question.type === 'tf' && (
-                      <div className="space-y-1 text-sm">
-                        <p><span className="font-medium text-slate-600">Your answer:</span> <span className={cn('capitalize', isCorrect ? 'text-emerald-700' : 'text-rose-700')}>{answers[question.id] || 'Not answered'}</span></p>
-                        {!isCorrect && <p><span className="font-medium text-slate-600">Correct answer:</span> <span className="capitalize text-emerald-700">{question.correctAnswer ? 'True' : 'False'}</span></p>}
-                      </div>
+                    {q.type === 'sa' && (
+                      <>
+                        {saScores[q.id] && <p className="text-slate-700"><span className="font-medium">{saScores[q.id].score}/100</span> — {saScores[q.id].feedback}</p>}
+                        <p className="mt-1 text-slate-600">Model answer: <InlineMarkdown text={q.sampleAnswer} /></p>
+                      </>
                     )}
-                    {question.type === 'sa' && (
-                      <div className="space-y-2 text-sm">
-                        {saScore && (
-                          <div className="mb-2">
-                            <p className="font-medium text-slate-700 mb-1">Score: {saScore.score}/100</p>
-                            <p className="rounded bg-white/60 p-2 text-slate-700">{saScore.feedback}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-slate-600">Your answer</p>
-                          <p className="mt-1 rounded bg-white/60 p-2 text-slate-700">{answers[question.id] || 'Not answered'}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-600">Sample answer</p>
-                          <p className="mt-1 rounded bg-white/60 p-2 text-slate-700">{question.sampleAnswer}</p>
-                        </div>
-                      </div>
+                    {q.explanation && (
+                      <p className="mt-2 flex gap-1.5 text-slate-600"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span><InlineMarkdown text={q.explanation} /></span></p>
                     )}
                   </div>
                 </div>
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ol>
       </div>
     </div>
   )
@@ -434,73 +538,89 @@ function QuizResults({
 
 function parseQuizContent(content: string): Question[] {
   const questions: Question[] = []
-  const lines = content.split('\n').filter(l => l.trim())
+  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean)
+  let section = ''
+
+  const strip = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
+  const questionText = (line: string, tag: string) =>
+    strip(line.replace(new RegExp(`\\*{0,2}${tag}_QUESTION:\\*{0,2}`), ''))
+  const isQuestion = (l: string) => /(MC|TF|SA)_QUESTION:/.test(l)
+  const explanationOf = (l: string) => {
+    const m = l.match(/^\*{0,2}(?:explanation|why)\s*:\*{0,2}\s*(.+)$/i)
+    return m ? strip(m[1]) : null
+  }
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    const line = lines[i]
+
+    const heading = line.match(/^#{1,6}\s+(.+)$/)
+    if (heading) {
+      const title = toTitleCase(plainText(stripEmoji(heading[1])).replace(/^[\s|:\-–—]+/, '').trim())
+      if (title && !/^(quiz|learning objectives|key term)/i.test(title)) section = title
+      continue
+    }
 
     if (line.includes('MC_QUESTION:')) {
-      const questionText = line.replace(/\*\*MC_QUESTION:\*\*/, '').replace('MC_QUESTION:', '').trim()
-      if (!questionText) continue
-
+      const text = questionText(line, 'MC')
+      if (!text) continue
       const options: string[] = []
       let correctAnswer = ''
-
-      for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
-        const optionLine = lines[j].trim()
-        if (optionLine.match(/^[A-D]\)/)) {
-          options.push(optionLine.substring(3).trim())
-        } else if (optionLine.toLowerCase().includes('correct answer:') || optionLine.toLowerCase().includes('answer:')) {
-          const answerMatch = optionLine.match(/(?:correct )?answer:\s*([A-D])/i)
-          if (answerMatch && options.length > 0) {
-            const answerIndex = answerMatch[1].charCodeAt(0) - 65
-            if (answerIndex >= 0 && answerIndex < options.length) correctAnswer = options[answerIndex]
+      let explanation: string | undefined
+      for (let j = i + 1; j < Math.min(i + 16, lines.length); j++) {
+        const l = lines[j]
+        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
+        const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
+        const exp = explanationOf(l)
+        if (exp) explanation = exp
+        else if (opt && !/answer/i.test(l.slice(0, 12))) options.push(strip(opt[2]))
+        else if (/answer\s*:/i.test(l)) {
+          const m = l.match(/answer:?\**\s*:?\s*\(?([A-F])\b/i)
+          if (m) {
+            const idx = m[1].toUpperCase().charCodeAt(0) - 65
+            if (idx >= 0 && idx < options.length) correctAnswer = options[idx]
           }
-        } else if (optionLine.includes('_QUESTION:')) {
-          break
         }
       }
-
-      if (options.length > 0 && questionText) {
-        questions.push({ type: 'mc', id: `q-${questions.length}`, question: questionText, options, correctAnswer: correctAnswer || options[0] })
+      if (options.length > 0) {
+        questions.push({ type: 'mc', id: `q-${questions.length}`, question: text, options, correctAnswer: correctAnswer || options[0], section, explanation })
       }
-    }
-    else if (line.includes('TF_QUESTION:')) {
-      const questionText = line.replace(/\*\*TF_QUESTION:\*\*/, '').replace('TF_QUESTION:', '').trim()
-      if (!questionText) continue
-
+    } else if (line.includes('TF_QUESTION:')) {
+      const text = questionText(line, 'TF')
+      if (!text) continue
       let correctAnswer = true
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-        const answerLine = lines[j].trim().toLowerCase()
-        if (answerLine.includes('answer:')) { correctAnswer = answerLine.includes('true'); break }
-        else if (answerLine.includes('_QUESTION:')) break
+      let explanation: string | undefined
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+        const l = lines[j]
+        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
+        const exp = explanationOf(l)
+        if (exp) explanation = exp
+        else if (/answer\s*:/i.test(l)) correctAnswer = /true/i.test(l.split(/answer\s*:/i)[1] ?? '')
       }
-
-      questions.push({ type: 'tf', id: `q-${questions.length}`, question: questionText, correctAnswer })
-    }
-    else if (line.includes('SA_QUESTION:')) {
-      const questionText = line.replace(/\*\*SA_QUESTION:\*\*/, '').replace('SA_QUESTION:', '').trim()
-      if (!questionText) continue
-
+      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation })
+    } else if (line.includes('SA_QUESTION:')) {
+      const text = questionText(line, 'SA')
+      if (!text) continue
       let sampleAnswer = ''
+      let explanation: string | undefined
       for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-        const answerLine = lines[j].trim()
-        if (answerLine.toLowerCase().includes('sample answer:') || answerLine.toLowerCase().includes('answer:')) {
-          sampleAnswer = answerLine.replace(/^(?:sample )?answer:\s*/i, '').trim()
+        const l = lines[j]
+        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
+        const exp = explanationOf(l)
+        if (exp) { explanation = exp; continue }
+        if (/^\*{0,2}(?:sample |model )?answer\s*:/i.test(l)) {
+          sampleAnswer = strip(l.replace(/^\*{0,2}(?:sample |model )?answer\s*:\*{0,2}\s*/i, ''))
           for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
-            const nextLine = lines[k].trim()
-            if (nextLine.includes('_QUESTION:') || nextLine === '') break
-            sampleAnswer += ' ' + nextLine
+            const next = lines[k]
+            if (isQuestion(next) || /^#{1,6}\s/.test(next) || explanationOf(next)) break
+            sampleAnswer += ' ' + strip(next)
           }
-          break
-        } else if (answerLine.includes('_QUESTION:')) {
-          break
         }
       }
-
-      questions.push({ type: 'sa', id: `q-${questions.length}`, question: questionText, sampleAnswer: sampleAnswer || 'A comprehensive answer covering the key concepts from the study material.' })
+      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation })
     }
   }
 
+  // One section name for the whole quiz adds nothing.
+  if (new Set(questions.map((q) => q.section)).size <= 1) questions.forEach((q) => { q.section = '' })
   return questions
 }

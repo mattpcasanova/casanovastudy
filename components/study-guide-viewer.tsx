@@ -16,13 +16,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles } from 'lucide-react'
+import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
 import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
+import PracticeFormat from '@/components/formats/practice-format'
+import { CLASSES_ENABLED } from '@/lib/features'
 import CustomFormat from '@/components/formats/custom-format'
 import EmailShareDialog from '@/components/email-share-dialog'
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
@@ -38,7 +40,8 @@ const FORMAT_META = {
   flashcards: { accent: formatAccent.flashcards, icon: CreditCard, label: 'Flashcards' },
   quiz: { accent: formatAccent.quiz, icon: HelpCircle, label: 'Quiz' },
   summary: { accent: formatAccent.summary, icon: ScrollText, label: 'Summary' },
-  custom: { accent: formatAccent.summary, icon: Sparkles, label: 'Guide' },
+  practice: { accent: formatAccent.practice, icon: Puzzle, label: 'Practice' },
+  custom: { accent: formatAccent.outline, icon: Sparkles, label: 'Custom' },
 } as const
 
 interface StudyGuideViewerProps {
@@ -54,7 +57,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const isOwner = user?.id === studyGuide.user_id
-  const isTeacherOwner = isOwner && user?.user_type === 'teacher'
+  const isTeacherOwner = CLASSES_ENABLED && isOwner && user?.user_type === 'teacher'
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
   const canSave = user && !isOwner
@@ -156,13 +159,15 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const renderFormat = () => {
     switch (studyGuide.format) {
       case 'outline':
-        return <OutlineFormat content={studyGuide.content} subject={studyGuide.subject} />
+        return <OutlineFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} />
       case 'flashcards':
         return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
         return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
+      case 'practice':
+        return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'custom':
         if (studyGuide.custom_content) {
           return <CustomFormat content={studyGuide.custom_content} studyGuideId={studyGuide.id} />
@@ -186,9 +191,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       {/* Title Banner */}
       <PageBanner
         title={studyGuide.title}
-        meta={`${capitalizeFirst(studyGuide.grade_level)} · ${(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).label}`}
-        accent={(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).accent}
-        icon={(FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary).icon}
+        label={fmt.label}
+        meta={[studyGuide.subject, studyGuide.grade_level].filter((v) => v && v !== 'general').map(capitalizeFirst).join(' · ') || undefined}
+        accent={fmt.accent}
+        icon={fmt.icon}
         onBack={() => router.back()}
       />
 

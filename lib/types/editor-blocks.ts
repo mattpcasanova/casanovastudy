@@ -1,9 +1,10 @@
 // Editor-specific types for the custom guide block editor
 
 import { CustomGuideContent, CustomSection, SectionContent, DefinitionColorVariant } from './custom-guide'
+import { normalizePracticeActivities, type PracticeActivity } from '@/lib/formats/practice'
 
 // Block types that can be created in the editor
-export type BlockType = 'text' | 'section' | 'alert' | 'table' | 'quiz' | 'checklist' | 'definition' | 'flashcards'
+export type BlockType = 'text' | 'section' | 'alert' | 'table' | 'quiz' | 'checklist' | 'definition' | 'flashcards' | 'practice'
 
 // Editor block structure
 export interface EditorBlock {
@@ -24,6 +25,7 @@ export type EditorBlockData =
   | ChecklistBlockData
   | DefinitionBlockData
   | FlashcardsBlockData
+  | PracticeBlockData
 
 // Text block
 export interface TextBlockData {
@@ -100,6 +102,12 @@ export interface EditorFlashCard {
   back: string
 }
 
+// Practice block (interactive activities — shapes from lib/formats/practice.ts)
+export interface PracticeBlockData {
+  type: 'practice'
+  activities: PracticeActivity[]
+}
+
 // Guide metadata for the editor
 export interface EditorGuideMetadata {
   title: string
@@ -129,6 +137,30 @@ export function generateChecklistItemId(): string {
 // Generate a unique flashcard ID
 export function generateFlashcardId(): string {
   return `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// Generate a unique practice activity ID
+export function generateActivityId(): string {
+  return `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// A blank activity of the given kind ('tf' = two-option True/False choice).
+export function createEmptyActivity(kind: PracticeActivity['kind'] | 'tf'): PracticeActivity {
+  const base = { id: generateActivityId(), topic: '', prompt: '', explanation: '' }
+  switch (kind) {
+    case 'match':
+      return { ...base, kind: 'match', prompt: 'Match each term to its meaning', pairs: [{ term: '', definition: '' }, { term: '', definition: '' }, { term: '', definition: '' }] }
+    case 'fill':
+      return { ...base, kind: 'fill', parts: [] }
+    case 'order':
+      return { ...base, kind: 'order', prompt: 'Put these in the correct order', items: ['', '', ''] }
+    case 'sort':
+      return { ...base, kind: 'sort', prompt: 'Sort each item into the right group', buckets: [{ name: '', items: [''] }, { name: '', items: [''] }] }
+    case 'tf':
+      return { ...base, kind: 'choice', options: ['True', 'False'], correct: 0 }
+    default:
+      return { ...base, kind: 'choice', options: ['', '', '', ''], correct: 0 }
+  }
 }
 
 // Create a new empty block of a specific type
@@ -222,12 +254,37 @@ export function createEmptyBlock(type: BlockType): EditorBlock {
         }
       }
 
+    case 'practice':
+      return {
+        id,
+        type: 'practice',
+        title: 'Practice',
+        data: { type: 'practice', activities: [createEmptyActivity('match')] }
+      }
+
     default:
       return {
         id,
         type: 'text',
         data: { type: 'text', markdown: '' }
       }
+  }
+}
+
+// Deep-copy a block (and its children), giving every block and nested item a
+// fresh id — used by "Duplicate" so the copy never collides on React keys or
+// per-item progress ids.
+export function cloneBlockWithNewIds(block: EditorBlock): EditorBlock {
+  const data = JSON.parse(JSON.stringify(block.data)) as EditorBlockData
+  if (data.type === 'quiz') data.questions = data.questions.map(q => ({ ...q, id: generateQuestionId() }))
+  if (data.type === 'checklist') data.items = data.items.map(item => ({ ...item, id: generateChecklistItemId() }))
+  if (data.type === 'flashcards') data.cards = data.cards.map(card => ({ ...card, id: generateFlashcardId() }))
+  if (data.type === 'practice') data.activities = data.activities.map(a => ({ ...a, id: generateActivityId() }))
+  return {
+    ...block,
+    id: generateBlockId(),
+    data,
+    children: block.children?.map(cloneBlockWithNewIds),
   }
 }
 
@@ -357,6 +414,9 @@ function blockDataToSectionContent(data: EditorBlockData): SectionContent {
         }))
       }
 
+    case 'practice':
+      return { type: 'practice', activities: data.activities }
+
     default:
       return { type: 'text', markdown: '' }
   }
@@ -473,6 +533,17 @@ function sectionContentToBlockData(type: string, content: SectionContent, regene
             front: card.front,
             back: card.back
           }))
+        }
+      }
+      break
+
+    case 'practice':
+      if (content.type === 'practice') {
+        // Lenient: keep half-authored activities so the editor can finish them.
+        const activities = normalizePracticeActivities(content.activities)
+        return {
+          type: 'practice',
+          activities: regenerateIds ? activities.map(a => ({ ...a, id: generateActivityId() })) : activities
         }
       }
       break

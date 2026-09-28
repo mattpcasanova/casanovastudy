@@ -1,39 +1,49 @@
 "use client"
 
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react"
 import { EditorBlock, TextBlockData } from "@/lib/types/editor-blocks"
+import { AutoTextarea } from "../editor-ui"
 
 interface TextBlockProps {
   block: EditorBlock
   onUpdate: (updates: Partial<EditorBlock>) => void
 }
 
+const TIPS: [string, string][] = [
+  ["**bold**", "bold"],
+  ["*italic*", "italic"],
+  ["## Heading", "heading"],
+  ["- item", "bullet list"],
+  ["1. item", "numbered list"],
+  ["| a | b |", "table"],
+]
+
 export function TextBlock({ block, onUpdate }: TextBlockProps) {
   const data = block.data as TextBlockData
-
-  const handleChange = (markdown: string) => {
-    onUpdate({
-      data: { ...data, markdown }
-    })
-  }
+  const [focused, setFocused] = useState(false)
 
   return (
-    <div className="space-y-2">
-      <Textarea
-        placeholder="Enter text content (markdown supported)..."
+    <div>
+      <AutoTextarea
+        minRows={3}
+        placeholder="Start writing… Markdown works — **bold**, lists, ## headings, tables."
         value={data.markdown}
-        onChange={(e) => handleChange(e.target.value)}
-        className="min-h-[100px] resize-y font-mono text-sm"
+        onChange={(e) => onUpdate({ data: { ...data, markdown: e.target.value } })}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="text-[0.95rem]"
       />
-      <div className="text-xs text-muted-foreground space-y-1">
-        <p className="font-medium">Markdown formatting:</p>
-        <ul className="space-y-0.5 ml-2">
-          <li><code className="bg-muted px-1 rounded">**bold**</code> or <code className="bg-muted px-1 rounded">*italic*</code> for text styling</li>
-          <li><code className="bg-muted px-1 rounded">[link text](https://url.com)</code> for links</li>
-          <li><code className="bg-muted px-1 rounded">- item</code> for bullet lists</li>
-          <li><code className="bg-muted px-1 rounded">1. item</code> for numbered lists</li>
-          <li><code className="bg-muted px-1 rounded">## Heading</code> for headings</li>
-        </ul>
+      {/* Markdown hints appear only while editing — no permanent cheat sheet */}
+      <div
+        className={`flex flex-wrap gap-x-3 gap-y-1 overflow-hidden px-2 text-[0.7rem] text-slate-400 transition-all duration-200 ${
+          focused ? "mt-1.5 max-h-10 opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        {TIPS.map(([syntax, label]) => (
+          <span key={label}>
+            <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-500">{syntax}</code> {label}
+          </span>
+        ))}
       </div>
     </div>
   )

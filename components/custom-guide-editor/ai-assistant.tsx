@@ -1,28 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { Sparkles, ChevronDown, ChevronUp, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2 } from "lucide-react"
+import { useRef, useState } from "react"
+import { cn } from "@/lib/utils"
+import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle } from "lucide-react"
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
+import { Segmented, fieldLabel } from "./editor-ui"
 
 interface SourceFileForAI {
   name: string
@@ -37,6 +20,7 @@ interface AIAssistantProps {
   sourceFiles?: SourceFileForAI[] // Files with Cloudinary URLs - processed like home page
   onContentGenerated: (content: CustomGuideContent, mode: 'replace' | 'add') => void
   onSectionAdded?: (section: CustomSection, mode: 'replace' | 'add', isFirst: boolean) => void
+  onGeneratingChange?: (generating: boolean) => void
   disabled?: boolean
 }
 
@@ -47,6 +31,7 @@ const FORMAT_OPTIONS: { value: GuideFormatChoice; label: string; icon: React.Com
   { value: 'summary', label: 'Summary', icon: ScrollText },
   { value: 'flashcards', label: 'Flashcards', icon: CreditCard },
   { value: 'quiz', label: 'Quiz', icon: HelpCircle },
+  { value: 'practice', label: 'Practice', icon: Puzzle },
   { value: 'definition', label: 'Definitions', icon: BookOpen },
   { value: 'table', label: 'Tables', icon: Table2 },
 ]
@@ -60,6 +45,15 @@ const defaultControls: GuideControls = {
   length: 'detailed',
 }
 
+const SUGGESTIONS = [
+  "Key terms as flashcards + a 5-question quiz",
+  "Outline of the main topics with a summary",
+  "Comparison table of the big ideas",
+]
+
+const selectCls =
+  "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+
 export function AIAssistant({
   subject,
   gradeLevel,
@@ -67,9 +61,9 @@ export function AIAssistant({
   sourceFiles,
   onContentGenerated,
   onSectionAdded,
+  onGeneratingChange,
   disabled
 }: AIAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false)
   const [directMode, setDirectMode] = useState<DirectMode>('generic')
   const [description, setDescription] = useState("")
   const [controls, setControls] = useState<GuideControls>(defaultControls)
@@ -77,12 +71,14 @@ export function AIAssistant({
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [sectionsAdded, setSectionsAdded] = useState(0)
+  const [addedTitles, setAddedTitles] = useState<string[]>([])
+  const abortRef = useRef<AbortController | null>(null)
 
   const hasExistingContent = currentBlocks.length > 0
   const hasSourceFiles = !!sourceFiles && sourceFiles.length > 0
   const selectedFormats = controls.formats ?? []
   const allFormatsSelected = selectedFormats.length === FORMAT_OPTIONS.length
+  const busy = isGenerating || !!disabled
 
   // In specific mode we can generate from just the chosen formats (+ files);
   // in generic mode we need either a description or source files to work from.
@@ -93,11 +89,14 @@ export function AIAssistant({
   const toggleFormat = (value: GuideFormatChoice) => {
     setControls(prev => {
       const current = prev.formats ?? []
-      const next = current.includes(value)
-        ? current.filter(f => f !== value)
-        : [...current, value]
+      const next = current.includes(value) ? current.filter(f => f !== value) : [...current, value]
       return { ...prev, formats: next }
     })
+  }
+
+  const setGenerating = (value: boolean) => {
+    setIsGenerating(value)
+    onGeneratingChange?.(value)
   }
 
   const handleGenerate = async () => {
@@ -108,33 +107,37 @@ export function AIAssistant({
       return
     }
 
-    setIsGenerating(true)
-    setProgress("Starting generation...")
+    const controller = new AbortController()
+    abortRef.current = controller
+    setGenerating(true)
+    setProgress("Starting…")
     setError(null)
-    setSectionsAdded(0)
+    setAddedTitles([])
+
+    // Tracked locally, NOT via state: the stream loop runs inside one closure,
+    // so reading `sectionsAdded` state here was always 0. That made every
+    // streamed section count as "first" (in Start-fresh mode each one wiped the
+    // previous) and re-applied the whole guide in bulk on completion (duplicating
+    // content in Add mode).
+    let streamedCount = 0
 
     try {
-      // Prepare existing content summary if adding
       let existingContentSummary = ""
       if (mode === 'add' && hasExistingContent) {
-        const existingGuide = blocksToCustomContent(currentBlocks)
-        existingContentSummary = JSON.stringify(existingGuide, null, 2)
+        existingContentSummary = JSON.stringify(blocksToCustomContent(currentBlocks), null, 2)
       }
 
       const response = await fetch("/api/generate-custom-guide", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           description,
           subject,
           gradeLevel,
           existingContent: existingContentSummary,
-          // Pass files with URLs - API will extract text (same as home page)
-          cloudinaryFiles: sourceFiles?.filter(f => f.url).map(f => ({
-            url: f.url,
-            filename: f.name
-          })),
+          cloudinaryFiles: sourceFiles?.filter(f => f.url).map(f => ({ url: f.url, filename: f.name })),
           mode,
           // Structured directives only in "specific" mode; omitted = AI decides.
           controls: directMode === 'specific' ? controls : undefined,
@@ -147,9 +150,7 @@ export function AIAssistant({
       }
 
       const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error("No response stream")
-      }
+      if (!reader) throw new Error("No response stream")
 
       const decoder = new TextDecoder()
       let buffer = ""
@@ -163,332 +164,306 @@ export function AIAssistant({
         buffer = lines.pop() || ""
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6))
+          if (!line.startsWith("data: ")) continue
+          let data: { type: string; message?: string; section?: CustomSection; customContent?: CustomGuideContent }
+          try {
+            data = JSON.parse(line.slice(6))
+          } catch {
+            continue
+          }
 
-              switch (data.type) {
-                case "progress":
-                  setProgress(data.message)
-                  break
-                case "section":
-                  // Real-time section addition
-                  if (data.section && onSectionAdded) {
-                    const isFirst = sectionsAdded === 0
-                    onSectionAdded(data.section, mode, isFirst)
-                    setSectionsAdded(prev => prev + 1)
-                    setProgress(`Added section: ${data.section.title || data.section.type}`)
-                  }
-                  break
-                case "content":
-                  setProgress("Generating content...")
-                  break
-                case "complete":
-                  // If we already sent sections incrementally, just reset the form
-                  // Otherwise fall back to bulk update for compatibility
-                  if (sectionsAdded > 0) {
-                    setDescription("")
-                    setProgress("")
-                  } else if (data.customContent) {
-                    onContentGenerated(data.customContent, mode)
-                    setDescription("")
-                    setProgress("")
-                  }
-                  break
-                case "error":
-                  setError(data.message)
-                  break
+          switch (data.type) {
+            case "progress":
+              if (data.message) setProgress(data.message)
+              break
+            case "section":
+              if (data.section && onSectionAdded) {
+                onSectionAdded(data.section, mode, streamedCount === 0)
+                streamedCount++
+                const label = data.section.title || data.section.type
+                setAddedTitles(prev => [...prev, label])
+                setProgress("Writing your guide…")
               }
-            } catch {
-              // Skip invalid JSON
-            }
+              break
+            case "complete":
+              // Sections already streamed in — only fall back to the bulk
+              // payload if nothing arrived incrementally.
+              if (streamedCount === 0 && data.customContent) {
+                onContentGenerated(data.customContent, mode)
+              }
+              setDescription("")
+              break
+            case "error":
+              setError(data.message || "Something went wrong")
+              break
           }
         }
       }
     } catch (err) {
-      console.error("AI generation error:", err)
-      setError(err instanceof Error ? err.message : "Failed to generate content")
+      if ((err as Error)?.name === "AbortError") {
+        setError(streamedCount > 0 ? `Stopped — kept ${streamedCount} section${streamedCount === 1 ? "" : "s"}.` : "Generation stopped.")
+      } else {
+        console.error("AI generation error:", err)
+        setError(err instanceof Error ? err.message : "Failed to generate content")
+      }
     } finally {
-      setIsGenerating(false)
+      abortRef.current = null
+      setGenerating(false)
       setProgress("")
     }
   }
 
   const genericPlaceholder = hasSourceFiles
-    ? "Describe what you want — or leave blank to let AI build a full guide from your uploaded files."
-    : "e.g. Create a study guide on photosynthesis with an outline, a key-terms flashcard deck, and a short quiz."
+    ? "Describe what you want — or leave blank to build a full guide from your files."
+    : "e.g. Photosynthesis: an outline, key-term flashcards, and a short quiz."
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className={`border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50 overflow-hidden transition-shadow ${
-        !isOpen ? 'shadow-md hover:shadow-lg' : ''
-      }`}>
-        <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between px-6 py-4 cursor-pointer transition-colors">
-            <div className="flex items-center gap-2 text-blue-700">
-              <Sparkles className="h-5 w-5" />
-              <span className="font-semibold">AI Assistant</span>
-              <span className="text-xs font-normal text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                Beta
-              </span>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 px-4 py-3.5 text-white">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-cyan-300/30 blur-2xl" />
+        <div className="relative flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 ring-1 ring-inset ring-white/25">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold leading-tight">AI assistant</h3>
+            <p className="text-xs text-blue-50/80">Draft blocks from a prompt or your files</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4">
+        {hasSourceFiles && (
+          <p className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700">
+            <FileText className="h-3.5 w-3.5" />
+            Using {sourceFiles!.length} uploaded file{sourceFiles!.length > 1 ? 's' : ''}
+          </p>
+        )}
+
+        <Segmented
+          value={directMode}
+          onChange={(v) => !busy && setDirectMode(v)}
+          className="grid w-full grid-cols-2"
+          options={[
+            { value: 'generic', label: 'Describe it', icon: Wand },
+            { value: 'specific', label: 'Control it', icon: SlidersHorizontal },
+          ]}
+        />
+
+        <div className="space-y-1.5">
+          <label className={fieldLabel} htmlFor="ai-description">
+            {directMode === 'specific' ? 'Extra instructions (optional)' : 'What should it make?'}
+          </label>
+          <textarea
+            id="ai-description"
+            placeholder={directMode === 'specific' ? "Topics to focus on, tone, anything else…" : genericPlaceholder}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canGenerate && !busy) {
+                e.preventDefault()
+                handleGenerate()
+              }
+            }}
+            rows={4}
+            disabled={busy}
+            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:opacity-60"
+          />
+          {directMode === 'generic' && !description && !isGenerating && (
+            <div className="flex flex-wrap gap-1.5">
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setDescription(s)}
+                  className="rounded-full border border-slate-200 px-2.5 py-1 text-[0.72rem] text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  {s}
+                </button>
+              ))}
             </div>
-            {isOpen ? (
-              <ChevronUp className="h-5 w-5 text-blue-600" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-blue-600" />
+          )}
+        </div>
+
+        {directMode === 'specific' && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className={fieldLabel}>Formats</span>
+                <button
+                  type="button"
+                  onClick={() => setControls(p => ({ ...p, formats: allFormatsSelected ? [] : FORMAT_OPTIONS.map(f => f.value) }))}
+                  disabled={busy}
+                  className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+                >
+                  {allFormatsSelected ? 'Clear' : 'Select all'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {FORMAT_OPTIONS.map(({ value, label, icon: Icon }) => {
+                  const checked = selectedFormats.includes(value)
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => toggleFormat(value)}
+                      disabled={busy}
+                      aria-pressed={checked}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-all duration-150",
+                        checked ? "border-blue-400 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      )}
+                    >
+                      {checked ? <Check className="h-3.5 w-3.5 text-blue-600" /> : <Icon className="h-3.5 w-3.5 text-slate-400" />}
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {(selectedFormats.includes('flashcards') || selectedFormats.includes('quiz')) && (
+              <div className="grid grid-cols-2 gap-2">
+                {selectedFormats.includes('flashcards') && (
+                  <label className="space-y-1">
+                    <span className={fieldLabel}>Cards / deck</span>
+                    <input
+                      type="number" min={1} max={50}
+                      value={controls.flashcardCount ?? ''}
+                      onChange={(e) => setControls(p => ({ ...p, flashcardCount: Number(e.target.value) || undefined }))}
+                      disabled={busy}
+                      className={selectCls}
+                    />
+                  </label>
+                )}
+                {selectedFormats.includes('quiz') && (
+                  <label className="space-y-1">
+                    <span className={fieldLabel}>Questions / quiz</span>
+                    <input
+                      type="number" min={1} max={30}
+                      value={controls.quizCount ?? ''}
+                      onChange={(e) => setControls(p => ({ ...p, quizCount: Number(e.target.value) || undefined }))}
+                      disabled={busy}
+                      className={selectCls}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <label className="col-span-2 space-y-1">
+                <span className={fieldLabel}>Organize</span>
+                <Segmented
+                  value={controls.splitBy ?? 'topic'}
+                  onChange={(v) => setControls(p => ({ ...p, splitBy: v }))}
+                  className="grid w-full grid-cols-2"
+                  options={[{ value: 'topic', label: 'By topic' }, { value: 'single', label: 'One guide' }]}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className={fieldLabel}>Difficulty</span>
+                <select
+                  value={controls.difficulty ?? 'intermediate'}
+                  onChange={(e) => setControls(p => ({ ...p, difficulty: e.target.value as GuideControls['difficulty'] }))}
+                  disabled={busy}
+                  className={selectCls}
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className={fieldLabel}>Length</span>
+                <select
+                  value={controls.length ?? 'detailed'}
+                  onChange={(e) => setControls(p => ({ ...p, length: e.target.value as GuideControls['length'] }))}
+                  disabled={busy}
+                  className={selectCls}
+                >
+                  <option value="concise">Concise</option>
+                  <option value="detailed">Detailed</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {hasExistingContent && (
+          <div className="space-y-1.5">
+            <span className={fieldLabel}>Your current blocks</span>
+            <Segmented
+              value={mode}
+              onChange={(v) => !busy && setMode(v)}
+              className="grid w-full grid-cols-2"
+              options={[
+                { value: 'add', label: 'Add to them', icon: Plus },
+                { value: 'replace', label: 'Start fresh', icon: RefreshCw },
+              ]}
+            />
+            {mode === 'replace' && (
+              <p className="text-xs text-amber-700">Replaces all {currentBlocks.length} blocks once the first section arrives.</p>
             )}
           </div>
-        </CollapsibleTrigger>
+        )}
 
-        <CollapsibleContent>
-          <CardContent className="pt-0 space-y-4">
-            {hasSourceFiles && (
-              <p className="text-sm text-blue-600 font-medium">
-                AI will reference your {sourceFiles!.length} uploaded file{sourceFiles!.length > 1 ? 's' : ''}.
+        {error && (
+          <p className="flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </p>
+        )}
+
+        {isGenerating && (
+          <div className="overflow-hidden rounded-xl border border-blue-100 bg-blue-50/50">
+            <div className="relative h-1 overflow-hidden bg-blue-100">
+              <div className="animate-shimmer absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+            </div>
+            <div className="space-y-1.5 px-3 py-2.5">
+              <p className="flex items-center gap-2 text-sm font-medium text-blue-800">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {progress || "Generating…"}
               </p>
-            )}
-
-            {/* Direct mode: Generic (describe / hands-off) vs Specific (structured control) */}
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-white p-1 border border-blue-100">
-              <button
-                type="button"
-                onClick={() => setDirectMode('generic')}
-                disabled={isGenerating || disabled}
-                className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  directMode === 'generic' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-700 hover:bg-blue-50'
-                }`}
-              >
-                <Wand className="h-4 w-4" />
-                Describe it
-              </button>
-              <button
-                type="button"
-                onClick={() => setDirectMode('specific')}
-                disabled={isGenerating || disabled}
-                className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  directMode === 'specific' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-700 hover:bg-blue-50'
-                }`}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Control it
-              </button>
+              {addedTitles.length > 0 && (
+                <ul className="max-h-32 space-y-1 overflow-y-auto pl-6 text-xs text-blue-700/90">
+                  {addedTitles.map((t, i) => (
+                    <li key={i} className="flex items-center gap-1.5">
+                      <Check className="h-3 w-3 text-emerald-500" />
+                      <span className="truncate">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
+          </div>
+        )}
 
-            {/* Description (always shown; optional in specific mode) */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-blue-700">
-                {directMode === 'specific' ? 'Extra instructions (optional)' : 'What do you want to study?'}
-              </Label>
-              <Textarea
-                placeholder={directMode === 'specific'
-                  ? "Anything else the AI should know? (topics to focus on, tone, etc.)"
-                  : genericPlaceholder}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[90px] resize-y bg-white"
-                disabled={isGenerating || disabled}
-              />
-            </div>
-
-            {/* Specific controls */}
-            {directMode === 'specific' && (
-              <div className="space-y-4 rounded-lg border border-blue-100 bg-white p-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-blue-700">Formats to include</Label>
-                    <button
-                      type="button"
-                      onClick={() => setControls(p => ({
-                        ...p,
-                        formats: allFormatsSelected ? [] : FORMAT_OPTIONS.map(f => f.value),
-                      }))}
-                      disabled={isGenerating || disabled}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50"
-                    >
-                      {allFormatsSelected ? 'Clear all' : 'Select all'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {FORMAT_OPTIONS.map(({ value, label, icon: Icon }) => {
-                      const checked = selectedFormats.includes(value)
-                      return (
-                        <label
-                          key={value}
-                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-all ${
-                            checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-                          }`}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={() => toggleFormat(value)}
-                            disabled={isGenerating || disabled}
-                            className="border-2 border-blue-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                          />
-                          <Icon className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium">{label}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedFormats.includes('flashcards') && (
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Cards per deck (flashcards)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={controls.flashcardCount ?? ''}
-                        onChange={(e) => setControls(p => ({ ...p, flashcardCount: Number(e.target.value) || undefined }))}
-                        disabled={isGenerating || disabled}
-                        className="bg-white"
-                      />
-                    </div>
-                  )}
-                  {selectedFormats.includes('quiz') && (
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Questions per quiz</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={30}
-                        value={controls.quizCount ?? ''}
-                        onChange={(e) => setControls(p => ({ ...p, quizCount: Number(e.target.value) || undefined }))}
-                        disabled={isGenerating || disabled}
-                        className="bg-white"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Organize by</Label>
-                    <Select
-                      value={controls.splitBy ?? 'topic'}
-                      onValueChange={(v) => setControls(p => ({ ...p, splitBy: v as GuideControls['splitBy'] }))}
-                      disabled={isGenerating || disabled}
-                    >
-                      <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="topic">One section per topic</SelectItem>
-                        <SelectItem value="single">One combined guide</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Difficulty</Label>
-                    <Select
-                      value={controls.difficulty ?? 'intermediate'}
-                      onValueChange={(v) => setControls(p => ({ ...p, difficulty: v as GuideControls['difficulty'] }))}
-                      disabled={isGenerating || disabled}
-                    >
-                      <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Length</Label>
-                    <Select
-                      value={controls.length ?? 'detailed'}
-                      onValueChange={(v) => setControls(p => ({ ...p, length: v as GuideControls['length'] }))}
-                      disabled={isGenerating || disabled}
-                    >
-                      <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="concise">Concise</SelectItem>
-                        <SelectItem value="detailed">Detailed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Content mode: add vs replace */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-blue-700">Content mode</Label>
-              <RadioGroup
-                value={mode}
-                onValueChange={(v) => setMode(v as 'replace' | 'add')}
-                className="grid grid-cols-2 gap-3"
-                disabled={isGenerating || disabled}
-              >
-                <label
-                  htmlFor="mode-add"
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all bg-white ${
-                    mode === 'add' ? 'border-blue-500 shadow-md ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
-                  }`}
-                >
-                  <RadioGroupItem value="add" id="mode-add" className="border-2 border-blue-400 text-blue-600" />
-                  <div className="flex items-center gap-1.5 font-medium text-sm">
-                    <Plus className="h-4 w-4 text-blue-600" />
-                    Add to existing
-                  </div>
-                </label>
-                <label
-                  htmlFor="mode-replace"
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all bg-white ${
-                    mode === 'replace' ? 'border-blue-500 shadow-md ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
-                  }`}
-                >
-                  <RadioGroupItem value="replace" id="mode-replace" className="border-2 border-blue-400 text-blue-600" />
-                  <div className="flex items-center gap-1.5 font-medium text-sm">
-                    <RefreshCw className="h-4 w-4 text-blue-600" />
-                    Start fresh
-                  </div>
-                </label>
-              </RadioGroup>
-            </div>
-
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
-                {error}
-              </p>
-            )}
-
-            {isGenerating && (
-              <div className="flex items-center justify-center gap-3 py-4 px-4 bg-blue-50 rounded-lg border border-blue-200">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                <div className="text-center">
-                  <span className="text-sm text-blue-700 font-medium block">{progress || "Generating content..."}</span>
-                  {sectionsAdded > 0 && (
-                    <span className="text-xs text-blue-600">
-                      {sectionsAdded} section{sectionsAdded !== 1 ? 's' : ''} generated
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || disabled || !canGenerate}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    {mode === 'add' ? 'Add Content' : 'Generate Guide'}
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+        {isGenerating ? (
+          <button
+            type="button"
+            onClick={() => abortRef.current?.abort()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+            Stop
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={busy || !canGenerate}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+          >
+            <Wand2 className="h-4 w-4" />
+            {hasExistingContent && mode === 'add' ? 'Add to guide' : 'Generate guide'}
+          </button>
+        )}
+        {!isGenerating && canGenerate && (
+          <p className="-mt-2 text-center text-[0.7rem] text-slate-400">⌘/Ctrl + Enter</p>
+        )}
+      </div>
+    </section>
   )
 }

@@ -157,6 +157,40 @@
   animation: shimmer 2s infinite;
 }
 
+/* Gentle entrance for swapped-in content (quiz questions, feedback) */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 200ms ease-out both;
+}
+
+/* Wrong-answer nudge (practice matching) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 320ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-shake {
+    animation: none;
+  }
+}
+
 /* Print styles */
 @media print {
   .print\:hidden {

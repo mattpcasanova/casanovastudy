@@ -1,238 +1,92 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  EditorBlock,
-  SectionBlockData,
-  BlockType
-} from "@/lib/types/editor-blocks"
-import { BlockWrapper } from "./block-wrapper"
-import { TextBlock } from "./text-block"
-import { AlertBlock } from "./alert-block"
-import { TableBlock } from "./table-block"
-import { QuizBlock } from "./quiz-block"
-import { ChecklistBlock } from "./checklist-block"
-import { DefinitionBlock } from "./definition-block"
-import { FlashcardsBlock } from "./flashcards-block"
-import {
-  Plus,
-  ChevronDown,
-  ChevronRight,
-  Type,
-  AlertCircle,
-  Table2,
-  HelpCircle,
-  CheckSquare,
-  BookOpen,
-  CreditCard
-} from "lucide-react"
 import { useState } from "react"
+import { ChevronRight, Plus } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { fontDisplay } from "@/lib/formats/design"
+import { EditorBlock } from "@/lib/types/editor-blocks"
+import { BlockItem, BlockGap, EditorActions } from "../block-item"
+import { InsertMenu } from "../insert-menu"
+import { InlineInput } from "../editor-ui"
 
 interface SectionBlockProps {
   block: EditorBlock
   onUpdate: (updates: Partial<EditorBlock>) => void
-  onAddBlock: (type: BlockType, afterId?: string, parentId?: string) => void
-  onUpdateBlock: (id: string, updates: Partial<EditorBlock>) => void
-  onDeleteBlock: (id: string) => void
-  onMoveBlock: (id: string, direction: 'up' | 'down') => void
+  actions: EditorActions
   selectedBlockId: string | null
-  onSelectBlock: (id: string | null) => void
 }
 
-const childBlockTypes: { type: BlockType; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
-  { type: 'text', icon: Type, label: 'Text' },
-  { type: 'alert', icon: AlertCircle, label: 'Alert' },
-  { type: 'table', icon: Table2, label: 'Table' },
-  { type: 'quiz', icon: HelpCircle, label: 'Quiz' },
-  { type: 'checklist', icon: CheckSquare, label: 'Checklist' },
-  { type: 'definition', icon: BookOpen, label: 'Definition' },
-  { type: 'flashcards', icon: CreditCard, label: 'Flashcards' },
-]
-
-export function SectionBlock({
-  block,
-  onUpdate,
-  onAddBlock,
-  onUpdateBlock,
-  onDeleteBlock,
-  onMoveBlock,
-  selectedBlockId,
-  onSelectBlock
-}: SectionBlockProps) {
-  const data = block.data as SectionBlockData
+export function SectionBlock({ block, onUpdate, actions, selectedBlockId }: SectionBlockProps) {
   const [isExpanded, setIsExpanded] = useState(true)
-  const [showAddMenu, setShowAddMenu] = useState(false)
-
-  const handleTitleChange = (title: string) => {
-    onUpdate({ title })
-  }
-
-  const handleAddChildBlock = (type: BlockType) => {
-    onAddBlock(type, undefined, block.id)
-    setShowAddMenu(false)
-  }
-
-  const renderChildBlock = (childBlock: EditorBlock, index: number) => {
-    const isSelected = selectedBlockId === childBlock.id
-    const children = block.children || []
-    const canMoveUp = index > 0
-    const canMoveDown = index < children.length - 1
-
-    const blockContent = () => {
-      switch (childBlock.type) {
-        case 'text':
-          return (
-            <TextBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'alert':
-          return (
-            <AlertBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'table':
-          return (
-            <TableBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'quiz':
-          return (
-            <QuizBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'checklist':
-          return (
-            <ChecklistBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'definition':
-          return (
-            <DefinitionBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        case 'flashcards':
-          return (
-            <FlashcardsBlock
-              block={childBlock}
-              onUpdate={(updates) => onUpdateBlock(childBlock.id, updates)}
-            />
-          )
-        default:
-          return null
-      }
-    }
-
-    return (
-      <BlockWrapper
-        key={childBlock.id}
-        id={childBlock.id}
-        type={childBlock.type}
-        title={childBlock.title}
-        isSelected={isSelected}
-        onSelect={() => onSelectBlock(childBlock.id)}
-        onDelete={() => onDeleteBlock(childBlock.id)}
-        onMoveUp={() => onMoveBlock(childBlock.id, 'up')}
-        onMoveDown={() => onMoveBlock(childBlock.id, 'down')}
-        canMoveUp={canMoveUp}
-        canMoveDown={canMoveDown}
-        disableDrag={true}
-      >
-        {blockContent()}
-      </BlockWrapper>
-    )
-  }
+  const children = block.children ?? []
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setIsExpanded(!isExpanded)}
+    <div>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setIsExpanded(e => !e)}
+          aria-label={isExpanded ? "Collapse section" : "Expand section"}
+          aria-expanded={isExpanded}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
         >
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </Button>
-        <div className="flex-1">
-          <Input
-            value={block.title || ''}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder="Section title..."
-            className="font-semibold"
-          />
-        </div>
-        <Badge variant="outline" className="text-xs">
-          {block.children?.length || 0} items
-        </Badge>
+          <ChevronRight className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-90")} />
+        </button>
+        <InlineInput
+          value={block.title || ""}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="Section title"
+          className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}
+        />
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[0.7rem] font-medium text-slate-500">
+          {children.length} {children.length === 1 ? "block" : "blocks"}
+        </span>
       </div>
 
-      {isExpanded && (
-        <div className="pl-6 border-l-2 border-blue-200 space-y-3">
-          {block.children && block.children.length > 0 ? (
-            <>
-              {block.children.map((child, index) => renderChildBlock(child, index))}
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground py-2">
-              No content in this section yet. Add blocks below.
-            </p>
-          )}
-
-          {/* Add block menu */}
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full border-dashed"
-              onClick={() => setShowAddMenu(!showAddMenu)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add to Section
-            </Button>
-
-            {showAddMenu && (
-              <Card className="absolute top-full left-0 right-0 mt-1 z-10">
-                <CardContent className="p-2">
-                  <div className="grid grid-cols-3 gap-1">
-                    {childBlockTypes.map(({ type, icon: Icon, label }) => (
-                      <Button
-                        key={type}
-                        variant="ghost"
-                        size="sm"
-                        className="justify-start gap-2"
-                        onClick={() => handleAddChildBlock(type)}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </Button>
-                    ))}
+      {/* grid-rows trick animates the collapse without measuring heights */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden" inert={!isExpanded}>
+          <div className="ml-3.5 mt-2 border-l-2 border-sky-100 pl-3">
+            {children.length === 0 ? (
+              <InsertMenu
+                excludeContainers
+                onChoose={(choice) => actions.insert(choice, { parentId: block.id })}
+                trigger={
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-400 transition-colors hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Empty section — add a block
+                  </button>
+                }
+              />
+            ) : (
+              <>
+                <BlockGap excludeContainers onChoose={(choice) => actions.insert(choice, { parentId: block.id, atStart: true })} />
+                {children.map((child, index) => (
+                  <div key={child.id}>
+                    <BlockItem
+                      block={child}
+                      actions={actions}
+                      isSelected={selectedBlockId === child.id}
+                      nested
+                      canMoveUp={index > 0}
+                      canMoveDown={index < children.length - 1}
+                    />
+                    <BlockGap excludeContainers onChoose={(choice) => actions.insert(choice, { afterId: child.id })} />
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </>
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

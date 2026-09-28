@@ -6,10 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 import { supabase, StudyGuideRecord } from '@/lib/supabase'
 import NavigationHeader from '@/components/navigation-header'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -17,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,39 +27,44 @@ import {
 import {
   BookOpen,
   FileText,
-  Calendar,
-  GraduationCap,
   Plus,
-  Layers,
-  Brain,
-  ListChecks,
-  AlignLeft,
   Filter,
   ArrowUpDown,
-  Search,
+  ArrowRight,
   Trash2,
-  Check,
-  Loader2,
   X,
-  School
+  School,
+  Puzzle,
+  List,
+  CreditCard,
+  HelpCircle,
+  ScrollText,
+  Sparkles,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { displaySerif } from '@/lib/formats/fonts'
+import { fontDisplay } from '@/lib/formats/design'
+import { LibraryHeader, SearchBox, FilterChip, SelectToggle, relativeDate, CardSkeletonGrid } from '@/components/library/library-parts'
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
+import { CLASSES_ENABLED } from '@/lib/features'
 
-const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  outline: AlignLeft,
-  flashcards: Layers,
-  quiz: ListChecks,
-  summary: Brain,
-  custom: BookOpen
-}
+// Cover styling per format. Class strings are literal so Tailwind keeps them.
+const FORMAT_CARD = {
+  outline: { label: 'Outline', icon: List, cover: 'from-blue-100 via-blue-50 to-white', text: 'text-blue-700', watermark: 'text-blue-200/80' },
+  flashcards: { label: 'Flashcards', icon: CreditCard, cover: 'from-indigo-100 via-indigo-50 to-white', text: 'text-indigo-700', watermark: 'text-indigo-200/80' },
+  quiz: { label: 'Quiz', icon: HelpCircle, cover: 'from-purple-100 via-purple-50 to-white', text: 'text-purple-700', watermark: 'text-purple-200/80' },
+  summary: { label: 'Summary', icon: ScrollText, cover: 'from-green-100 via-green-50 to-white', text: 'text-green-700', watermark: 'text-green-200/80' },
+  practice: { label: 'Practice', icon: Puzzle, cover: 'from-orange-100 via-orange-50 to-white', text: 'text-orange-700', watermark: 'text-orange-200/80' },
+  custom: { label: 'Custom', icon: Sparkles, cover: 'from-cyan-100 via-sky-50 to-white', text: 'text-cyan-700', watermark: 'text-cyan-200/80' },
+} as const
 
-const subjectColors = {
-  mathematics: 'bg-blue-100 text-blue-800 border-blue-300',
-  science: 'bg-green-100 text-green-800 border-green-300',
-  english: 'bg-blue-100 text-blue-800 border-blue-300',
-  history: 'bg-amber-100 text-amber-800 border-amber-300',
-  'foreign-language': 'bg-pink-100 text-pink-800 border-pink-300',
-  other: 'bg-gray-100 text-gray-800 border-gray-300'
+// Skip the topic snippet when it just repeats the title (guides made from a typed topic).
+function showTopic(title: string, topic?: string | null): boolean {
+  if (!topic) return false
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const t = norm(title).replace(/ $/, '')
+  const f = norm(topic)
+  return !(f.startsWith(t) || t.startsWith(f.slice(0, Math.max(12, t.length - 3))))
 }
 
 export default function MyGuidesPage() {
@@ -186,15 +187,6 @@ export default function MyGuidesPage() {
     fetchMyGuides()
   }, [user, authLoading, router])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
-
   const formatSubject = (subject: string) => {
     return subject.split('-').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
@@ -248,363 +240,171 @@ export default function MyGuidesPage() {
     return Array.from(subjects).sort()
   }, [studyGuides])
 
+  const formatCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const g of studyGuides) counts[g.format] = (counts[g.format] || 0) + 1
+    return counts
+  }, [studyGuides])
+
+  const selecting = selectedIds.size > 0
+  const clearFilters = () => {
+    setSubjectFilter('all')
+    setFormatFilter('all')
+    setSearchQuery('')
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+    <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50')}>
       <NavigationHeader />
 
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
-        <div className="container mx-auto px-4 py-10">
-          <div className="relative">
-            <div className="text-center">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Study Guides</h1>
-              <p className="text-sm sm:text-base opacity-75">
-                All your personalized study materials in one place
-              </p>
-            </div>
-            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 absolute top-0 right-0 hidden sm:flex">
-              <Link href="/">
-                <Plus className="h-5 w-5 mr-2" />
-                Create New Guide
-              </Link>
-            </Button>
-            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 mt-4 sm:hidden w-full">
-              <Link href="/">
-                <Plus className="h-5 w-5 mr-2" />
-                Create New Guide
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
+      <LibraryHeader
+        title="My Guides"
+        subtitle="Everything you've made, ready to study."
+        count={studyGuides.length}
+        noun="guide"
+        actionHref="/"
+        actionLabel="New guide"
+      />
 
       <div className="container mx-auto px-4 py-8">
-
-        {/* Filters and Sort - Only show if there are guides */}
+        {/* Toolbar */}
         {!authLoading && !guidesLoading && studyGuides.length > 0 && (
-          <Card className="mb-6 border-2">
-            <CardContent className="pt-6">
-              {/* Search Input */}
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search by title..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+          <div className="mb-6 space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search your guides…" />
+              <div className="flex gap-3">
+                <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-44">
+                    <SelectValue placeholder="All subjects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All subjects</SelectItem>
+                    {availableSubjects.filter((s) => s !== 'general').map(subject => (
+                      <SelectItem key={subject} value={subject}>{formatSubject(subject)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40">
+                    <ArrowUpDown className="mr-1 h-4 w-4 text-slate-400" />
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Newest first</SelectItem>
+                    <SelectItem value="date-asc">Oldest first</SelectItem>
+                    <SelectItem value="title-asc">Title A–Z</SelectItem>
+                    <SelectItem value="title-desc">Title Z–A</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Subject Filter */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filter by Subject
-                  </label>
-                  <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All subjects" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Subjects</SelectItem>
-                      {availableSubjects.map(subject => (
-                        <SelectItem key={subject} value={subject}>
-                          {formatSubject(subject)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Format Filter */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Filter by Format
-                  </label>
-                  <Select value={formatFilter} onValueChange={setFormatFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All formats" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Formats</SelectItem>
-                      <SelectItem value="outline">Outline</SelectItem>
-                      <SelectItem value="flashcards">Flashcards</SelectItem>
-                      <SelectItem value="quiz">Quiz</SelectItem>
-                      <SelectItem value="summary">Summary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sort */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4" />
-                    Sort By
-                  </label>
-                  <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sort by..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="date-desc">Newest First</SelectItem>
-                      <SelectItem value="date-asc">Oldest First</SelectItem>
-                      <SelectItem value="title-asc">Title (A-Z)</SelectItem>
-                      <SelectItem value="title-desc">Title (Z-A)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Active filters summary */}
-              {(subjectFilter !== 'all' || formatFilter !== 'all' || searchQuery.trim()) && (
-                <div className="mt-4 flex items-center gap-2 flex-wrap text-sm text-gray-600">
-                  <span>Active filters:</span>
-                  {searchQuery.trim() && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
-                      Search: "{searchQuery}" ✕
-                    </Badge>
-                  )}
-                  {subjectFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setSubjectFilter('all')}>
-                      {formatSubject(subjectFilter)} ✕
-                    </Badge>
-                  )}
-                  {formatFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setFormatFilter('all')}>
-                      {formatFilter} ✕
-                    </Badge>
-                  )}
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-blue-600 h-auto p-0"
-                    onClick={() => {
-                      setSubjectFilter('all')
-                      setFormatFilter('all')
-                      setSearchQuery('')
-                    }}
-                  >
-                    Clear all
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Loading State */}
-        {(authLoading || guidesLoading) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="h-64">
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <p className="text-red-800 text-center">{error}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty State */}
-        {!authLoading && !guidesLoading && !error && studyGuides.length === 0 && (
-          <Card className="border-2 border-dashed border-gray-300">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <BookOpen className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                No study guides yet
-              </h3>
-              <p className="text-gray-500 mb-6 text-center max-w-md">
-                Start creating your first study guide! Upload your materials and let AI generate personalized study content.
-              </p>
-              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/">
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create Your First Guide
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Study Guides Grid */}
-        {!authLoading && !guidesLoading && !error && studyGuides.length > 0 && (
-          <div>
-            {/* Results header with select all */}
-            <div className="mb-4 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {filteredAndSortedGuides.length} of {studyGuides.length} {studyGuides.length === 1 ? 'guide' : 'guides'}
-                {selectedIds.size > 0 && (
-                  <span className="ml-2 text-blue-600 font-medium">
-                    ({selectedIds.size} selected)
-                  </span>
-                )}
-              </div>
-              {filteredAndSortedGuides.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleSelectAll}
-                  className="text-gray-600"
-                >
-                  {selectedIds.size === filteredAndSortedGuides.length ? 'Deselect All' : 'Select All'}
-                </Button>
-              )}
             </div>
-            {filteredAndSortedGuides.length === 0 ? (
-              <Card className="border-2 border-dashed border-gray-300">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Filter className="h-12 w-12 text-gray-400 mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No guides match your filters
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Try adjusting your filters to see more results
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSubjectFilter('all')
-                      setFormatFilter('all')
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredAndSortedGuides.map((guide) => {
-                    const FormatIcon = formatIcons[guide.format]
-                    const subjectColor = subjectColors[guide.subject as keyof typeof subjectColors] || subjectColors.other
-                    const isSelected = selectedIds.has(guide.id)
-                    const isDeleting = deletingIds.has(guide.id)
-
-                    return (
-                      <Card
-                      key={guide.id}
-                      className={`h-full hover:shadow-xl transition-all cursor-pointer border-2 group relative ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-200'
-                          : 'hover:border-blue-300'
-                      } ${isDeleting ? 'opacity-50' : ''}`}
-                      onClick={() => router.push(getGuideUrl(guide))}
-                    >
-                      {/* Format icon and selection checkbox */}
-                      <div className="absolute top-2 right-2 flex items-center gap-3 z-10">
-                        <FormatIcon className="h-6 w-6 text-gray-400" />
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-blue-100'
-                              : 'bg-transparent hover:bg-gray-100'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleSelection(guide.id)
-                          }}
-                        >
-                          <div
-                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'bg-blue-500 border-blue-500 shadow-md'
-                                : 'bg-white border-gray-300 shadow-sm group-hover:border-gray-400'
-                            }`}
-                          >
-                            {isSelected && <Check className="h-4 w-4 text-white" />}
-                          </div>
-                        </div>
-                      </div>
-
-                      <CardHeader className="pr-16">
-                        <div className="flex items-start justify-between mb-2">
-                          <Badge className={`${subjectColor} border`}>
-                            {formatSubject(guide.subject)}
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-xl line-clamp-2">
-                          {guide.title}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1">
-                            <GraduationCap className="h-3 w-3" />
-                            {guide.grade_level}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <FileText className="h-3 w-3" />
-                            {guide.format}
-                          </span>
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(guide.created_at)}
-                          </div>
-                          {guide.file_count > 0 && (
-                            <div className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {guide.file_count} {guide.file_count === 1 ? 'file' : 'files'}
-                            </div>
-                          )}
-                        </div>
-                        {guide.topic_focus && (
-                          <div className="mt-3 text-sm text-gray-600 line-clamp-2">
-                            <span className="font-medium">Focus:</span> {guide.topic_focus}
-                          </div>
-                        )}
-                        {user?.user_type === 'teacher' && (
-                          <div className="mt-3" onClick={e => e.stopPropagation()}>
-                            <AssignToClassDialog
-                              studyGuideIds={[guide.id]}
-                              studyGuideTitle={guide.title}
-                              trigger={
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
-                                >
-                                  <School className="h-3 w-3 mr-1.5" />
-                                  Assign to Class
-                                </Button>
-                              }
-                            />
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                  })}
-                </div>
-
-                {/* Hint text */}
-                {filteredAndSortedGuides.length > 0 && (
-                  <p className="text-center text-sm text-gray-500 mt-6">
-                    Click a guide to open it. Use the checkbox to select multiple.
-                  </p>
-                )}
-              </>
-            )}
+            <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+              <FilterChip active={formatFilter === 'all'} onClick={() => setFormatFilter('all')} count={studyGuides.length}>All</FilterChip>
+              {(Object.keys(FORMAT_CARD) as Array<keyof typeof FORMAT_CARD>).filter((f) => formatCounts[f]).map((f) => {
+                const Icon = FORMAT_CARD[f].icon
+                return (
+                  <FilterChip key={f} active={formatFilter === f} onClick={() => setFormatFilter(formatFilter === f ? 'all' : f)} count={formatCounts[f]}>
+                    <Icon className="h-3.5 w-3.5" /> {FORMAT_CARD[f].label}
+                  </FilterChip>
+                )
+              })}
+              <span className="ml-auto hidden text-sm text-slate-500 sm:block">
+                {filteredAndSortedGuides.length !== studyGuides.length && `${filteredAndSortedGuides.length} shown · `}
+                <button type="button" onClick={toggleSelectAll} className="font-medium text-blue-700 hover:underline">
+                  {selectedIds.size === filteredAndSortedGuides.length && selecting ? 'Deselect all' : 'Select'}
+                </button>
+              </span>
+            </div>
           </div>
+        )}
+
+        {(authLoading || guidesLoading) && <CardSkeletonGrid />}
+
+        {error && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-800">{error}</div>
+        )}
+
+        {/* Empty state */}
+        {!authLoading && !guidesLoading && !error && studyGuides.length === 0 && (
+          <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><BookOpen className="h-8 w-8" /></span>
+            <h3 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900')}>No study guides yet</h3>
+            <p className="mt-2 max-w-md text-slate-500">Type a topic or upload your class slides and your first guide will be ready in about a minute.</p>
+            <Button asChild size="lg" className="mt-6 bg-blue-600 hover:bg-blue-700">
+              <Link href="/"><Plus className="mr-2 h-5 w-5" /> Create your first guide</Link>
+            </Button>
+          </div>
+        )}
+
+        {!authLoading && !guidesLoading && !error && studyGuides.length > 0 && (
+          filteredAndSortedGuides.length === 0 ? (
+            <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <Filter className="mb-3 h-10 w-10 text-slate-300" />
+              <h3 className="text-lg font-semibold text-slate-800">No guides match</h3>
+              <p className="mb-4 mt-1 text-slate-500">Try a different search or filter.</p>
+              <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSortedGuides.map((guide) => {
+                const meta = FORMAT_CARD[guide.format as keyof typeof FORMAT_CARD] ?? FORMAT_CARD.custom
+                const Icon = meta.icon
+                const isSelected = selectedIds.has(guide.id)
+                const details = [guide.subject, guide.grade_level].filter((v) => v && v !== 'general').map(formatSubject)
+                return (
+                  <article
+                    key={guide.id}
+                    onClick={() => (selecting ? toggleSelection(guide.id) : router.push(getGuideUrl(guide)))}
+                    className={cn(
+                      'group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+                      isSelected ? 'border-blue-500 ring-4 ring-blue-500/15' : 'border-slate-200 hover:border-slate-300',
+                      deletingIds.has(guide.id) && 'pointer-events-none opacity-50'
+                    )}
+                  >
+                    {/* Cover */}
+                    <div className={cn('relative h-24 overflow-hidden bg-gradient-to-br', meta.cover)}>
+                      <Icon className={cn('absolute -bottom-4 -right-3 h-24 w-24 rotate-[-12deg] transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-105', meta.watermark)} strokeWidth={1.5} />
+                      <span className={cn('absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold shadow-sm', meta.text)}>
+                        <Icon className="h-3.5 w-3.5" /> {meta.label}
+                      </span>
+                      <SelectToggle selected={isSelected} selecting={selecting} onToggle={() => toggleSelection(guide.id)} className="absolute right-3 top-3" />
+                    </div>
+                    {/* Body */}
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className={cn(fontDisplay, 'line-clamp-2 text-lg font-semibold leading-snug text-slate-900')}>{guide.title}</h3>
+                      {details.length > 0 && <p className="mt-1.5 text-sm font-medium text-slate-500">{details.join(' · ')}</p>}
+                      {showTopic(guide.title, guide.topic_focus) && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500">{guide.topic_focus}</p>}
+                      {CLASSES_ENABLED && user?.user_type === 'teacher' && (
+                        <div className="mt-3" onClick={e => e.stopPropagation()}>
+                          <AssignToClassDialog
+                            studyGuideIds={[guide.id]}
+                            studyGuideTitle={guide.title}
+                            trigger={
+                              <Button variant="outline" size="sm" className="w-full border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800">
+                                <School className="mr-1.5 h-3 w-3" /> Assign to Class
+                              </Button>
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {/* Footer */}
+                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+                      <span className="flex items-center gap-3">
+                        <span>{relativeDate(guide.created_at)}</span>
+                        {guide.file_count > 0 && (
+                          <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> {guide.file_count}</span>
+                        )}
+                      </span>
+                      <span className={cn('flex items-center gap-1 font-semibold opacity-0 transition group-hover:opacity-100', meta.text)}>
+                        Open <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )
         )}
       </div>
 
@@ -616,7 +416,7 @@ export default function MyGuidesPage() {
               {selectedIds.size} {selectedIds.size === 1 ? 'guide' : 'guides'} selected
             </span>
             <div className="h-6 w-px bg-gray-600" />
-            {user?.user_type === 'teacher' && (
+            {CLASSES_ENABLED && user?.user_type === 'teacher' && (
               <AssignToClassDialog
                 studyGuideIds={Array.from(selectedIds)}
                 onSaved={() => setSelectedIds(new Set())}

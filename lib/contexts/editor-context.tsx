@@ -1,12 +1,12 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react'
 import {
   EditorBlock,
   EditorGuideMetadata,
   BlockType,
   createEmptyBlock,
-  generateBlockId
+  cloneBlockWithNewIds
 } from '@/lib/types/editor-blocks'
 
 interface EditorContextValue {
@@ -16,10 +16,12 @@ interface EditorContextValue {
   metadata: EditorGuideMetadata
   isDirty: boolean
 
-  // Block actions
+  // Block actions — all stable (safe to pass to memoized children)
   addBlock: (type: BlockType, afterId?: string, parentId?: string) => void
+  insertBlock: (block: EditorBlock, opts?: { afterId?: string | null; parentId?: string; atStart?: boolean }) => void
   updateBlock: (id: string, updates: Partial<EditorBlock>) => void
   deleteBlock: (id: string) => void
+  duplicateBlock: (id: string) => void
   moveBlock: (id: string, direction: 'up' | 'down') => void
   reorderBlocks: (newBlocks: EditorBlock[]) => void
   selectBlock: (id: string | null) => void
@@ -42,188 +44,142 @@ const defaultMetadata: EditorGuideMetadata = {
   gradeLevel: '9th-10th'
 }
 
+// ── Immutable tree helpers ───────────────────────────────────────────────────
+// Structural sharing: only the path from the root to the changed block gets new
+// object identities. Untouched blocks keep their identity, so React.memo'd
+// block components skip re-rendering while the user types in another block.
+// (The previous implementation JSON-cloned the entire tree on every keystroke,
+// which re-rendered every block and caused the editor's typing lag.)
+
+function mapTree(
+  blocks: EditorBlock[],
+  id: string,
+  fn: (block: EditorBlock) => EditorBlock
+): EditorBlock[] {
+  let changed = false
+  const next = blocks.map(block => {
+    if (block.id === id) {
+      changed = true
+      return fn(block)
+    }
+    if (block.children && block.children.length > 0) {
+      const children = mapTree(block.children, id, fn)
+      if (children !== block.children) {
+        changed = true
+        return { ...block, children }
+      }
+    }
+    return block
+  })
+  return changed ? next : blocks
+}
+
+// Apply `fn` to the sibling array that contains `id` (root or a section's children).
+function mapSiblings(
+  blocks: EditorBlock[],
+  id: string,
+  fn: (siblings: EditorBlock[], index: number) => EditorBlock[]
+): EditorBlock[] {
+  const index = blocks.findIndex(b => b.id === id)
+  if (index !== -1) return fn(blocks, index)
+
+  let changed = false
+  const next = blocks.map(block => {
+    if (!block.children || block.children.length === 0) return block
+    const children = mapSiblings(block.children, id, fn)
+    if (children !== block.children) {
+      changed = true
+      return { ...block, children }
+    }
+    return block
+  })
+  return changed ? next : blocks
+}
+
 export function EditorProvider({ children }: { children: ReactNode }) {
   const [blocks, setBlocks] = useState<EditorBlock[]>([])
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [metadata, setMetadataState] = useState<EditorGuideMetadata>(defaultMetadata)
   const [isDirty, setIsDirty] = useState(false)
 
-  // Find a block by ID (recursive)
-  const findBlock = useCallback((blocks: EditorBlock[], id: string): EditorBlock | null => {
-    for (const block of blocks) {
-      if (block.id === id) return block
-      if (block.children) {
-        const found = findBlock(block.children, id)
-        if (found) return found
-      }
-    }
-    return null
-  }, [])
-
-  // Find the parent array and index of a block
-  const findBlockLocation = useCallback((
-    blocks: EditorBlock[],
-    id: string,
-    parent: EditorBlock[] | null = null
-  ): { array: EditorBlock[], index: number, parent: EditorBlock[] | null } | null => {
-    for (let i = 0; i < blocks.length; i++) {
-      if (blocks[i].id === id) {
-        return { array: blocks, index: i, parent }
-      }
-      if (blocks[i].children) {
-        const result = findBlockLocation(blocks[i].children!, id, blocks)
-        if (result) return result
-      }
-    }
-    return null
-  }, [])
-
-  // Add a new block
-  const addBlock = useCallback((type: BlockType, afterId?: string, parentId?: string) => {
-    const newBlock = createEmptyBlock(type)
-
+  const insertBlock = useCallback((
+    newBlock: EditorBlock,
+    opts: { afterId?: string | null; parentId?: string; atStart?: boolean } = {}
+  ) => {
+    const { afterId, parentId, atStart } = opts
     setBlocks(prev => {
-      const newBlocks = JSON.parse(JSON.stringify(prev)) as EditorBlock[]
-
-      // If parentId is specified, add as child of that block
-      if (parentId) {
-        const addToParent = (blocks: EditorBlock[]): boolean => {
-          for (const block of blocks) {
-            if (block.id === parentId) {
-              if (!block.children) block.children = []
-              block.children.push(newBlock)
-              return true
-            }
-            if (block.children && addToParent(block.children)) return true
-          }
-          return false
-        }
-        addToParent(newBlocks)
-        setIsDirty(true)
-        return newBlocks
-      }
-
-      // If afterId is specified, add after that block
       if (afterId) {
-        const insertAfter = (blocks: EditorBlock[]): boolean => {
-          for (let i = 0; i < blocks.length; i++) {
-            if (blocks[i].id === afterId) {
-              blocks.splice(i + 1, 0, newBlock)
-              return true
-            }
-            if (blocks[i].children && insertAfter(blocks[i].children!)) return true
-          }
-          return false
-        }
-        insertAfter(newBlocks)
-      } else {
-        // Add to the end of root blocks
-        newBlocks.push(newBlock)
+        return mapSiblings(prev, afterId, (siblings, i) => [
+          ...siblings.slice(0, i + 1),
+          newBlock,
+          ...siblings.slice(i + 1),
+        ])
       }
-
-      setIsDirty(true)
-      return newBlocks
+      if (parentId) {
+        return mapTree(prev, parentId, parent => {
+          const kids = parent.children ?? []
+          return { ...parent, children: atStart ? [newBlock, ...kids] : [...kids, newBlock] }
+        })
+      }
+      return atStart ? [newBlock, ...prev] : [...prev, newBlock]
     })
-
+    setIsDirty(true)
     setSelectedBlockId(newBlock.id)
   }, [])
 
-  // Update a block
+  const addBlock = useCallback((type: BlockType, afterId?: string, parentId?: string) => {
+    insertBlock(createEmptyBlock(type), { afterId, parentId })
+  }, [insertBlock])
+
   const updateBlock = useCallback((id: string, updates: Partial<EditorBlock>) => {
-    setBlocks(prev => {
-      const newBlocks = JSON.parse(JSON.stringify(prev)) as EditorBlock[]
-
-      const update = (blocks: EditorBlock[]): boolean => {
-        for (let i = 0; i < blocks.length; i++) {
-          if (blocks[i].id === id) {
-            blocks[i] = { ...blocks[i], ...updates }
-            return true
-          }
-          if (blocks[i].children && update(blocks[i].children!)) return true
-        }
-        return false
-      }
-
-      update(newBlocks)
-      setIsDirty(true)
-      return newBlocks
-    })
-  }, [])
-
-  // Delete a block
-  const deleteBlock = useCallback((id: string) => {
-    setBlocks(prev => {
-      const newBlocks = JSON.parse(JSON.stringify(prev)) as EditorBlock[]
-
-      const remove = (blocks: EditorBlock[]): boolean => {
-        for (let i = 0; i < blocks.length; i++) {
-          if (blocks[i].id === id) {
-            blocks.splice(i, 1)
-            return true
-          }
-          if (blocks[i].children && remove(blocks[i].children!)) return true
-        }
-        return false
-      }
-
-      remove(newBlocks)
-      setIsDirty(true)
-      return newBlocks
-    })
-
-    // Clear selection if deleted block was selected
-    if (selectedBlockId === id) {
-      setSelectedBlockId(null)
-    }
-  }, [selectedBlockId])
-
-  // Move a block up or down
-  const moveBlock = useCallback((id: string, direction: 'up' | 'down') => {
-    setBlocks(prev => {
-      const newBlocks = JSON.parse(JSON.stringify(prev)) as EditorBlock[]
-
-      const move = (blocks: EditorBlock[]): boolean => {
-        for (let i = 0; i < blocks.length; i++) {
-          if (blocks[i].id === id) {
-            const newIndex = direction === 'up' ? i - 1 : i + 1
-            if (newIndex >= 0 && newIndex < blocks.length) {
-              const [removed] = blocks.splice(i, 1)
-              blocks.splice(newIndex, 0, removed)
-              return true
-            }
-            return false
-          }
-          if (blocks[i].children && move(blocks[i].children!)) return true
-        }
-        return false
-      }
-
-      const moved = move(newBlocks)
-      if (moved) {
-        return newBlocks
-      }
-      return prev // Return original if no move happened
-    })
+    setBlocks(prev => mapTree(prev, id, block => ({ ...block, ...updates })))
     setIsDirty(true)
   }, [])
 
-  // Reorder blocks (for drag and drop)
+  const deleteBlock = useCallback((id: string) => {
+    setBlocks(prev => mapSiblings(prev, id, (siblings, i) => [
+      ...siblings.slice(0, i),
+      ...siblings.slice(i + 1),
+    ]))
+    setIsDirty(true)
+    setSelectedBlockId(current => (current === id ? null : current))
+  }, [])
+
+  const duplicateBlock = useCallback((id: string) => {
+    let copyId: string | null = null
+    setBlocks(prev => mapSiblings(prev, id, (siblings, i) => {
+      const copy = cloneBlockWithNewIds(siblings[i])
+      copyId = copy.id
+      return [...siblings.slice(0, i + 1), copy, ...siblings.slice(i + 1)]
+    }))
+    setIsDirty(true)
+    if (copyId) setSelectedBlockId(copyId)
+  }, [])
+
+  const moveBlock = useCallback((id: string, direction: 'up' | 'down') => {
+    setBlocks(prev => mapSiblings(prev, id, (siblings, i) => {
+      const target = direction === 'up' ? i - 1 : i + 1
+      if (target < 0 || target >= siblings.length) return siblings
+      const next = [...siblings]
+      ;[next[i], next[target]] = [next[target], next[i]]
+      return next
+    }))
+    setIsDirty(true)
+  }, [])
+
+  // Reorder blocks (for drag and drop / bulk transforms)
   const reorderBlocks = useCallback((newBlocks: EditorBlock[]) => {
     setBlocks(newBlocks)
     setIsDirty(true)
   }, [])
 
-  // Select a block
   const selectBlock = useCallback((id: string | null) => {
     setSelectedBlockId(id)
   }, [])
 
-  // Update metadata
   const setMetadata = useCallback((updates: Partial<EditorGuideMetadata>) => {
-    setMetadataState(prev => {
-      setIsDirty(true)
-      return { ...prev, ...updates }
-    })
+    setMetadataState(prev => ({ ...prev, ...updates }))
+    setIsDirty(true)
   }, [])
 
   // Initialize blocks (for editing existing guides)
@@ -236,35 +192,27 @@ export function EditorProvider({ children }: { children: ReactNode }) {
   // Append blocks (for AI streaming - uses functional update to avoid stale closures)
   const appendBlocks = useCallback((newBlocks: EditorBlock[], options?: { replaceMatching?: boolean }) => {
     setBlocks(prev => {
-      if (options?.replaceMatching) {
-        // Try to replace matching sections (same type for quiz/checklist)
-        let updated = [...prev]
-        for (const newBlock of newBlocks) {
-          const existingIndex = updated.findIndex(b => {
-            if (b.type === 'quiz' && newBlock.type === 'quiz') return true
-            if (b.type === 'checklist' && newBlock.type === 'checklist') return true
-            if (b.type === newBlock.type && b.title && newBlock.title &&
-                b.title.toLowerCase() === newBlock.title.toLowerCase()) return true
-            return false
-          })
+      if (!options?.replaceMatching) return [...prev, ...newBlocks]
 
-          if (existingIndex !== -1 && (newBlock.type === 'quiz' || newBlock.type === 'checklist')) {
-            updated[existingIndex] = newBlock
-            console.log(`📝 Replaced existing ${newBlock.type} with AI-generated merged version`)
-          } else {
-            updated.push(newBlock)
-          }
+      // Replace a matching quiz/checklist (the AI returns a merged version when
+      // asked to e.g. "add 3 questions to the quiz"); otherwise append.
+      const updated = [...prev]
+      for (const newBlock of newBlocks) {
+        const existingIndex = updated.findIndex(b =>
+          (b.type === 'quiz' && newBlock.type === 'quiz') ||
+          (b.type === 'checklist' && newBlock.type === 'checklist')
+        )
+        if (existingIndex !== -1) {
+          updated[existingIndex] = newBlock
+        } else {
+          updated.push(newBlock)
         }
-        return updated
-      } else {
-        // Simple append
-        return [...prev, ...newBlocks]
       }
+      return updated
     })
     setIsDirty(true)
   }, [])
 
-  // Reset the editor to default state
   const resetEditor = useCallback(() => {
     setBlocks([])
     setSelectedBlockId(null)
@@ -272,19 +220,20 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     setIsDirty(false)
   }, [])
 
-  // Mark the editor as clean (after saving)
   const markClean = useCallback(() => {
     setIsDirty(false)
   }, [])
 
-  const value: EditorContextValue = {
+  const value = useMemo<EditorContextValue>(() => ({
     blocks,
     selectedBlockId,
     metadata,
     isDirty,
     addBlock,
+    insertBlock,
     updateBlock,
     deleteBlock,
+    duplicateBlock,
     moveBlock,
     reorderBlocks,
     selectBlock,
@@ -293,7 +242,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     appendBlocks,
     resetEditor,
     markClean
-  }
+  }), [
+    blocks, selectedBlockId, metadata, isDirty,
+    addBlock, insertBlock, updateBlock, deleteBlock, duplicateBlock, moveBlock,
+    reorderBlocks, selectBlock, setMetadata, initializeBlocks, appendBlocks, resetEditor, markClean
+  ])
 
   return (
     <EditorContext.Provider value={value}>

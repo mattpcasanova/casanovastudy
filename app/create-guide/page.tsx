@@ -10,62 +10,8 @@ import { CustomGuideContent } from "@/lib/types/custom-guide"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { displaySerif } from "@/lib/formats/fonts"
+import { Toaster } from "@/components/ui/toaster"
 import Link from "next/link"
-
-// The four study-guide formats as a chip row — keeps each format's identity
-// color (as a dot) so the hero previews what a custom guide can hold, while the
-// translucent-white chips sit legibly on the app's blue gradient.
-const FORMAT_CHIPS: { label: string; dot: string }[] = [
-  { label: "Outline", dot: "bg-blue-300" },
-  { label: "Summary", dot: "bg-green-300" },
-  { label: "Flashcards", dot: "bg-indigo-300" },
-  { label: "Quiz", dot: "bg-purple-300" },
-]
-
-function GuideHero({ editId }: { editId: string | null }) {
-  return (
-    <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white relative overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
-            backgroundSize: "20px 20px",
-          }}
-        ></div>
-      </div>
-      <div className="container mx-auto px-4 py-14 relative">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200 mb-2">
-            {editId ? "Editing" : "Custom study guide"}
-          </p>
-          <h1 className={`${displaySerif.variable} font-[family-name:var(--font-display)] text-4xl md:text-5xl font-semibold`}>
-            {editId ? "Edit your study guide" : "Build a study guide, your way"}
-          </h1>
-          <p className="mt-3 max-w-2xl text-lg text-blue-50/90">
-            {editId
-              ? "Refine your guide — add, rearrange, and rewrite content by hand or with AI."
-              : "Mix flashcards, outlines, summaries, and quizzes in one guide. Build it by hand, or let AI draft it from your instructions or uploaded materials."}
-          </p>
-          {!editId && (
-            <div className="mt-6 flex flex-wrap gap-2">
-              {FORMAT_CHIPS.map(({ label, dot }) => (
-                <span
-                  key={label}
-                  className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white ring-1 ring-inset ring-white/20"
-                >
-                  <span className={`h-2 w-2 rounded-full ${dot}`} />
-                  {label}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 interface EditGuideData {
   id: string
@@ -169,11 +115,12 @@ export default function CreateGuidePage() {
   // Loading states
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="min-h-screen bg-slate-50">
         <NavigationHeader />
-        <GuideHero editId={editId} />
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-[600px] w-full rounded-lg" />
+        <div className="h-14 border-b border-slate-200 bg-white" />
+        <div className="container mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <Skeleton className="h-[560px] w-full rounded-2xl bg-slate-200/70" />
+          <Skeleton className="hidden h-[420px] w-full rounded-2xl bg-slate-200/70 lg:block" />
         </div>
       </div>
     )
@@ -185,10 +132,9 @@ export default function CreateGuidePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="min-h-screen bg-slate-50">
         <NavigationHeader />
-        <GuideHero editId={editId} />
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-16">
           <div className="max-w-lg mx-auto text-center">
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
               <AlertCircle className="h-8 w-8 text-red-500" />
@@ -226,22 +172,18 @@ export default function CreateGuidePage() {
     : undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-slate-50">
       <NavigationHeader />
-
-      <GuideHero editId={editId} />
-
-      {/* Editor Section - Full Width */}
-      <div className="container mx-auto px-4 py-8">
-        <CustomGuideEditor
-          initialContent={initialBlocks}
-          initialMetadata={initialMetadata}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          isEditing={!!editId}
-          isTeacher={user?.user_type === 'teacher'}
-        />
-      </div>
+      <CustomGuideEditor
+        initialContent={initialBlocks}
+        initialMetadata={initialMetadata}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isEditing={!!editId}
+        isTeacher={user?.user_type === 'teacher'}
+        draftKey={`custom-guide-draft:${user.id}`}
+      />
+      <Toaster />
     </div>
   )
 }

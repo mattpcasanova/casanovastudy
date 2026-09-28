@@ -1,9 +1,11 @@
 export interface StudyGuideData {
   files: File[]
+  studyRequest?: string // what the student typed they want to study (may replace files)
+  autoTitle?: boolean // name was left blank — use the generated guide's own title
   studyGuideName: string
   subject: string
   gradeLevel: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice'
   topicFocus?: string
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
@@ -40,6 +42,8 @@ export interface StudyGuideRequest {
   topicFocus?: string
   difficultyLevel?: string
   additionalInstructions?: string
+  studyRequest?: string  // Typed topic/notes; lets students generate without files
+  autoTitle?: boolean  // Replace studyGuideName with the generated H1 title
   userId?: string  // User ID to associate with the study guide
 }
 
@@ -91,6 +95,7 @@ export interface ClaudeApiRequest {
   topicFocus?: string
   difficultyLevel?: string
   additionalInstructions?: string
+  studyRequest?: string
 }
 
 export interface ClaudeApiResponse {
@@ -102,7 +107,7 @@ export interface ClaudeApiResponse {
   }
 }
 
-export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary'
+export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice'
 export type GradeLevel = '9th' | '10th' | '11th' | '12th' | 'college'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 export type FileType = 'pdf' | 'pptx' | 'docx' | 'txt'

@@ -1,169 +1,133 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { EditorBlock, TableBlockData } from "@/lib/types/editor-blocks"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, X } from "lucide-react"
+import { ColorDots } from "../editor-ui"
+import { TABLE_HEADER_STYLES } from "../block-styles"
 
 interface TableBlockProps {
   block: EditorBlock
   onUpdate: (updates: Partial<EditorBlock>) => void
 }
 
-const headerStyles = [
-  { value: 'default', label: 'Default (Gray)' },
-  { value: 'blue', label: 'Blue' },
-  { value: 'green', label: 'Green' },
-  { value: 'purple', label: 'Purple' },
-]
+type HeaderStyle = NonNullable<TableBlockData["headerStyle"]>
 
+const styleOptions = (Object.keys(TABLE_HEADER_STYLES) as HeaderStyle[]).map(value => ({
+  value,
+  label: TABLE_HEADER_STYLES[value].label,
+  swatch: TABLE_HEADER_STYLES[value].swatch,
+}))
+
+const cellInput =
+  "w-full min-w-[7rem] bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-300 focus:bg-blue-50/60"
+
+// Edited in place as the real table (the old block was a grid of bordered
+// form inputs that looked nothing like the result).
 export function TableBlock({ block, onUpdate }: TableBlockProps) {
   const data = block.data as TableBlockData
+  const style = TABLE_HEADER_STYLES[data.headerStyle || "default"] ?? TABLE_HEADER_STYLES.default
 
   const handleChange = (updates: Partial<TableBlockData>) => {
-    onUpdate({
-      data: { ...data, ...updates }
-    })
+    onUpdate({ data: { ...data, ...updates } })
   }
 
   const updateHeader = (index: number, value: string) => {
-    const newHeaders = [...data.headers]
-    newHeaders[index] = value
-    handleChange({ headers: newHeaders })
+    handleChange({ headers: data.headers.map((h, i) => (i === index ? value : h)) })
   }
 
   const updateCell = (rowIndex: number, colIndex: number, value: string) => {
-    const newRows = data.rows.map((row, rIdx) =>
-      rIdx === rowIndex
-        ? row.map((cell, cIdx) => (cIdx === colIndex ? value : cell))
-        : row
-    )
-    handleChange({ rows: newRows })
+    handleChange({
+      rows: data.rows.map((row, r) => (r === rowIndex ? row.map((cell, c) => (c === colIndex ? value : cell)) : row)),
+    })
   }
 
   const addColumn = () => {
-    const newHeaders = [...data.headers, `Column ${data.headers.length + 1}`]
-    const newRows = data.rows.map(row => [...row, ''])
-    handleChange({ headers: newHeaders, rows: newRows })
+    handleChange({
+      headers: [...data.headers, `Column ${data.headers.length + 1}`],
+      rows: data.rows.map(row => [...row, ""]),
+    })
   }
 
   const removeColumn = (index: number) => {
     if (data.headers.length <= 1) return
-    const newHeaders = data.headers.filter((_, i) => i !== index)
-    const newRows = data.rows.map(row => row.filter((_, i) => i !== index))
-    handleChange({ headers: newHeaders, rows: newRows })
+    handleChange({
+      headers: data.headers.filter((_, i) => i !== index),
+      rows: data.rows.map(row => row.filter((_, i) => i !== index)),
+    })
   }
 
-  const addRow = () => {
-    const newRow = new Array(data.headers.length).fill('')
-    handleChange({ rows: [...data.rows, newRow] })
-  }
+  const addRow = () => handleChange({ rows: [...data.rows, new Array(data.headers.length).fill("")] })
 
   const removeRow = (index: number) => {
     if (data.rows.length <= 1) return
     handleChange({ rows: data.rows.filter((_, i) => i !== index) })
   }
 
-  const headerStyleClass = {
-    default: 'bg-gray-100',
-    blue: 'bg-blue-100',
-    green: 'bg-green-100',
-    purple: 'bg-purple-100',
-  }[data.headerStyle || 'default']
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Label htmlFor="table-style">Header Style</Label>
-          <Select
-            value={data.headerStyle || 'default'}
-            onValueChange={(value: TableBlockData['headerStyle']) => handleChange({ headerStyle: value })}
-          >
-            <SelectTrigger id="table-style">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {headerStyles.map(({ value, label }) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex gap-2 pt-5">
-          <Button variant="outline" size="sm" onClick={addColumn}>
-            <Plus className="h-4 w-4 mr-1" />
-            Column
-          </Button>
-          <Button variant="outline" size="sm" onClick={addRow}>
-            <Plus className="h-4 w-4 mr-1" />
-            Row
-          </Button>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <ColorDots value={data.headerStyle || "default"} options={styleOptions} onChange={(headerStyle) => handleChange({ headerStyle })} />
+        <div className="flex gap-1">
+          <button type="button" onClick={addColumn} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+            <Plus className="h-3.5 w-3.5" /> Column
+          </button>
+          <button type="button" onClick={addRow} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+            <Plus className="h-3.5 w-3.5" /> Row
+          </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-300 text-sm">
-          <thead>
-            <tr className={headerStyleClass}>
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead className={style.head}>
+            <tr>
               {data.headers.map((header, colIndex) => (
-                <th key={colIndex} className="border border-gray-300 p-1">
-                  <div className="flex items-center gap-1">
-                    <Input
-                      value={header}
-                      onChange={(e) => updateHeader(colIndex, e.target.value)}
-                      className="h-7 text-sm font-semibold text-center"
-                      placeholder={`Column ${colIndex + 1}`}
-                    />
-                    {data.headers.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => removeColumn(colIndex)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
+                <th key={colIndex} className="group/col relative border-b border-slate-200 p-0 text-left">
+                  <input
+                    value={header}
+                    onChange={(e) => updateHeader(colIndex, e.target.value)}
+                    placeholder={`Column ${colIndex + 1}`}
+                    className={cn(cellInput, "font-semibold", style.headText)}
+                  />
+                  {data.headers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeColumn(colIndex)}
+                      aria-label="Delete column"
+                      className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover/col:opacity-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </th>
               ))}
-              <th className="w-10 border border-gray-300"></th>
+              <th className="w-8 border-b border-slate-200" />
             </tr>
           </thead>
           <tbody>
             {data.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
+              <tr key={rowIndex} className="group/row border-b border-slate-100 last:border-0 even:bg-slate-50/60">
                 {row.map((cell, colIndex) => (
-                  <td key={colIndex} className="border border-gray-300 p-1">
-                    <Input
+                  <td key={colIndex} className="p-0 align-top">
+                    <input
                       value={cell}
                       onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
-                      className="h-7 text-sm"
-                      placeholder="..."
+                      placeholder="…"
+                      className={cn(cellInput, "text-slate-700", colIndex === 0 && "font-medium text-slate-900")}
                     />
                   </td>
                 ))}
-                <td className="border border-gray-300 p-1">
+                <td className="w-8 p-0 text-center">
                   {data.rows.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
+                    <button
+                      type="button"
                       onClick={() => removeRow(rowIndex)}
+                      aria-label="Delete row"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 md:opacity-0 md:group-hover/row:opacity-100"
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </td>
               </tr>

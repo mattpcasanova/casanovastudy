@@ -1,5 +1,6 @@
-import DashboardView from "@/components/dashboard-view"
+import { redirect } from "next/navigation"
 
-export default function DashboardPage() {
-  return <DashboardView />
+// The dashboard was retired — the study guide generator is the homepage.
+export default function DashboardRedirect() {
+  redirect("/")
 }

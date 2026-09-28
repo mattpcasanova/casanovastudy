@@ -1,5 +1,7 @@
 // Types for custom study guide content structure
 
+import type { PracticeActivity } from '@/lib/formats/practice'
+
 export interface CustomGuideContent {
   version: '1.0'
   sections: CustomSection[]
@@ -13,7 +15,7 @@ export interface CustomGuideMetadata {
 }
 
 // The formats a user can ask the AI to include when directing generation.
-export type GuideFormatChoice = 'outline' | 'summary' | 'flashcards' | 'quiz' | 'definition' | 'table'
+export type GuideFormatChoice = 'outline' | 'summary' | 'flashcards' | 'quiz' | 'practice' | 'definition' | 'table'
 
 // Structured "specific control" directives for AI generation. All optional —
 // when omitted the AI decides ("generic" mode).
@@ -28,7 +30,7 @@ export interface GuideControls {
 
 export interface CustomSection {
   id: string
-  type: 'section' | 'definition' | 'alert' | 'quiz' | 'checklist' | 'table' | 'text' | 'flashcards'
+  type: 'section' | 'definition' | 'alert' | 'quiz' | 'checklist' | 'table' | 'text' | 'flashcards' | 'practice'
   title?: string
   collapsed?: boolean
   content: SectionContent
@@ -43,6 +45,7 @@ export type SectionContent =
   | ChecklistContent
   | TableContent
   | FlashcardsContent
+  | PracticeContent
 
 export interface TextContent {
   type: 'text'
@@ -108,6 +111,14 @@ export interface FlashcardsContent {
   cards: FlashCard[]
 }
 
+// Interactive practice (match / fill / order / sort / choice). Activities use
+// the same shapes as the standalone practice format (lib/formats/practice.ts);
+// true/false is a two-option choice ['True', 'False'].
+export interface PracticeContent {
+  type: 'practice'
+  activities: PracticeActivity[]
+}
+
 // Helper type guard functions
 export function isTextContent(content: SectionContent): content is TextContent {
   return content.type === 'text'
@@ -135,4 +146,8 @@ export function isTableContent(content: SectionContent): content is TableContent
 
 export function isFlashcardsContent(content: SectionContent): content is FlashcardsContent {
   return content.type === 'flashcards'
+}
+
+export function isPracticeContent(content: SectionContent): content is PracticeContent {
+  return content.type === 'practice'
 }

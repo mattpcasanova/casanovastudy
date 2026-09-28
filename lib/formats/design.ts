@@ -61,12 +61,19 @@ export const tierStyles: Record<Tier, TierStyle> = {
 }
 
 // Detect a section's exam-priority tier from its title (emoji or keyword).
+// The tier word must lead the heading (after an optional "Section 2:" /
+// "Tier 1 —" prefix) so e.g. "Why This Is Important" isn't treated as a group.
 export function detectTier(title: string): Tier | null {
-  const t = title.toLowerCase()
-  if (title.includes("🔴") || t.includes("essential")) return "essential"
-  if (title.includes("🟡") || t.includes("important")) return "important"
-  if (title.includes("🟢") || t.includes("supporting")) return "supporting"
-  return null
+  if (title.includes("🔴")) return "essential"
+  if (title.includes("🟡")) return "important"
+  if (title.includes("🟢")) return "supporting"
+  const t = title
+    .toLowerCase()
+    .replace(/[*_]/g, "")
+    .replace(/^\s*(?:section|part|tier|priority|level)\s*\d*\s*[:.\-–—]?\s*/, "")
+    .trim()
+  const m = t.match(/^(essential|important|supporting)\b/)
+  return m ? (m[1] as Tier) : null
 }
 
 // Strip the leading tier emoji from a title for clean display.
@@ -116,7 +123,7 @@ export const eyebrow = "text-[0.7rem] font-semibold uppercase tracking-[0.14em]"
 // distinct-but-related family. Colors are chosen to avoid the tier palette
 // (rose/amber/emerald) and the quiz/flashcard state colors. Class strings are
 // full literals so Tailwind's scanner keeps them.
-export type FormatKey = "outline" | "summary" | "quiz" | "flashcards"
+export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practice"
 
 export interface FormatAccent {
   text: string // eyebrows, progress %, small accents
@@ -181,5 +188,17 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
     bannerFrom: "from-indigo-500",
     bannerTo: "to-indigo-700",
     bannerSub: "text-indigo-50",
+  },
+  practice: {
+    text: "text-orange-700",
+    edge: "border-l-orange-500",
+    solid: "bg-orange-500",
+    hover: "hover:bg-orange-600",
+    ring: "ring-orange-500",
+    soft: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200",
+    iconBadge: "bg-white/15 text-white",
+    bannerFrom: "from-orange-500",
+    bannerTo: "to-orange-700",
+    bannerSub: "text-orange-50",
   },
 }

@@ -6,10 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import NavigationHeader from '@/components/navigation-header'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -17,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,25 +25,33 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Calendar,
   ClipboardList,
   Plus,
   Filter,
   ArrowUpDown,
-  Search,
   Trash2,
-  User,
-  BookOpen,
-  Clock,
   Download,
   X,
-  Check,
   Loader2,
   Pencil,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowRight
 } from 'lucide-react'
 import { EditReportDialog } from '@/components/edit-report-dialog'
+import { cn } from '@/lib/utils'
+import { displaySerif } from '@/lib/formats/fonts'
+import { fontDisplay } from '@/lib/formats/design'
+import { LibraryHeader, SearchBox, SelectToggle, relativeDate, CardSkeletonGrid } from '@/components/library/library-parts'
+
+// Score colour bands (literal classes so Tailwind keeps them).
+function scoreBand(pct: number) {
+  if (pct >= 90) return { text: 'text-emerald-600', bar: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700', avatar: 'bg-emerald-100 text-emerald-700' }
+  if (pct >= 80) return { text: 'text-blue-600', bar: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700', avatar: 'bg-blue-100 text-blue-700' }
+  if (pct >= 70) return { text: 'text-amber-600', bar: 'bg-amber-400', badge: 'bg-amber-50 text-amber-700', avatar: 'bg-amber-100 text-amber-700' }
+  if (pct >= 60) return { text: 'text-orange-600', bar: 'bg-orange-400', badge: 'bg-orange-50 text-orange-700', avatar: 'bg-orange-100 text-orange-700' }
+  return { text: 'text-rose-600', bar: 'bg-rose-400', badge: 'bg-rose-50 text-rose-700', avatar: 'bg-rose-100 text-rose-700' }
+}
 
 interface GradingResult {
   id: string
@@ -317,14 +321,7 @@ export default function GradedExamsPage() {
     fetchMyResults()
   }, [user, authLoading, router])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
+
 
   const getDisplayName = (result: GradingResult) => {
     if (result.student_first_name || result.student_last_name) {
@@ -409,401 +406,187 @@ export default function GradedExamsPage() {
 
   const hasActiveFilters = classFilter !== 'all' || periodFilter !== 'all' || examTitleFilter !== 'all' || searchQuery.trim()
 
+  const selecting = selectedIds.size > 0
+  const clearFilters = () => {
+    setClassFilter('all')
+    setPeriodFilter('all')
+    setExamTitleFilter('all')
+    setSearchQuery('')
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+    <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50')}>
       <NavigationHeader />
 
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
-        <div className="container mx-auto px-4 py-10">
-          <div className="relative">
-            <div className="text-center">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">My Reports</h1>
-              <p className="text-sm sm:text-base opacity-75">
-                View and manage all your graded exam reports
-              </p>
-            </div>
-            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 absolute top-0 right-0 hidden sm:flex">
-              <Link href="/grade-exam">
-                <Plus className="h-5 w-5 mr-2" />
-                Grade New Exam
-              </Link>
-            </Button>
-            <Button asChild size="lg" className="bg-white/20 hover:bg-white/30 text-white border-2 border-white/50 mt-4 sm:hidden w-full">
-              <Link href="/grade-exam">
-                <Plus className="h-5 w-5 mr-2" />
-                Grade New Exam
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
+      <LibraryHeader
+        title="My Reports"
+        subtitle="Graded exams, ready to review and share."
+        count={gradingResults.length}
+        noun="report"
+        actionHref="/grade-exam"
+        actionLabel="Grade an exam"
+      />
 
       <div className="container mx-auto px-4 py-8">
-
-        {/* Filters and Sort */}
+        {/* Toolbar */}
         {!authLoading && !resultsLoading && gradingResults.length > 0 && (
-          <Card className="mb-6 border-2">
-            <CardContent className="pt-6">
-              {/* Search Input */}
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search by student name, exam title, or filename..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Class Filter */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filter by Class
-                  </label>
-                  <Select value={classFilter} onValueChange={setClassFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All classes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Classes</SelectItem>
-                      {availableClasses.map(className => (
-                        <SelectItem key={className} value={className}>
-                          {className}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Period Filter */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Filter by Period
-                  </label>
-                  <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All periods" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Periods</SelectItem>
-                      {availablePeriods.map(period => (
-                        <SelectItem key={period} value={period}>
-                          Period {period}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Exam Title Filter */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Filter by Exam
-                  </label>
+          <div className="mb-6 space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row">
+              <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search by student, exam, or file…" />
+              <div className="grid grid-cols-2 gap-3 sm:flex">
+                {availableExamTitles.length > 0 && (
                   <Select value={examTitleFilter} onValueChange={setExamTitleFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All exams" />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-44"><SelectValue placeholder="All exams" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Exams</SelectItem>
-                      {availableExamTitles.map(title => (
-                        <SelectItem key={title} value={title}>
-                          {title}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="all">All exams</SelectItem>
+                      {availableExamTitles.map(title => <SelectItem key={title} value={title}>{title}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* Sort */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4" />
-                    Sort By
-                  </label>
-                  <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sort by..." />
-                    </SelectTrigger>
+                )}
+                {availableClasses.length > 0 && (
+                  <Select value={classFilter} onValueChange={setClassFilter}>
+                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40"><SelectValue placeholder="All classes" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="date-desc">Newest First</SelectItem>
-                      <SelectItem value="date-asc">Oldest First</SelectItem>
-                      <SelectItem value="name-asc">Last Name (A-Z)</SelectItem>
-                      <SelectItem value="name-desc">Last Name (Z-A)</SelectItem>
+                      <SelectItem value="all">All classes</SelectItem>
+                      {availableClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
-
-              {/* Active filters summary */}
-              {hasActiveFilters && (
-                <div className="mt-4 flex items-center gap-2 flex-wrap text-sm text-gray-600">
-                  <span>Active filters:</span>
-                  {searchQuery.trim() && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
-                      Search: "{searchQuery}" ✕
-                    </Badge>
-                  )}
-                  {classFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setClassFilter('all')}>
-                      Class: {classFilter} ✕
-                    </Badge>
-                  )}
-                  {periodFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setPeriodFilter('all')}>
-                      Period: {periodFilter} ✕
-                    </Badge>
-                  )}
-                  {examTitleFilter !== 'all' && (
-                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setExamTitleFilter('all')}>
-                      Exam: {examTitleFilter} ✕
-                    </Badge>
-                  )}
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-blue-600 h-auto p-0"
-                    onClick={() => {
-                      setClassFilter('all')
-                      setPeriodFilter('all')
-                      setExamTitleFilter('all')
-                      setSearchQuery('')
-                    }}
-                  >
-                    Clear all
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Loading State */}
-        {(authLoading || resultsLoading) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="h-48">
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <p className="text-red-800 text-center">{error}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty State */}
-        {!authLoading && !resultsLoading && !error && gradingResults.length === 0 && (
-          <Card className="border-2 border-dashed border-gray-300">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <ClipboardList className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                No reports yet
-              </h3>
-              <p className="text-gray-500 mb-6 text-center max-w-md">
-                Start grading your first exam! Upload a mark scheme and student exam to get AI-powered grading.
-              </p>
-              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/grade-exam">
-                  <Plus className="h-5 w-5 mr-2" />
-                  Grade Your First Exam
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Grading Results Grid */}
-        {!authLoading && !resultsLoading && !error && gradingResults.length > 0 && (
-          <div>
-            {/* Results header with select all */}
-            <div className="mb-4 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {filteredAndSortedResults.length} of {gradingResults.length} {gradingResults.length === 1 ? 'report' : 'reports'}
-                {selectedIds.size > 0 && (
-                  <span className="ml-2 text-blue-600 font-medium">
-                    ({selectedIds.size} selected)
-                  </span>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPrivacyMode(!privacyMode)}
-                  className={`text-gray-600 ${privacyMode ? 'bg-gray-100' : ''}`}
-                  title={privacyMode ? 'Show scores' : 'Hide scores'}
-                >
-                  {privacyMode ? (
-                    <EyeOff className="h-4 w-4 mr-1.5" />
-                  ) : (
-                    <Eye className="h-4 w-4 mr-1.5" />
-                  )}
-                  {privacyMode ? 'Privacy On' : 'Privacy Off'}
-                </Button>
-                {filteredAndSortedResults.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleSelectAll}
-                    className="text-gray-600"
-                  >
-                    {selectedIds.size === filteredAndSortedResults.length ? 'Deselect All' : 'Select All'}
-                  </Button>
+                {availablePeriods.length > 0 && (
+                  <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-36"><SelectValue placeholder="All periods" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All periods</SelectItem>
+                      {availablePeriods.map(p => <SelectItem key={p} value={p}>Period {p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 )}
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40">
+                    <ArrowUpDown className="mr-1 h-4 w-4 text-slate-400" />
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Newest first</SelectItem>
+                    <SelectItem value="date-asc">Oldest first</SelectItem>
+                    <SelectItem value="name-asc">Last name A–Z</SelectItem>
+                    <SelectItem value="name-desc">Last name Z–A</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setPrivacyMode(!privacyMode)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium transition',
+                  privacyMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+                )}
+                title="Hide scores when projecting or sharing your screen"
+              >
+                {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {privacyMode ? 'Scores hidden' : 'Hide scores'}
+              </button>
+              {hasActiveFilters && (
+                <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+                  <X className="h-3.5 w-3.5" /> Clear filters
+                </button>
+              )}
+              <span className="ml-auto text-slate-500">
+                {filteredAndSortedResults.length !== gradingResults.length && `${filteredAndSortedResults.length} shown · `}
+                <button type="button" onClick={toggleSelectAll} className="font-medium text-blue-700 hover:underline">
+                  {selecting && selectedIds.size === filteredAndSortedResults.length ? 'Deselect all' : 'Select'}
+                </button>
+              </span>
+            </div>
+          </div>
+        )}
 
-            {filteredAndSortedResults.length === 0 ? (
-              <Card className="border-2 border-dashed border-gray-300">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Filter className="h-12 w-12 text-gray-400 mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No reports match your filters
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Try adjusting your filters to see more results
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setClassFilter('all')
-                      setPeriodFilter('all')
-                      setExamTitleFilter('all')
-                      setSearchQuery('')
-                    }}
+        {(authLoading || resultsLoading) && <CardSkeletonGrid height="h-56" />}
+
+        {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-800">{error}</div>}
+
+        {!authLoading && !resultsLoading && !error && gradingResults.length === 0 && (
+          <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><ClipboardList className="h-8 w-8" /></span>
+            <h3 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900')}>No reports yet</h3>
+            <p className="mt-2 max-w-md text-slate-500">Upload a mark scheme and a student&apos;s exam to get a graded report with feedback on every question.</p>
+            <Button asChild size="lg" className="mt-6 bg-blue-600 hover:bg-blue-700">
+              <Link href="/grade-exam"><Plus className="mr-2 h-5 w-5" /> Grade your first exam</Link>
+            </Button>
+          </div>
+        )}
+
+        {!authLoading && !resultsLoading && !error && gradingResults.length > 0 && (
+          filteredAndSortedResults.length === 0 ? (
+            <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <Filter className="mb-3 h-10 w-10 text-slate-300" />
+              <h3 className="text-lg font-semibold text-slate-800">No reports match</h3>
+              <p className="mb-4 mt-1 text-slate-500">Try a different search or filter.</p>
+              <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSortedResults.map((result) => {
+                const displayName = getDisplayName(result)
+                const isSelected = selectedIds.has(result.id)
+                const band = scoreBand(result.percentage)
+                const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?'
+                return (
+                  <article
+                    key={result.id}
+                    onClick={() => (selecting ? toggleSelection(result.id) : router.push(`/grade-report/${result.id}`))}
+                    className={cn(
+                      'group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
+                      isSelected ? 'border-blue-500 ring-4 ring-blue-500/15' : 'border-slate-200 hover:border-slate-300',
+                      deletingIds.has(result.id) && 'pointer-events-none opacity-50'
+                    )}
                   >
-                    Clear Filters
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAndSortedResults.map((result) => {
-                  const displayName = getDisplayName(result)
-                  const filenameTitle = getFilenameTitle(result)
-                  const isSelected = selectedIds.has(result.id)
-                  const isDeleting = deletingIds.has(result.id)
-
-                  return (
-                    <Card
-                      key={result.id}
-                      className={`h-full hover:shadow-xl transition-all cursor-pointer border-2 group relative ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-200'
-                          : 'hover:border-blue-300'
-                      } ${isDeleting ? 'opacity-50' : ''}`}
-                      onClick={() => {
-                        // Click opens the report
-                        router.push(`/grade-report/${result.id}`)
-                      }}
-                    >
-                      {/* Selection checkbox - click this area to toggle selection */}
-                      <div
-                        className={`absolute top-2 right-2 w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer z-10 ${
-                          isSelected
-                            ? 'bg-blue-100'
-                            : 'bg-transparent hover:bg-gray-100'
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleSelection(result.id)
-                        }}
-                      >
-                        <div
-                          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-blue-500 border-blue-500 shadow-md'
-                              : 'bg-white border-gray-300 shadow-sm group-hover:border-gray-400'
-                          }`}
-                        >
-                          {isSelected && <Check className="h-4 w-4 text-white" />}
+                    <div className={cn('h-1.5', privacyMode ? 'bg-slate-200' : band.bar)} />
+                    <div className="flex flex-1 flex-col p-5">
+                      <div className="flex items-start gap-3">
+                        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold', privacyMode ? 'bg-slate-100 text-slate-600' : band.avatar)}>{initials}</span>
+                        <div className="min-w-0 flex-1 pr-8">
+                          <p className="truncate font-semibold text-slate-900">{displayName}</p>
+                          <p className="truncate text-sm text-slate-500">{getFilenameTitle(result)}</p>
                         </div>
+                        <SelectToggle selected={isSelected} selecting={selecting} onToggle={() => toggleSelection(result.id)} className="absolute right-4 top-5 border-slate-200" />
                       </div>
 
-                      <CardHeader className="pb-2 pr-12">
-                        <CardTitle className="text-lg line-clamp-2 leading-tight">
-                          {filenameTitle}
-                        </CardTitle>
-                        <CardDescription className="space-y-2 mt-2">
-                          {/* Student name */}
-                          <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="font-medium">{displayName}</span>
-                          </div>
-                          {/* Metadata badges */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {result.exam_title && (
-                              <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
-                                <BookOpen className="h-3 w-3 mr-1" />
-                                {result.exam_title}
-                              </Badge>
-                            )}
-                            {result.class_name && (
-                              <Badge variant="outline" className="text-xs bg-cyan-50 border-cyan-200 text-cyan-700">
-                                {result.class_name}
-                              </Badge>
-                            )}
-                            {result.class_period && (
-                              <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Period {result.class_period}
-                              </Badge>
-                            )}
-                          </div>
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(result.created_at)}
-                          </div>
-                          {privacyMode ? (
-                            <span className="font-medium text-gray-400 italic">
-                              Hidden
-                            </span>
-                          ) : (
-                            <span className="font-medium text-blue-600">
-                              {result.total_marks}/{result.total_possible_marks} marks · {result.percentage.toFixed(1)}%
-                            </span>
-                          )}
+                      <div className={cn('mt-5 flex items-end justify-between gap-3 transition', privacyMode && 'select-none blur-md')} aria-hidden={privacyMode}>
+                        <div>
+                          <p className={cn(fontDisplay, 'text-4xl font-semibold leading-none tabular-nums', band.text)}>
+                            {Math.round(result.percentage)}<span className="text-2xl">%</span>
+                          </p>
+                          <p className="mt-1.5 text-sm text-slate-500">{result.total_marks} / {result.total_possible_marks} marks</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
+                        {result.grade && (
+                          <span className={cn('flex h-12 min-w-12 items-center justify-center rounded-xl px-2 text-xl font-bold', band.badge)}>{result.grade}</span>
+                        )}
+                      </div>
+                      <div className={cn('mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100', privacyMode && 'blur-sm')}>
+                        <div className={cn('h-full rounded-full', band.bar)} style={{ width: `${Math.min(100, Math.max(0, result.percentage))}%` }} />
+                      </div>
 
-            {/* Hint text */}
-            {filteredAndSortedResults.length > 0 && (
-              <p className="text-center text-sm text-gray-500 mt-6">
-                Click a report to open it. Use the checkbox to select multiple.
-              </p>
-            )}
-          </div>
+                      {(result.class_name || result.class_period) && (
+                        <div className="mt-4 flex flex-wrap gap-1.5">
+                          {result.class_name && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{result.class_name}</span>}
+                          {result.class_period && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">Period {result.class_period}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+                      <span>{relativeDate(result.created_at)}</span>
+                      <span className="flex items-center gap-1 font-semibold text-blue-700 opacity-0 transition group-hover:opacity-100">
+                        View report <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )
         )}
       </div>
 

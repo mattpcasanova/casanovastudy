@@ -22,9 +22,11 @@ export async function POST(request: NextRequest) {
         const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
         const hasDirectContent = body.directContent && body.directContent.length > 0
         const hasLegacyFiles = body.files && body.files.length > 0
+        // Students can type what they want to study instead of uploading files.
+        const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
 
-        if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles) {
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: 'No files provided' }) + '\n\n'))
+        if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && studyRequest.length < 3) {
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: 'Upload a file or describe what you want to study' }) + '\n\n'))
           controller.close()
           return
         }
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
           .map(file => `--- ${file.name} ---\n${file.content}`)
           .join('\n\n')
 
-        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Creating your study guide...' }) + '\n\n'))
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
 
         // Generate with streaming
         const claudeService = new ClaudeService()
@@ -82,7 +84,8 @@ export async function POST(request: NextRequest) {
           format: body.format,
           topicFocus: body.topicFocus,
           difficultyLevel: body.difficultyLevel,
-          additionalInstructions: body.additionalInstructions
+          additionalInstructions: body.additionalInstructions,
+          studyRequest: studyRequest || undefined
         })
 
         for await (const chunk of streamGenerator) {
@@ -98,16 +101,26 @@ export async function POST(request: NextRequest) {
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Saving to database...' }) + '\n\n'))
 
+        // No name given: use the guide's own H1 title rather than the raw topic text.
+        let title = body.studyGuideName
+        if (body.autoTitle) {
+          const h1 = fullContent.match(/^#\s+(.+)$/m)?.[1]
+            ?.replace(/\p{Extended_Pictographic}\uFE0F?/gu, '')
+            .replace(/[*_`]/g, '')
+            .trim()
+          if (h1 && h1.length >= 3) title = h1.slice(0, 120)
+        }
+
         // Save to Supabase
         const { data: savedGuide, error: supabaseError } = await supabase
           .from('study_guides')
           .insert({
-            title: body.studyGuideName,
+            title,
             subject: body.subject,
             grade_level: body.gradeLevel,
             format: body.format,
             content: fullContent,
-            topic_focus: body.topicFocus,
+            topic_focus: body.topicFocus || (studyRequest ? studyRequest.slice(0, 200) : undefined),
             difficulty_level: body.difficultyLevel,
             additional_instructions: body.additionalInstructions,
             file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),

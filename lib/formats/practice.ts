@@ -1,0 +1,342 @@
+// Parser + answer checking for the interactive "practice" study-guide format.
+//
+// Output contract (see the practice skeleton in lib/claude-api.ts):
+//   ## <Topic>
+//   MATCH: <instruction>          - Term = Definition        (4-6 lines)
+//   FILL: The {{mitochondria}} makes ATP.   ({{answer|alt}} accepts alternates)
+//   ORDER: <instruction>          1. first … n. last         (correct order)
+//   SORT: <instruction>           - Category: item, item, item
+//   MC_QUESTION: … A) … Correct Answer: B     TF_QUESTION: … Answer: True
+//   Explanation: <optional line after any activity>
+// Everything is line-based and linear (no nested-quantifier regexes).
+
+import { stripEmoji, toTitleCase, plainText } from './normalize'
+
+interface Base {
+  id: string
+  topic: string
+  prompt: string
+  explanation?: string
+}
+export interface MatchActivity extends Base { kind: 'match'; pairs: Array<{ term: string; definition: string }> }
+export interface FillActivity extends Base { kind: 'fill'; parts: Array<string | { answers: string[] }> }
+export interface OrderActivity extends Base { kind: 'order'; items: string[] }
+export interface SortActivity extends Base { kind: 'sort'; buckets: Array<{ name: string; items: string[] }> }
+export interface ChoiceActivity extends Base { kind: 'choice'; options: string[]; correct: number }
+export type PracticeActivity = MatchActivity | FillActivity | OrderActivity | SortActivity | ChoiceActivity
+
+const MARKER = /^\*{0,2}(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION)\s*:\*{0,2}\s*(.*)$/i
+const clean = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
+
+export function parsePractice(content: string): PracticeActivity[] {
+  const lines = content.replace(/\r\n?/g, '\n').split('\n')
+  const out: PracticeActivity[] = []
+  let topic = ''
+
+  // Collect the body lines of the activity starting at `start` (exclusive).
+  const bodyFrom = (start: number) => {
+    const body: string[] = []
+    let j = start + 1
+    for (; j < lines.length; j++) {
+      const t = lines[j].trim()
+      if (MARKER.test(t) || /^#{1,6}\s/.test(t)) break
+      body.push(t)
+    }
+    return { body, next: j }
+  }
+  const takeExplanation = (body: string[]) => {
+    const idx = body.findIndex((l) => /^\*{0,2}(explanation|why)\s*:/i.test(l))
+    if (idx < 0) return { rest: body, explanation: undefined }
+    const explanation = clean(body[idx].replace(/^\*{0,2}(explanation|why)\s*:\*{0,2}\s*/i, ''))
+    return { rest: body.filter((_, k) => k !== idx), explanation: explanation || undefined }
+  }
+
+  let i = 0
+  while (i < lines.length) {
+    const t = lines[i].trim()
+    const heading = t.match(/^#{1,6}\s+(.+)$/)
+    if (heading) {
+      const title = toTitleCase(plainText(stripEmoji(heading[1])).trim())
+      if (title && !/^(practice|learning objectives|how to use)/i.test(title) && !(i === 0 && t.startsWith('# '))) topic = title
+      i++
+      continue
+    }
+    const m = t.match(MARKER)
+    if (!m) { i++; continue }
+
+    const kind = m[1].toUpperCase()
+    const head = clean(m[2])
+    const { body, next } = bodyFrom(i)
+    const { rest, explanation } = takeExplanation(body.filter(Boolean))
+    const id = `p-${out.length}`
+    i = next
+
+    if (kind === 'MATCH') {
+      const pairs = rest
+        .map((l) => l.replace(/^[-*•]\s+|^\d+[.)]\s+/, ''))
+        .map((l) => {
+          const sep = l.search(/\s(=|→|->|—|–|::)\s/)
+          if (sep < 0) return null
+          const term = clean(l.slice(0, sep))
+          const definition = clean(l.slice(sep).replace(/^\s(=|→|->|—|–|::)\s/, ''))
+          return term && definition ? { term, definition } : null
+        })
+        .filter((p): p is { term: string; definition: string } => !!p)
+      if (pairs.length >= 2) out.push({ kind: 'match', id, topic, prompt: head || 'Match each term to its meaning', pairs, explanation })
+    } else if (kind === 'FILL') {
+      const text = [head, ...rest].join(' ').trim()
+      const parts: FillActivity['parts'] = []
+      let last = 0
+      const re = /\{\{([^{}]+)\}\}/g
+      let mm: RegExpExecArray | null
+      while ((mm = re.exec(text))) {
+        if (mm.index > last) parts.push(text.slice(last, mm.index))
+        parts.push({ answers: mm[1].split('|').map((a) => a.trim()).filter(Boolean) })
+        last = mm.index + mm[0].length
+      }
+      if (last < text.length) parts.push(text.slice(last))
+      if (parts.some((p) => typeof p !== 'string')) out.push({ kind: 'fill', id, topic, prompt: 'Fill in the blank', parts, explanation })
+    } else if (kind === 'ORDER') {
+      const items = rest.map((l) => clean(l.replace(/^(\d+[.)]|[-*•])\s+/, ''))).filter(Boolean)
+      if (items.length >= 3) out.push({ kind: 'order', id, topic, prompt: head || 'Put these in the correct order', items, explanation })
+    } else if (kind === 'SORT') {
+      const buckets = rest
+        .map((l) => l.replace(/^[-*•]\s+/, ''))
+        .map((l) => {
+          const colon = l.indexOf(':')
+          if (colon < 1) return null
+          const name = clean(l.slice(0, colon))
+          const items = l.slice(colon + 1).split(/[,;]/).map((x) => clean(x)).filter(Boolean)
+          return name && items.length ? { name, items } : null
+        })
+        .filter((b): b is { name: string; items: string[] } => !!b)
+      if (buckets.length >= 2) out.push({ kind: 'sort', id, topic, prompt: head || 'Sort each item into the right group', buckets, explanation })
+    } else if (kind === 'MC_QUESTION') {
+      const options: string[] = []
+      let letter = ''
+      for (const l of rest) {
+        const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
+        const ans = l.match(/answer\s*:?\**\s*:?\s*\(?([A-F])\b/i)
+        if (ans && /answer/i.test(l.slice(0, 20))) letter = ans[1].toUpperCase()
+        else if (opt) options.push(clean(opt[2]))
+      }
+      const correct = letter ? letter.charCodeAt(0) - 65 : 0
+      if (head && options.length >= 2 && correct < options.length) out.push({ kind: 'choice', id, topic, prompt: head, options, correct, explanation })
+    } else if (kind === 'TF_QUESTION') {
+      const ans = rest.find((l) => /answer\s*:/i.test(l))
+      const isTrue = ans ? /true/i.test(ans.split(/answer\s*:/i)[1] ?? '') : true
+      if (head) out.push({ kind: 'choice', id, topic, prompt: head, options: ['True', 'False'], correct: isTrue ? 0 : 1, explanation })
+    }
+  }
+
+  // One topic for the whole set adds nothing.
+  if (new Set(out.map((a) => a.topic)).size <= 1) out.forEach((a) => { a.topic = '' })
+  return out
+}
+
+// ── Answer checking ─────────────────────────────────────────────────────────
+
+export function normalizeAnswer(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // accents: "élan" ≈ "elan"
+    .replace(/[^a-z0-9.+\-/ ]/g, ' ')
+    .replace(/^(the|a|an)\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  const prev = Array.from({ length: b.length + 1 }, (_, k) => k)
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0]
+    prev[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j]
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1))
+      diag = tmp
+    }
+  }
+  return prev[b.length]
+}
+
+/** Typo-tolerant: one slip allowed for answers of 5+ characters (two for 10+). */
+export function isBlankCorrect(given: string, answers: string[]): boolean {
+  const g = normalizeAnswer(given)
+  if (!g) return false
+  return answers.some((a) => {
+    const n = normalizeAnswer(a)
+    if (g === n) return true
+    const allowed = n.length >= 10 ? 2 : n.length >= 5 ? 1 : 0
+    return allowed > 0 && levenshtein(g, n) <= allowed
+  })
+}
+
+// Deterministic shuffle so server and client render the same order.
+export function seededShuffle<T>(items: T[], seed: string): T[] {
+  let h = 2166136261
+  for (let k = 0; k < seed.length; k++) h = Math.imul(h ^ seed.charCodeAt(k), 16777619)
+  const rand = () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507)
+    h = Math.imul(h ^ (h >>> 13), 3266489909)
+    return ((h ^= h >>> 16) >>> 0) / 4294967296
+  }
+  const out = [...items]
+  for (let k = out.length - 1; k > 0; k--) {
+    const j = Math.floor(rand() * (k + 1))
+    ;[out[k], out[j]] = [out[j], out[k]]
+  }
+  // Never hand back the answer order for ordering tasks.
+  if (out.length > 1 && out.every((x, k) => x === items[k])) out.push(out.shift() as T)
+  return out
+}
+
+// ── Structured activities (custom-guide "practice" blocks) ───────────────────
+// Custom guides store practice activities as JSON in the PracticeActivity
+// shapes above. These helpers convert fill sentences to/from an editable
+// string and defensively normalize JSON that came from the editor or the AI.
+
+/** "The [mitochondria|mitochondrion] makes ATP" (or {{…}}) → fill parts. */
+export function parseFillSentence(text: string): FillActivity['parts'] {
+  const parts: FillActivity['parts'] = []
+  const re = /\{\{([^{}]+)\}\}|\[([^[\]]+)\]/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index))
+    const answers = (m[1] ?? m[2]).split('|').map((a) => a.trim()).filter(Boolean)
+    if (answers.length) parts.push({ answers })
+    else parts.push(m[0])
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+
+/** Fill parts → editable sentence with [answer|alt] blanks. */
+export function fillToSentence(parts: FillActivity['parts']): string {
+  return parts.map((p) => (typeof p === 'string' ? p : `[${p.answers.join('|')}]`)).join('')
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '')
+const strList = (v: unknown) => (Array.isArray(v) ? v.map(str) : [])
+const KIND_ALIASES: Record<string, PracticeActivity['kind'] | 'tf'> = {
+  match: 'match', matching: 'match',
+  fill: 'fill', 'fill-in-the-blank': 'fill', fill_blank: 'fill', cloze: 'fill',
+  order: 'order', ordering: 'order', sequence: 'order',
+  sort: 'sort', sorting: 'sort', categorize: 'sort',
+  choice: 'choice', mc: 'choice', 'multiple-choice': 'choice', multiple_choice: 'choice',
+  tf: 'tf', 'true-false': 'tf', true_false: 'tf', truefalse: 'tf',
+}
+
+/** True when the activity has enough content to be played. */
+export function isPlayable(a: PracticeActivity): boolean {
+  switch (a.kind) {
+    case 'match': return a.pairs.filter((p) => p.term.trim() && p.definition.trim()).length >= 2
+    case 'fill': return a.parts.some((p) => typeof p !== 'string' && p.answers.some((x) => x.trim()))
+    case 'order': return a.items.filter((x) => x.trim()).length >= 2
+    case 'sort': return a.buckets.filter((b) => b.name.trim() && b.items.some((x) => x.trim())).length >= 2
+    case 'choice': return !!a.prompt.trim() && a.options.filter((o) => o.trim()).length >= 2 && a.correct >= 0 && a.correct < a.options.length
+  }
+}
+
+/** Strip blank rows so a partly-edited activity plays cleanly. */
+export function tidyActivity(a: PracticeActivity): PracticeActivity {
+  switch (a.kind) {
+    case 'match': return { ...a, pairs: a.pairs.filter((p) => p.term.trim() && p.definition.trim()) }
+    case 'order': return { ...a, items: a.items.filter((x) => x.trim()) }
+    case 'sort': return { ...a, buckets: a.buckets.map((b) => ({ ...b, items: b.items.filter((x) => x.trim()) })).filter((b) => b.name.trim() && b.items.length) }
+    case 'choice': {
+      const keep = a.options.map((o, i) => ({ o, i })).filter(({ o }) => o.trim())
+      return { ...a, options: keep.map(({ o }) => o), correct: Math.max(0, keep.findIndex(({ i }) => i === a.correct)) }
+    }
+    default: return a
+  }
+}
+
+/**
+ * Normalize unknown JSON (saved guide, editor draft, or AI output) into
+ * PracticeActivity[]. Unrecognized items are dropped. With `strict`, items that
+ * aren't playable yet are dropped too (viewer); without it, half-authored
+ * activities survive (editor round-trips).
+ */
+export function normalizePracticeActivities(raw: unknown, opts: { strict?: boolean; idPrefix?: string } = {}): PracticeActivity[] {
+  if (!Array.isArray(raw)) return []
+  const out: PracticeActivity[] = []
+  const used = new Set<string>()
+  raw.forEach((item, idx) => {
+    if (!item || typeof item !== 'object') return
+    const o = item as Record<string, unknown>
+    const kindKey = str(o.kind ?? o.type ?? o.activityType).toLowerCase().trim()
+    const kind = KIND_ALIASES[kindKey]
+    if (!kind) return
+    let id = str(o.id).trim() || `${opts.idPrefix ?? 'act'}-${idx}`
+    while (used.has(id)) id = `${id}-${idx}`
+    used.add(id)
+    const base = { id, topic: str(o.topic), prompt: str(o.prompt ?? o.instruction ?? o.question), explanation: str(o.explanation) || undefined }
+    let act: PracticeActivity | null = null
+
+    if (kind === 'match') {
+      const pairs = (Array.isArray(o.pairs) ? o.pairs : [])
+        .map((p) => (p && typeof p === 'object' ? p as Record<string, unknown> : {}))
+        .map((p) => ({ term: str(p.term ?? p.left), definition: str(p.definition ?? p.right ?? p.match) }))
+      act = { kind, ...base, pairs }
+    } else if (kind === 'fill') {
+      let parts: FillActivity['parts'] = []
+      if (Array.isArray(o.parts)) {
+        parts = o.parts
+          .map((p): FillActivity['parts'][number] | null => {
+            if (typeof p === 'string') return p
+            if (p && typeof p === 'object') {
+              const answers = strList((p as Record<string, unknown>).answers).map((x) => x.trim()).filter(Boolean)
+              return { answers }
+            }
+            return null
+          })
+          .filter((p): p is FillActivity['parts'][number] => p !== null)
+      } else {
+        parts = parseFillSentence(str(o.sentence ?? o.text ?? o.prompt))
+      }
+      act = { kind, ...base, prompt: base.prompt && !o.sentence && !o.text && !o.parts ? '' : base.prompt, parts }
+    } else if (kind === 'order') {
+      act = { kind, ...base, items: strList(o.items ?? o.steps) }
+    } else if (kind === 'sort') {
+      const buckets = (Array.isArray(o.buckets ?? o.categories) ? (o.buckets ?? o.categories) as unknown[] : [])
+        .map((b) => (b && typeof b === 'object' ? b as Record<string, unknown> : {}))
+        .map((b) => ({ name: str(b.name ?? b.category ?? b.label), items: strList(b.items) }))
+      act = { kind, ...base, buckets }
+    } else {
+      const isTF = kind === 'tf'
+      const options = isTF ? ['True', 'False'] : strList(o.options)
+      let correct = -1
+      const c = o.correct ?? o.correctIndex ?? o.correctAnswer ?? o.answer
+      if (typeof c === 'number' && Number.isInteger(c)) correct = c
+      else if (typeof c === 'boolean') correct = c ? 0 : 1
+      else {
+        const s = str(c).trim()
+        if (/^[A-F]$/i.test(s) && options.length > s.toUpperCase().charCodeAt(0) - 65 && !options.some((opt) => opt.trim().toLowerCase() === s.toLowerCase())) {
+          correct = s.toUpperCase().charCodeAt(0) - 65
+        } else {
+          correct = options.findIndex((opt) => opt.trim().toLowerCase() === s.toLowerCase())
+        }
+      }
+      if (isTF && correct < 0) correct = 0
+      act = { kind: 'choice', ...base, options, correct: opts.strict ? correct : Math.max(0, correct) }
+    }
+
+    if (!act) return
+    if (opts.strict) {
+      if (!isPlayable(act)) return
+      act = tidyActivity(act)
+    }
+    out.push(act)
+  })
+  return out
+}
+
+/** True/false is stored as a two-option choice. */
+export function isTrueFalse(a: PracticeActivity): boolean {
+  return a.kind === 'choice' && a.options.length === 2 && a.options[0] === 'True' && a.options[1] === 'False'
+}

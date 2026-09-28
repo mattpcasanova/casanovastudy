@@ -1,197 +1,91 @@
 "use client"
 
-import { Lightbulb } from 'lucide-react'
+import { Clock, Sparkles, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
-import { formatContent, formatContentWithKeyPoints } from '@/lib/formats/format-content'
-import { fontDisplay, eyebrow, detectTier, stripTierEmoji, tierStyles, capitalizeFirst } from '@/lib/formats/design'
+import { fontDisplay, eyebrow, tierStyles } from '@/lib/formats/design'
+import { groupDisplayTitle, splitNumbering, type GuideCard } from '@/lib/formats/structure'
+import { StudyMarkdown } from './study-markdown'
+import { TableOfContents, TierBadge, buildToc, useGuideStructure, useScrollSpy } from './guide-parts'
 
 interface SummaryFormatProps {
   content: string
   subject: string
 }
 
-export default function SummaryFormat({ content, subject }: SummaryFormatProps) {
-  const sections = parseSummaryContent(content)
-  const subjectLabel = capitalizeFirst(subject)
+// Summary = the reading view: one calm article column with an "On this page"
+// rail, deliberately distinct from the Outline's interactive cards.
+export default function SummaryFormat({ content }: SummaryFormatProps) {
+  const s = useGuideStructure(content)
+  const toc = buildToc(s, { objectivesId: 'objectives' })
+  const active = useScrollSpy(toc.map((e) => e.id))
+  const minutes = Math.max(1, Math.round(content.split(/\s+/).length / 220))
 
   return (
-    // Narrow reading column + flowing sections divided by rules — a "document"
-    // read, deliberately distinct from the Outline's wide interactive boxes.
-    <div className={cn(displaySerif.variable, 'max-w-2xl mx-auto px-5')}>
-      {/* Masthead */}
-      <header className="mb-2 pb-6 border-b border-slate-200">
-        <p className={cn(eyebrow, 'text-green-600 mb-2')}>Comprehensive Summary</p>
-        <h1 className={cn(fontDisplay, 'text-3xl font-semibold text-slate-900 leading-tight')}>{subjectLabel}</h1>
-        <p className="mt-2 text-slate-500 leading-relaxed">
-          Read each section in order and note the key concepts as you go.
-        </p>
-      </header>
+    <div className={cn(displaySerif.variable, 'mx-auto max-w-6xl')}>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-12">
+        <article className="mx-auto w-full min-w-0 max-w-[44rem] rounded-2xl border border-slate-200 bg-white px-5 py-8 shadow-sm sm:px-10 sm:py-10 print:border-0 print:p-0 print:shadow-none">
+          <header className="border-b border-slate-200 pb-6">
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <span className={cn(eyebrow, 'text-green-700')}>Summary</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {minutes} min read</span>
+            </div>
+            {s.subtitle && <p className={cn(fontDisplay, 'mt-3 text-2xl leading-snug text-slate-800')}>{s.subtitle}</p>}
+            {s.preface && <StudyMarkdown content={s.preface} className="mt-4" />}
+          </header>
 
-      {/* Sections — flowing article, divided by hairline rules */}
-      <div className="divide-y divide-slate-200">
-        {sections.map((section, index) => (
-          <SummarySection key={index} section={section} />
-        ))}
+          {s.objectives && (
+            <section id="objectives" className="mt-8 scroll-mt-6 rounded-xl bg-green-50/70 p-5 ring-1 ring-inset ring-green-100">
+              <p className={cn(eyebrow, 'mb-2 flex items-center gap-1.5 text-green-800')}><Target className="h-3.5 w-3.5" /> What you&apos;ll learn</p>
+              <StudyMarkdown content={s.objectives} compact />
+            </section>
+          )}
+
+          {s.blocks.map((b) =>
+            b.type === 'group' ? (
+              <section key={b.id} id={b.id} className="mt-12 scroll-mt-6">
+                <div className="mb-2 flex items-center gap-3">
+                  <TierBadge tier={b.tier} />
+                  <span className={cn('h-px flex-1', tierStyles[b.tier].dot, 'opacity-30')} />
+                </div>
+                {groupDisplayTitle(b.title) && (
+                  <h2 className={cn(fontDisplay, 'text-sm font-semibold uppercase tracking-[0.12em] text-slate-500')}>{groupDisplayTitle(b.title)}</h2>
+                )}
+                {b.intro && <StudyMarkdown content={b.intro} compact className="mt-1 text-sm text-slate-500" />}
+                {b.cards.map((c) => <SummarySection key={c.id} card={c} />)}
+              </section>
+            ) : (
+              <SummarySection key={b.card.id} card={b.card} standalone />
+            )
+          )}
+        </article>
+
+        <aside className="hidden lg:block print:hidden">
+          <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pb-6">
+            <TableOfContents entries={toc} active={active} />
+          </div>
+        </aside>
       </div>
-
-      {/* Study tips — a single quiet callout */}
-      <aside className="mt-10 rounded-xl bg-slate-50 p-6 ring-1 ring-inset ring-slate-200 print:break-before-page print:break-inside-avoid">
-        <div className="flex items-center gap-2.5 mb-3">
-          <Lightbulb className="h-5 w-5 text-green-600" />
-          <h3 className={cn(fontDisplay, 'text-lg font-semibold text-slate-900')}>How to study this</h3>
-        </div>
-        <ul className="space-y-2.5 text-sm text-slate-700">
-          {[
-            `Identify the main idea of each section of ${subjectLabel} before moving on.`,
-            'Pay special attention to key terms — the vocabulary is what exams test most.',
-            'Explain each section aloud, or rewrite it in your own words, to check recall.',
-            'Look for the connections between sections — relationships are where deeper questions come from.',
-          ].map((tip, i) => (
-            <li key={i} className="flex items-start gap-2.5">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
-              <span className="leading-relaxed">{tip}</span>
-            </li>
-          ))}
-        </ul>
-      </aside>
     </div>
   )
 }
 
-function SummarySection({ section }: { section: ParsedSection }) {
-  const tier = detectTier(section.title)
-  const tierStyle = tier ? tierStyles[tier] : null
-  const title = stripTierEmoji(section.title)
-  // Prefer the table-aware renderer when a section has a markdown table (common
-  // now that generation emits comparison tables); only use the prettier
-  // key-point bullet rows for table-free bullet content.
-  const hasTable = /^\s*\|.*\|/m.test(section.content)
-  const hasKeyPoints = !hasTable && (section.content.includes('•') || section.content.includes('- '))
-
+function SummarySection({ card, standalone = false }: { card: GuideCard; standalone?: boolean }) {
+  const { text } = splitNumbering(card.title)
+  if (card.kind === 'review') {
+    return (
+      <section id={card.id} className="mt-12 scroll-mt-6 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-5 sm:p-6 print:break-inside-avoid">
+        <p className={cn(eyebrow, 'mb-1 flex items-center gap-1.5 text-green-800')}><Sparkles className="h-3.5 w-3.5" /> Wrap-up</p>
+        <h2 className={cn(fontDisplay, 'mb-3 text-2xl font-semibold text-slate-900')}>{text}</h2>
+        <StudyMarkdown content={card.body} />
+      </section>
+    )
+  }
   return (
-    <section className="py-8 first:pt-8 print:break-inside-avoid">
-      {tierStyle && (
-        <span className={cn(eyebrow, 'inline-block rounded-full px-2.5 py-0.5 mb-2.5', tierStyle.chip)}>
-          {tierStyle.label}
-        </span>
-      )}
-      <h2 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900 leading-tight mb-4')}>{title}</h2>
-
-      <div className="text-[0.98rem]">
-        {hasKeyPoints ? (
-          <div dangerouslySetInnerHTML={{ __html: formatContentWithKeyPoints(section.content) }} />
-        ) : (
-          <div dangerouslySetInnerHTML={{ __html: formatContent(section.content) }} />
-        )}
-      </div>
-
-      {/* Key terms */}
-      {section.keyTerms && section.keyTerms.length > 0 && (
-        <div className="mt-5">
-          <p className={cn(eyebrow, 'text-slate-500 mb-3')}>Key terms</p>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-            {section.keyTerms.map((term, i) => (
-              <div key={i} className="border-l-2 border-slate-200 pl-3">
-                <dt className="font-semibold text-slate-900">{term.term}</dt>
-                <dd className="mt-0.5 text-sm text-slate-600 leading-relaxed">{term.definition}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      )}
+    <section id={card.id} className={cn('scroll-mt-6', standalone ? 'mt-12' : 'mt-8')}>
+      <h3 className={cn(fontDisplay, 'mb-3 text-[1.6rem] font-semibold leading-tight text-slate-900')}>{text}</h3>
+      <StudyMarkdown content={card.body} className="text-[1.02rem] leading-[1.75]" />
     </section>
   )
-}
-
-interface ParsedSection {
-  title: string
-  content: string
-  keyTerms?: Array<{ term: string; definition: string }>
-}
-
-function parseSummaryContent(content: string): ParsedSection[] {
-  const sections: ParsedSection[] = []
-  const lines = content.split('\n')
-
-  let currentSection: ParsedSection | null = null
-  let inKeyTerms = false
-  let skipSection = false
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    // Check for section headers
-    if (line.startsWith('# ') || line.startsWith('## ')) {
-      const title = line.replace(/^##?\s+/, '')
-
-      // Skip Student Notes sections
-      if (title.toLowerCase().includes('student notes') ||
-          title.toLowerCase().includes('notes section') ||
-          title.toLowerCase().includes('your notes')) {
-        skipSection = true
-        continue
-      }
-
-      // Skip empty title sections
-      if (!title || title === '—') {
-        skipSection = true
-        continue
-      }
-
-      skipSection = false
-
-      if (currentSection && currentSection.content.trim()) {
-        sections.push(currentSection)
-      }
-      currentSection = {
-        title,
-        content: '',
-        keyTerms: []
-      }
-      inKeyTerms = false
-    } else if (skipSection) {
-      // Skip content in skipped sections
-      continue
-    } else if (line.toLowerCase().includes('key terms') || line.toLowerCase().includes('vocabulary')) {
-      inKeyTerms = true
-    } else if (currentSection) {
-      // Filter out placeholder content
-      if (line === '—' || line === '--' || line === '---') continue
-
-      if (inKeyTerms && line.includes(':')) {
-        const colonIndex = line.indexOf(':')
-        const term = line.substring(0, colonIndex).trim().replace(/^[-•*]\s*/, '')
-        const definition = line.substring(colonIndex + 1).trim()
-        if (term && definition && definition !== '—') {
-          currentSection.keyTerms!.push({ term, definition })
-        }
-      } else {
-        currentSection.content += (currentSection.content ? '\n' : '') + line
-      }
-    }
-  }
-
-  if (currentSection && currentSection.content.trim()) {
-    sections.push(currentSection)
-  }
-
-  // Filter out sections with only placeholder content
-  const filteredSections = sections.filter(s =>
-    s.content.trim() &&
-    s.content.trim() !== '—' &&
-    s.title.trim() !== '—'
-  )
-
-  // If no sections found, create one from all content
-  if (filteredSections.length === 0) {
-    filteredSections.push({
-      title: 'Summary',
-      content: content.replace(/^—$/gm, '').trim(),
-      keyTerms: []
-    })
-  }
-
-  return filteredSections
 }

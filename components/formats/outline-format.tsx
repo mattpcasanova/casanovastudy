@@ -1,390 +1,239 @@
 "use client"
 
 import { useState } from 'react'
-import { Progress } from '@/components/ui/progress'
-import { Checkbox } from '@/components/ui/checkbox'
-import { ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
+import { ChevronDown, CheckCircle2, Circle, ChevronsDownUp, ChevronsUpDown, Target, RotateCcw, ClipboardCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
-import { formatContent } from '@/lib/formats/format-content'
-import { surface, fontDisplay, eyebrow, detectTier, stripTierEmoji, tierStyles, type Tier } from '@/lib/formats/design'
+import { fontDisplay, tierStyles, type Tier } from '@/lib/formats/design'
+import { groupDisplayTitle, splitNumbering, type GuideCard } from '@/lib/formats/structure'
+import { StudyMarkdown } from './study-markdown'
+import { TableOfContents, TierBadge, TIER_BLURB, buildToc, useGuideStructure, usePersistentSet, useScrollSpy } from './guide-parts'
 
 interface OutlineFormatProps {
   content: string
   subject: string
+  studyGuideId?: string
 }
 
-interface OutlineSection {
-  id: string
-  title: string
-  level: number
-  content: string
-  children?: OutlineSection[]
-}
+// Outline = the interactive, check-it-off view: topics are collapsible cards
+// grouped by exam priority, with a progress bar and a sticky topic list.
+export default function OutlineFormat({ content, studyGuideId }: OutlineFormatProps) {
+  const s = useGuideStructure(content)
+  const allCards = s.blocks.flatMap((b) => (b.type === 'group' ? b.cards : [b.card]))
+  const checkable = allCards.filter((c) => c.kind === 'section')
 
-export default function OutlineFormat({ content, subject }: OutlineFormatProps) {
-  const sections = parseOutlineContent(content)
-  const allSectionIds = getAllSectionIds(sections)
-  const [expandedSections, setExpandedSections] = useState<string[]>(getAllSectionIds(sections, 0, true))
-  const [completedSections, setCompletedSections] = useState<string[]>([])
-  const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({})
+  const [done, toggleDone, resetDone] = usePersistentSet(studyGuideId ? `cs:outline:${studyGuideId}` : undefined)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const allCollapsed = collapsed.size >= allCards.length && allCards.length > 0
 
-  const parentMap = buildParentMap(sections)
-  const childrenMap = buildChildrenMap(sections)
+  const toc = buildToc(s, { objectivesId: 'objectives' }).map((e) => ({ ...e, done: done.has(e.id) }))
+  const active = useScrollSpy(toc.map((e) => e.id))
 
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev =>
-      prev.includes(sectionId)
-        ? prev.filter(id => id !== sectionId)
-        : [...prev, sectionId]
-    )
-  }
+  const doneCount = checkable.filter((c) => done.has(c.id)).length
+  const pct = checkable.length ? Math.round((doneCount / checkable.length) * 100) : 0
 
-  const areAllChildrenCompleted = (sectionId: string, currentCompleted: string[]): boolean => {
-    const children = childrenMap[sectionId] || []
-    if (children.length === 0) return true
-    return children.every(childId => currentCompleted.includes(childId))
-  }
-
-  const getAncestors = (sectionId: string): string[] => {
-    const ancestors: string[] = []
-    let current = parentMap[sectionId]
-    while (current) {
-      ancestors.push(current)
-      current = parentMap[current]
-    }
-    return ancestors
-  }
-
-  const toggleCompleted = (sectionId: string) => {
-    setCompletedSections(prev => {
-      const isCurrentlyCompleted = prev.includes(sectionId)
-      let newCompleted: string[]
-
-      if (isCurrentlyCompleted) {
-        const ancestors = getAncestors(sectionId)
-        newCompleted = prev.filter(id => id !== sectionId && !ancestors.includes(id))
-      } else {
-        newCompleted = [...prev, sectionId]
-        const ancestors = getAncestors(sectionId)
-        for (const ancestorId of ancestors) {
-          if (areAllChildrenCompleted(ancestorId, newCompleted) && !newCompleted.includes(ancestorId)) {
-            newCompleted.push(ancestorId)
-          }
-        }
-      }
-
-      return newCompleted
+  const toggleCollapse = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
     })
-  }
 
-  const progressPercentage = allSectionIds.length ? (completedSections.length / allSectionIds.length) * 100 : 0
-
-  return (
-    <div className={cn(displaySerif.variable, 'max-w-5xl mx-auto px-4 space-y-5')}>
-      {/* Progress */}
-      <div className={cn(surface, 'p-5 print:hidden')}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-slate-600">
-            <span className="text-slate-900 font-semibold">{completedSections.length}</span> of {allSectionIds.length} sections complete
-          </span>
-          <span className="text-sm font-semibold text-blue-600">{Math.round(progressPercentage)}%</span>
-        </div>
-        <Progress value={progressPercentage} className="h-1.5" />
-      </div>
-
-      {/* Sections */}
-      <div className="space-y-6">
-        {sections.map(section => (
-          <OutlineSection
-            key={section.id}
-            section={section}
-            expandedSections={expandedSections}
-            completedSections={completedSections}
-            toggleSection={toggleSection}
-            toggleCompleted={toggleCompleted}
-            checklistItems={checklistItems}
-            setChecklistItems={setChecklistItems}
-            level={0}
-            tier={null}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function buildParentMap(sections: OutlineSection[], parentId?: string): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const section of sections) {
-    if (parentId) map[section.id] = parentId
-    if (section.children) Object.assign(map, buildParentMap(section.children, section.id))
-  }
-  return map
-}
-
-function buildChildrenMap(sections: OutlineSection[]): Record<string, string[]> {
-  const map: Record<string, string[]> = {}
-  function traverse(section: OutlineSection) {
-    if (section.children && section.children.length > 0) {
-      map[section.id] = section.children.map(child => child.id)
-      section.children.forEach(traverse)
-    }
-  }
-  sections.forEach(traverse)
-  return map
-}
-
-function OutlineSection({
-  section,
-  expandedSections,
-  completedSections,
-  toggleSection,
-  toggleCompleted,
-  checklistItems,
-  setChecklistItems,
-  level,
-  tier,
-}: {
-  section: OutlineSection
-  expandedSections: string[]
-  completedSections: string[]
-  toggleSection: (id: string) => void
-  toggleCompleted: (id: string) => void
-  checklistItems: Record<string, boolean>
-  setChecklistItems: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-  level: number
-  tier: Tier | null
-}) {
-  const isExpanded = expandedSections.includes(section.id)
-  const isCompleted = completedSections.includes(section.id)
-  const hasChildren = section.children && section.children.length > 0
-  const title = stripTierEmoji(section.title)
-
-  // A section may declare a priority tier at any depth (the generator sometimes
-  // nests 🔴/🟡/🟢 one level below the guide title). Detect it here and pass the
-  // effective tier down so a whole priority group shares one accent color.
-  const ownTier = detectTier(section.title)
-  const effectiveTier = ownTier ?? tier
-
-  const shouldShowCheckbox = () => {
-    if (level === 0) return false
-    const titleLower = section.title.toLowerCase()
-    if (titleLower.includes('learning objectives') || titleLower.includes('exam focus')) return false
-    return true
-  }
-  const showCheckbox = shouldShowCheckbox()
-
-  const renderChildren = (extraClass = '') =>
-    hasChildren && (
-      <div className={cn('space-y-3', extraClass)}>
-        {section.children!.map(child => (
-          <OutlineSection
-            key={child.id}
-            section={child}
-            expandedSections={expandedSections}
-            completedSections={completedSections}
-            toggleSection={toggleSection}
-            toggleCompleted={toggleCompleted}
-            checklistItems={checklistItems}
-            setChecklistItems={setChecklistItems}
-            level={level + 1}
-            tier={effectiveTier}
-          />
-        ))}
-      </div>
-    )
-
-  // Level 0 — the top-level heading (no card, no checkbox)
-  if (level === 0) {
-    const t = ownTier ? tierStyles[ownTier] : null
+  let topicNumber = 0
+  const renderCard = (card: GuideCard, tier: Tier | null) => {
+    const n = card.kind === 'section' ? ++topicNumber : null
     return (
-      <section className="print:break-inside-avoid">
-        <div className="mb-4">
-          {t && (
-            <span className={cn(eyebrow, 'inline-block rounded-full px-2.5 py-0.5 mb-2', t.chip)}>
-              {t.label}
-            </span>
-          )}
-          <h2 className={cn(fontDisplay, 'text-xl font-semibold text-slate-900 pb-2 border-b-2', t ? t.borderB : 'border-slate-200')}>
-            {title}
-          </h2>
-        </div>
-
-        {section.content && (
-          <div className="mb-4">
-            <InteractiveContent content={section.content} sectionId={section.id} checklistItems={checklistItems} setChecklistItems={setChecklistItems} />
-          </div>
-        )}
-
-        {renderChildren('space-y-3')}
-      </section>
+      <TopicCard
+        key={card.id}
+        card={card}
+        tier={tier}
+        number={n}
+        open={!collapsed.has(card.id)}
+        onToggleOpen={() => toggleCollapse(card.id)}
+        done={done.has(card.id)}
+        onToggleDone={() => toggleDone(card.id)}
+      />
     )
   }
 
-  const t = effectiveTier ? tierStyles[effectiveTier] : null
-  const own = ownTier ? tierStyles[ownTier] : null
-
-  // Level 1+ — collapsible cards
   return (
-    <div className={cn(surface, 'overflow-hidden border-l-4', t ? t.edge : 'border-l-slate-300', 'print:break-inside-avoid')}>
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 print:cursor-default"
-        onClick={() => toggleSection(section.id)}
-      >
-        {showCheckbox && (
-          <span
-            role="checkbox"
-            aria-checked={isCompleted}
-            tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); toggleCompleted(section.id) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleCompleted(section.id) } }}
-            className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-blue-500 print:hidden"
-          >
-            {isCompleted
-              ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              : <Circle className="h-5 w-5 text-slate-300" />}
-          </span>
-        )}
-        <span className={cn('flex-1 font-semibold', own ? own.text : 'text-slate-800', level === 1 ? 'text-[1.05rem]' : 'text-sm', isCompleted && 'text-slate-400 line-through decoration-slate-300')}>
-          {title}
-        </span>
-        {hasChildren && (
-          <span className="shrink-0 text-slate-400 print:hidden">
-            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </span>
-        )}
-      </button>
+    <div className={cn(displaySerif.variable, 'mx-auto max-w-6xl')}>
+      <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+        {/* Sticky topic list */}
+        <aside className="hidden lg:block print:hidden">
+          <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pb-6">
+            <TableOfContents entries={toc} active={active} title="Topics" />
+          </div>
+        </aside>
 
-      {(isExpanded || !hasChildren) && (
-        <div className="px-4 pb-4 pt-0 print:block">
-          {section.content && (
-            <div className={showCheckbox ? 'pl-8' : ''}>
-              <InteractiveContent content={section.content} sectionId={section.id} checklistItems={checklistItems} setChecklistItems={setChecklistItems} />
-            </div>
-          )}
-          {renderChildren('mt-3')}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function InteractiveContent({
-  content,
-  sectionId,
-  checklistItems,
-  setChecklistItems
-}: {
-  content: string
-  sectionId: string
-  checklistItems: Record<string, boolean>
-  setChecklistItems: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-}) {
-  const parts = content.split(/(?=CHECKLIST:)/gi)
-
-  return (
-    <div className="prose prose-sm max-w-none space-y-3 text-slate-700">
-      {parts.map((part, partIndex) => {
-        const trimmed = part.trim()
-
-        if (trimmed.match(/^CHECKLIST:/i)) {
-          const checklistContent = trimmed.replace(/^CHECKLIST:\s*/i, '')
-          const items = checklistContent.split('\n').filter(line => line.trim().startsWith('-'))
-
-          return (
-            <div key={partIndex} className="not-prose rounded-lg bg-slate-50 p-4 ring-1 ring-inset ring-slate-100">
-              <p className={cn(eyebrow, 'text-slate-500 mb-3')}>Checklist</p>
-              <div className="space-y-2">
-                {items.map((item, itemIndex) => {
-                  const itemId = `${sectionId}-checklist-${partIndex}-${itemIndex}`
-                  const itemText = item.replace(/^-\s*/, '').trim()
-
-                  return (
-                    <div key={itemId} className="flex items-start gap-2.5">
-                      <Checkbox
-                        id={itemId}
-                        checked={checklistItems[itemId] || false}
-                        onCheckedChange={(checked) => {
-                          setChecklistItems(prev => ({ ...prev, [itemId]: checked as boolean }))
-                        }}
-                        className="mt-0.5"
-                      />
-                      <label htmlFor={itemId} className="text-sm leading-relaxed text-slate-700 cursor-pointer select-none">
-                        {itemText}
-                      </label>
-                    </div>
-                  )
-                })}
+        <div className="min-w-0 space-y-8">
+          {/* Progress + controls */}
+          <div className="sticky top-3 z-20 -mx-1 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur print:hidden">
+            <div className="flex items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
+                  <span className="text-slate-600">
+                    <span className="font-semibold text-slate-900">{doneCount}</span> of {checkable.length} topics reviewed
+                  </span>
+                  <span className="font-semibold tabular-nums text-blue-700">{pct}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(allCards.map((c) => c.id)))}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  {allCollapsed ? <ChevronsUpDown className="h-4 w-4" /> : <ChevronsDownUp className="h-4 w-4" />}
+                  <span className="hidden sm:inline">{allCollapsed ? 'Expand all' : 'Collapse all'}</span>
+                </button>
+                {doneCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetDone}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                    title="Reset progress"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
-          )
-        }
+          </div>
 
-        if (trimmed.match(/^NOTES:/i)) return null
+          {(s.subtitle || s.preface) && (
+            <header className="space-y-3">
+              {s.subtitle && <p className={cn(fontDisplay, 'text-xl leading-snug text-slate-600')}>{s.subtitle}</p>}
+              {s.preface && <StudyMarkdown content={s.preface} />}
+            </header>
+          )}
 
-        return (
-          <div key={partIndex} dangerouslySetInnerHTML={{ __html: formatContent(trimmed) }} />
-        )
-      })}
+          {s.objectives && (
+            <section id="objectives" className="scroll-mt-28 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 sm:p-6">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white"><Target className="h-4 w-4" /></span>
+                <h2 className={cn(fontDisplay, 'text-lg font-semibold text-slate-900')}>Learning objectives</h2>
+              </div>
+              <StudyMarkdown content={s.objectives} compact />
+            </section>
+          )}
+
+          {s.blocks.map((b) =>
+            b.type === 'group' ? (
+              <section key={b.id} id={b.id} className="scroll-mt-28">
+                <div className={cn('mb-4 border-b-2 pb-3', tierStyles[b.tier].borderB)}>
+                  {groupDisplayTitle(b.title) ? (
+                    <>
+                      <TierBadge tier={b.tier} />
+                      <h2 className={cn(fontDisplay, 'mt-2 text-2xl font-semibold text-slate-900')}>{groupDisplayTitle(b.title)}</h2>
+                    </>
+                  ) : (
+                    <h2 className={cn(fontDisplay, 'flex items-center gap-2.5 text-2xl font-semibold text-slate-900')}>
+                      <span className={cn('h-2.5 w-2.5 rounded-full', tierStyles[b.tier].dot)} />
+                      {tierStyles[b.tier].label}
+                    </h2>
+                  )}
+                  <div className="mt-1 text-sm text-slate-500">
+                    {b.intro ? <StudyMarkdown content={b.intro} compact className="text-sm text-slate-500" /> : TIER_BLURB[b.tier]}
+                  </div>
+                </div>
+                <div className="space-y-3">{b.cards.map((c) => renderCard(c, b.tier))}</div>
+              </section>
+            ) : (
+              <div key={b.card.id}>{renderCard(b.card, null)}</div>
+            )
+          )}
+
+          {checkable.length > 0 && doneCount === checkable.length && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center print:hidden">
+              <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-600" />
+              <p className="font-semibold text-emerald-900">Every topic reviewed — nice work.</p>
+              <p className="text-sm text-emerald-700">Try explaining each one out loud without looking to lock it in.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
-function parseOutlineContent(content: string): OutlineSection[] {
-  const lines = content.split('\n')
-  const sections: OutlineSection[] = []
-  let currentSection: OutlineSection | null = null
-  let currentSubSection: OutlineSection | null = null
-  let currentSubSubSection: OutlineSection | null = null
-  let sectionCounter = 0
+function TopicCard({
+  card,
+  tier,
+  number,
+  open,
+  onToggleOpen,
+  done,
+  onToggleDone,
+}: {
+  card: GuideCard
+  tier: Tier | null
+  number: number | null
+  open: boolean
+  onToggleOpen: () => void
+  done: boolean
+  onToggleDone: () => void
+}) {
+  const { num, text } = splitNumbering(card.title)
+  const isReview = card.kind === 'review'
+  const badge = num ?? (number !== null ? String(number) : null)
+  const edge = tier ? tierStyles[tier].edge : isReview ? 'border-l-amber-400' : 'border-l-slate-300'
 
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-
-    if (trimmed.startsWith('# ')) {
-      currentSection = { id: `section-${sectionCounter++}`, title: trimmed.replace(/^#\s+/, ''), level: 1, content: '', children: [] }
-      sections.push(currentSection)
-      currentSubSection = null
-      currentSubSubSection = null
-    } else if (trimmed.startsWith('## ')) {
-      if (currentSection) {
-        currentSubSection = { id: `section-${sectionCounter++}`, title: trimmed.replace(/^##\s+/, ''), level: 2, content: '', children: [] }
-        currentSection.children!.push(currentSubSection)
-        currentSubSubSection = null
-      }
-    } else if (trimmed.startsWith('### ')) {
-      const parent = currentSubSection || currentSection
-      if (parent) {
-        currentSubSubSection = { id: `section-${sectionCounter++}`, title: trimmed.replace(/^###\s+/, ''), level: 3, content: '', children: [] }
-        if (!parent.children) parent.children = []
-        parent.children.push(currentSubSubSection)
-      }
-    } else {
-      const target = currentSubSubSection || currentSubSection || currentSection
-      if (target) target.content += (target.content ? '\n' : '') + trimmed
-    }
-  }
-
-  return sections
-}
-
-function sectionHasCheckbox(section: OutlineSection, level: number): boolean {
-  if (level === 0) return false
-  const titleLower = section.title.toLowerCase()
-  if (titleLower.includes('learning objectives') || titleLower.includes('exam focus')) return false
-  return true
-}
-
-// Collect ids. Default: only checkbox-eligible sections (for progress counting).
-// With `allExpandable`, collect every id (for the default-expanded set).
-function getAllSectionIds(sections: OutlineSection[], level: number = 0, allExpandable = false): string[] {
-  const ids: string[] = []
-  for (const section of sections) {
-    if (allExpandable || sectionHasCheckbox(section, level)) ids.push(section.id)
-    if (section.children) ids.push(...getAllSectionIds(section.children, level + 1, allExpandable))
-  }
-  return ids
+  return (
+    <article
+      id={card.id}
+      className={cn(
+        'scroll-mt-28 overflow-hidden rounded-xl border border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md print:break-inside-avoid print:shadow-none',
+        isReview ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200',
+        edge,
+        done && 'bg-slate-50/80'
+      )}
+    >
+      <div className="flex items-center gap-3 px-4 py-3">
+        {isReview ? (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><ClipboardCheck className="h-4 w-4" /></span>
+        ) : (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={done}
+            aria-label={done ? 'Mark as not reviewed' : 'Mark as reviewed'}
+            onClick={onToggleDone}
+            className="shrink-0 rounded-full outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-blue-500 print:hidden"
+          >
+            {done ? <CheckCircle2 className="h-6 w-6 text-emerald-600" /> : <Circle className="h-6 w-6 text-slate-300 hover:text-slate-400" />}
+          </button>
+        )}
+        <button type="button" onClick={onToggleOpen} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          {badge && !isReview && (
+            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-500">{badge}</span>
+          )}
+          <span className={cn('flex-1 text-[1.05rem] font-semibold leading-snug', done ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-900')}>
+            {text}
+          </span>
+          <ChevronDown className={cn('h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 print:hidden', open && 'rotate-180')} />
+        </button>
+      </div>
+      <div className={cn('grid transition-[grid-template-rows] duration-300 ease-out print:!grid-rows-[1fr]', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+        <div className="overflow-hidden">
+          <div className="border-t border-slate-100 px-4 pb-5 pt-4 sm:px-5 sm:pl-14">
+            <StudyMarkdown content={card.body} />
+            {!isReview && !done && (
+              <button
+                type="button"
+                onClick={onToggleDone}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 print:hidden"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Mark as reviewed
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  )
 }

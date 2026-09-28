@@ -82,6 +82,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
 - Sign out clears user state immediately before calling Supabase
 
 ## Known Issues / Gotchas
+- **Classes are hidden (2026-09-27)**: `CLASSES_ENABLED = false` in `lib/features.ts` removes classes, calendar, quizzes/question bank, My Students/My Teachers and "Assign to Class" from the UI. Routes, APIs and data are untouched (pages still load by URL). Flip the flag to bring them back. The AP review pages (`public/apchem`, `public/apstats`) are standalone and unaffected.
 - **RLS Policies**: user_profiles uses permissive policies (USING true) for INSERT/SELECT due to auth.users permission issues. Security enforced via FK constraints + app logic.
 - **Email Confirmation**: Supabase truncates refresh tokens in email links. Users must sign in manually after confirming.
 - **Profile Fetch**: Can be slow on first load (~5s) due to Supabase cold starts. Has 5-second timeout.
@@ -89,10 +90,16 @@ answers, min 3 answered; cap 15/concept then partial credit).
 - **Clever SSO**: Requires district approval in Clever dashboard. Without approval, users see "Your district has not yet set up this application" error.
 - **Model migration (2026-07-09)**: `lib/claude-api.ts` study-guide/grading calls were migrated off the retired `claude-sonnet-4-20250514` (404'd after its 2026-06-15 retirement) to `claude-sonnet-5`. Sonnet 5 **rejects non-default `temperature`/`top_p`/`top_k` with a 400** — all `temperature` args were removed. It also **runs adaptive thinking by default** when `thinking` is omitted (Sonnet 4 ran thinking-off); each call passed `thinking: { type: 'disabled' }` to preserve the old no-thinking behavior. `gradeShortAnswer` stays on `claude-haiku-4-5` (Haiku still accepts `temperature`). Don't re-add `temperature`.
 - **Study-guide generation upgraded to Opus 4.8 (2026-07-18)**: `generateStudyGuide` + `generateStudyGuideStream` in `lib/claude-api.ts` now run `claude-opus-4-8` with `thinking: { type: 'adaptive' }` and `max_tokens: 12000` for richer guides. **Because adaptive thinking emits a thinking block first, `response.content[0]` is no longer the text block** — `generateStudyGuide` uses `response.content.find(b => b.type === 'text')` (streaming yields `text_delta` so it's unaffected). This is the same trap noted for `lib/mastery/ai.ts`. Grading methods remain on `claude-sonnet-5`.
-- **Custom-guide builder overhaul (2026-07-19)**: `/create-guide` (block editor `components/custom-guide-editor/`) now supports the 4 study-guide formats mixed in one guide. **Flashcards is a first-class block type** — added across the ~8 touchpoints a block type needs: `SectionContent`/`CustomSection.type` + `isFlashcardsContent` (`lib/types/custom-guide.ts`), `BlockType`/round-trip/`createEmptyBlock` (`lib/types/editor-blocks.ts`), editor `blocks/flashcards-block.tsx`, `block-wrapper.tsx` `typeConfig` **(a total `Record<BlockType>` — a missing key crashes the wrapper)**, the `switch` in `custom-guide-editor.tsx` **and** the nested one in `blocks/section-block.tsx`, and `SectionRenderer` in `components/formats/custom-format.tsx`. Outline & Summary are toolbar **presets** (`createPresetBlock`) over section/text, not new types. **`generateCustomGuideStream` moved to `claude-opus-4-8` + `thinking: { type: 'adaptive' }` (cast `as any` — SDK 0.61 types lack 'adaptive'), `max_tokens: 12000`.** It accepts structured `GuideControls` (formats/counts/split/difficulty/length) for the AI assistant's "Control it" mode; empty controls = generic "AI decides". The route allows a blank description when files or controls are present.
+- **Custom-guide builder overhaul (2026-07-19)**: `/create-guide` (block editor `components/custom-guide-editor/`) now supports the 4 study-guide formats mixed in one guide. **Flashcards is a first-class block type** — added across the ~8 touchpoints a block type needs: `SectionContent`/`CustomSection.type` + `isFlashcardsContent` (`lib/types/custom-guide.ts`), `BlockType`/round-trip/`createEmptyBlock` (`lib/types/editor-blocks.ts`), editor `blocks/flashcards-block.tsx`, `block-wrapper.tsx` `typeConfig` **(a total `Record<BlockType>` — a missing key crashes the wrapper)**, the single type→component `switch` in `block-item.tsx` (2026-09-27 editor overhaul replaced the old duplicated switches in `custom-guide-editor.tsx` / `blocks/section-block.tsx`), the insert menu entries in `insert-menu.tsx` (Practice is a block type too — its JSON always goes through `normalizePracticeActivities`: lenient in the editor, strict in the viewer; `PracticeSession` in `practice-format.tsx` is shared by the standalone format and custom guides), and `SectionRenderer` in `components/formats/custom-format.tsx`. Outline & Summary are toolbar **presets** (`createPresetBlock`) over section/text, not new types. **`generateCustomGuideStream` moved to `claude-opus-4-8` + `thinking: { type: 'adaptive' }` (cast `as any` — SDK 0.61 types lack 'adaptive'), `max_tokens: 12000`.** It accepts structured `GuideControls` (formats/counts/split/difficulty/length) for the AI assistant's "Control it" mode; empty controls = generic "AI decides". The route allows a blank description when files or controls are present.
+- **Custom-guide editor perf (2026-09-27)**: `lib/contexts/editor-context.tsx` updates only the edited block with stable callbacks; blocks are memoized in `block-item.tsx`. Nested blocks inside sections must NOT register as dnd-kit sortables for the top-level list (drops landed on them and were discarded). Keep these invariants or the editor gets choppy again.
 - **Sonnet 5 responses start with a thinking block**: never read `response.content[0]` and assume text — use `content.find(b => b.type === 'text')` (bit us in `lib/mastery/ai.ts`).
 - **`ignoreBuildErrors: true`** in next.config.mjs means tsc errors ship silently. Baseline is 55 pre-existing errors — run `npx tsc --noEmit` and don't add to it.
-- **Study-guide viewer ReDoS (2026-07-09)**: the `formatContent` markdown→HTML helpers in `components/formats/*-format.tsx` had catastrophic-backtracking table regexes that froze the browser ("page unresponsive") on AI-generated tables. Two traps: (1) `parseFlashcards` joined answer lines with a space, flattening multi-line tables into one pipe-heavy line that the newline-anchored `tableRegex` then missed, dumping it on the fallback `simpleTableRegex` which ReDoS-hung (42 pipes = indefinite freeze). Fixed by joining with `'\n'`. (2) Both table regexes used nested quantifiers (`(.+\|)+`, `(\|[^|\n]+\|[^|\n]*\|?\n?){2,}`) — replaced with linear/line-anchored forms. Surfaced only after the Sonnet 5 migration because Sonnet 5 emits comparison tables where Sonnet 4 didn't. If you touch these format renderers, keep table regexes non-backtracking and never flatten multi-line markdown to a single line before regex table detection.
+- **Study-guide viewer ReDoS (2026-07-09)**: the old regex markdown→HTML helpers froze the browser on AI tables. They were deleted on 2026-09-27 in favor of react-markdown (no hand-written table regexes left). If you add regexes to `lib/formats/normalize.ts`, keep them line-based/linear, and never flatten multi-line markdown to one line.
+- **No Tailwind typography plugin**: `prose` classes are no-ops in this app. `StudyMarkdown` styles every element explicitly via react-markdown `components`.
+- **Math**: remark-math runs with `singleDollarTextMath: false` so "$100" stays text. Inline math is `$$x$$`; a `$$…$$` alone on a line is promoted to display math by the normalizer.
+- **Auto-description from uploads (2026-09-27)**: attaching files on `/` extracts a short text excerpt in the browser (`lib/material-excerpt.ts`: PPTX/DOCX parsers + PDF.js first 4 pages) and POSTs only the excerpts to `/api/describe-materials` (Haiku, ~$0.001/call) for a one-line topic + subject. It only fills an empty box or replaces its own earlier suggestion. Requests use Bearer auth with `credentials: "omit"` — on localhost, cookies from other local Supabase projects (~15KB) plus the auth header exceed Node's 16KB header limit and return **431**; other Bearer routes can hit the same thing in local dev.
+- **Subject/grade are optional**: blank is saved as `'general'`; the prompt then infers the level, and UI hides `'general'` wherever subject/grade are displayed.
+- **Typed topic mode (2026-09-27)**: `/api/generate-study-guide-stream` accepts `studyRequest` (student-typed topic/notes, ≤8000 chars) with or without files; with no files the prompt switches to "teach from your own knowledge". Stored in `topic_focus` when no focus was given.
 
 ## Environment Variables
 Required in `.env.local`:
@@ -129,11 +136,11 @@ GMAIL_APP_PASSWORD=              # Gmail app password for mattpcasanova@gmail.co
 - **Teacher**: Can create guides and grade student exams
 
 ## Key Routes
-- `/` - Home/Create Guide page
+- `/` - Home = the study guide generator (nav: New Guide / Custom Builder / My Guides, + Grading for teachers) (type a topic and/or attach files). The Canvas-style dashboard was retired 2026-09-27; `/dashboard` and `/create-study-guide` redirect to `/`
 - `/auth/signin` - Sign in page (email + Clever SSO)
 - `/auth/signup` - Sign up page
 - `/auth/clever/callback` - Clever OAuth callback handler
-- `/my-guides` - User's saved study guides (with search, filter, sort, delete)
+- `/my-guides` - User's saved study guides (format-cover cards, format chips, search, sort, multi-select delete); `/graded-exams` shares the same header/toolbar/card parts from `components/library/library-parts.tsx`
 - `/grade-exam` - Exam grading feature
 - `/study-guide/[id]` - View a specific study guide
 - `/teacher/question-bank` (+ `/[conceptId]`) - Concept-organized question bank (manual entry, AI suggest, import-from-material)
@@ -173,14 +180,17 @@ The global `NavigationHeader` component (`components/navigation-header.tsx`) is 
 Shows: logo, "My Guides" button (logged-in only), "Grade Exam" button (logged-in only), and user avatar dropdown.
 
 ## Study Guide Formats
-Format components in `components/formats/`:
-- `outline-format.tsx` - Hierarchical outline with collapsible sections and checkboxes
-- `flashcards-format.tsx` - Interactive flip cards with mastered/difficult tracking
-- `quiz-format.tsx` - Multiple choice, true/false, and short answer questions
-- `summary-format.tsx` - Sectioned summary with key terms
+All four viewers render content through ONE pipeline (2026-09-27 redesign):
+`normalizeGuideMarkdown()` (`lib/formats/normalize.ts`, unit-tested) → `StudyMarkdown`
+(`components/formats/study-markdown.tsx`, react-markdown + remark-gfm + remark-math/KaTeX).
+- The normalizer strips emoji, `---` rules, `____` note lines, "Notes space" sections and inline HTML, title-cases ALL-CAPS headings, and rewrites blockquote "boxes" into `~~~~callout-<kind> <label>` fences (keyterm/example/check/remember/tip/warning/note). "Check yourself" callouts get a Reveal-answer button.
+- Diagram fences: ```` ```steps ````, ```` ```cycle ````, ```` ```tree ```` (`components/formats/diagrams.tsx`). Legacy ASCII-art code fences are auto-upgraded (arrow chains → steps, `│ box │` rows → tree) or shown in a mono panel.
+- Outline/Summary share `lib/formats/structure.ts` (title/subtitle/objectives + Essential/Important/Supporting groups of cards; fence-aware so `# comments` in code aren't headings) and `components/formats/guide-parts.tsx` (TOC + scroll-spy).
+- `outline-format.tsx` - collapsible topic cards grouped by tier, sticky progress, topic sidebar; "reviewed" state persists in localStorage per guide
+- `summary-format.tsx` - article column + "On this page" rail
+- `flashcards-format.tsx` - decks from headings, study/list modes, "hide cards I know", real shuffle. **Card ids (`card-N`) key saved progress — keep the parse order stable.**
+- `quiz-format.tsx` - grouped by `##` topic, navigator, Practice (instant feedback + `Explanation:` lines) vs Test mode, per-topic results, retry missed
+- `practice-format.tsx` (format `'practice'`, added 2026-09-27 + migration 034 widening the `study_guides.format` CHECK) - one-activity-at-a-time interactive review: MATCH / FILL (`{{answer|alt}}`, typo-tolerant) / ORDER / SORT / MC / TF markers parsed by `lib/formats/practice.ts` (unit-tested). Shuffles use `seededShuffle` so SSR and client agree — don't use `Math.random` in render.
+- Guide header (`components/page-banner.tsx`) is the same brand-blue banner for every format; the format shows only as a colored icon tile + pill.
+- The generation prompt (`STUDY_GUIDE_STYLE_RULES` + per-format skeletons in `lib/claude-api.ts`) is the output contract for all of the above — change them together.
 
-### Outline Format Checkbox Behavior
-- Level 0 sections (main title) have no checkbox
-- Sections with "learning objectives" or "exam focus" in title have no checkbox
-- Auto-checks parent when all children are checked
-- Progress bar only counts sections that have checkboxes

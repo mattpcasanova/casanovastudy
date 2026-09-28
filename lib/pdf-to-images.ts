@@ -73,7 +73,7 @@ async function compressImage(
  * Load PDF.js library from CDN
  * This avoids Turbopack bundling issues with pdfjs-dist
  */
-async function loadPdfJs(): Promise<any> {
+export async function loadPdfJs(): Promise<any> {
   // Check if already loaded
   if ((window as any).pdfjsLib) {
     return (window as any).pdfjsLib

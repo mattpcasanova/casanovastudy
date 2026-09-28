@@ -11,24 +11,26 @@ interface PageBannerProps {
   meta?: string
   accent: FormatAccent
   icon: LucideIcon
+  /** Format label shown as a pill (e.g. "Flashcards"). */
+  label?: string
   onBack?: () => void
   backLabel?: string
 }
 
 /**
- * Shared page/sub-nav header: a refined gradient banner in the section's accent
- * color, with an icon badge, serif title, and meta line. Reusable across the
- * study-guide viewer and other sub-nav pages.
+ * Shared study-guide header: one brand-blue banner for every format so guides
+ * feel like one product; the format is signalled by a white icon tile and a
+ * pill tinted in the format's accent color — distinct, but not a whole new
+ * color scheme per page.
  *
  * Requires an ancestor to define the --font-display variable (displaySerif.variable)
  * for the serif title.
  */
-export default function PageBanner({ title, meta, accent, icon: Icon, onBack, backLabel = 'Back' }: PageBannerProps) {
+export default function PageBanner({ title, meta, accent, icon: Icon, label, onBack, backLabel = 'Back' }: PageBannerProps) {
   return (
-    <div className={cn('relative overflow-hidden bg-gradient-to-br text-white print:hidden', accent.bannerFrom, accent.bannerTo)}>
-      {/* Soft depth glows — inviting without clutter */}
-      <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-black/10 blur-2xl" />
+    <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 text-white print:hidden">
+      <div className="pointer-events-none absolute -top-24 right-[12%] h-64 w-64 rounded-full bg-cyan-300/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-72 rounded-full bg-white/10 blur-3xl" />
 
       {onBack && (
         <button
@@ -42,19 +44,23 @@ export default function PageBanner({ title, meta, accent, icon: Icon, onBack, ba
         </button>
       )}
 
-      <div className="container relative mx-auto px-4 py-12">
+      <div className="container relative mx-auto px-4 pb-11 pt-14">
         <div className="flex flex-col items-center text-center">
-          <span className={cn('mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ring-white/25 backdrop-blur-sm', accent.iconBadge)}>
+          <span className={cn('mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-lg shadow-blue-900/20', accent.text)}>
             <Icon className="h-6 w-6" />
           </span>
-          <h1 className={cn(fontDisplay, 'text-3xl sm:text-4xl font-semibold tracking-tight leading-tight')}>
+          <h1 className={cn(fontDisplay, 'max-w-3xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl')}>
             {title}
           </h1>
-          {meta && (
-            <p className={cn('mt-2.5 text-xs sm:text-sm font-medium uppercase tracking-[0.14em]', accent.bannerSub)}>
-              {meta}
-            </p>
-          )}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.12em]">
+            {label && (
+              <span className={cn('inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-sm', accent.text)}>
+                <span className={cn('h-1.5 w-1.5 rounded-full', accent.solid)} />
+                {label}
+              </span>
+            )}
+            {meta && <span className="text-blue-50/90">{meta}</span>}
+          </div>
         </div>
       </div>
     </div>
