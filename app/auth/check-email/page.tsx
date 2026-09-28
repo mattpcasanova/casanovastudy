@@ -1,67 +1,86 @@
 "use client"
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Button } from '@/components/ui/button'
-import { Mail, ArrowRight } from 'lucide-react'
+import { MailCheck } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { AuthShell, FormError, SecondaryLink, StatusCard, friendlyAuthError } from '@/components/auth/auth-ui'
+
+const COOLDOWN = 30
 
 export default function CheckEmailPage() {
+  const [email, setEmail] = useState<string | null>(null)
+  const [cooldown, setCooldown] = useState(0)
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    try { setEmail(sessionStorage.getItem('cs:pending-email')) } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  const resend = async () => {
+    if (!email) return
+    setSending(true)
+    setError('')
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    })
+    setSending(false)
+    if (resendError) {
+      setError(friendlyAuthError(resendError, 'Could not resend the email. Please try again shortly.'))
+      return
+    }
+    setSent(true)
+    setCooldown(COOLDOWN)
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md text-center">
-        {/* Logo */}
-        <Link href="/">
-          <Image
-            src="/images/casanova-study-logo.png"
-            alt="Casanova Study"
-            width={280}
-            height={105}
-            className="h-20 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer mb-8"
-          />
-        </Link>
+    <AuthShell>
+      <StatusCard
+        icon={<MailCheck className="h-8 w-8" />}
+        title="Check your email"
+        actions={<SecondaryLink href="/auth/signin">Back to sign in</SecondaryLink>}
+      >
+        <p>
+          We sent a confirmation link to{' '}
+          {email ? <strong className="text-slate-900">{email}</strong> : 'your email address'}.
+          Click it to activate your account, then sign in.
+        </p>
+      </StatusCard>
 
-        {/* Success Card */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-10">
-          {/* Mail Icon */}
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Mail className="h-10 w-10 text-blue-600" />
-          </div>
-
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Check Your Email!</h1>
-
-          <p className="text-gray-600 text-lg mb-6">
-            We've sent a confirmation link to your email address.
-          </p>
-
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-8">
-            <p className="text-sm text-gray-700">
-              <strong>Next steps:</strong>
-            </p>
-            <ol className="text-sm text-gray-700 mt-2 space-y-1 text-left list-decimal list-inside">
-              <li>Open your email inbox</li>
-              <li>Click the confirmation link we sent you</li>
-              <li>Start creating amazing study guides!</li>
-            </ol>
-          </div>
-
-          <p className="text-sm text-gray-500 mb-6">
-            Didn't receive the email? Check your spam folder or{' '}
-            <button className="text-blue-600 hover:text-blue-700 font-semibold underline">
-              resend confirmation
+      <div className="mt-8 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600 ring-1 ring-inset ring-slate-200">
+        <p className="font-semibold text-slate-800">Didn’t get it?</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>It can take a minute or two to arrive.</li>
+          <li>Check your spam or promotions folder.</li>
+          <li>
+            Typo in your email?{' '}
+            <Link href="/auth/signup" className="font-medium text-blue-600 hover:text-blue-700">Sign up again</Link>
+          </li>
+        </ul>
+        {email && (
+          <div className="mt-4">
+            <FormError>{error}</FormError>
+            <button
+              type="button"
+              onClick={resend}
+              disabled={sending || cooldown > 0}
+              className="font-semibold text-blue-600 transition hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {sending ? 'Sending…' : cooldown > 0 ? `Sent — you can resend in ${cooldown}s` : sent ? 'Resend again' : 'Resend confirmation email'}
             </button>
-          </p>
-
-          <Button
-            asChild
-            variant="outline"
-            className="w-full h-12"
-          >
-            <Link href="/auth/signin">
-              Back to Sign In
-            </Link>
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </AuthShell>
   )
 }

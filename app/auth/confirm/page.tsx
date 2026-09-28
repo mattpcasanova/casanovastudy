@@ -1,189 +1,82 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { AuthShell, SecondaryLink, StatusCard } from '@/components/auth/auth-ui'
 
+// Landing page for the email-confirmation link. Supabase sends either a PKCE
+// ?code= or (older links) tokens in the hash. Either way the email is verified;
+// auto sign-in is unreliable (truncated refresh tokens), so we send people to
+// sign in.
 export default function ConfirmEmailPage() {
-  const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     const confirmEmail = async () => {
       try {
-        console.log('🔍 Confirming email...')
-        console.log('URL:', window.location.href)
-        console.log('Hash:', window.location.hash)
-        console.log('Search:', window.location.search)
+        const hash = new URLSearchParams(window.location.hash.substring(1))
+        const query = new URLSearchParams(window.location.search)
+        const urlError = query.get('error_description') || query.get('error') || hash.get('error_description')
+        if (urlError) throw new Error(urlError)
 
-        // Try URL hash first (old method)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
-        const type = hashParams.get('type')
-
-        console.log('Hash params:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type })
-
-        // Try URL params (PKCE flow)
-        const urlParams = new URLSearchParams(window.location.search)
-        const code = urlParams.get('code')
-        const error = urlParams.get('error')
-        const errorDescription = urlParams.get('error_description')
-
-        console.log('URL params:', { code: !!code, error, errorDescription })
-
-        // Check for errors in URL
-        if (error) {
-          throw new Error(errorDescription || error)
-        }
-
-        // Handle PKCE flow with code
+        const code = query.get('code')
         if (code) {
-          console.log('📝 Using PKCE flow with code')
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-
-          if (exchangeError) {
-            console.error('Exchange error:', exchangeError)
-            throw exchangeError
-          }
-
-          console.log('✅ Session established:', !!data.session)
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) throw error
           setStatus('success')
+          return
         }
-        // Handle hash-based flow
-        else if (type === 'signup' && accessToken && refreshToken) {
-          console.log('📝 Using hash-based flow')
-          console.log('Setting session with tokens...')
-
-          // The tokens are in the URL, which means Supabase has already verified the email
-          // We don't need to manually set the session - just mark as success
-          console.log('Email already verified by Supabase (tokens in URL)')
-          console.log('Token lengths:', {
-            accessToken: accessToken?.length,
-            refreshToken: refreshToken?.length
-          })
-
-          // Check if session is already established
-          const { data: currentSession } = await supabase.auth.getSession()
-          console.log('Current session:', {
-            hasSession: !!currentSession.session,
-            userId: currentSession.session?.user?.id,
-            email: currentSession.session?.user?.email
-          })
-
-          if (currentSession.session) {
-            console.log('✅ Session already established')
-            setStatus('success')
-          } else {
-            // Session not auto-established, mark as success anyway
-            // The user will be redirected to home where AuthGate will handle signin
-            console.log('⚠️ No session yet, but email is confirmed')
-            console.log('User will need to sign in manually')
-            setStatus('success')
-          }
-        } else {
-          console.error('❌ No valid confirmation method found')
-          throw new Error('Invalid confirmation link. Please check your email and try again.')
+        if (hash.get('type') === 'signup' && hash.get('access_token')) {
+          setStatus('success')
+          return
         }
-      } catch (error: any) {
-        console.error('❌ Email confirmation error:', error)
+        throw new Error('This confirmation link is incomplete. Open the link from your email again.')
+      } catch (err) {
+        const msg = (err as { message?: string })?.message || ''
+        setErrorMessage(/expired|invalid/i.test(msg)
+          ? 'This confirmation link has expired or was already used. If your account is confirmed, just sign in — otherwise sign in and we’ll offer to resend the link.'
+          : msg || 'We couldn’t confirm your email.')
         setStatus('error')
-        setErrorMessage(error.message || 'Failed to confirm email')
       }
     }
-
-    // Wait a bit for the URL to be fully available
-    const timer = setTimeout(() => {
-      confirmEmail()
-    }, 100)
-
+    const timer = setTimeout(confirmEmail, 100) // let the URL settle
     return () => clearTimeout(timer)
   }, [])
 
-  const handleContinue = () => {
-    router.push('/')
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md text-center">
-        {/* Logo */}
-        <Link href="/">
-          <Image
-            src="/images/casanova-study-logo.png"
-            alt="Casanova Study"
-            width={280}
-            height={105}
-            className="h-20 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer mb-8"
-          />
-        </Link>
-
-        {/* Status Card */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-10">
-          {status === 'loading' && (
-            <>
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Confirming Your Email...</h1>
-              <p className="text-gray-600">Please wait while we verify your account.</p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="h-10 w-10 text-green-600" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Email Successfully Confirmed!</h1>
-              <p className="text-gray-600 text-lg mb-6">
-                Your account is now active! Please sign in to start creating study guides.
-              </p>
-              <Button
-                asChild
-                className="w-full h-14 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white mb-4"
-              >
-                <Link href="/auth/signin">
-                  Sign In Now
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full h-12"
-              >
-                <Link href="/">
-                  Go to Home
-                </Link>
-              </Button>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <XCircle className="h-10 w-10 text-red-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Confirmation Failed</h1>
-              <p className="text-gray-600 mb-6">{errorMessage}</p>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full h-12"
-              >
-                <Link href="/auth/signin">
-                  Back to Sign In
-                </Link>
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthShell>
+      {status === 'loading' && (
+        <StatusCard icon={<Loader2 className="h-8 w-8 animate-spin" />} title="Confirming your email…">
+          <p>This only takes a moment.</p>
+        </StatusCard>
+      )}
+      {status === 'success' && (
+        <StatusCard
+          icon={<CheckCircle2 className="h-8 w-8" />}
+          tone="green"
+          title="You’re all set!"
+          actions={
+            <Link href="/auth/signin" className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-[0.95rem] font-semibold text-white shadow-sm transition hover:bg-blue-700">
+              Sign in to get started
+            </Link>
+          }
+        >
+          <p>Your email is confirmed and your account is active.</p>
+        </StatusCard>
+      )}
+      {status === 'error' && (
+        <StatusCard
+          icon={<XCircle className="h-8 w-8" />}
+          tone="red"
+          title="Link didn’t work"
+          actions={<SecondaryLink href="/auth/signin">Go to sign in</SecondaryLink>}
+        >
+          <p>{errorMessage}</p>
+        </StatusCard>
+      )}
+    </AuthShell>
   )
 }

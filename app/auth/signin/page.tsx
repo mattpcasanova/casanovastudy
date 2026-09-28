@@ -1,233 +1,161 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, MailCheck } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { useToast } from '@/hooks/use-toast'
+import {
+  AuthShell, AuthHeading, ColegiaButton, Divider, Field, FormError, PasswordField, PrimaryButton,
+  friendlyAuthError, safeNext,
+} from '@/components/auth/auth-ui'
 
 export default function SignInPage() {
   const router = useRouter()
-  const { signIn, resetPassword } = useAuth()
-  const { toast } = useToast()
+  const { user, signIn, resetPassword } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [resent, setResent] = useState(false)
+  const [mode, setMode] = useState<'signin' | 'forgot' | 'forgot-sent'>('signin')
+  const next = useRef('/')
+
+  useEffect(() => {
+    next.current = safeNext(new URLSearchParams(window.location.search).get('next'))
+  }, [])
+
+  // Already signed in (e.g. opened the page in another tab): skip the form.
+  useEffect(() => {
+    if (user) router.replace(next.current)
+  }, [user, router])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setUnconfirmed(false)
     setIsLoading(true)
-
     try {
-      await signIn(email, password, rememberMe)
-      router.push('/')
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.')
+      await signIn(email.trim(), password)
+      router.push(next.current)
+    } catch (err) {
+      const msg = (err as { message?: string })?.message?.toLowerCase() ?? ''
+      setUnconfirmed(msg.includes('email not confirmed'))
+      setError(friendlyAuthError(err, 'We couldn’t sign you in. Please try again.'))
+      setIsLoading(false)
+    }
+  }
+
+  const resendConfirmation = async () => {
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    })
+    if (resendError) setError(friendlyAuthError(resendError, 'Could not resend the email.'))
+    else setResent(true)
+  }
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+    try {
+      await resetPassword(email.trim())
+      setMode('forgot-sent')
+    } catch (err) {
+      setError(friendlyAuthError(err, 'We couldn’t send the reset email. Please try again.'))
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address first')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      await resetPassword(email)
-      toast({
-        title: 'Password reset email sent',
-        description: 'Check your inbox for instructions to reset your password.',
-      })
-      setShowForgotPassword(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to send password reset email')
-    } finally {
-      setIsLoading(false)
-    }
+  if (mode !== 'signin') {
+    return (
+      <AuthShell>
+        <button
+          type="button"
+          onClick={() => { setMode('signin'); setError('') }}
+          className="mb-8 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-800"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to sign in
+        </button>
+        {mode === 'forgot' ? (
+          <>
+            <AuthHeading title="Reset your password" subtitle="Enter the email you signed up with and we’ll send you a link to choose a new password." />
+            <FormError>{error}</FormError>
+            <form onSubmit={handleForgot} className="space-y-5">
+              <Field label="Email" type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
+              <PrimaryButton type="submit" loading={isLoading} loadingText="Sending…">Send reset link</PrimaryButton>
+            </form>
+          </>
+        ) : (
+          <div className="text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-8 ring-blue-100">
+              <MailCheck className="h-8 w-8" />
+            </div>
+            <AuthHeading
+              title="Check your inbox"
+              subtitle={<>If an account exists for <strong className="text-slate-900">{email}</strong>, you’ll get a link to reset your password in a minute or two. Don’t see it? Check your spam folder.</>}
+            />
+          </div>
+        )}
+      </AuthShell>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/">
-            <Image
-              src="/images/casanova-study-logo.png"
-              alt="Casanova Study"
-              width={350}
-              height={131}
-              className="h-24 md:h-28 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer"
-            />
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-6">Welcome Back!</h1>
-          <p className="text-gray-600 mt-2">Sign in to continue studying</p>
-        </div>
+    <AuthShell>
+      <AuthHeading title="Welcome back" subtitle="Sign in to pick up where you left off." />
 
-        {/* Sign In Form */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-8">
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+      <ColegiaButton disabled={isLoading} />
+      <Divider label="or sign in with email" />
 
-          <form onSubmit={handleSignIn} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-900 font-semibold flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                required
-                className="h-12 text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic"
-              />
-            </div>
+      {error && <FormError>
+        {error}
+        {unconfirmed && email && (
+          <span className="mt-2 block">
+            {resent
+              ? 'Sent! Check your inbox for a new confirmation link.'
+              : <button type="button" onClick={resendConfirmation} className="font-semibold underline underline-offset-2">Resend confirmation email</button>}
+          </span>
+        )}
+      </FormError>}
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-900 font-semibold flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                required
-                className="h-12 text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400 placeholder:italic"
-              />
-            </div>
+      <form onSubmit={handleSignIn} className="space-y-5">
+        <Field
+          label="Email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={isLoading}
+          aria-invalid={!!error && !unconfirmed}
+        />
+        <PasswordField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          disabled={isLoading}
+          labelAside={
+            <button type="button" onClick={() => { setMode('forgot'); setError('') }} className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              Forgot password?
+            </button>
+          }
+        />
+        <PrimaryButton type="submit" loading={isLoading} loadingText="Signing in…">Sign in</PrimaryButton>
+      </form>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  disabled={isLoading}
-                />
-                <Label
-                  htmlFor="remember"
-                  className="text-sm font-medium text-gray-700 cursor-pointer"
-                >
-                  Keep me logged in
-                </Label>
-              </div>
-
-              <Button
-                type="button"
-                variant="link"
-                onClick={handleForgotPassword}
-                disabled={isLoading}
-                className="text-sm text-blue-600 hover:text-blue-700 p-0 h-auto"
-              >
-                Forgot password?
-              </Button>
-            </div>
-
-            {/* Sign In Button */}
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">or</span>
-            </div>
-          </div>
-
-          {/* Clever SSO Login */}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isLoading}
-            onClick={() => {
-              // Redirect to Clever OAuth with optional district_id for instant login
-              const cleverClientId = process.env.NEXT_PUBLIC_CLEVER_CLIENT_ID
-              const cleverDistrictId = process.env.NEXT_PUBLIC_CLEVER_DISTRICT_ID
-              const redirectUri = `${window.location.origin}/auth/clever/callback`
-
-              // Use instant-login if district ID is configured, otherwise use standard OAuth
-              const cleverAuthUrl = cleverDistrictId
-                ? `https://clever.com/oauth/instant-login?client_id=${cleverClientId}&district_id=${cleverDistrictId}&redirect_uri=${encodeURIComponent(redirectUri)}`
-                : `https://clever.com/oauth/authorize?response_type=code&client_id=${cleverClientId}&redirect_uri=${encodeURIComponent(redirectUri)}`
-
-              window.location.href = cleverAuthUrl
-            }}
-            className="w-full h-12 text-base font-semibold border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 text-blue-700"
-          >
-            <Image
-              src="/images/colegia-logo.png"
-              alt="Colegia"
-              width={32}
-              height={32}
-              className="h-10 w-10 mr-2 object-contain"
-            />
-            Log in with Colegia
-          </Button>
-
-          {/* Sign Up Link */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 mb-4">Don't have an account?</p>
-            <Button
-              asChild
-              variant="outline"
-              className="w-full h-12 text-base font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400"
-            >
-              <Link href="/auth/signup">
-                Sign up here
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          By signing in, you agree to our Terms of Service and Privacy Policy
-        </p>
-      </div>
-    </div>
+      <p className="mt-8 text-center text-sm text-slate-600">
+        New to Casanova Study?{' '}
+        <Link href="/auth/signup" className="font-semibold text-blue-600 hover:text-blue-700">Create an account</Link>
+      </p>
+    </AuthShell>
   )
 }

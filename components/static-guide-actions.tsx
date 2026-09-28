@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth"
 import { BookmarkPlus, Home, Loader2 } from "lucide-react"
+import { signInPath } from '@/lib/sign-in-path'
 
 interface StaticGuideActionsProps {
   guideId: string // Unique identifier for the static guide (e.g., "marinescience-exam2")
@@ -34,7 +35,7 @@ export function StaticGuideActions({
         description: "Please sign in to save guides to your collection.",
         variant: "destructive"
       })
-      router.push("/auth/signin")
+      router.push(signInPath())
       return
     }
 

@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     if (error) {
-      console.error('❌ Sign in error:', error)
+      console.warn('Sign in failed:', error.message)
       throw error
     }
 

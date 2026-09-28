@@ -50,6 +50,7 @@ import { LibraryHeader, SearchBox, FilterChip, SelectToggle, relativeDate, CardS
 import AssignToClassDialog from '@/components/assign-to-class-dialog'
 import { CLASSES_ENABLED } from '@/lib/features'
 import { displaySubject, displayLevel } from '@/lib/study-options'
+import { signInPath } from '@/lib/sign-in-path'
 
 // Cover styling per format. Class strings are literal so Tailwind keeps them.
 const FORMAT_CARD = {
@@ -168,7 +169,7 @@ export default function MyGuidesPage() {
 
       // Only redirect to signin after auth has finished loading and user is null
       if (!user) {
-        router.push('/auth/signin')
+        router.push(signInPath())
         return
       }
 

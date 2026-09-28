@@ -13,6 +13,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/toaster"
 import Link from "next/link"
+import { signInPath } from '@/lib/sign-in-path'
 
 interface EditGuideData {
   id: string
@@ -68,7 +69,7 @@ export default function CreateGuidePage() {
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth/signin')
+      router.push(signInPath())
     }
   }, [authLoading, user, router])
 

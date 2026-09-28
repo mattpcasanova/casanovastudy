@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
-import Link from 'next/link'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { AuthShell, SecondaryLink, StatusCard } from '@/components/auth/auth-ui'
 
 export default function CleverCallbackPage() {
   const router = useRouter()
@@ -69,51 +67,27 @@ export default function CleverCallbackPage() {
   }, [searchParams, router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md text-center">
-        <Link href="/">
-          <Image
-            src="/images/casanova-study-logo.png"
-            alt="Casanova Study"
-            width={280}
-            height={105}
-            className="h-20 w-auto mx-auto drop-shadow-lg hover:scale-105 transition-transform cursor-pointer mb-8"
-          />
-        </Link>
-
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-10">
-          {status === 'loading' && (
-            <>
-              <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-6" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Signing you in...</h1>
-              <p className="text-gray-600">Authenticating with your school account</p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="h-10 w-10 text-green-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome!</h1>
-              <p className="text-gray-600">Redirecting to your dashboard...</p>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertCircle className="h-10 w-10 text-red-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Failed</h1>
-              <p className="text-gray-600 mb-6">{error}</p>
-              <Button asChild className="w-full h-12">
-                <Link href="/auth/signin">Back to Sign In</Link>
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthShell>
+      {status === 'loading' && (
+        <StatusCard icon={<Loader2 className="h-8 w-8 animate-spin" />} title="Signing you in…">
+          <p>Connecting to your school account.</p>
+        </StatusCard>
+      )}
+      {status === 'success' && (
+        <StatusCard icon={<CheckCircle2 className="h-8 w-8" />} tone="green" title="Welcome!">
+          <p>Taking you to Casanova Study…</p>
+        </StatusCard>
+      )}
+      {status === 'error' && (
+        <StatusCard
+          icon={<AlertCircle className="h-8 w-8" />}
+          tone="red"
+          title="School sign-in didn’t work"
+          actions={<SecondaryLink href="/auth/signin">Back to sign in</SecondaryLink>}
+        >
+          <p>{error}</p>
+        </StatusCard>
+      )}
+    </AuthShell>
   )
 }

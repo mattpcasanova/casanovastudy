@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { Loader2 } from 'lucide-react'
+import { signInPath } from '@/lib/sign-in-path'
 
 interface AuthGateProps {
   children: React.ReactNode
@@ -21,18 +22,17 @@ export default function AuthGate({ children }: AuthGateProps) {
 
     // Redirect to sign-in if not authenticated
     if (!user) {
-      router.push('/auth/signin')
+      // Come back here after signing in (e.g. a shared guide link).
+      router.push(signInPath())
     }
   }, [user, loading, router, pathname])
 
   // Show loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Loading...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50" role="status" aria-live="polite">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="sr-only">Loading…</span>
       </div>
     )
   }
