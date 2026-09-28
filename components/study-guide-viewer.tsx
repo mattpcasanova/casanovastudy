@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { StudyGuideRecord } from '@/lib/supabase'
@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle } from 'lucide-react'
+import { Share2, Printer, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -24,6 +24,8 @@ import FlashcardsFormat from '@/components/formats/flashcards-format'
 import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
 import PracticeFormat from '@/components/formats/practice-format'
+import PlanFormat from '@/components/formats/plan-format'
+import { supabase } from '@/lib/supabase'
 import { CLASSES_ENABLED } from '@/lib/features'
 import { displaySubject, displayLevel } from '@/lib/study-options'
 import CustomFormat from '@/components/formats/custom-format'
@@ -42,6 +44,7 @@ const FORMAT_META = {
   quiz: { accent: formatAccent.quiz, icon: HelpCircle, label: 'Quiz' },
   summary: { accent: formatAccent.summary, icon: ScrollText, label: 'Summary' },
   practice: { accent: formatAccent.practice, icon: Puzzle, label: 'Practice' },
+  plan: { accent: formatAccent.plan, icon: MapIcon, label: 'Study plan' },
   custom: { accent: formatAccent.outline, icon: Sparkles, label: 'Custom' },
 } as const
 
@@ -56,6 +59,18 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [parentPlan, setParentPlan] = useState<{ id: string; title: string } | null>(null)
+
+  // Guides generated from a study plan unit link back to the plan.
+  useEffect(() => {
+    if (!studyGuide.parent_guide_id) return
+    supabase
+      .from('study_guides')
+      .select('id, title')
+      .eq('id', studyGuide.parent_guide_id)
+      .single()
+      .then(({ data }) => { if (data) setParentPlan(data) })
+  }, [studyGuide.parent_guide_id])
 
   const isOwner = user?.id === studyGuide.user_id
   const isTeacherOwner = CLASSES_ENABLED && isOwner && user?.user_type === 'teacher'
@@ -169,6 +184,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':
         return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} />
+      case 'plan':
+        return <PlanFormat content={studyGuide.content} studyGuideId={studyGuide.id} />
       case 'custom':
         if (studyGuide.custom_content) {
           return <CustomFormat content={studyGuide.custom_content} studyGuideId={studyGuide.id} />
@@ -198,6 +215,20 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         icon={fmt.icon}
         onBack={() => router.back()}
       />
+
+      {parentPlan && (
+        <div className="border-b border-teal-100 bg-teal-50 print:hidden">
+          <div className="container mx-auto flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+            <Link href={`/study-guide/${parentPlan.id}`} className="inline-flex items-center gap-1.5 font-semibold text-teal-700 hover:text-teal-900">
+              <ArrowLeft className="h-4 w-4" /> Back to plan
+            </Link>
+            <span className="text-teal-900/70">
+              Part of <span className="font-medium text-teal-900">{parentPlan.title}</span>
+              {studyGuide.plan_unit && <> · Unit {studyGuide.plan_unit.replace(/^u/, '')}</>}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Save Banner - Show for logged-in users viewing someone else's guide */}
       {canSave && (

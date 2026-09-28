@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePractice, isBlankCorrect, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse } from './practice'
+import { parsePractice, isBlankCorrect, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse, parseLineList } from './practice'
 
 const SAMPLE = `# Cells Practice
 *Interactive review of cell structure.*
@@ -136,5 +136,89 @@ describe('normalizePracticeActivities', () => {
   it('returns [] for non-arrays', () => {
     expect(normalizePracticeActivities(null)).toEqual([])
     expect(normalizePracticeActivities({ activities: [] })).toEqual([])
+  })
+})
+
+
+describe('code-aware practice', () => {
+  const CODE = `## Arrays
+MC_QUESTION: What does this print?
+\`\`\`python
+nums = [3, 1, 2]
+A) this line is code, not an option
+print(sorted(nums)[-1])
+\`\`\`
+A) 1
+B) 2
+C) 3
+Correct Answer: C
+Explanation: sorted() returns [1, 2, 3].
+
+FIND_BUG: This should return the index of target
+~~~python
+def find(nums, target):
+    for i in range(1, len(nums)):
+        if nums[i] == target:
+            return i
+    return -1
+~~~
+Bug line: 2
+Fix: \`for i in range(len(nums)):\`
+Explanation: It skips index 0.
+
+FILL: The two-pointer loop above runs in {{O(n)|linear}} time.
+\`\`\`python
+while left < right:
+    left += 1
+\`\`\`
+`
+  const acts = parsePractice(CODE)
+
+  it('attaches code to MC without parsing fence lines as options', () => {
+    const mc = acts[0]
+    if (mc.kind !== 'choice') throw new Error()
+    expect(mc.options).toEqual(['1', '2', '3'])
+    expect(mc.correct).toBe(2)
+    expect(mc.code).toEqual({ lang: 'python', text: 'nums = [3, 1, 2]\nA) this line is code, not an option\nprint(sorted(nums)[-1])' })
+  })
+
+  it('parses FIND_BUG with indentation, bug line and fix', () => {
+    const bug = acts[1]
+    if (bug.kind !== 'bug') throw new Error()
+    expect(bug.bugLines).toEqual([2])
+    expect(bug.fix).toBe('for i in range(len(nums)):')
+    expect(bug.code.text.split('\n')[1]).toBe('    for i in range(1, len(nums)):')
+    expect(bug.explanation).toBe('It skips index 0.')
+    expect(isPlayable(bug)).toBe(true)
+  })
+
+  it('attaches code to fill-ins too', () => {
+    const fill = acts[2]
+    expect(fill.kind).toBe('fill')
+    expect(fill.code?.text).toContain('left += 1')
+  })
+
+  it('drops FIND_BUG whose bug line is outside the code', () => {
+    expect(parsePractice('FIND_BUG: x\n```js\na()\nb()\n```\nBug line: 9').length).toBe(0)
+  })
+
+  it('normalizes bug + code JSON from the AI or editor', () => {
+    const acts2 = normalizePracticeActivities([
+      { type: 'find_the_bug', prompt: 'Fix it', code: { language: 'js', text: 'let a = 1\nconst b = a +\nconsole.log(b)' }, bugLine: '2', fix: 'const b = a + 1' },
+      { type: 'mc', question: 'Output?', options: ['1', '2'], correctAnswer: '2', code: 'print(2)', language: 'Python' },
+      { type: 'bug', prompt: 'no code', bugLines: [1] },
+    ], { strict: true })
+    expect(acts2).toHaveLength(2)
+    const [bug, mc] = acts2
+    if (bug.kind !== 'bug') throw new Error()
+    expect(bug.bugLines).toEqual([2])
+    expect(bug.code.lang).toBe('js')
+    expect(mc.code).toEqual({ lang: 'python', text: 'print(2)' })
+  })
+
+  it('parses line lists', () => {
+    expect(parseLineList('3, 5')).toEqual([3, 5])
+    expect(parseLineList([5, 3, 3])).toEqual([3, 5])
+    expect(parseLineList('lines 2 and 0')).toEqual([2])
   })
 })

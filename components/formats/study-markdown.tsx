@@ -19,6 +19,7 @@ import { AlertTriangle, BookMarked, Brain, Eye, EyeOff, HelpCircle, Info, Lightb
 import { cn } from '@/lib/utils'
 import { CHECK_ANSWER_SEPARATOR, type CalloutKind } from '@/lib/formats/normalize'
 import { AsciiDiagram, StepsDiagram, TreeDiagram, looksLikeAsciiDiagram, parseSteps, parseTree } from './diagrams'
+import { CodeBlock } from './code-view'
 
 // Single-$ math is off: "$100" in history/econ guides must stay text.
 // Inline math is written $$x^2$$; display math is $$ on its own lines.
@@ -121,18 +122,7 @@ function textOf(node: HastNode | undefined): string {
   return (node.children ?? []).map(textOf).join('')
 }
 
-function CodeBlock({ lang, text }: { lang: string; text: string }) {
-  return (
-    <div className="not-prose my-5 overflow-hidden rounded-xl bg-slate-900 shadow-sm ring-1 ring-slate-800 print:break-inside-avoid">
-      {lang && (
-        <div className="border-b border-white/10 px-4 py-1.5 font-mono text-[0.7rem] uppercase tracking-wider text-slate-400">{lang}</div>
-      )}
-      <pre className="overflow-x-auto px-4 py-3 font-mono text-[0.82rem] leading-relaxed text-slate-100">{text.replace(/\n+$/, '')}</pre>
-    </div>
-  )
-}
-
-const CODE_LANGS = /^(r|py|python|js|javascript|ts|typescript|java|c|cpp|c\+\+|cs|csharp|go|rust|sql|bash|sh|shell|html|css|json|matlab|julia|swift|kotlin|ruby|php|scala|haskell|lisp|scheme|pseudo|pseudocode)$/i
+const CODE_LANGS = /^(r|py|python|js|javascript|ts|typescript|java|c|cpp|c\+\+|cs|csharp|go|golang|rust|sql|bash|sh|shell|zsh|html|xml|css|json|yaml|yml|matlab|julia|swift|kotlin|ruby|php|scala|haskell|lisp|scheme|pseudo|pseudocode)$/i
 
 function PreBlock({ node }: { node?: HastNode }) {
   const codeEl = node?.children?.find((c) => c.tagName === 'code')

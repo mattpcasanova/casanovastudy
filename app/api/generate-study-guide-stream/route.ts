@@ -115,6 +115,22 @@ export async function POST(request: NextRequest) {
           if (h1 && h1.length >= 3) title = h1.slice(0, 120)
         }
 
+        // Generated from a study plan unit? Link it back — only to the caller's own plan.
+        let parentGuideId: string | null = null
+        let planUnit: string | null = null
+        if (body.planId && body.planUnit) {
+          const { data: plan } = await supabase
+            .from('study_guides')
+            .select('id, format, user_id')
+            .eq('id', body.planId)
+            .single()
+          const ownerId = body.userId || user?.id
+          if (plan && plan.format === 'plan' && ownerId && plan.user_id === ownerId) {
+            parentGuideId = plan.id
+            planUnit = String(body.planUnit).slice(0, 40)
+          }
+        }
+
         // Save to Supabase
         const { data: savedGuide, error: supabaseError } = await supabase
           .from('study_guides')
@@ -129,7 +145,9 @@ export async function POST(request: NextRequest) {
             additional_instructions: body.additionalInstructions,
             file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),
             token_usage: usage,
-            user_id: body.userId || user?.id || null  // Use passed userId, fallback to cookie auth
+            user_id: body.userId || user?.id || null,  // Use passed userId, fallback to cookie auth
+            parent_guide_id: parentGuideId,
+            plan_unit: planUnit
           })
           .select()
           .single()

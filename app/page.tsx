@@ -107,6 +107,8 @@ export default function Home() {
         goal: data.goal,
         sourcePolicy: data.sourcePolicy,
         materialsKind: data.materialsKind,
+        planId: data.planId,
+        planUnit: data.planUnit,
         userId: user?.id
       }
 

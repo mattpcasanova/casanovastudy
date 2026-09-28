@@ -30,6 +30,7 @@ import {
   Briefcase,
   BadgeCheck,
   Compass,
+  Map as MapIcon,
   ChevronDown,
   Check,
   PenSquare,
@@ -50,13 +51,14 @@ import type { StudyGuideData } from "@/types"
 import { supabase } from "@/lib/supabase"
 import { extractMaterialExcerpt } from "@/lib/material-excerpt"
 import { SUBJECTS, LEVEL_GROUPS, GOALS, type StudyGoal, type MaterialsKind } from "@/lib/study-options"
+import { parsePlan, unitStudyRequest } from "@/lib/formats/plan"
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
   isGenerating: boolean
 }
 
-type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice"
+type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice" | "plan"
 
 // Class strings are literal so Tailwind's scanner keeps them.
 const FORMATS: Array<{
@@ -163,6 +165,27 @@ const FORMATS: Array<{
       </div>
     ),
   },
+  {
+    value: "plan",
+    icon: MapIcon,
+    label: "Study plan",
+    desc: "Break a big goal into units — SAT, interviews, certifications",
+    selected: "border-teal-500 ring-4 ring-teal-500/15 bg-teal-50/50",
+    iconIdle: "bg-teal-100 text-teal-700",
+    iconOn: "bg-teal-600 text-white",
+    badge: "New",
+    preview: (
+      <div className="relative space-y-1.5 pl-3">
+        <span className="absolute bottom-1 left-[3px] top-1 w-0.5 rounded bg-teal-200" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="relative flex items-center gap-1.5">
+            <span className={cn("absolute -left-3 h-2 w-2 rounded-full", i === 0 ? "bg-emerald-500" : i === 1 ? "bg-teal-500" : "bg-teal-200")} />
+            <span className={cn("h-1.5 rounded-full", i === 1 ? "w-4/5 bg-teal-300" : "w-3/5 bg-teal-100")} />
+          </div>
+        ))}
+      </div>
+    ),
+  },
 ]
 
 const GOAL_ICONS: Record<StudyGoal, typeof GraduationCap> = {
@@ -204,6 +227,33 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [goal, setGoal] = useState<StudyGoal | "">("")
   const [strictSources, setStrictSources] = useState(true)
   const [materialsKind, setMaterialsKind] = useState<MaterialsKind | null>(null)
+  // Set when arriving from a study plan's "Create this guide" (/?plan=…&unit=…).
+  const [planLink, setPlanLink] = useState<{ planId: string; unitKey: string; planTitle: string; unitNumber: number; unitTitle: string } | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const planId = params.get("plan")
+    const unitKey = params.get("unit")
+    if (!planId || !unitKey) return
+    let cancelled = false
+    supabase
+      .from("study_guides")
+      .select("id, title, content, subject, grade_level, format")
+      .eq("id", planId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled || !data || data.format !== "plan") return
+        const unit = parsePlan(data.content).phases.flatMap((ph) => ph.units).find((u) => u.key === unitKey)
+        if (!unit) return
+        setPlanLink({ planId, unitKey, planTitle: data.title, unitNumber: unit.number, unitTitle: unit.title })
+        setStudyRequest(unitStudyRequest(data.title, unit))
+        setStudyGuideName(unit.title)
+        setFormat(unit.format)
+        if (data.subject) setSubject(data.subject)
+        if (data.grade_level) setGradeLevel(data.grade_level)
+      })
+    return () => { cancelled = true }
+  }, [])
   const [additionalInstructions, setAdditionalInstructions] = useState("")
   const [showMore, setShowMore] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -377,6 +427,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       // Quizzes and topic lists need teaching beyond the file itself.
       sourcePolicy: files.length > 0 && strictSources && materialsKind !== "assessment" && materialsKind !== "topic_list" ? "strict" : "expand",
       materialsKind: files.length > 0 ? materialsKind ?? undefined : undefined,
+      planId: planLink && format !== "plan" ? planLink.planId : undefined,
+      planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       additionalInstructions: additionalInstructions || undefined,
     })
   }
@@ -441,7 +493,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             Type a topic, paste your notes, or upload your materials — and get a study guide built for your class, exam, interview, or just for learning.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
-            {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice"].map((l) => (
+            {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice", "Study plans"].map((l) => (
               <span key={l} className="rounded-full bg-white/15 px-3.5 py-1.5 ring-1 ring-inset ring-white/25 backdrop-blur-sm">{l}</span>
             ))}
           </div>
@@ -468,6 +520,17 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             </div>
           )}
 
+          {planLink && (
+            <div className="mb-5 flex items-center gap-3 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900 ring-1 ring-inset ring-teal-200">
+              <MapIcon className="h-4 w-4 shrink-0 text-teal-600" />
+              <span className="flex-1">
+                Part of <strong>{planLink.planTitle}</strong> · Unit {planLink.unitNumber}: {planLink.unitTitle}. This guide will be linked back to your plan.
+              </span>
+              <button type="button" onClick={() => setPlanLink(null)} className="rounded-md p-1 text-teal-700 hover:bg-teal-100" aria-label="Don't link to the plan">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <StepHeading n={1} title="Your topic and materials" hint="Type, upload, or both" />
 
           <div className="grid gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -612,7 +675,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         {/* 2 — Format */}
         <section className="mt-14">
           <StepHeading n={2} title="Pick a format" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {FORMATS.map((f) => {
               const on = format === f.value
               const Icon = f.icon

@@ -209,3 +209,51 @@
     margin: 1in;
   }
 }
+
+/* ── Syntax highlighting for study-guide code (highlight.js tokens) ──────────
+   GitHub-dark-inspired palette tuned for bg-slate-900; switches to a light
+   palette in print. Scoped to .study-code so nothing else is affected. */
+.study-code .hljs-comment,
+.study-code .hljs-quote { color: #8b949e; font-style: italic; }
+.study-code .hljs-keyword,
+.study-code .hljs-selector-tag,
+.study-code .hljs-meta .hljs-keyword,
+.study-code .hljs-doctag { color: #ff7b72; }
+.study-code .hljs-string,
+.study-code .hljs-regexp,
+.study-code .hljs-meta .hljs-string { color: #a5d6ff; }
+.study-code .hljs-number,
+.study-code .hljs-literal,
+.study-code .hljs-symbol,
+.study-code .hljs-bullet,
+.study-code .hljs-variable.constant_ { color: #79c0ff; }
+.study-code .hljs-title,
+.study-code .hljs-title.function_,
+.study-code .hljs-section { color: #d2a8ff; }
+.study-code .hljs-title.class_,
+.study-code .hljs-type,
+.study-code .hljs-built_in { color: #ffa657; }
+.study-code .hljs-attr,
+.study-code .hljs-attribute,
+.study-code .hljs-property,
+.study-code .hljs-params { color: #c9d1d9; }
+.study-code .hljs-name,
+.study-code .hljs-selector-id,
+.study-code .hljs-selector-class { color: #7ee787; }
+.study-code .hljs-meta,
+.study-code .hljs-subst { color: #e6edf3; }
+.study-code .hljs-emphasis { font-style: italic; }
+.study-code .hljs-strong { font-weight: 600; }
+.study-code .hljs-addition { color: #aff5b4; background: rgba(46, 160, 67, 0.15); }
+.study-code .hljs-deletion { color: #ffdcd7; background: rgba(248, 81, 73, 0.15); }
+
+@media print {
+  .study-code { background: #f8fafc !important; box-shadow: none !important; border: 1px solid #e2e8f0; }
+  .study-code pre, .study-code code { color: #0f172a !important; }
+  .study-code .hljs-comment, .study-code .hljs-quote { color: #6a737d; }
+  .study-code .hljs-keyword, .study-code .hljs-selector-tag { color: #cf222e; }
+  .study-code .hljs-string, .study-code .hljs-regexp { color: #0a3069; }
+  .study-code .hljs-number, .study-code .hljs-literal { color: #0550ae; }
+  .study-code .hljs-title, .study-code .hljs-title.function_ { color: #8250df; }
+  .study-code .hljs-built_in, .study-code .hljs-type, .study-code .hljs-title.class_ { color: #953800; }
+}

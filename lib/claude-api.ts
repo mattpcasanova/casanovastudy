@@ -283,7 +283,7 @@ export class ClaudeService {
       sourceRules = `SOURCE RULES:
 - No materials were uploaded. Build the guide from your own knowledge of what the learner typed below.
 - Cover what someone at this level needs for this goal: core concepts, vocabulary, key facts/formulas/patterns, and how it gets tested or used. Stay accurate — if something varies (by curriculum, exam version, company, or edition), say so briefly.
-- Keep the scope to what they asked for. If the request is very broad (a whole exam or field), cover the highest-yield areas in depth rather than everything thinly, say what the guide covers, and end with a "## Keep Going" section listing 3-5 narrower follow-up guides they could make next (one line each).`
+- Keep the scope to what they asked for. If the request is very broad (a whole exam or field), cover the highest-yield areas in depth rather than everything thinly, say what the guide covers, and end with a "## Keep Going" section listing 3-5 narrower follow-up guides they could make next (one line each). (Not for the study plan format.)`
     } else {
       const kindRules =
         kind === 'assessment'
@@ -332,6 +332,30 @@ Write the complete ${format} study guide now, following the format and style rul
 
   private getFormatInstructions(format: StudyGuideFormat): string {
     const instructions: Record<string, string> = {
+      plan: `FORMAT: STUDY PLAN — a roadmap that breaks a big goal into units the learner studies one at a time. Each unit later becomes its own study guide, so this document is the map, not the lessons: do not teach the content here.
+Use exactly this skeleton:
+# <Plan title, e.g. "SAT Study Plan" or "Coding Interview Plan: Arrays to Graphs">
+*<one-line description of the goal and timeframe>*
+## Overview
+<3-5 short sentences or bullets: what the goal involves (e.g. how the exam is structured and scored, or what the interviews cover), a realistic total time commitment, and how to use this plan>
+## Phase 1: <name, e.g. Foundations>
+UNIT: <unit title — specific, e.g. "Linear Equations and Systems">
+GOAL: <one sentence: what the learner will be able to do after this unit>
+COVERS: <3-6 specific subtopics separated by semicolons>
+FORMAT: <the best study format for this unit: outline | flashcards | quiz | summary | practice>
+TIME: <realistic time, e.g. 45 min>
+
+UNIT: <next unit>
+…
+## Phase 2: <name>
+…
+## Tips
+<4-6 bullets: strategy, pacing, and how to know you're ready>
+Rules:
+- 2-4 phases, 6-14 units total, ordered so each builds on the previous; put the highest-impact units early.
+- Every unit is small enough for one focused guide (30-90 minutes). Split anything bigger.
+- Pick FORMAT per unit on purpose: flashcards for vocabulary/facts, practice or quiz for skills and problem types, outline for concept-heavy units, summary for big-picture context.
+- Plain-text field prefixes exactly as shown (UNIT:, GOAL:, COVERS:, FORMAT:, TIME:), one per line, no bold. No "Keep Going" section — the plan itself is the roadmap.`,
       outline: `FORMAT: OUTLINE — a structured, scannable outline students check off as they review.
 Use exactly this skeleton:
 # <Guide title>
@@ -451,9 +475,19 @@ Correct Answer: <letter>
 TF_QUESTION: <statement>
 Answer: True|False
 
+FIND_BUG: <what the code should do, e.g. This should return the largest number. Find the bug.>
+\`\`\`python
+<4-12 lines of code with exactly one buggy line>
+\`\`\`
+Bug line: <line number of the bug, counting the first code line as 1>
+Fix: <the corrected version of that line>
+
+Any activity may include ONE fenced code block (with the language name) right after its marker line — it is shown above the activity. Use it for "what does this print?", "what is the time complexity?", or "which line completes this function?" questions (MC_QUESTION with a snippet), or to give context for a FILL.
+
 Any activity may be followed by one line:
 Explanation: <one sentence explaining the answer>
 Rules:
+- For programming topics (or an interview goal involving coding), make at least half the activities code-based: predict the output, find the bug, pick the time/space complexity, choose the missing line. Keep snippets short (≤12 lines) and runnable-looking; default to Python unless another language is requested. Never put option lines or answers inside the code fence.
 - 3-5 topic sections, 14-20 activities total. Mix the types: every topic should use at least three different activity types; roughly equal numbers of MATCH, FILL, ORDER/SORT and questions overall. Use ORDER only for real sequences and SORT only for real categories.
 - Give an Explanation for every FILL, ORDER, MC and TF activity.
 - Put nothing else in the guide — no objectives, callouts, tables or notes.`,
@@ -1788,11 +1822,13 @@ SECTION TYPES YOU CAN USE:
       { "id": "act3", "kind": "order", "prompt": "Put the phases of mitosis in order", "items": ["Prophase", "Metaphase", "Anaphase", "Telophase"], "explanation": "Remember PMAT." },
       { "id": "act4", "kind": "sort", "prompt": "Sort each cell type", "buckets": [{ "name": "Prokaryotic", "items": ["Bacteria", "Archaea"] }, { "name": "Eukaryotic", "items": ["Plant cells", "Animal cells"] }] },
       { "id": "act5", "kind": "multiple-choice", "prompt": "Which organelle makes proteins?", "options": ["Nucleus", "Ribosome", "Vacuole"], "correctAnswer": "Ribosome", "explanation": "Ribosomes translate mRNA." },
-      { "id": "act6", "kind": "true-false", "prompt": "Bacteria have a nucleus.", "correctAnswer": "False", "explanation": "Prokaryotes have no nucleus." }
+      { "id": "act6", "kind": "true-false", "prompt": "Bacteria have a nucleus.", "correctAnswer": "False", "explanation": "Prokaryotes have no nucleus." },
+      { "id": "act7", "kind": "multiple-choice", "prompt": "What does this print?", "code": { "lang": "python", "text": "nums = [3, 1, 2]\\nprint(sorted(nums)[-1])" }, "options": ["1", "2", "3"], "correctAnswer": "3", "explanation": "sorted() returns [1, 2, 3]; [-1] is the last item." },
+      { "id": "act8", "kind": "bug", "prompt": "This should return the largest number. Find the bug.", "code": { "lang": "python", "text": "def largest(nums):\\n    best = 0\\n    for n in nums:\\n        if n > best:\\n            best = n\\n    return best" }, "bugLines": [2], "fix": "best = nums[0]", "explanation": "Starting at 0 breaks for all-negative lists." }
     ]
   }
 }
-Practice rules: 5-10 activities per practice section, mixing at least three kinds. "match": 3-6 pairs with short, distinct definitions. "fill": one sentence with 1-2 answers in [brackets] (alternates separated by |). "order": 3-6 items listed in the CORRECT order (the app shuffles). "sort": 2-3 buckets, 2-4 short items each. "multiple-choice": 2-6 options, "correctAnswer" exactly equal to one option. "true-false": "correctAnswer" is "True" or "False".
+Practice rules: 5-10 activities per practice section, mixing at least three kinds. "match": 3-6 pairs with short, distinct definitions. "fill": one sentence with 1-2 answers in [brackets] (alternates separated by |). "order": 3-6 items listed in the CORRECT order (the app shuffles). "sort": 2-3 buckets, 2-4 short items each. "multiple-choice": 2-6 options, "correctAnswer" exactly equal to one option. "true-false": "correctAnswer" is "True" or "False". Any activity may carry an optional "code": { "lang", "text" } snippet (shown above it; use \\n for newlines). "bug": "code" is required (4-12 lines), "bugLines" lists the 1-based buggy line(s), "fix" is the corrected line. For programming topics make at least half the activities code-based (predict the output, find the bug, time/space complexity, missing line); default to Python.
 
 GUIDELINES:
 1. Generate unique IDs for all sections (use format like "sec-1", "def-2", "quiz-3")

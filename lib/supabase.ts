@@ -65,7 +65,7 @@ export interface StudyGuideRecord {
   title: string
   subject: string
   grade_level: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'custom' | 'practice'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'custom' | 'practice' | 'plan'
   content: string
   topic_focus?: string
   difficulty_level?: string
@@ -79,6 +79,8 @@ export interface StudyGuideRecord {
   is_published?: boolean
   published_at?: string
   custom_content?: CustomGuideContent
+  parent_guide_id?: string | null // set when generated from a study plan unit
+  plan_unit?: string | null
   created_at: string
   updated_at: string
 }

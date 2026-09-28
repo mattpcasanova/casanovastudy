@@ -40,6 +40,7 @@ import {
   HelpCircle,
   ScrollText,
   Sparkles,
+  Map as MapIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -56,6 +57,7 @@ const FORMAT_CARD = {
   quiz: { label: 'Quiz', icon: HelpCircle, cover: 'from-purple-100 via-purple-50 to-white', text: 'text-purple-700', watermark: 'text-purple-200/80' },
   summary: { label: 'Summary', icon: ScrollText, cover: 'from-green-100 via-green-50 to-white', text: 'text-green-700', watermark: 'text-green-200/80' },
   practice: { label: 'Practice', icon: Puzzle, cover: 'from-orange-100 via-orange-50 to-white', text: 'text-orange-700', watermark: 'text-orange-200/80' },
+  plan: { label: 'Study plan', icon: MapIcon, cover: 'from-teal-100 via-teal-50 to-white', text: 'text-teal-700', watermark: 'text-teal-200/80' },
   custom: { label: 'Custom', icon: Sparkles, cover: 'from-cyan-100 via-sky-50 to-white', text: 'text-cyan-700', watermark: 'text-cyan-200/80' },
 } as const
 
@@ -244,6 +246,12 @@ export default function MyGuidesPage() {
   }, [studyGuides])
 
   const selecting = selectedIds.size > 0
+  // Titles of the user's study plans, to label guides made from a plan unit.
+  const planTitles = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const g of studyGuides) if (g.format === 'plan') map[g.id] = g.title
+    return map
+  }, [studyGuides])
   const clearFilters = () => {
     setSubjectFilter('all')
     setFormatFilter('all')
@@ -348,6 +356,7 @@ export default function MyGuidesPage() {
                 const Icon = meta.icon
                 const isSelected = selectedIds.has(guide.id)
                 const details = [displaySubject(guide.subject), displayLevel(guide.grade_level)].filter(Boolean)
+                const parentTitle = guide.parent_guide_id ? planTitles[guide.parent_guide_id] : undefined
                 return (
                   <article
                     key={guide.id}
@@ -369,6 +378,11 @@ export default function MyGuidesPage() {
                     {/* Body */}
                     <div className="flex flex-1 flex-col p-5">
                       <h3 className={cn(fontDisplay, 'line-clamp-2 text-lg font-semibold leading-snug text-slate-900')}>{guide.title}</h3>
+                      {parentTitle && (
+                        <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-teal-700">
+                          <MapIcon className="h-3.5 w-3.5" /> {guide.plan_unit ? `Unit ${guide.plan_unit.replace(/^u/, '')} · ` : ''}{parentTitle}
+                        </p>
+                      )}
                       {details.length > 0 && <p className="mt-1.5 text-sm font-medium text-slate-500">{details.join(' · ')}</p>}
                       {showTopic(guide.title, guide.topic_focus) && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500">{guide.topic_focus}</p>}
                       {CLASSES_ENABLED && user?.user_type === 'teacher' && (

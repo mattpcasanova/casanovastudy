@@ -5,10 +5,12 @@ export interface StudyGuideData {
   goal?: string // what they're studying for (see GOALS in lib/study-options.ts)
   sourcePolicy?: 'strict' | 'expand' // may the guide go beyond uploaded materials?
   materialsKind?: 'notes' | 'assessment' | 'topic_list' // detected type of the uploads
+  planId?: string // generated from a study plan unit
+  planUnit?: string
   studyGuideName: string
   subject: string
   gradeLevel: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan'
   topicFocus?: string
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
@@ -50,6 +52,8 @@ export interface StudyGuideRequest {
   goal?: string
   sourcePolicy?: string
   materialsKind?: string
+  planId?: string // parent study plan guide id
+  planUnit?: string // PlanUnit.key within that plan
   userId?: string  // User ID to associate with the study guide
 }
 
@@ -116,7 +120,7 @@ export interface ClaudeApiResponse {
   }
 }
 
-export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice'
+export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan'
 export type GradeLevel = '9th' | '10th' | '11th' | '12th' | 'college'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 export type FileType = 'pdf' | 'pptx' | 'docx' | 'txt'

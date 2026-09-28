@@ -1,15 +1,16 @@
 "use client"
 
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, Copy, X, Plus, Puzzle, PencilLine, ListOrdered, Columns2, HelpCircle, ToggleLeft, CheckCircle2, Circle, AlertTriangle, Brackets } from "lucide-react"
+import { ArrowDown, ArrowUp, Copy, X, Plus, Puzzle, PencilLine, ListOrdered, Columns2, HelpCircle, ToggleLeft, CheckCircle2, Circle, AlertTriangle, Brackets, Bug, Code2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   EditorBlock, PracticeBlockData, createEmptyActivity, generateActivityId,
 } from "@/lib/types/editor-blocks"
 import {
-  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity,
+  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity, type CodeSnippet,
   parseFillSentence, fillToSentence, isPlayable, isTrueFalse,
 } from "@/lib/formats/practice"
+import { CodeLines } from "@/components/formats/code-view"
 import { AddRowButton, AutoTextarea, InlineInput, Segmented, fieldLabel, focusLater } from "../editor-ui"
 
 interface PracticeBlockProps {
@@ -26,7 +27,14 @@ const KINDS: { value: KindChoice; label: string; icon: React.ComponentType<{ cla
   { value: "sort", label: "Sort", icon: Columns2 },
   { value: "choice", label: "Multiple choice", icon: HelpCircle },
   { value: "tf", label: "True / false", icon: ToggleLeft },
+  { value: "bug", label: "Find the bug", icon: Bug },
 ]
+
+const LANGUAGES = [
+  ["python", "Python"], ["javascript", "JavaScript"], ["typescript", "TypeScript"], ["java", "Java"], ["cpp", "C++"],
+  ["c", "C"], ["csharp", "C#"], ["go", "Go"], ["rust", "Rust"], ["sql", "SQL"], ["bash", "Bash"], ["ruby", "Ruby"],
+  ["kotlin", "Kotlin"], ["swift", "Swift"], ["php", "PHP"], ["pseudocode", "Pseudocode"],
+] as const
 
 const kindOf = (a: PracticeActivity): KindChoice => (isTrueFalse(a) ? "tf" : a.kind)
 
@@ -44,6 +52,7 @@ function missingHint(a: PracticeActivity): string | null {
     case "order": return "Add at least 2 steps"
     case "sort": return "Add 2 named groups with at least one item each"
     case "choice": return isTrueFalse(a) ? "Write the statement" : "Write the question and at least 2 options"
+    case "bug": return "Add at least 2 lines of code, then click the line with the bug"
   }
 }
 
@@ -155,11 +164,17 @@ const ActivityEditor = memo(function ActivityEditor({
   }, [])
   const bindFirst = (el: HTMLElement | null) => { firstField.current = el }
 
-  // Switching type starts a fresh activity of that kind, keeping id + explanation.
+  // Switching type starts a fresh activity of that kind, keeping id,
+  // explanation and any code snippet (it becomes the bug code and vice versa).
   const switchKind = (kind: KindChoice) => {
     if (kind === kindOf(activity)) return
     const fresh = createEmptyActivity(kind)
-    set({ ...fresh, id, explanation: activity.explanation } as PracticeActivity)
+    const code = activity.code?.text.trim() ? activity.code : undefined
+    if (fresh.kind === "bug") {
+      set({ ...fresh, id, explanation: activity.explanation, code: code ?? fresh.code } as PracticeActivity)
+    } else {
+      set({ ...fresh, id, explanation: activity.explanation, ...(code ? { code } : {}) } as PracticeActivity)
+    }
   }
 
   return (
@@ -181,6 +196,18 @@ const ActivityEditor = memo(function ActivityEditor({
         {activity.kind === "order" && <OrderFields a={activity} set={set} bindFirst={bindFirst} />}
         {activity.kind === "sort" && <SortFields a={activity} set={set} bindFirst={bindFirst} />}
         {activity.kind === "choice" && <ChoiceFields a={activity} set={set} bindFirst={bindFirst} />}
+        {activity.kind === "bug" && <BugFields a={activity} set={set} bindFirst={bindFirst} />}
+        {activity.kind !== "bug" && (
+          <CodeSnippetField
+            code={activity.code}
+            onChange={(code) => {
+              const next = { ...activity } as PracticeActivity
+              if (code) next.code = code
+              else delete next.code
+              set(next)
+            }}
+          />
+        )}
 
         <InlineInput
           value={activity.explanation ?? ""}
@@ -431,6 +458,116 @@ function ChoiceFields({ a, set, bindFirst }: FieldProps<ChoiceActivity>) {
         })}
       </div>
       {a.options.length < 6 && <AddRowButton onClick={() => setOptions([...a.options, ""])}><Plus className="h-4 w-4" /> Add option</AddRowButton>}
+    </>
+  )
+}
+
+// ── Code ────────────────────────────────────────────────────────────────────
+
+function LanguageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Code language"
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 outline-none focus:border-orange-300"
+    >
+      {LANGUAGES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+      {!LANGUAGES.some(([v]) => v === value) && value && <option value={value}>{value}</option>}
+    </select>
+  )
+}
+
+function CodeTextarea({ value, onChange, placeholder, bindFirst }: { value: string; onChange: (v: string) => void; placeholder: string; bindFirst?: (el: HTMLElement | null) => void }) {
+  return (
+    <AutoTextarea
+      ref={bindFirst}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        // Tab indents inside code instead of leaving the field.
+        if (e.key !== "Tab" || e.shiftKey) return
+        e.preventDefault()
+        const el = e.currentTarget
+        const { selectionStart: s, selectionEnd: end } = el
+        onChange(`${value.slice(0, s)}    ${value.slice(end)}`)
+        requestAnimationFrame(() => el.setSelectionRange(s + 4, s + 4))
+      }}
+      spellCheck={false}
+      placeholder={placeholder}
+      minRows={3}
+      className="rounded-lg bg-slate-900 px-3 py-2 font-mono text-[0.82rem] leading-relaxed text-slate-100 placeholder:text-slate-500"
+    />
+  )
+}
+
+/** Optional snippet shown above any activity ("what does this print?"). */
+function CodeSnippetField({ code, onChange }: { code?: CodeSnippet; onChange: (code: CodeSnippet | undefined) => void }) {
+  const [open, setOpen] = useState(!!code)
+  if (!open && !code) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setOpen(true); onChange({ lang: "python", text: "" }) }}
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-50 hover:text-orange-700"
+      >
+        <Code2 className="h-3.5 w-3.5" /> Add code snippet
+      </button>
+    )
+  }
+  const value = code ?? { lang: "python", text: "" }
+  return (
+    <div className="space-y-1.5 rounded-lg border border-slate-200 p-2">
+      <div className="flex items-center gap-2">
+        <span className={cn(fieldLabel, "flex items-center gap-1")}><Code2 className="h-3 w-3" /> Code</span>
+        <LanguageSelect value={value.lang} onChange={(lang) => onChange({ ...value, lang })} />
+        <button type="button" onClick={() => { setOpen(false); onChange(undefined) }} className="ml-auto text-xs font-medium text-slate-400 hover:text-rose-600">
+          Remove
+        </button>
+      </div>
+      <CodeTextarea value={value.text} onChange={(text) => onChange({ ...value, text })} placeholder={"nums = [3, 1, 2]\nprint(sorted(nums)[-1])"} />
+    </div>
+  )
+}
+
+function BugFields({ a, set, bindFirst }: FieldProps<BugActivity>) {
+  const lineCount = a.code.text.split("\n").length
+  const toggleLine = (n: number) => {
+    const has = a.bugLines.includes(n)
+    set({ ...a, bugLines: has ? a.bugLines.filter((x) => x !== n) : [...a.bugLines, n].sort((x, y) => x - y) })
+  }
+  const setCode = (text: string) => {
+    // Drop bug-line picks that no longer exist.
+    const total = text.split("\n").length
+    set({ ...a, code: { ...a.code, text }, bugLines: a.bugLines.filter((n) => n <= total) })
+  }
+  return (
+    <>
+      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction — e.g. This should return the largest number. Find the bug." bindFirst={bindFirst} />
+      <div className="flex items-center gap-2 px-2">
+        <span className={fieldLabel}>Language</span>
+        <LanguageSelect value={a.code.lang} onChange={(lang) => set({ ...a, code: { ...a.code, lang } })} />
+      </div>
+      <CodeTextarea value={a.code.text} onChange={setCode} placeholder={"def largest(nums):\n    best = 0\n    for n in nums:\n        if n > best:\n            best = n\n    return best"} />
+      {a.code.text.trim() && lineCount >= 2 && (
+        <div>
+          <p className="px-2 text-xs text-slate-500">
+            Click the buggy line{a.bugLines.length ? "s" : ""} below{a.bugLines.length ? ` — marked: ${a.bugLines.join(", ")}` : ""}.
+          </p>
+          <CodeLines
+            lang={a.code.lang}
+            text={a.code.text}
+            onPick={toggleLine}
+            lineState={(n) => (a.bugLines.includes(n) ? "wrong" : null)}
+          />
+        </div>
+      )}
+      <input
+        className={cn(rowField, "font-mono")}
+        value={a.fix ?? ""}
+        onChange={(e) => set({ ...a, fix: e.target.value })}
+        placeholder="Fixed line (optional) — e.g. best = nums[0]"
+      />
     </>
   )
 }

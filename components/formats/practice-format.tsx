@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import {
   parsePractice, isBlankCorrect, normalizeAnswer, seededShuffle, isTrueFalse,
-  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity,
+  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity,
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
+import { CodeBlock, CodeLines } from './code-view'
 
 interface PracticeFormatProps {
   content: string
@@ -23,6 +24,7 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
   order: { label: 'Put in order', icon: ListOrdered },
   sort: { label: 'Sort it out', icon: Columns2 },
   choice: { label: 'Question', icon: HelpCircle },
+  bug: { label: 'Find the bug', icon: Bug },
 }
 
 type Outcome = { correct: boolean; note?: string }
@@ -159,11 +161,13 @@ export function PracticeSession({
             <InlineMarkdown text={current.prompt} />
           </p>
         )}
+        {current.code && current.kind !== 'bug' && <CodeBlock lang={current.code.lang} text={current.code.text} compact className="mb-5 mt-0" />}
         {current.kind === 'match' && <MatchBoard activity={current} onDone={record} />}
         {current.kind === 'fill' && <FillBlank activity={current} onDone={record} checked={checked} onContinue={advance} compact={inline} autoFocus={!inline || Object.keys(results).length > 0} />}
         {current.kind === 'order' && <OrderList activity={current} onDone={record} checked={checked} />}
         {current.kind === 'sort' && <SortBoard activity={current} onDone={record} checked={checked} />}
         {current.kind === 'choice' && <Choice activity={current} onDone={record} checked={checked} />}
+        {current.kind === 'bug' && <BugHunt activity={current} onDone={record} checked={checked} />}
 
         {outcome && (
           <div className={cn('mt-6 animate-fade-up rounded-xl p-4', outcome.correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : outcome.note ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
@@ -549,6 +553,37 @@ function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDon
 }
 
 // ── Results ─────────────────────────────────────────────────────────────────
+
+function BugHunt({ activity, onDone, checked }: { activity: BugActivity; onDone: (c: boolean) => void; checked: boolean }) {
+  const [picked, setPicked] = useState<number | null>(null)
+  const lines = activity.code.text.split('\n')
+  const firstBug = activity.bugLines[0]
+  return (
+    <div>
+      <p className="text-sm text-slate-500">
+        {checked ? (activity.bugLines.length > 1 ? `The bugs are on lines ${activity.bugLines.join(' and ')}.` : `The bug is on line ${firstBug}.`) : 'Click the line with the bug.'}
+      </p>
+      <CodeLines
+        lang={activity.code.lang}
+        text={activity.code.text}
+        picked={picked}
+        disabled={checked}
+        onPick={(n) => {
+          if (checked) return
+          setPicked(n)
+          onDone(activity.bugLines.includes(n))
+        }}
+        lineState={checked ? (n) => (activity.bugLines.includes(n) ? 'correct' : n === picked ? 'wrong' : null) : undefined}
+      />
+      {checked && activity.fix && (
+        <div className="study-code mt-3 overflow-x-auto rounded-xl bg-slate-900 py-2 font-mono text-[0.82rem] leading-relaxed ring-1 ring-slate-800">
+          <div className="whitespace-pre bg-rose-500/15 px-4 text-rose-200"><span className="mr-3 select-none text-rose-400">−</span>{lines[firstBug - 1]?.trim()}</div>
+          <div className="whitespace-pre bg-emerald-500/15 px-4 text-emerald-200"><span className="mr-3 select-none text-emerald-400">+</span>{activity.fix}</div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Results({ activities, results, bestStreak, onRestart, isRetry, inline = false, title }: {
   activities: PracticeActivity[]

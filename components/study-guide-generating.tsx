@@ -25,6 +25,10 @@ function previewMarkdown(raw: string, format: string): string {
       .replace(/^\s*(?:\*\*)?(MC|TF|SA)_QUESTION:(?:\*\*)?\s*/gm, "\n**Question.** ")
       .replace(/^\s*([A-F])\)\s+/gm, "- **$1.** ")
       .replace(/^\s*(Correct Answer|Answer|Sample Answer|Explanation):.*$/gim, "")
+  } else if (format === "plan") {
+    md = md
+      .replace(/^\s*(?:\*\*)?UNIT:(?:\*\*)?\s*(.*)$/gim, "\n### $1")
+      .replace(/^\s*(?:\*\*)?(GOAL|COVERS|FORMAT|TIME):(?:\*\*)?\s*(.*)$/gim, (_m, k: string, v: string) => `- **${k.charAt(0) + k.slice(1).toLowerCase()}:** ${v}`)
   } else if (format === "practice") {
     md = md
       .replace(/^\s*(?:\*\*)?(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION):(?:\*\*)?\s*/gm, (_m, kind: string) => `\n**${{ MATCH: "Match", FILL: "Fill in", ORDER: "Order", SORT: "Sort", MC_QUESTION: "Question", TF_QUESTION: "True or false" }[kind.toUpperCase()] ?? kind}.** `)

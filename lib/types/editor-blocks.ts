@@ -158,6 +158,8 @@ export function createEmptyActivity(kind: PracticeActivity['kind'] | 'tf'): Prac
       return { ...base, kind: 'sort', prompt: 'Sort each item into the right group', buckets: [{ name: '', items: [''] }, { name: '', items: [''] }] }
     case 'tf':
       return { ...base, kind: 'choice', options: ['True', 'False'], correct: 0 }
+    case 'bug':
+      return { ...base, kind: 'bug', prompt: 'Find the bug', code: { lang: 'python', text: '' }, bugLines: [] }
     default:
       return { ...base, kind: 'choice', options: ['', '', '', ''], correct: 0 }
   }
