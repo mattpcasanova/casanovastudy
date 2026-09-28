@@ -167,3 +167,18 @@ describe('math', () => {
     expect(out).toContain('$$\n6CO_2 + 6H_2O \\rightarrow C_6H_{12}O_6\n$$')
   })
 })
+
+describe('split check-yourself answers', () => {
+  it('joins an Answer quote that follows a Check yourself quote', () => {
+    const md = '> **Check yourself:** Long-term or immediate?\n\n> **Answer:** Long-term.\n\nNext paragraph.'
+    const out = normalizeGuideMarkdown(md)
+    expect(out.match(/~~~~callout-check/g)).toHaveLength(1)
+    expect(out).toContain(CHECK_ANSWER_SEPARATOR)
+    expect(out).toContain('Next paragraph.')
+  })
+
+  it('leaves unrelated consecutive quotes alone', () => {
+    const md = '> **Remember:** A\n\n> **Answer:** not a check answer'
+    expect(normalizeGuideMarkdown(md).match(/~~~~callout-/g)).toHaveLength(2)
+  })
+})

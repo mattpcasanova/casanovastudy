@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Sparkles, Flag, Lightbulb } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Sparkles, Flag, Lightbulb, FileText, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -24,6 +24,8 @@ const UNIT_FORMAT: Record<PlanUnitFormat, { label: string; icon: typeof List; te
   quiz: { label: 'Quiz', icon: HelpCircle, text: 'text-purple-700', bg: 'bg-purple-50' },
   summary: { label: 'Summary', icon: ScrollText, text: 'text-green-700', bg: 'bg-green-50' },
   practice: { label: 'Practice', icon: Puzzle, text: 'text-orange-700', bg: 'bg-orange-50' },
+  cheatsheet: { label: 'Cheat sheet', icon: FileText, text: 'text-slate-700', bg: 'bg-slate-100' },
+  timeline: { label: 'Timeline', icon: History, text: 'text-fuchsia-700', bg: 'bg-fuchsia-50' },
 }
 
 // "45 min", "1 hour", "1.5 hours", "1 hr 30 min" → minutes (0 if unknown).

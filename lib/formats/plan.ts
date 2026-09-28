@@ -11,13 +11,13 @@
 //   UNIT: <title>
 //   GOAL: <one sentence>
 //   COVERS: <topic>; <topic>; <topic>
-//   FORMAT: outline | flashcards | quiz | summary | practice
+//   FORMAT: outline | flashcards | quiz | summary | practice | cheatsheet | timeline
 //   TIME: <e.g. 45 min>
 //   ## Tips                (free markdown)
 
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 
-export const PLAN_UNIT_FORMATS = ['outline', 'flashcards', 'quiz', 'summary', 'practice'] as const
+export const PLAN_UNIT_FORMATS = ['outline', 'flashcards', 'quiz', 'summary', 'practice', 'cheatsheet', 'timeline'] as const
 export type PlanUnitFormat = (typeof PLAN_UNIT_FORMATS)[number]
 
 export interface PlanUnit {
@@ -58,6 +58,8 @@ function asFormat(v: string): PlanUnitFormat {
   if (f.startsWith('quiz') || f.startsWith('test')) return 'quiz'
   if (f.startsWith('summ')) return 'summary'
   if (f.startsWith('prac') || f.startsWith('inter')) return 'practice'
+  if (f.startsWith('cheat') || f.startsWith('ref')) return 'cheatsheet'
+  if (f.startsWith('time') || f.startsWith('chron')) return 'timeline'
   return 'outline'
 }
 

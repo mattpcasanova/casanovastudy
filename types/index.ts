@@ -10,7 +10,7 @@ export interface StudyGuideData {
   studyGuideName: string
   subject: string
   gradeLevel: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan'
+  format: StudyGuideFormat
   topicFocus?: string
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
@@ -120,7 +120,7 @@ export interface ClaudeApiResponse {
   }
 }
 
-export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan'
+export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan' | 'cheatsheet' | 'timeline'
 export type GradeLevel = '9th' | '10th' | '11th' | '12th' | 'college'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 export type FileType = 'pdf' | 'pptx' | 'docx' | 'txt'

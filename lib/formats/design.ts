@@ -123,7 +123,7 @@ export const eyebrow = "text-[0.7rem] font-semibold uppercase tracking-[0.14em]"
 // distinct-but-related family. Colors are chosen to avoid the tier palette
 // (rose/amber/emerald) and the quiz/flashcard state colors. Class strings are
 // full literals so Tailwind's scanner keeps them.
-export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practice" | "plan"
+export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practice" | "plan" | "cheatsheet" | "timeline"
 
 export interface FormatAccent {
   text: string // eyebrows, progress %, small accents
@@ -212,5 +212,29 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
     bannerFrom: "from-teal-500",
     bannerTo: "to-teal-700",
     bannerSub: "text-teal-50",
+  },
+  cheatsheet: {
+    text: "text-slate-700",
+    edge: "border-l-slate-600",
+    solid: "bg-slate-800",
+    hover: "hover:bg-slate-900",
+    ring: "ring-slate-500",
+    soft: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300",
+    iconBadge: "bg-white/15 text-white",
+    bannerFrom: "from-slate-600",
+    bannerTo: "to-slate-800",
+    bannerSub: "text-slate-100",
+  },
+  timeline: {
+    text: "text-fuchsia-700",
+    edge: "border-l-fuchsia-500",
+    solid: "bg-fuchsia-600",
+    hover: "hover:bg-fuchsia-700",
+    ring: "ring-fuchsia-500",
+    soft: "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-inset ring-fuchsia-200",
+    iconBadge: "bg-white/15 text-white",
+    bannerFrom: "from-fuchsia-500",
+    bannerTo: "to-fuchsia-700",
+    bannerSub: "text-fuchsia-50",
   },
 }

@@ -71,7 +71,7 @@ const STUDY_GUIDE_STYLE_RULES = `STYLE RULES (the guide is rendered by an app �
   > **Common mistake:** <misconception to avoid>
   > **Check yourself:** <question>
   > **Answer:** <answer>   (second line of the same blockquote)
-  Use callouts sparingly (about one or two per topic) — they should stand out.
+  Use callouts sparingly (about one or two per topic) — they should stand out. Callouts belong in outline and summary guides only; quiz, flashcard, practice, plan, cheat sheet and timeline guides never use them.
 - Diagrams — use these fenced blocks instead of drawing:
   \`\`\`steps
   First step | short detail
@@ -98,7 +98,7 @@ const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
   },
   exam: {
     label: 'a standardized exam',
-    rules: `- If you recognize the exam (SAT, ACT, AP, IB, GRE, GMAT, LSAT, MCAT, etc.), open with a SHORT overview of how the relevant section is structured and scored (current format; say if it recently changed).
+    rules: `- If you recognize the exam (SAT, ACT, AP, IB, GRE, GMAT, LSAT, MCAT, etc.), open with a SHORT overview of how the relevant section is structured and scored (current format; say if it recently changed). In quiz, flashcard, practice, cheat sheet and timeline guides there is no room for an overview — fold one key fact into the one-line description instead.
 - Prioritize the highest-yield content and the question types that appear most, and for each area give the strategy: how to recognize the question type, a step-by-step approach, time-saving shortcuts, and the traps/wrong-answer patterns the test uses.
 - Worked examples and practice questions should imitate the exam's real style and difficulty.`,
   },
@@ -283,7 +283,7 @@ export class ClaudeService {
       sourceRules = `SOURCE RULES:
 - No materials were uploaded. Build the guide from your own knowledge of what the learner typed below.
 - Cover what someone at this level needs for this goal: core concepts, vocabulary, key facts/formulas/patterns, and how it gets tested or used. Stay accurate — if something varies (by curriculum, exam version, company, or edition), say so briefly.
-- Keep the scope to what they asked for. If the request is very broad (a whole exam or field), cover the highest-yield areas in depth rather than everything thinly, say what the guide covers, and end with a "## Keep Going" section listing 3-5 narrower follow-up guides they could make next (one line each). (Not for the study plan format.)`
+- Keep the scope to what they asked for. If the request is very broad (a whole exam or field), cover the highest-yield areas in depth rather than everything thinly, say what the guide covers, and end with a "## Keep Going" section listing 3-5 narrower follow-up guides they could make next (one line each). (Outline and summary formats only.)`
     } else {
       const kindRules =
         kind === 'assessment'
@@ -342,7 +342,7 @@ Use exactly this skeleton:
 UNIT: <unit title — specific, e.g. "Linear Equations and Systems">
 GOAL: <one sentence: what the learner will be able to do after this unit>
 COVERS: <3-6 specific subtopics separated by semicolons>
-FORMAT: <the best study format for this unit: outline | flashcards | quiz | summary | practice>
+FORMAT: <the best study format for this unit: outline | flashcards | quiz | summary | practice | cheatsheet | timeline>
 TIME: <realistic time, e.g. 45 min>
 
 UNIT: <next unit>
@@ -354,8 +354,44 @@ UNIT: <next unit>
 Rules:
 - 2-4 phases, 6-14 units total, ordered so each builds on the previous; put the highest-impact units early.
 - Every unit is small enough for one focused guide (30-90 minutes). Split anything bigger.
-- Pick FORMAT per unit on purpose: flashcards for vocabulary/facts, practice or quiz for skills and problem types, outline for concept-heavy units, summary for big-picture context.
+- Pick FORMAT per unit on purpose: flashcards for vocabulary/facts, practice or quiz for skills and problem types, outline for concept-heavy units, summary for big-picture context, timeline for a sequence of historical events, cheatsheet for a final formula/reference review.
 - Plain-text field prefixes exactly as shown (UNIT:, GOAL:, COVERS:, FORMAT:, TIME:), one per line, no bold. No "Keep Going" section — the plan itself is the roadmap.`,
+      cheatsheet: `FORMAT: CHEAT SHEET — a dense one-page reference card the learner can print and glance at before a test or interview. Everything important, nothing else.
+Use exactly this skeleton:
+# <Guide title, e.g. "Derivatives Cheat Sheet">
+*<one-line description>*
+## <Box title, e.g. Key Formulas>
+<compact content>
+## <Box title>
+<compact content>
+Rules:
+- 8-14 boxes, most important first. Each box is ONE tight idea group (e.g. Key Formulas, Definitions, The 5 Steps, Complexity Table, Common Mistakes, Mnemonics) and at most ~8 short lines.
+- Ultra-compact: bullets of 3-12 words, fragments are fine, no prose paragraphs, no explanations the learner already knows. Bold only the term being defined.
+- Prefer small tables (2-3 columns, ≤7 rows) for comparisons and lookups, LaTeX for formulas, short code blocks (≤8 lines) for programming syntax/templates, and \`\`\`steps for processes.
+- Include one box titled "Common Mistakes" and, where useful, one titled "Mnemonics".
+- Only ## headings start a box (use ### sparingly inside a box). No objectives, no callouts (> lines), no intro paragraph, no "Keep Going" section.`,
+      timeline: `FORMAT: TIMELINE — the key events of the topic in chronological order, grouped into eras, each with what happened and why it mattered. Works for history, but also for the development of a science, a literary movement, a company, or a technology.
+Use exactly this skeleton:
+# <Guide title>
+*<one-line description>*
+## <Era name> (<date range>)
+<one sentence summarizing the era>
+EVENT: <date> | <short event title>
+WHAT: <1-2 sentences: what happened, who was involved>
+WHY: <1 sentence: why it matters — what it caused or changed>
+
+EVENT: <date> | <short event title>
+WHAT: …
+WHY: …
+## <Next era> (<date range>)
+…
+## Key Themes
+<4-6 bullets connecting the events: causes and effects, turning points, patterns — the big-picture reasoning essay and exam questions ask for>
+Rules:
+- 3-5 eras, 14-24 events total, strictly in chronological order.
+- Dates as precise as the learner needs (a year, a month and year, or a full date for pivotal days); use "c." for approximate and BCE/CE where relevant. Put the date BEFORE the | and keep event titles under 8 words.
+- WHY lines are the point of the guide: name the consequence or connection, not a restatement of WHAT.
+- Plain-text prefixes exactly as shown (EVENT:, WHAT:, WHY:), one per line, no bold, a blank line between events. Nothing else inside eras — no callouts (> lines), tables or notes.`,
       outline: `FORMAT: OUTLINE — a structured, scannable outline students check off as they review.
 Use exactly this skeleton:
 # <Guide title>
@@ -411,7 +447,7 @@ Rules:
 - Every card is exactly one "Q:" line followed by one "A:" line (plain text markers, no bold around Q:/A:), with a blank line between cards.
 - Questions test ONE thing: definitions, cause/effect, comparisons, "why" and application questions — not just vocabulary.
 - Answers: first sentence is the direct answer (short enough to say out loud). Optionally add 1-2 sentences of explanation after it. A small table is allowed in an answer only for comparisons.
-- Do not put anything else (no objectives, callouts or notes) outside the decks.`,
+- Do not put anything else (no objectives, callouts or notes) outside the decks. Output ONLY the title, the one-line description, the ## headings and the items — no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
       quiz: `FORMAT: QUIZ — a practice quiz grouped by topic.
 Use exactly this skeleton:
 # <Guide title>
@@ -438,7 +474,7 @@ Sample Answer: <a complete, specific model answer, 2-4 sentences>
 Rules:
 - 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer.
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.
-- Each question, option and answer stays on its own single line. Put nothing between questions except blank lines — no callouts, tables or notes.`,
+- Each question, option and answer stays on its own single line. Put nothing between questions except blank lines — no callouts, tables or notes. Output ONLY the title, the one-line description, the ## headings and the items — no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
       practice: `FORMAT: INTERACTIVE PRACTICE — a set of hands-on activities students click through (matching, fill-in-the-blank, ordering, sorting, and questions).
 Use exactly this skeleton:
 # <Guide title>
@@ -491,7 +527,7 @@ Rules:
 - FIND_BUG snippets must contain EXACTLY ONE bug on ONE line; every other line must be correct, so that applying the Fix line makes the whole snippet correct. Double-check the fixed code works.
 - 3-5 topic sections, 14-20 activities total. Mix the types: every topic should use at least three different activity types; roughly equal numbers of MATCH, FILL, ORDER/SORT and questions overall. Use ORDER only for real sequences and SORT only for real categories.
 - Give an Explanation for every FILL, ORDER, MC and TF activity.
-- Put nothing else in the guide — no objectives, callouts, tables or notes.`,
+- Put nothing else in the guide — no objectives, intro paragraphs, callouts (> lines), tips, tables, notes or "Keep Going" section. Explanations go on the Explanation: line of an activity.`,
     }
     return instructions[format] || instructions.summary
   }

@@ -34,6 +34,10 @@ function previewMarkdown(raw: string, format: string): string {
       .replace(/^\s*(?:\*\*)?(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION):(?:\*\*)?\s*/gm, (_m, kind: string) => `\n**${{ MATCH: "Match", FILL: "Fill in", ORDER: "Order", SORT: "Sort", MC_QUESTION: "Question", TF_QUESTION: "True or false" }[kind.toUpperCase()] ?? kind}.** `)
       .replace(/\{\{([^{}|]+)[^{}]*\}\}/g, "_____")
       .replace(/^\s*(Correct Answer|Answer|Explanation):.*$/gim, "")
+  } else if (format === "timeline") {
+    md = md
+      .replace(/^\s*(?:\*\*)?EVENT:(?:\*\*)?\s*(.*)$/gim, (_m, v: string) => `\n**${v.replace(/\s*\|\s*/, " — ")}**`)
+      .replace(/^\s*(?:\*\*)?(WHAT|WHY|DETAIL|SIGNIFICANCE):(?:\*\*)?\s*/gim, "")
   } else if (format === "flashcards") {
     md = md.replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*/gm, "\n**Q:** ").replace(/\n\s*(?:\*\*)?A:(?:\*\*)?\s*/g, "  \n**A:** ") // hard break → answer on its own line
   }

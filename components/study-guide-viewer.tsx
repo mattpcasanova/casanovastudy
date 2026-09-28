@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft, FileText, History } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -25,6 +25,8 @@ import QuizFormat from '@/components/formats/quiz-format'
 import SummaryFormat from '@/components/formats/summary-format'
 import PracticeFormat from '@/components/formats/practice-format'
 import PlanFormat from '@/components/formats/plan-format'
+import CheatSheetFormat from '@/components/formats/cheatsheet-format'
+import TimelineFormat from '@/components/formats/timeline-format'
 import { supabase } from '@/lib/supabase'
 import { authFetch } from '@/lib/auth-fetch'
 import { CLASSES_ENABLED } from '@/lib/features'
@@ -47,6 +49,8 @@ const FORMAT_META = {
   summary: { accent: formatAccent.summary, icon: ScrollText, label: 'Summary' },
   practice: { accent: formatAccent.practice, icon: Puzzle, label: 'Practice' },
   plan: { accent: formatAccent.plan, icon: MapIcon, label: 'Study plan' },
+  cheatsheet: { accent: formatAccent.cheatsheet, icon: FileText, label: 'Cheat sheet' },
+  timeline: { accent: formatAccent.timeline, icon: History, label: 'Timeline' },
   custom: { accent: formatAccent.outline, icon: Sparkles, label: 'Custom' },
 } as const
 
@@ -216,6 +220,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'plan':
         return <PlanFormat content={studyGuide.content} studyGuideId={studyGuide.id} />
+      case 'cheatsheet':
+        return <CheatSheetFormat content={studyGuide.content} />
+      case 'timeline':
+        return <TimelineFormat content={studyGuide.content} />
       case 'custom':
         if (studyGuide.custom_content) {
           return <CustomFormat content={studyGuide.custom_content} studyGuideId={studyGuide.id} />

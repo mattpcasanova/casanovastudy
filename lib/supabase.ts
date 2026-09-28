@@ -65,7 +65,7 @@ export interface StudyGuideRecord {
   title: string
   subject: string
   grade_level: string
-  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'custom' | 'practice' | 'plan'
+  format: 'outline' | 'flashcards' | 'quiz' | 'summary' | 'custom' | 'practice' | 'plan' | 'cheatsheet' | 'timeline'
   content: string
   topic_focus?: string
   difficulty_level?: string

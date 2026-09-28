@@ -31,6 +31,7 @@ import {
   BadgeCheck,
   Compass,
   Map as MapIcon,
+  History,
   ChevronDown,
   Check,
   PenSquare,
@@ -58,7 +59,7 @@ interface UploadPageProps {
   isGenerating: boolean
 }
 
-type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice" | "plan"
+type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice" | "plan" | "cheatsheet" | "timeline"
 
 // Class strings are literal so Tailwind's scanner keeps them.
 const FORMATS: Array<{
@@ -183,6 +184,46 @@ const FORMATS: Array<{
             <span className={cn("h-1.5 rounded-full", i === 1 ? "w-4/5 bg-teal-300" : "w-3/5 bg-teal-100")} />
           </div>
         ))}
+      </div>
+    ),
+  },
+  {
+    value: "cheatsheet",
+    icon: FileText,
+    label: "Cheat sheet",
+    desc: "Every formula, rule and key fact on one printable page",
+    selected: "border-slate-600 ring-4 ring-slate-500/15 bg-slate-50",
+    iconIdle: "bg-slate-200 text-slate-700",
+    iconOn: "bg-slate-800 text-white",
+    badge: "New",
+    preview: (
+      <div className="grid grid-cols-3 gap-1">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className={cn("space-y-0.5 rounded border-t-2 bg-white p-0.5", i === 1 ? "border-t-sky-400" : i === 4 ? "border-t-rose-400" : "border-t-slate-500")}>
+            <span className="block h-0.5 w-4/5 rounded-full bg-slate-300" />
+            <span className="block h-0.5 w-3/5 rounded-full bg-slate-200" />
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    value: "timeline",
+    icon: History,
+    label: "Timeline",
+    desc: "Key events in order, with why each one mattered",
+    selected: "border-fuchsia-500 ring-4 ring-fuchsia-500/15 bg-fuchsia-50/50",
+    iconIdle: "bg-fuchsia-100 text-fuchsia-700",
+    iconOn: "bg-fuchsia-600 text-white",
+    badge: "New",
+    preview: (
+      <div className="relative flex h-9 items-center">
+        <span className="absolute inset-x-1 top-1/2 h-0.5 -translate-y-1/2 rounded bg-fuchsia-200" />
+        <div className="relative flex w-full justify-between px-1">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className={cn("h-2.5 w-2.5 rounded-full ring-2 ring-white", i === 2 ? "bg-fuchsia-600" : "bg-fuchsia-300")} />
+          ))}
+        </div>
       </div>
     ),
   },
@@ -493,7 +534,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             Type a topic, paste your notes, or upload your materials — and get a study guide built for your class, exam, interview, or just for learning.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
-            {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice", "Study plans"].map((l) => (
+            {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice", "Study plans", "Cheat sheets", "Timelines"].map((l) => (
               <span key={l} className="rounded-full bg-white/15 px-3.5 py-1.5 ring-1 ring-inset ring-white/25 backdrop-blur-sm">{l}</span>
             ))}
           </div>
@@ -675,7 +716,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         {/* 2 — Format */}
         <section className="mt-14">
           <StepHeading n={2} title="Pick a format" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {FORMATS.map((f) => {
               const on = format === f.value
               const Icon = f.icon

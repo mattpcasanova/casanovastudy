@@ -7,7 +7,7 @@
 
 import { supabase } from '@/lib/supabase'
 
-export type ProgressKind = 'outline' | 'plan' | 'practice' | 'learn'
+export type ProgressKind = 'outline' | 'plan' | 'practice' | 'learn' | 'schedule'
 
 async function currentUserId(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession()

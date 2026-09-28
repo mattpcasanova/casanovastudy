@@ -10,12 +10,13 @@ import { parsePractice, normalizePracticeActivities, type PracticeActivity, type
 import { normalizeGuideMarkdown } from '@/lib/formats/normalize'
 import { parseFlashcards } from '@/components/formats/flashcards-format'
 import { parseQuizContent } from '@/components/formats/quiz-format'
+import { parseTimeline } from '@/lib/formats/timeline'
 
 export type LearnItem =
   | { id: string; kind: 'activity'; activity: PracticeActivity; topic?: string }
   | { id: string; kind: 'card'; front: string; back: string; topic?: string } // self-graded
 
-export const LEARN_FORMATS = ['flashcards', 'quiz', 'practice', 'custom'] as const
+export const LEARN_FORMATS = ['flashcards', 'quiz', 'practice', 'custom', 'timeline'] as const
 
 function choice(id: string, prompt: string, options: string[], correct: number, topic?: string, explanation?: string): ChoiceActivity {
   return { kind: 'choice', id, prompt, options, correct, topic: topic ?? '', explanation }
@@ -80,6 +81,27 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
         if (q.type === 'tf') return [{ id, kind: 'activity', topic, activity: choice(id, q.question, ['True', 'False'], q.correctAnswer ? 0 : 1, q.section, q.explanation) }]
         return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(q.sampleAnswer) }]
       })
+    case 'timeline': {
+      const out: LearnItem[] = []
+      parseTimeline(guide.content).eras.forEach((era, i) => {
+        for (const ev of era.events) {
+          if (!ev.date) continue
+          out.push({
+            id: `t:${ev.key}`, kind: 'card', topic: era.title,
+            front: `When did this happen, and why did it matter?\n\n**${ev.title}**`,
+            back: [`**${ev.date}**${ev.what ? ` — ${ev.what}` : ''}`, ev.why && `**Why it matters:** ${ev.why}`].filter(Boolean).join('\n\n'),
+          })
+        }
+        // Put the era's events in order (3-6 of them, evenly spread).
+        if (era.events.length >= 3) {
+          const n = Math.min(6, era.events.length)
+          const picks = Array.from({ length: n }, (_, k) => era.events[Math.round((k * (era.events.length - 1)) / (n - 1))])
+          const id = `t:order:${i + 1}`
+          out.push({ id, kind: 'activity', topic: era.title, activity: { kind: 'order', id, topic: era.title, prompt: `Put these events from ${era.title} in order`, items: picks.map((e) => e.title), explanation: picks.map((e) => `${e.title} (${e.date})`).join(' → ') } })
+        }
+      })
+      return out
+    }
     case 'custom': {
       const cc = guide.custom_content as CustomGuideContent | undefined
       const out: LearnItem[] = []

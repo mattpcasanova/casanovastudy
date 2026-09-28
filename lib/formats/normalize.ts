@@ -185,6 +185,36 @@ function normalizeHeading(line: string): string | null {
   return `${m[1]} ${toTitleCase(text)}`
 }
 
+// Models sometimes write "> **Check yourself:** …", a blank line, then a
+// separate "> **Answer:** …" quote. Join them so the answer stays hidden
+// behind the Reveal button instead of showing as its own callout.
+const QUOTE_ANSWER = /^>\s*(\*\*)?\s*answer\s*:?/i
+const QUOTE_CHECK = /^>\s*(\*\*)?\s*(check yourself|quick check|self[- ]check|test yourself)/i
+function joinSplitCheckAnswers(lines: string[]): string[] {
+  const out: string[] = []
+  let inCheck = false // inside a check quote that has no answer yet
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim()
+    if (t.startsWith('>')) {
+      if (QUOTE_CHECK.test(t)) inCheck = true
+      else if (QUOTE_ANSWER.test(t)) inCheck = false
+      out.push(lines[i])
+      continue
+    }
+    if (!t && inCheck) {
+      let j = i
+      while (j < lines.length && !lines[j].trim()) j++
+      if (j < lines.length && QUOTE_ANSWER.test(lines[j].trim())) {
+        i = j - 1 // drop the blank lines so both quotes form one block
+        continue
+      }
+    }
+    inCheck = false
+    out.push(lines[i])
+  }
+  return out
+}
+
 /**
  * Normalize AI-generated guide markdown for display.
  * - strips emoji, `---` rules, underscore note lines, and "notes" sections
@@ -194,7 +224,7 @@ function normalizeHeading(line: string): string | null {
  * Code fences are passed through untouched.
  */
 export function normalizeGuideMarkdown(input: string): string {
-  const lines = input.replace(/\r\n?/g, '\n').split('\n')
+  const lines = joinSplitCheckAnswers(input.replace(/\r\n?/g, '\n').split('\n'))
   const out: string[] = []
   let fence: string | null = null
   let quote: string[] = []
