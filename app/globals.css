@@ -294,3 +294,11 @@
   .study-code .hljs-params, .study-code .hljs-variable, .study-code .hljs-attr, .study-code .hljs-property,
   .study-code .hljs-subst, .study-code .hljs-punctuation, .study-code .hljs-operator { color: #24292f; }
 }
+
+/* Wide display equations scroll inside their own box instead of widening the page on phones */
+.katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}

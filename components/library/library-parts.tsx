@@ -25,7 +25,7 @@ export function LibraryHeader({ title, subtitle, count, noun, actionHref, action
           <h1 className={cn(fontDisplay, 'text-3xl font-semibold tracking-tight sm:text-4xl')}>{title}</h1>
           <p className="mt-1.5 text-blue-50/90">
             {subtitle}
-            {typeof count === 'number' && count > 0 && <span className="ml-2 rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-semibold">{count} {noun}{count === 1 ? '' : 's'}</span>}
+            {typeof count === 'number' && count > 0 && <span className="ml-2 inline-block whitespace-nowrap rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-semibold">{count} {noun}{count === 1 ? '' : 's'}</span>}
           </p>
         </div>
         <Link

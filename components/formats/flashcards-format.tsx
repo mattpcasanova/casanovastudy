@@ -311,18 +311,18 @@ export default function FlashcardsFormat({ content, subject, studyGuideId, userI
             </Button>
           </div>
 
-          <div className="flex items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center justify-between gap-1 sm:gap-3 print:hidden">
             <Button onClick={() => go(-1)} variant="ghost" size="sm" className="text-slate-600">
               <ChevronLeft className="mr-1 h-4 w-4" /> Previous
             </Button>
             <div className="flex gap-1">
-              <Button onClick={shuffle} variant="ghost" size="sm" className="text-slate-600">
-                <Shuffle className="mr-1.5 h-4 w-4" /> Shuffle
+              <Button onClick={shuffle} variant="ghost" size="sm" className="text-slate-600" aria-label="Shuffle">
+                <Shuffle className="h-4 w-4 sm:mr-1.5" /> <span className="hidden sm:inline">Shuffle</span>
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-slate-600" disabled={masteredCards.size === 0 && difficultCards.size === 0}>
-                    <RotateCcw className="mr-1.5 h-4 w-4" /> Reset
+                  <Button variant="ghost" size="sm" className="text-slate-600" aria-label="Reset progress" disabled={masteredCards.size === 0 && difficultCards.size === 0}>
+                    <RotateCcw className="h-4 w-4 sm:mr-1.5" /> <span className="hidden sm:inline">Reset</span>
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

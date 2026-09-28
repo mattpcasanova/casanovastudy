@@ -248,7 +248,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
           <span><span className="font-semibold text-slate-900">{doneCount}</span> of {queue.length}{queue.length > sessionSize && <span className="text-slate-400"> (incl. {queue.length - sessionSize} retr{queue.length - sessionSize === 1 ? 'y' : 'ies'})</span>}</span>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
             <Clock className="h-3.5 w-3.5" />
-            {itemState ? (itemState.box >= MASTERED_BOX ? 'Mastered — quick check' : `Review · level ${itemState.box}`) : 'New'}
+            {!itemState ? 'New' : itemState.box === 0 ? 'Relearning' : itemState.box >= MASTERED_BOX ? 'Mastered — quick check' : `Review · level ${itemState.box}`}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
