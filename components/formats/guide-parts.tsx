@@ -2,7 +2,8 @@
 
 // Building blocks shared by the Outline and Summary viewers.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { loadProgress, saveProgress, parseProgressKey } from '@/lib/progress'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { eyebrow, tierStyles, type Tier } from '@/lib/formats/design'
@@ -116,19 +117,49 @@ export function TableOfContents({ entries, active, title = 'On this page' }: { e
   )
 }
 
-// Per-guide progress that survives reloads (per browser).
+// Per-guide progress (outline checkmarks, plan "studied" units). The browser
+// copy renders instantly; keys shaped "cs:<kind>:<guideId>" also sync to the
+// signed-in account (lib/progress.ts), which wins once it exists — so progress
+// follows the student across devices. Existing browser-only progress is
+// uploaded the first time.
 export function usePersistentSet(key: string | undefined): [Set<string>, (id: string) => void, () => void] {
   const [set, setSet] = useState<Set<string>>(new Set())
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sync = key ? parseProgressKey(key) : null
+
   useEffect(() => {
     if (!key) return
+    let local = new Set<string>()
     try {
       const raw = localStorage.getItem(key)
-      if (raw) setSet(new Set(JSON.parse(raw)))
+      if (raw) local = new Set(JSON.parse(raw))
     } catch {}
+    setSet(local)
+
+    const target = parseProgressKey(key)
+    if (!target) return
+    let cancelled = false
+    loadProgress<{ items?: string[] }>(target.studyGuideId, target.kind).then((remote) => {
+      if (cancelled) return
+      if (remote && Array.isArray(remote.items)) {
+        const next = new Set(remote.items)
+        setSet(next)
+        try { localStorage.setItem(key, JSON.stringify([...next])) } catch {}
+      } else if (local.size > 0) {
+        void saveProgress(target.studyGuideId, target.kind, { items: [...local] })
+      }
+    })
+    return () => { cancelled = true }
   }, [key])
+
   const persist = (next: Set<string>) => {
     if (!key) return
     try { localStorage.setItem(key, JSON.stringify([...next])) } catch {}
+    if (sync) {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      const { studyGuideId, kind } = sync
+      saveTimer.current = setTimeout(() => { void saveProgress(studyGuideId, kind, { items: [...next] }) }, 400)
+    }
   }
   const toggle = (id: string) => {
     setSet((prev) => {
