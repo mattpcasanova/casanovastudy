@@ -7,7 +7,7 @@
 // placeholder instead of breaking the page.
 
 import { memo, useId, useMemo, useRef, type ReactNode } from 'react'
-import { LineChart, Sparkles } from 'lucide-react'
+import { LineChart, MessageCircleQuestion } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { evaluate, type Expr } from '@/lib/graphs/expr'
 import { boxExit, layoutDiagram } from '@/lib/graphs/diagram'
@@ -849,10 +849,10 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
         <button
           type="button"
           onClick={askAboutFigure}
-          className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-sm ring-1 ring-violet-200 backdrop-blur transition hover:bg-violet-50 hover:ring-violet-400 print:hidden"
+          className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-sm ring-1 ring-blue-200 backdrop-blur transition hover:bg-blue-50 hover:ring-blue-400 print:hidden"
           aria-label={`Explain this ${figureName(spec)}`}
         >
-          <Sparkles className="h-3.5 w-3.5" /> Explain
+          <MessageCircleQuestion className="h-3.5 w-3.5" /> Explain
         </button>
       )}
       {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}

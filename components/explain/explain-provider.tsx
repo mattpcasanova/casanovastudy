@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowUp, Calculator, Loader2, RotateCcw, Sparkles, X } from 'lucide-react'
+import { ArrowUp, Calculator, Loader2, RotateCcw, MessageCircleQuestion, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -163,7 +163,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
         style={{ top, left }}
         className="fixed z-50 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-lg ring-1 ring-white/20 transition hover:bg-blue-700 print:hidden"
       >
-        <Sparkles className="h-4 w-4 text-cyan-300" /> Explain
+        <MessageCircleQuestion className="h-4 w-4 text-sky-300" /> Explain
       </button>
     )
   })() : null
@@ -208,11 +208,11 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
               'inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg transition',
               touchSelection
                 ? 'bg-slate-900 text-white ring-4 ring-blue-500/30'
-                : 'border border-slate-200 bg-white text-slate-800 hover:border-violet-300 hover:text-violet-700',
-              showTip && !touchSelection && 'ring-4 ring-violet-400/40 motion-safe:animate-pulse',
+                : 'border border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:text-blue-700',
+              showTip && !touchSelection && 'ring-4 ring-blue-400/40 motion-safe:animate-pulse',
             )}
           >
-            <Sparkles className={cn('h-4 w-4', touchSelection ? 'text-cyan-300' : 'text-violet-600')} />
+            <MessageCircleQuestion className={cn('h-4 w-4', touchSelection ? 'text-sky-300' : 'text-blue-600')} />
             {touchSelection ? 'Explain selection' : 'Ask AI'}
           </button>
         </div>
@@ -257,7 +257,7 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
       aria-label="Explain"
     >
       <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-700"><Sparkles className="h-4 w-4" /></span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700"><MessageCircleQuestion className="h-4 w-4" /></span>
         <span className="font-semibold text-slate-900">Explain</span>
         <div className="ml-auto flex items-center gap-1">
           {turns.length > 0 && (
@@ -286,7 +286,7 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
           </div>
         ) : (
           turns.map((t, i) => (t.role === 'user' ? (
-            <div key={i} className="ml-8 rounded-2xl rounded-br-md bg-violet-50 px-3.5 py-2.5 text-sm text-violet-950 ring-1 ring-inset ring-violet-100">
+            <div key={i} className="ml-8 rounded-2xl rounded-br-md bg-blue-50 px-3.5 py-2.5 text-sm text-blue-950 ring-1 ring-inset ring-blue-100">
               {t.label ?? t.content}
             </div>
           ) : (
@@ -299,7 +299,7 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
         {signedIn && !busy && last?.role === 'assistant' && last.content && (
           <div className="flex flex-wrap gap-2">
             {FOLLOW_UPS.map((f) => (
-              <button key={f.label} type="button" onClick={() => onSend(f)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700">
+              <button key={f.label} type="button" onClick={() => onSend(f)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700">
                 {f.label}
               </button>
             ))}
@@ -319,9 +319,9 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
             rows={1}
             maxLength={1500}
             placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about this guide…'}
-            className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
-          <button type="submit" disabled={!draft.trim() || busy} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white transition hover:bg-violet-700 disabled:opacity-40" aria-label="Send">
+          <button type="submit" disabled={!draft.trim() || busy} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-40" aria-label="Send">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
           </button>
         </form>
@@ -338,9 +338,9 @@ export function ExplainButton({ build, className, children = 'Explain this' }: {
     <button
       type="button"
       onClick={() => explain.ask(build())}
-      className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 print:hidden', className)}
+      className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 transition hover:border-blue-400 hover:bg-blue-50 print:hidden', className)}
     >
-      <Sparkles className="h-3.5 w-3.5" /> {children}
+      <MessageCircleQuestion className="h-3.5 w-3.5" /> {children}
     </button>
   )
 }
