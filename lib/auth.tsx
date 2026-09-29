@@ -24,7 +24,7 @@ interface AuthContextType {
     firstName: string,
     lastName: string,
     birthDate?: string
-  ) => Promise<void>
+  ) => Promise<{ needsConfirmation: boolean }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
 }
@@ -379,7 +379,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('✅ Sign up complete')
-    // Don't set user state - they need to confirm email first
+    // With "Confirm email" off in Supabase, signUp returns a live session:
+    // load the profile now so the new user lands signed in. Otherwise they
+    // must confirm first.
+    if (data.session) {
+      const userProfile = await fetchUserProfile(data.user)
+      if (userProfile) {
+        currentUserIdRef.current = data.user.id
+        setUser(userProfile)
+      }
+      return { needsConfirmation: false }
+    }
+    return { needsConfirmation: true }
   }
 
   const signOut = async () => {

@@ -40,7 +40,12 @@ export default function SignUpPage() {
 
     setIsLoading(true)
     try {
-      await signUp(email.trim(), password, role, firstName.trim(), lastName.trim(), birthDate || undefined)
+      const { needsConfirmation } = await signUp(email.trim(), password, role, firstName.trim(), lastName.trim(), birthDate || undefined)
+      if (!needsConfirmation) {
+        // Account is active right away (email confirmation is off in Supabase).
+        router.push('/?welcome=1')
+        return
+      }
       // The check-email page offers "resend"; it reads the address from here
       // (kept out of the URL).
       try { sessionStorage.setItem('cs:pending-email', email.trim()) } catch {}

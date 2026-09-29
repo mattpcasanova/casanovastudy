@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { openHomeWithPrefill, type GuidePrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
@@ -13,6 +15,8 @@ import { InlineMarkdown } from './study-markdown'
 interface QuizFormatProps {
   content: string
   subject: string
+  title?: string
+  gradeLevel?: string
 }
 
 interface BaseQuestion {
@@ -36,7 +40,7 @@ type Mode = 'practice' | 'test'
 
 const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer' }
 
-export default function QuizFormat({ content, subject }: QuizFormatProps) {
+export default function QuizFormat({ content, subject, title, gradeLevel }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
   const questions = useMemo(() => (subset ? allQuestions.filter((q) => subset.includes(q.id)) : allQuestions), [allQuestions, subset])
@@ -135,7 +139,7 @@ export default function QuizFormat({ content, subject }: QuizFormatProps) {
   }
 
   if (finished) {
-    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} onRestart={restart} isRetry={!!subset} />
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} />
   }
 
   const answeredCount = questions.filter((q) => status(q) !== 'open').length
@@ -433,7 +437,8 @@ function ShortAnswerFeedback({ score, sample }: { score?: ShortAnswerScore; samp
   )
 }
 
-function QuizResults({ questions, answers, saScores, status, onRestart, isRetry }: {
+function QuizResults({ questions, answers, saScores, status, onRestart, isRetry, guide }: {
+  guide: { title: string; subject: string; gradeLevel?: string }
   questions: Question[]
   answers: Record<string, string>
   saScores: Record<string, ShortAnswerScore>
@@ -445,6 +450,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry 
   const correct = graded.filter((q) => status(q) === 'correct').length
   const pct = graded.length ? Math.round((correct / graded.length) * 100) : 0
   const missed = questions.filter((q) => status(q) !== 'correct')
+  const router = useRouter()
   const tone = pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-purple-600' : pct >= 50 ? 'text-amber-600' : 'text-rose-600'
   const message = pct >= 90 ? 'Excellent — you know this material.' : pct >= 70 ? 'Solid. Review the ones you missed.' : pct >= 50 ? 'Getting there. Focus on the topics below.' : 'Keep going — retry the missed questions.'
 
@@ -485,6 +491,15 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry 
               {missed.length > 0 && (
                 <Button onClick={() => onRestart(missed.map((q) => q.id))} className="bg-purple-600 text-white hover:bg-purple-700">
                   <RotateCcw className="mr-2 h-4 w-4" /> Retry {missed.length} missed
+                </Button>
+              )}
+              {missed.length > 0 && (
+                <Button
+                  onClick={() => router.push(openHomeWithPrefill(missedQuizPrefill(guide, missed)))}
+                  variant="outline"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" /> New quiz on what I missed
                 </Button>
               )}
               <Button onClick={() => onRestart(null)} variant="outline">Start over</Button>
@@ -642,4 +657,38 @@ export function parseQuizContent(content: string): Question[] {
   // One section name for the whole quiz adds nothing.
   if (new Set(questions.map((q) => q.section)).size <= 1) questions.forEach((q) => { q.section = '' })
   return questions
+}
+
+// The homepage request for "a new quiz on what I missed": the missed questions
+// with their right answers, asking for fresh questions on the same concepts.
+function missedQuizPrefill(guide: { title: string; subject: string; gradeLevel?: string }, missed: Question[]): GuidePrefill {
+  const answerOf = (q: Question) =>
+    q.type === 'mc' ? q.correctAnswer : q.type === 'tf' ? (q.correctAnswer ? 'True' : 'False') : q.sampleAnswer
+  const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
+  const lines: string[] = []
+  let used = 0
+  for (const [i, q] of missed.entries()) {
+    const line = `${i + 1}. ${clip(plainText(q.question), 300)} (Correct answer: ${clip(plainText(answerOf(q)), 200)})`
+    if (used + line.length > 6000) break // stay well under the 8,000-character request limit
+    lines.push(line)
+    used += line.length
+  }
+  const n = missed.length
+  return {
+    source: 'missed-quiz',
+    sourceTitle: guide.title,
+    studyGuideName: `Review: ${guide.title}`.slice(0, 120),
+    format: 'quiz',
+    subject: guide.subject,
+    gradeLevel: guide.gradeLevel,
+    detail: `${n} question${n === 1 ? '' : 's'} you missed`,
+    studyRequest: [
+      `Make a new practice quiz on what I got wrong in "${guide.title}".`,
+      '',
+      'These are the questions I missed, with the correct answers:',
+      ...lines,
+      '',
+      'Write fresh questions that test the same concepts from different angles (don’t copy these word for word). Start with a couple of easier warm-up questions, then build up, and explain every answer so I understand why.',
+    ].join('\n'),
+  }
 }

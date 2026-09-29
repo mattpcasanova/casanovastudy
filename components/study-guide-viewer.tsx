@@ -213,7 +213,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'flashcards':
         return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
-        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} />
+        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':
@@ -350,10 +350,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             <Share2 className="h-4 w-4 mr-2" />
             Share Link
           </Button>
-          <EmailShareDialog
+          {user && <EmailShareDialog
+            studyGuideId={studyGuide.id}
             studyGuideTitle={studyGuide.title}
-            studyGuideUrl={typeof window !== 'undefined' ? window.location.href : ''}
-            senderName={user?.first_name || undefined}
             trigger={
               <Button
                 variant="outline"
@@ -364,7 +363,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
                 Email
               </Button>
             }
-          />
+          />}
           {isOwner && studyGuide.format === 'custom' && (
             <Button
               asChild

@@ -15,18 +15,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Mail, Send, Loader2 } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface EmailShareDialogProps {
+  studyGuideId: string
   studyGuideTitle: string
-  studyGuideUrl: string
-  senderName?: string
   trigger?: React.ReactNode
 }
 
 export default function EmailShareDialog({
+  studyGuideId,
   studyGuideTitle,
-  studyGuideUrl,
-  senderName,
   trigger
 }: EmailShareDialogProps) {
   const [open, setOpen] = useState(false)
@@ -42,19 +41,10 @@ export default function EmailShareDialog({
     setIsSending(true)
 
     try {
-      const response = await fetch('/api/share-study-guide', {
+      const response = await authFetch('/api/share-study-guide', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: email,
-          studyGuideTitle,
-          studyGuideUrl,
-          senderName,
-          message: message.trim() || undefined,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: email.trim(), studyGuideId, message: message.trim() || undefined }),
       })
 
       if (!response.ok) {
@@ -101,7 +91,7 @@ export default function EmailShareDialog({
             Share via Email
           </DialogTitle>
           <DialogDescription>
-            Send this study guide to someone via email. They'll receive a link to view it.
+            Send this study guide to someone via email. They&apos;ll get a link to open it — no account needed to view.
           </DialogDescription>
         </DialogHeader>
 

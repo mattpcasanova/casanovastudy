@@ -1,165 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { getRequestUser } from '@/lib/request-user'
+import { createAdminClient } from '@/lib/supabase-server'
+import { sendEmail, EmailNotConfiguredError } from '@/lib/email/send'
+import { shareGuideEmail } from '@/lib/email/templates'
 
-interface ShareRequest {
-  to: string
-  studyGuideTitle: string
-  studyGuideUrl: string
-  senderName?: string
-  message?: string
+// Share a study guide by email. Signed-in users only; the guide's title and
+// link are looked up server-side so the email can't be used to send arbitrary
+// content or links from our address.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const HOURLY_LIMIT = 20
+const sentBy = new Map<string, number[]>() // per-instance, best-effort
+
+function overLimit(userId: string): boolean {
+  const hourAgo = Date.now() - 3_600_000
+  const recent = (sentBy.get(userId) ?? []).filter((t) => t > hourAgo)
+  sentBy.set(userId, recent)
+  return recent.length >= HOURLY_LIMIT
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getRequestUser(request)
+  if (!user) return NextResponse.json({ error: 'Please sign in to share by email.' }, { status: 401 })
+
+  let body: { to?: string; studyGuideId?: string; message?: string }
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
+
+  const to = (body.to || '').trim()
+  if (!EMAIL_RE.test(to) || to.length > 254) return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+  if (!body.studyGuideId) return NextResponse.json({ error: 'Missing study guide' }, { status: 400 })
+  if (overLimit(user.id)) return NextResponse.json({ error: 'You’ve sent a lot of emails in the last hour. Please try again later.' }, { status: 429 })
+
+  const supabase = createAdminClient()
+  const [{ data: guide }, { data: profile }] = await Promise.all([
+    supabase.from('study_guides').select('id, title, format').eq('id', body.studyGuideId).maybeSingle(),
+    supabase.from('user_profiles').select('first_name, last_name, email').eq('id', user.id).maybeSingle(),
+  ])
+  if (!guide) return NextResponse.json({ error: 'Study guide not found' }, { status: 404 })
+
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, '')
+  const senderName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null
+  const email = shareGuideEmail({
+    senderName,
+    title: guide.title,
+    format: guide.format,
+    url: `${siteUrl}/study-guide/${guide.id}`,
+    message: typeof body.message === 'string' ? body.message.slice(0, 1000) : undefined,
+    siteUrl,
+  })
+
   try {
-    const body: ShareRequest = await request.json()
-
-    // Validate request
-    if (!body.to || !body.studyGuideTitle || !body.studyGuideUrl) {
-      return NextResponse.json(
-        { error: 'Missing required fields: to, studyGuideTitle, studyGuideUrl' },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.to)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
-    }
-
-    // Check if email is configured
-    if (!process.env.GMAIL_APP_PASSWORD) {
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      )
-    }
-
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: 'mattpcasanova@gmail.com',
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    })
-
-    // Generate email HTML
-    const currentYear = new Date().getFullYear()
-    const senderText = body.senderName ? `${body.senderName} has` : 'Someone has'
-    const personalMessage = body.message
-      ? `<tr>
-          <td align="left" style="padding:0 24px 16px 24px;">
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#475569;background-color:#f1f5f9;padding:16px;border-radius:8px;border-left:4px solid #4facfe;">
-              "${body.message}"
-            </div>
-          </td>
-        </tr>`
-      : ''
-
-    const emailHTML = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Study Guide Shared with You</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:#f4f6f8;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f4f6f8;">
-      <tr>
-        <td align="center" style="padding:24px 12px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;border-collapse:collapse;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-            <!-- Header -->
-            <tr>
-              <td align="left" style="padding:24px;background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
-                  <tr>
-                    <td style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:28px;color:#ffffff;font-weight:bold;">
-                      CasanovaStudy
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Main Content -->
-            <tr>
-              <td align="left" style="padding:32px 24px 16px 24px;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#0f172a;font-weight:700;margin-bottom:8px;">
-                  A Study Guide Has Been Shared With You!
-                </div>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#64748b;">
-                  ${senderText} shared the following study guide with you:
-                </div>
-              </td>
-            </tr>
-
-            <!-- Study Guide Title -->
-            <tr>
-              <td align="left" style="padding:0 24px 16px 24px;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:26px;color:#4facfe;font-weight:600;padding:16px;background-color:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
-                  ${body.studyGuideTitle}
-                </div>
-              </td>
-            </tr>
-
-            <!-- Personal Message -->
-            ${personalMessage}
-
-            <!-- CTA Button -->
-            <tr>
-              <td align="center" style="padding:16px 24px 32px 24px;">
-                <a href="${body.studyGuideUrl}" target="_blank"
-                   style="background:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);border-radius:8px;color:#ffffff;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:52px;text-align:center;text-decoration:none;width:280px;box-shadow:0 4px 14px rgba(79, 172, 254, 0.4);">
-                  View Study Guide
-                </a>
-              </td>
-            </tr>
-
-            <!-- Link fallback -->
-            <tr>
-              <td align="left" style="padding:0 24px 24px 24px;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#94a3b8;">
-                  Or copy this link: <a href="${body.studyGuideUrl}" style="color:#4facfe;word-break:break-all;">${body.studyGuideUrl}</a>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Footer -->
-            <tr>
-              <td align="center" style="padding:20px 24px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#94a3b8;">
-                  © ${currentYear} CasanovaStudy • AI-Powered Study Guides
-                </div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`
-
-    // Send email
-    const mailOptions = {
-      from: `"CasanovaStudy" <mattpcasanova@gmail.com>`,
-      to: body.to,
-      subject: `Study Guide Shared: ${body.studyGuideTitle}`,
-      html: emailHTML
-    }
-
-    await transporter.sendMail(mailOptions)
-
+    await sendEmail({ to, ...email, replyTo: profile?.email || user.email || undefined })
+    sentBy.get(user.id)!.push(Date.now())
     return NextResponse.json({ success: true })
-
-  } catch (error) {
-    console.error('Share email error:', error)
-    return NextResponse.json(
-      { error: 'Failed to send email' },
-      { status: 500 }
-    )
+  } catch (err) {
+    if (err instanceof EmailNotConfiguredError) {
+      return NextResponse.json({ error: 'Email sharing isn’t set up yet. Copy the link instead for now.' }, { status: 503 })
+    }
+    console.error('Share email error:', err)
+    return NextResponse.json({ error: 'We couldn’t send that email. Please try again, or copy the link instead.' }, { status: 502 })
   }
 }

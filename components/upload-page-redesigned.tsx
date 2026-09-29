@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { forwardRef, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import {
   X,
+  RotateCcw,
   FileText,
   FileImage,
   File as FileIcon,
@@ -53,6 +54,8 @@ import { supabase } from "@/lib/supabase"
 import { extractMaterialExcerpt } from "@/lib/material-excerpt"
 import { SUBJECTS, LEVEL_GROUPS, GOALS, type StudyGoal, type MaterialsKind } from "@/lib/study-options"
 import { parsePlan, unitStudyRequest } from "@/lib/formats/plan"
+import { takePrefill } from "@/lib/prefill"
+import { useAuth } from "@/lib/auth"
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
@@ -270,6 +273,47 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [materialsKind, setMaterialsKind] = useState<MaterialsKind | null>(null)
   // Set when arriving from a study plan's "Create this guide" (/?plan=…&unit=…).
   const [planLink, setPlanLink] = useState<{ planId: string; unitKey: string; planTitle: string; unitNumber: number; unitTitle: string } | null>(null)
+  // Why the user landed here with things filled in (plan unit, missed-quiz
+  // review, new account) — shown as a banner so it never looks like a plain reset.
+  const [arrival, setArrival] = useState<Arrival | null>(null)
+  const arrivalRef = useRef<HTMLDivElement>(null)
+  const { user } = useAuth()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("welcome")) {
+      setArrival({ kind: "welcome" })
+      window.history.replaceState(null, "", "/")
+      return
+    }
+    if (params.get("from") !== "prefill") return
+    const p = takePrefill()
+    window.history.replaceState(null, "", "/")
+    if (!p) return
+    setStudyRequest(p.studyRequest)
+    setStudyGuideName(p.studyGuideName)
+    setFormat(p.format as FormatValue)
+    if (p.subject && p.subject !== "general") setSubject(p.subject)
+    if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
+    setArrival({ kind: "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+  }, [])
+
+  // Bring the banner into view once something arrives.
+  useEffect(() => {
+    if (arrival && arrival.kind !== "welcome") {
+      const t = setTimeout(() => {
+        const el = arrivalRef.current
+        if (!el) return
+        // Land just below the sticky nav bar. Smooth scrolling can be skipped
+        // (reduced motion, background tabs), so jump if it didn't move.
+        const top = el.getBoundingClientRect().top + window.scrollY - 96
+        window.scrollTo({ top, behavior: "smooth" })
+        fallback = setTimeout(() => { if (Math.abs(window.scrollY - top) > 40) window.scrollTo({ top }) }, 900)
+      }, 250)
+      let fallback: ReturnType<typeof setTimeout> | undefined
+      return () => { clearTimeout(t); if (fallback) clearTimeout(fallback) }
+    }
+  }, [arrival])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -279,14 +323,17 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     let cancelled = false
     supabase
       .from("study_guides")
-      .select("id, title, content, subject, grade_level, format")
+      .select("id, title, content, subject, grade_level, format, user_id")
       .eq("id", planId)
       .single()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (cancelled || !data || data.format !== "plan") return
         const unit = parsePlan(data.content).phases.flatMap((ph) => ph.units).find((u) => u.key === unitKey)
         if (!unit) return
-        setPlanLink({ planId, unitKey, planTitle: data.title, unitNumber: unit.number, unitTitle: unit.title })
+        // Only your own plans get linked (the server enforces this too).
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user.id === data.user_id) setPlanLink({ planId, unitKey, planTitle: data.title, unitNumber: unit.number, unitTitle: unit.title })
+        setArrival({ kind: "plan", sourceTitle: data.title, detail: `Unit ${unit.number}: ${unit.title}` })
         setStudyRequest(unitStudyRequest(data.title, unit))
         setStudyGuideName(unit.title)
         setFormat(unit.format)
@@ -561,16 +608,22 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             </div>
           )}
 
-          {planLink && (
-            <div className="mb-5 flex items-center gap-3 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900 ring-1 ring-inset ring-teal-200">
-              <MapIcon className="h-4 w-4 shrink-0 text-teal-600" />
-              <span className="flex-1">
-                Part of <strong>{planLink.planTitle}</strong> · Unit {planLink.unitNumber}: {planLink.unitTitle}. This guide will be linked back to your plan.
-              </span>
-              <button type="button" onClick={() => setPlanLink(null)} className="rounded-md p-1 text-teal-700 hover:bg-teal-100" aria-label="Don't link to the plan">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          {arrival && (
+            <ArrivalBanner
+              ref={arrivalRef}
+              arrival={arrival}
+              firstName={user?.first_name}
+              formatLabel={FORMATS.find((f) => f.value === format)?.label}
+              planLinked={!!planLink}
+              onUnlinkPlan={() => setPlanLink(null)}
+              onCreate={handleSubmit}
+              onEdit={() => {
+                document.getElementById("study-request")?.focus()
+                setArrival(null)
+              }}
+              onDismiss={() => setArrival(null)}
+              busy={isGenerating}
+            />
           )}
           <StepHeading n={1} title="Your topic and materials" hint="Type, upload, or both" />
 
@@ -966,3 +1019,88 @@ function StepHeading({ n, title, hint }: { n: number; title: string; hint?: stri
     </div>
   )
 }
+
+type Arrival =
+  | { kind: "plan"; sourceTitle: string; detail: string }
+  | { kind: "missed"; sourceTitle: string; detail: string }
+  | { kind: "welcome" }
+
+const ARRIVAL_STYLE = {
+  plan: { ring: "ring-teal-200", bg: "from-teal-50 to-white", iconBg: "bg-teal-600", eyebrow: "text-teal-700", button: "bg-teal-600 hover:bg-teal-700", Icon: MapIcon },
+  missed: { ring: "ring-purple-200", bg: "from-purple-50 to-white", iconBg: "bg-purple-600", eyebrow: "text-purple-700", button: "bg-purple-600 hover:bg-purple-700", Icon: RotateCcw },
+  welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Sparkles },
+} as const
+
+const ArrivalBanner = forwardRef<HTMLDivElement, {
+  arrival: Arrival
+  firstName?: string
+  formatLabel?: string
+  planLinked: boolean
+  onUnlinkPlan: () => void
+  onCreate: () => void
+  onEdit: () => void
+  onDismiss: () => void
+  busy: boolean
+}>(function ArrivalBanner({ arrival, firstName, formatLabel, planLinked, onUnlinkPlan, onCreate, onEdit, onDismiss, busy }, ref) {
+  const style = ARRIVAL_STYLE[arrival.kind]
+  const Icon = style.Icon
+
+  let eyebrow: string, title: React.ReactNode, body: React.ReactNode
+  if (arrival.kind === "welcome") {
+    eyebrow = "Welcome"
+    title = <>Your account is ready{firstName ? `, ${firstName}` : ""}!</>
+    body = "Type a topic or upload your notes below, pick a format, and your first study guide will be ready in about a minute."
+  } else if (arrival.kind === "plan") {
+    eyebrow = "From your study plan"
+    title = <>{arrival.detail}</>
+    body = (
+      <>
+        Everything below is filled in from <strong>{arrival.sourceTitle}</strong>
+        {formatLabel ? <> as a <strong>{formatLabel.toLowerCase()}</strong></> : null}.
+        {planLinked ? " The new guide will link back to your plan." : null}
+      </>
+    )
+  } else {
+    eyebrow = "Practice what you missed"
+    title = <>A new quiz on the {arrival.detail}</>
+    body = <>We filled in a request from your results on <strong>{arrival.sourceTitle}</strong>. Create it now, or change anything below first.</>
+  }
+
+  return (
+    <div ref={ref} role="status" className={cn("relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r p-5 ring-1 ring-inset animate-fade-up", style.bg, style.ring)}>
+      <button type="button" onClick={onDismiss} className="absolute right-3 top-3 rounded-md p-1 text-slate-400 transition hover:bg-white hover:text-slate-600" aria-label="Dismiss">
+        <X className="h-4 w-4" />
+      </button>
+      <div className="flex gap-4 pr-6">
+        <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm", style.iconBg)}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", style.eyebrow)}>{eyebrow}</p>
+          <p className={cn(fontDisplay, "mt-1 text-xl font-semibold leading-snug text-slate-900")}>{title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">{body}</p>
+          {arrival.kind !== "welcome" && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onCreate}
+                disabled={busy}
+                className={cn("inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60", style.button)}
+              >
+                <Sparkles className="h-4 w-4" /> Create it now
+              </button>
+              <button type="button" onClick={onEdit} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white">
+                Change something first
+              </button>
+              {arrival.kind === "plan" && planLinked && (
+                <button type="button" onClick={onUnlinkPlan} className="ml-auto text-xs font-medium text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline">
+                  Don&apos;t link to the plan
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+})
