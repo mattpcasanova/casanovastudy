@@ -57,7 +57,7 @@ export function linkFallback(href: string): string {
  * `preheader` is the grey preview text shown next to the subject in inboxes.
  */
 export function emailLayout({ preheader, body, footer, siteUrl }: { preheader: string; body: string; footer: string; siteUrl: string }): string {
-  const logo = `${siteUrl.replace(/\/$/, '')}/images/casanova-study-icon.png`
+  const logo = `${siteUrl.replace(/\/$/, '')}/images/email-icon.png`
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
