@@ -44,6 +44,9 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { ALERT_VARIANTS, DEFINITION_COLORS, TABLE_HEADER_STYLES } from '@/components/custom-guide-editor/block-styles'
 import { normalizePracticeActivities } from '@/lib/formats/practice'
 import { PracticeSession } from './practice-format'
+import { GraphFence } from './graph-figure'
+import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
+import { remarkScripts } from '@/lib/formats/scripts'
 
 interface CustomFormatProps {
   content: CustomGuideContent
@@ -90,14 +93,24 @@ const mdComponents: Components = {
     <blockquote className="my-4 rounded-r-xl border-l-4 border-blue-300 bg-blue-50/50 px-4 py-2 text-slate-700 [&_p]:my-1.5">{children}</blockquote>
   ),
   hr: () => <hr className="my-6 border-slate-200" />,
+  sup: ({ children }) => <sup className="text-[0.72em] leading-none">{children}</sup>,
+  sub: ({ children }) => <sub className="text-[0.72em] leading-none">{children}</sub>,
   code: ({ className, children }) => {
     const isBlock = /language-/.test(className || '') || String(children).includes('\n')
     if (isBlock) return <code className="font-mono text-[0.85rem]">{children}</code>
     return <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-800">{children}</code>
   },
-  pre: ({ children }) => (
-    <pre className="my-4 overflow-x-auto rounded-xl bg-slate-900 px-4 py-3 text-[0.85rem] leading-relaxed text-slate-100">{children}</pre>
-  ),
+  pre: ({ node, children }) => {
+    // ```graph fences draw as figures (lib/graphs/spec.ts).
+    const code = node?.children?.find((c) => c.type === 'element' && c.tagName === 'code')
+    const cls = code && code.type === 'element' ? code.properties?.className : undefined
+    const lang = Array.isArray(cls) ? String(cls.find((c) => String(c).startsWith('language-')) ?? '').slice('language-'.length) : ''
+    if (code && code.type === 'element' && GRAPH_FENCE_LANGS.test(lang)) {
+      const text = code.children.map((c) => (c.type === 'text' ? c.value : '')).join('')
+      return <GraphFence text={text} />
+    }
+    return <pre className="my-4 overflow-x-auto rounded-xl bg-slate-900 px-4 py-3 text-[0.85rem] leading-relaxed text-slate-100">{children}</pre>
+  },
   table: ({ children }) => (
     <div className={tableShell}>
       <table className="w-full border-collapse text-sm">{children}</table>
@@ -113,7 +126,7 @@ const mdComponents: Components = {
 const inlineComponents: Components = { ...mdComponents, p: ({ children }) => <>{children}</> }
 
 // Same math convention as StudyMarkdown: "$100" stays text; inline math is $$x$$.
-const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }]]
+const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkScripts]
 const rehypePlugins: Options['rehypePlugins'] = [rehypeKatex]
 
 const Markdown = memo(function Markdown({ text, inline = false, className }: { text: string; inline?: boolean; className?: string }) {

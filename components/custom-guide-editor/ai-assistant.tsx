@@ -6,6 +6,9 @@ import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, Lis
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { Segmented, fieldLabel } from "./editor-ui"
+import { Switch } from "@/components/ui/switch"
+import VisualsInfo from "@/components/visuals-info"
+import { visualsRelevant } from "@/lib/formats/figures"
 
 interface SourceFileForAI {
   name: string
@@ -68,6 +71,7 @@ export function AIAssistant({
   const [description, setDescription] = useState("")
   const [controls, setControls] = useState<GuideControls>(defaultControls)
   const [mode, setMode] = useState<'replace' | 'add'>('add')
+  const [visuals, setVisuals] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -141,6 +145,7 @@ export function AIAssistant({
           mode,
           // Structured directives only in "specific" mode; omitted = AI decides.
           controls: directMode === 'specific' ? controls : undefined,
+          visuals,
         })
       })
 
@@ -389,6 +394,15 @@ export function AIAssistant({
               </label>
             </div>
           </div>
+        )}
+
+        {visualsRelevant({ subject: subject && subject !== 'general' ? subject : null, text: [description, ...(sourceFiles ?? []).map((f) => f.name)].join('\n'), format: 'custom' }) && (
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              Include visuals <VisualsInfo />
+            </span>
+            <Switch checked={visuals} onCheckedChange={setVisuals} disabled={busy} aria-label="Include visuals" />
+          </label>
         )}
 
         {hasExistingContent && (

@@ -14,6 +14,7 @@ export interface StudyGuideData {
   topicFocus?: string
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
+  visuals?: boolean // false = no graphs/models (see components/visuals-info.tsx)
 }
 
 export interface ProcessedFile {
@@ -55,6 +56,7 @@ export interface StudyGuideRequest {
   planId?: string // parent study plan guide id
   planUnit?: string // PlanUnit.key within that plan
   userId?: string  // User ID to associate with the study guide
+  visuals?: boolean // false = no graphs/models
 }
 
 export interface StudyGuideResponse {
@@ -109,6 +111,7 @@ export interface ClaudeApiRequest {
   goal?: string
   sourcePolicy?: 'strict' | 'expand'
   materialsKind?: 'notes' | 'assessment' | 'topic_list'
+  visuals?: boolean // false = leave out graphs and science models
 }
 
 export interface ClaudeApiResponse {

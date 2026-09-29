@@ -12,6 +12,7 @@ import {
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
 import { CodeBlock, CodeLines } from './code-view'
+import { GraphFence } from './graph-figure'
 import { PracticeWorksheet } from './practice-worksheet'
 
 interface PracticeFormatProps {
@@ -282,6 +283,7 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
           <InlineMarkdown text={activity.prompt} />
         </p>
       )}
+      {activity.figure && <GraphFence text={activity.figure} compact />}
       {activity.code && activity.kind !== 'bug' && <CodeBlock lang={activity.code.lang} text={activity.code.text} compact className="mb-5 mt-0" />}
       {activity.kind === 'match' && <MatchBoard activity={activity} onDone={onDone} />}
       {activity.kind === 'fill' && <FillBlank activity={activity} onDone={onDone} checked={checked} onContinue={onContinue} compact={compact} autoFocus={autoFocus} />}

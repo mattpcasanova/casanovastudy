@@ -182,3 +182,17 @@ describe('split check-yourself answers', () => {
     expect(normalizeGuideMarkdown(md).match(/~~~~callout-/g)).toHaveLength(2)
   })
 })
+
+describe('figure groups', () => {
+  it('groups consecutive figure fences', () => {
+    const md = 'Intro\n\n```graph\nkind: vsepr\ncenter: C\nbonded: H, H, H, H\n```\n\n```graph\nkind: vsepr\ncenter: N\nbonded: H, H, H\nlone: 1\n```\n\nAfter'
+    const out = normalizeGuideMarkdown(md)
+    expect(out).toContain('```graph-group\nkind: vsepr\ncenter: C\nbonded: H, H, H, H\n%%\nkind: vsepr\ncenter: N')
+    expect(out.match(/```/g)).toHaveLength(2)
+    expect(out).toContain('After')
+  })
+  it('leaves a single figure alone', () => {
+    const md = '```graph\nplot: x\n```\n\nText\n\n```graph\nplot: 2x\n```'
+    expect(normalizeGuideMarkdown(md)).not.toContain('graph-group')
+  })
+})

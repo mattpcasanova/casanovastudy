@@ -37,6 +37,7 @@ import {
   Check,
   PenSquare,
   ArrowRight,
+  LineChart,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -56,6 +57,10 @@ import { SUBJECTS, LEVEL_GROUPS, GOALS, type StudyGoal, type MaterialsKind } fro
 import { parsePlan, unitStudyRequest } from "@/lib/formats/plan"
 import { takePrefill } from "@/lib/prefill"
 import { useAuth } from "@/lib/auth"
+import { visualsRelevant } from "@/lib/formats/figures"
+import VisualsInfo from "@/components/visuals-info"
+
+const VISUALS_PREF_KEY = "cs:pref:visuals"
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
@@ -270,6 +275,15 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [topicFocus, setTopicFocus] = useState("")
   const [goal, setGoal] = useState<StudyGoal | "">("")
   const [strictSources, setStrictSources] = useState(true)
+  // Graphs/models on by default; the last choice is remembered on this device.
+  const [visuals, setVisualsState] = useState(true)
+  const setVisuals = (on: boolean) => {
+    setVisualsState(on)
+    try { localStorage.setItem(VISUALS_PREF_KEY, on ? "on" : "off") } catch { /* storage unavailable */ }
+  }
+  useEffect(() => {
+    try { if (localStorage.getItem(VISUALS_PREF_KEY) === "off") setVisualsState(false) } catch { /* storage unavailable */ }
+  }, [])
   const [materialsKind, setMaterialsKind] = useState<MaterialsKind | null>(null)
   // Set when arriving from a study plan's "Create this guide" (/?plan=…&unit=…).
   const [planLink, setPlanLink] = useState<{ planId: string; unitKey: string; planTitle: string; unitNumber: number; unitTitle: string } | null>(null)
@@ -493,6 +507,12 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   }
 
   const hasSource = files.length > 0 || studyRequest.trim().length >= 3
+  // Only offer the visuals switch when this topic/format would actually get figures.
+  const showVisualsSwitch = visualsRelevant({
+    subject: subject && subject !== "general" ? subject : null,
+    text: [studyRequest, topicFocus, studyGuideName, ...files.map((f) => f.name)].join("\n"),
+    format: format || null,
+  })
   const isFormValid = hasSource && !!format
 
   const handleSubmit = () => {
@@ -518,6 +538,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       planId: planLink && format !== "plan" ? planLink.planId : undefined,
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       additionalInstructions: additionalInstructions || undefined,
+      visuals,
     })
   }
 
@@ -887,6 +908,23 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 />
               </div>
             </div>
+
+            {showVisualsSwitch && (
+              <label className="mt-5 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+                <span className="text-sm">
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <LineChart className="h-4 w-4 text-blue-600" /> Include visuals
+                    <VisualsInfo />
+                  </span>
+                  <span className="text-slate-500">
+                    {visuals
+                      ? "Graphs, figures and science models where they help you learn."
+                      : "Text only. Simple flowcharts and tables are still included."}
+                  </span>
+                </span>
+                <Switch checked={visuals} onCheckedChange={setVisuals} disabled={isGenerating} className="mt-0.5" aria-label="Include visuals" />
+              </label>
+            )}
 
             <button
               type="button"

@@ -9,17 +9,17 @@ import type { CustomGuideContent, CustomSection, QuizQuestion } from '@/lib/type
 import { parsePractice, normalizePracticeActivities, type PracticeActivity, type ChoiceActivity } from '@/lib/formats/practice'
 import { normalizeGuideMarkdown } from '@/lib/formats/normalize'
 import { parseFlashcards } from '@/components/formats/flashcards-format'
-import { parseQuizContent } from '@/components/formats/quiz-format'
+import { parseQuizContent } from '@/lib/formats/quiz'
 import { parseTimeline } from '@/lib/formats/timeline'
 
 export type LearnItem =
   | { id: string; kind: 'activity'; activity: PracticeActivity; topic?: string }
-  | { id: string; kind: 'card'; front: string; back: string; topic?: string } // self-graded
+  | { id: string; kind: 'card'; front: string; back: string; topic?: string; figure?: string } // self-graded
 
 export const LEARN_FORMATS = ['flashcards', 'quiz', 'practice', 'custom', 'timeline'] as const
 
-function choice(id: string, prompt: string, options: string[], correct: number, topic?: string, explanation?: string): ChoiceActivity {
-  return { kind: 'choice', id, prompt, options, correct, topic: topic ?? '', explanation }
+function choice(id: string, prompt: string, options: string[], correct: number, topic?: string, explanation?: string, figure?: string): ChoiceActivity {
+  return { kind: 'choice', id, prompt, options, correct, topic: topic ?? '', explanation, ...(figure ? { figure } : {}) }
 }
 
 function fromCustomQuiz(q: QuizQuestion, topic?: string): LearnItem | null {
@@ -76,10 +76,10 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
         const topic = q.section || undefined
         if (q.type === 'mc') {
           const idx = q.options.indexOf(q.correctAnswer)
-          return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, q.question, q.options, idx, q.section, q.explanation) }]
+          return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, q.question, q.options, idx, q.section, q.explanation, q.figure) }]
         }
-        if (q.type === 'tf') return [{ id, kind: 'activity', topic, activity: choice(id, q.question, ['True', 'False'], q.correctAnswer ? 0 : 1, q.section, q.explanation) }]
-        return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(q.sampleAnswer) }]
+        if (q.type === 'tf') return [{ id, kind: 'activity', topic, activity: choice(id, q.question, ['True', 'False'], q.correctAnswer ? 0 : 1, q.section, q.explanation, q.figure) }]
+        return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(q.sampleAnswer), ...(q.figure ? { figure: q.figure } : {}) }]
       })
     case 'timeline': {
       const out: LearnItem[] = []

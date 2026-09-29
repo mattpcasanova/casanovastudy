@@ -300,7 +300,52 @@ export function normalizeGuideMarkdown(input: string): string {
   flushQuote()
 
   // Collapse runs of blank lines.
-  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  return groupFigureFences(out).join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+const FIGURE_FENCE = /^\s*(`{3,}|~{3,})\s*(graph|plot|chart|figure|molecule|lewis|model|diagram)\s*$/i
+/** Separates figure bodies inside a ```graph-group fence. */
+export const FIGURE_GROUP_SEPARATOR = '%%'
+
+/**
+ * Consecutive figure fences (only blank lines between them) become one
+ * ```graph-group fence, which StudyMarkdown lays out side by side, so a run of
+ * models like CH₄ / NH₃ / H₂O reads as a comparison instead of a tall column.
+ */
+function groupFigureFences(lines: string[]): string[] {
+  const out: string[] = []
+  let i = 0
+  const readFence = (start: number): { body: string[]; end: number } | null => {
+    const open = lines[start]?.match(FIGURE_FENCE)
+    if (!open) return null
+    const body: string[] = []
+    for (let j = start + 1; j < lines.length; j++) {
+      if (lines[j].trim().startsWith(open[1])) return { body, end: j + 1 }
+      body.push(lines[j])
+    }
+    return null
+  }
+  while (i < lines.length) {
+    const first = readFence(i)
+    if (!first) { out.push(lines[i++]); continue }
+    const bodies = [first.body]
+    let next = first.end
+    for (;;) {
+      let k = next
+      while (k < lines.length && !lines[k].trim()) k++
+      const more = readFence(k)
+      if (!more) break
+      bodies.push(more.body)
+      next = more.end
+    }
+    if (bodies.length === 1) {
+      out.push(...lines.slice(i, first.end))
+    } else {
+      out.push('```graph-group', ...bodies.flatMap((b, n) => (n ? [FIGURE_GROUP_SEPARATOR, ...b] : b)), '```')
+    }
+    i = next
+  }
+  return out
 }
 
 // Plain-text version of a markdown fragment (for titles, TOC entries, aria).

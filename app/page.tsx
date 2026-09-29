@@ -108,6 +108,7 @@ export default function Home() {
         materialsKind: data.materialsKind,
         planId: data.planId,
         planUnit: data.planUnit,
+        visuals: data.visuals,
       }
 
       const response = await authFetch('/api/generate-study-guide-stream', {

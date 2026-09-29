@@ -11,6 +11,7 @@ import { loadProgress, saveProgress } from '@/lib/progress'
 import { buildSession, gradeItem, summarize, MASTERED_BOX, type ItemState, type LearnState } from '@/lib/learn/scheduler'
 import { ActivityBody, activityMeta } from '@/components/formats/practice-format'
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
+import { GraphFence } from '@/components/formats/graph-figure'
 import type { LearnItem } from './items'
 
 // ── Persisted state: instant browser copy + account copy (source of truth) ──
@@ -272,6 +273,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
               <p className={cn(fontDisplay, 'text-center text-xl font-medium leading-snug text-slate-900 sm:text-2xl')}>
                 <InlineMarkdown text={current.front} />
               </p>
+              {current.figure && <div className="mx-auto mt-4 max-w-lg"><GraphFence text={current.figure} compact /></div>}
               {!revealed ? (
                 <div className="mt-8 flex justify-center">
                   <Button size="lg" variant="outline" onClick={() => setRevealed(true)}>

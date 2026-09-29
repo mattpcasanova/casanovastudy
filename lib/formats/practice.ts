@@ -10,11 +10,13 @@
 //   FIND_BUG: <prompt>  ```lang …code… ```  Bug line: 3   Fix: <corrected line>
 //   Explanation: <optional line after any activity>
 // Any activity may include one fenced code block (``` or ~~~) in its body; it is
-// attached as `code` and shown above the activity. Fence contents are never
-// parsed as options/answers.
+// attached as `code` and shown above the activity. A ```graph fence instead
+// becomes `figure` (lib/graphs/spec.ts). Fence contents are never parsed as
+// options/answers.
 // Everything is line-based and linear (no nested-quantifier regexes).
 
 import { stripEmoji, toTitleCase, plainText } from './normalize'
+import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 
 export interface CodeSnippet { lang: string; text: string }
 
@@ -24,6 +26,8 @@ interface Base {
   prompt: string
   explanation?: string
   code?: CodeSnippet
+  /** Body of a ```graph fence, drawn above the activity. */
+  figure?: string
 }
 export interface MatchActivity extends Base { kind: 'match'; pairs: Array<{ term: string; definition: string }> }
 export interface FillActivity extends Base { kind: 'fill'; parts: Array<string | { answers: string[] }> }
@@ -55,6 +59,7 @@ export function parsePractice(content: string): PracticeActivity[] {
   const bodyFrom = (start: number) => {
     const body: string[] = []
     let code: CodeSnippet | undefined
+    let figure: string | undefined
     let j = start + 1
     for (; j < lines.length; j++) {
       const t = lines[j].trim()
@@ -67,13 +72,14 @@ export function parsePractice(content: string): PracticeActivity[] {
         // Drop common indentation (the model sometimes indents the whole fence).
         const indent = Math.min(...block.filter((l) => l.trim()).map((l) => l.match(/^\s*/)![0].length), Infinity)
         const text = block.map((l) => (Number.isFinite(indent) ? l.slice(indent) : l)).join('\n').replace(/\s+$/, '')
-        if (!code && text.trim()) code = { lang: fence[2].toLowerCase(), text }
+        if (GRAPH_FENCE_LANGS.test(fence[2])) { if (!figure && text.trim()) figure = text }
+        else if (!code && text.trim()) code = { lang: fence[2].toLowerCase(), text }
         continue
       }
       if (MARKER.test(t) || /^#{1,6}\s/.test(t)) break
       body.push(t)
     }
-    return { body, code, next: j }
+    return { body, code, figure, next: j }
   }
   const takeExplanation = (body: string[]) => {
     const idx = body.findIndex((l) => /^\*{0,2}(explanation|why)\s*:/i.test(l))
@@ -97,12 +103,15 @@ export function parsePractice(content: string): PracticeActivity[] {
 
     const kind = m[1].toUpperCase()
     const head = clean(m[2])
-    const { body, code, next } = bodyFrom(i)
+    const { body, code, figure, next } = bodyFrom(i)
     const { rest: restAll, explanation } = takeExplanation(body.filter(Boolean))
     const id = `p-${out.length}`
     i = next
     // Attach the snippet to whatever activity gets built below.
-    const withCode = <T extends PracticeActivity>(a: T): T => (code && a.kind !== 'bug' ? { ...a, code } : a)
+    const withCode = <T extends PracticeActivity>(a: T): T => {
+      const withFig = figure ? { ...a, figure } : a
+      return code && a.kind !== 'bug' ? { ...withFig, code } : withFig
+    }
     const rest = restAll
 
     if (kind === 'MATCH') {
@@ -335,7 +344,8 @@ export function normalizePracticeActivities(raw: unknown, opts: { strict?: boole
     while (used.has(id)) id = `${id}-${idx}`
     used.add(id)
     const code = toCode(o.code ?? o.snippet, o.language ?? o.lang)
-    const base = { id, topic: str(o.topic), prompt: str(o.prompt ?? o.instruction ?? o.question), explanation: str(o.explanation) || undefined, ...(code ? { code } : {}) }
+    const figure = str(o.figure ?? o.graph).trim()
+    const base = { id, topic: str(o.topic), prompt: str(o.prompt ?? o.instruction ?? o.question), explanation: str(o.explanation) || undefined, ...(code ? { code } : {}), ...(figure ? { figure } : {}) }
     let act: PracticeActivity | null = null
 
     if (kind === 'match') {

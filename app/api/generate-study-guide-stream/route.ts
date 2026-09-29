@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
           goal: body.goal && GOAL_VALUES.includes(body.goal) ? body.goal : undefined,
           sourcePolicy: body.sourcePolicy === 'expand' ? 'expand' : 'strict',
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
+          visuals: body.visuals !== false,
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).

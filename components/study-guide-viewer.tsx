@@ -41,6 +41,8 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
 import LearnCallout from '@/components/learn/learn-callout'
+import { DesmosProvider } from '@/components/desmos/desmos-calculator'
+import { calculatorFor } from '@/lib/formats/figures'
 
 const FORMAT_META = {
   outline: { accent: formatAccent.outline, icon: List, label: 'Outline' },
@@ -85,6 +87,10 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   // This includes anonymous guides (user_id is null) and other users' guides
   const canSave = user && !isOwner
   const fmt = FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary
+  // Desmos only where the real test gives one (math/science); none for plans/timelines.
+  const calculatorMode = studyGuide.format === 'plan' || studyGuide.format === 'timeline'
+    ? null
+    : calculatorFor({ subject: studyGuide.subject, text: [studyGuide.title, studyGuide.topic_focus].filter(Boolean).join('\n') })
 
   const handleSaveToMyGuides = async () => {
     if (!user) return
@@ -434,7 +440,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 print:max-w-none print:px-0 print:py-0">
         <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
-        {renderFormat()}
+        <DesmosProvider guideId={studyGuide.id} mode={calculatorMode}>
+          {renderFormat()}
+        </DesmosProvider>
       </div>
 
       <p className="hidden pt-6 text-center text-[0.7rem] text-slate-400 print:block">Made with Casanova Study</p>

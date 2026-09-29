@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls } = body
+  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls, visuals } = body
 
   const hasFiles = !!cloudinaryFiles && cloudinaryFiles.length > 0
   const hasControls = !!controls && Array.isArray(controls.formats) && controls.formats.length > 0
@@ -228,6 +228,7 @@ export async function POST(request: NextRequest) {
           sourceContent,
           mode,
           controls,
+          visuals: visuals !== false,
           // Pass PDF documents for Claude's native PDF reading when text extraction failed
           pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined
         })

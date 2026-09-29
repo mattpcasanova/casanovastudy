@@ -11,6 +11,8 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
+import { GraphFence } from './graph-figure'
+import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 
 interface QuizFormatProps {
   content: string
@@ -19,16 +21,7 @@ interface QuizFormatProps {
   gradeLevel?: string
 }
 
-interface BaseQuestion {
-  id: string
-  question: string
-  section: string
-  explanation?: string
-}
-interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
-interface TrueFalseQuestion extends BaseQuestion { type: 'tf'; correctAnswer: boolean }
-interface ShortAnswerQuestion extends BaseQuestion { type: 'sa'; sampleAnswer: string }
-export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion
+export { parseQuizContent, type Question } from '@/lib/formats/quiz'
 
 interface ShortAnswerScore {
   score: number
@@ -183,6 +176,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
         <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
           <InlineMarkdown text={current.question} />
         </p>
+        {current.figure && <GraphFence text={current.figure} compact />}
 
         {current.type === 'mc' && (
           <div className="space-y-2.5" role="radiogroup">
@@ -277,6 +271,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
                 <p className={cn(fontDisplay, 'break-after-avoid pb-2 text-base font-semibold text-slate-900')}>{q.section}</p>
               )}
               <p className="mb-2 font-semibold text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+              {q.figure && <div className="ml-5 max-w-md"><GraphFence text={q.figure} compact /></div>}
               {q.type === 'mc' && <div className="ml-5 space-y-1">{q.options.map((o, oi) => <div key={oi}>○ <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span> <InlineMarkdown text={o} /></div>)}</div>}
               {q.type === 'tf' && <div className="ml-5">○ True &nbsp;&nbsp;&nbsp; ○ False</div>}
               {q.type === 'sa' && <div className="ml-5 space-y-2"><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /></div>}
@@ -542,6 +537,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
                   </span>
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+                    {q.figure && !ok && <div className="max-w-sm"><GraphFence text={q.figure} compact /></div>}
                     {q.type !== 'sa' && (
                       <>
                         <p className="text-slate-600">Your answer: <span className={ok ? 'font-medium text-emerald-700' : 'font-medium text-rose-700'}>
@@ -568,95 +564,6 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
       </div>
     </div>
   )
-}
-
-export function parseQuizContent(content: string): Question[] {
-  const questions: Question[] = []
-  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean)
-  let section = ''
-
-  const strip = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
-  const questionText = (line: string, tag: string) =>
-    strip(line.replace(new RegExp(`\\*{0,2}${tag}_QUESTION:\\*{0,2}`), ''))
-  const isQuestion = (l: string) => /(MC|TF|SA)_QUESTION:/.test(l)
-  const explanationOf = (l: string) => {
-    const m = l.match(/^\*{0,2}(?:explanation|why)\s*:\*{0,2}\s*(.+)$/i)
-    return m ? strip(m[1]) : null
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-
-    const heading = line.match(/^#{1,6}\s+(.+)$/)
-    if (heading) {
-      const title = toTitleCase(plainText(stripEmoji(heading[1])).replace(/^[\s|:\-–—]+/, '').trim())
-      if (title && !/^(quiz|learning objectives|key term)/i.test(title)) section = title
-      continue
-    }
-
-    if (line.includes('MC_QUESTION:')) {
-      const text = questionText(line, 'MC')
-      if (!text) continue
-      const options: string[] = []
-      let correctAnswer = ''
-      let explanation: string | undefined
-      for (let j = i + 1; j < Math.min(i + 16, lines.length); j++) {
-        const l = lines[j]
-        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
-        const exp = explanationOf(l)
-        if (exp) explanation = exp
-        else if (opt && !/answer/i.test(l.slice(0, 12))) options.push(strip(opt[2]))
-        else if (/answer\s*:/i.test(l)) {
-          const m = l.match(/answer:?\**\s*:?\s*\(?([A-F])\b/i)
-          if (m) {
-            const idx = m[1].toUpperCase().charCodeAt(0) - 65
-            if (idx >= 0 && idx < options.length) correctAnswer = options[idx]
-          }
-        }
-      }
-      if (options.length > 0) {
-        questions.push({ type: 'mc', id: `q-${questions.length}`, question: text, options, correctAnswer: correctAnswer || options[0], section, explanation })
-      }
-    } else if (line.includes('TF_QUESTION:')) {
-      const text = questionText(line, 'TF')
-      if (!text) continue
-      let correctAnswer = true
-      let explanation: string | undefined
-      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
-        const l = lines[j]
-        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        const exp = explanationOf(l)
-        if (exp) explanation = exp
-        else if (/answer\s*:/i.test(l)) correctAnswer = /true/i.test(l.split(/answer\s*:/i)[1] ?? '')
-      }
-      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation })
-    } else if (line.includes('SA_QUESTION:')) {
-      const text = questionText(line, 'SA')
-      if (!text) continue
-      let sampleAnswer = ''
-      let explanation: string | undefined
-      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-        const l = lines[j]
-        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        const exp = explanationOf(l)
-        if (exp) { explanation = exp; continue }
-        if (/^\*{0,2}(?:sample |model )?answer\s*:/i.test(l)) {
-          sampleAnswer = strip(l.replace(/^\*{0,2}(?:sample |model )?answer\s*:\*{0,2}\s*/i, ''))
-          for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
-            const next = lines[k]
-            if (isQuestion(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next)) break
-            sampleAnswer += ' ' + strip(next)
-          }
-        }
-      }
-      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation })
-    }
-  }
-
-  // One section name for the whole quiz adds nothing.
-  if (new Set(questions.map((q) => q.section)).size <= 1) questions.forEach((q) => { q.section = '' })
-  return questions
 }
 
 // The homepage request for "a new quiz on what I missed": the missed questions

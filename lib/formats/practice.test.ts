@@ -222,3 +222,35 @@ while left < right:
     expect(parseLineList('lines 2 and 0')).toEqual([2])
   })
 })
+
+describe('practice figures', () => {
+  it('sends a graph fence to figure and a code fence to code', () => {
+    const acts = parsePractice(`## Graphs
+MC_QUESTION: Which point is the vertex of the parabola shown?
+\`\`\`graph
+kind: plane
+plot: (x - 1)^2 - 4
+\`\`\`
+A) (1, -4)
+B) (-1, 4)
+Correct Answer: A
+
+MC_QUESTION: What does this print?
+\`\`\`python
+print(2 ** 3)
+\`\`\`
+A) 6
+B) 8
+Correct Answer: B`)
+    expect(acts).toHaveLength(2)
+    expect(acts[0].figure).toContain('plot: (x - 1)^2 - 4')
+    expect(acts[0].code).toBeUndefined()
+    expect(acts[1].code?.lang).toBe('python')
+    expect(acts[1].figure).toBeUndefined()
+  })
+
+  it('reads figure from JSON activities', () => {
+    const [a] = normalizePracticeActivities([{ kind: 'choice', prompt: 'Slope?', options: ['1', '2'], correct: 1, figure: 'plot: 2x' }], { strict: true })
+    expect(a.figure).toBe('plot: 2x')
+  })
+})

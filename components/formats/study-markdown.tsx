@@ -17,13 +17,17 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { AlertTriangle, BookMarked, Brain, Eye, EyeOff, HelpCircle, Info, Lightbulb, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CHECK_ANSWER_SEPARATOR, type CalloutKind } from '@/lib/formats/normalize'
+import { CHECK_ANSWER_SEPARATOR, FIGURE_GROUP_SEPARATOR, type CalloutKind } from '@/lib/formats/normalize'
 import { AsciiDiagram, StepsDiagram, TreeDiagram, looksLikeAsciiDiagram, parseSteps, parseTree } from './diagrams'
 import { CodeBlock } from './code-view'
+import { GraphFence } from './graph-figure'
+import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
+import { remarkScripts } from '@/lib/formats/scripts'
 
 // Single-$ math is off: "$100" in history/econ guides must stay text.
 // Inline math is written $$x^2$$; display math is $$ on its own lines.
-const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }]]
+// remarkScripts turns calculator-style x^(n-1) / a_n in text into real sup/sub.
+const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkScripts]
 const rehypePlugins: Options['rehypePlugins'] = [[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]
 
 // ── Callouts ────────────────────────────────────────────────────────────────
@@ -142,15 +146,29 @@ function PreBlock({ node }: { node?: HastNode }) {
   if (l === 'steps' || l === 'flow' || l === 'process' || l === 'sequence') return <StepsDiagram steps={parseSteps(text)} />
   if (l === 'cycle') return <StepsDiagram steps={parseSteps(text)} cycle />
   if (l === 'tree' || l === 'hierarchy') return <TreeDiagram roots={parseTree(text)} />
+  if (GRAPH_FENCE_LANGS.test(l)) return <GraphFence text={text} />
+  if (l === 'graph-group') {
+    const bodies = text.split(new RegExp(`^${FIGURE_GROUP_SEPARATOR}$`, 'm')).map((b) => b.trim()).filter(Boolean)
+    return (
+      <div className={cn('not-prose my-5 grid gap-3 sm:grid-cols-2', bodies.length >= 3 && 'lg:grid-cols-3', '[&>figure]:my-0 print:grid-cols-2')}>
+        {bodies.map((b, i) => <GraphFence key={i} text={b} compact />)}
+      </div>
+    )
+  }
   if (!CODE_LANGS.test(l) && looksLikeAsciiDiagram(text)) return <AsciiDiagram text={text} />
   return <CodeBlock lang={lang} text={text} />
 }
 
 // ── Element styles ──────────────────────────────────────────────────────────
 
+// Smaller and without the extra line height browsers give <sup>/<sub>.
+const scriptCls = 'text-[0.72em] leading-none'
+
 function buildComponents(compact: boolean): Components {
   return {
     pre: ({ node }) => <PreBlock node={node as HastNode | undefined} />,
+    sup: ({ children }) => <sup className={scriptCls}>{children}</sup>,
+    sub: ({ children }) => <sub className={scriptCls}>{children}</sub>,
     code: ({ children }) => (
       <code className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-800 ring-1 ring-inset ring-slate-200/70">{children}</code>
     ),
@@ -239,6 +257,8 @@ export const StudyMarkdown = memo(function StudyMarkdown({
 
 const inlineComponents: Components = {
   p: ({ children }) => <>{children}</>,
+  sup: ({ children }) => <sup className={scriptCls}>{children}</sup>,
+  sub: ({ children }) => <sub className={scriptCls}>{children}</sub>,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   code: ({ children }) => <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
 }
@@ -246,7 +266,7 @@ const inlineComponents: Components = {
 /** Inline markdown for short strings (card questions, quiz options, titles). */
 export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }): ReactNode {
   // Fast path for plain strings.
-  if (!/[*_`$\[]/.test(text)) return <>{text}</>
+  if (!/[*_`$\[^]/.test(text)) return <>{text}</>
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}

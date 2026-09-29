@@ -7,6 +7,8 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { normalizeGuideMarkdown } from "@/lib/formats/normalize"
 import { StudyMarkdown } from "@/components/formats/study-markdown"
+import VisualsInfo from "@/components/visuals-info"
+import { figureProgress } from "@/lib/formats/figure-progress"
 
 interface Props {
   title: string
@@ -63,7 +65,8 @@ export default function StudyGuideGenerating({ title, format, content, statusMes
   useEffect(() => {
     if (isComplete) setThrottled(content)
   }, [isComplete, content])
-  const md = useMemo(() => previewMarkdown(throttled, format), [throttled, format])
+  const figures = useMemo(() => figureProgress(throttled), [throttled])
+  const md = useMemo(() => previewMarkdown(figures.text, format), [figures.text, format])
 
   useEffect(() => {
     if (isComplete) return
@@ -116,10 +119,18 @@ export default function StudyGuideGenerating({ title, format, content, statusMes
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 text-sm">
             <span className="flex items-center gap-2 font-medium text-slate-700">
               {isComplete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Sparkles className="h-4 w-4 animate-pulse text-blue-600" />}
-              {statusMessage || "Starting…"}
+              {!isComplete && figures.drawing && content ? "Drawing a visual…" : statusMessage || "Starting…"}
             </span>
-            <span className="tabular-nums text-slate-400">
-              {words > 0 ? `${words.toLocaleString()} words · ` : ""}{elapsed}s
+            <span className="flex items-center gap-1.5 tabular-nums text-slate-400">
+              {words > 0 ? `${words.toLocaleString()} words · ` : ""}
+              {figures.done > 0 && (
+                <>
+                  <span className="text-blue-600">{figures.done} visual{figures.done === 1 ? "" : "s"} drawn</span>
+                  <VisualsInfo label="Why visuals take a little longer" />
+                  <span>·</span>
+                </>
+              )}
+              {elapsed}s
             </span>
           </div>
           <div
