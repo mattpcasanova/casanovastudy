@@ -77,7 +77,7 @@ export default function ImportMaterialDialog({
         ? ` New concepts created: ${json.created_concepts.map((c: { name: string }) => c.name).join(", ")}.`
         : ""
       toast({
-        title: `${json.total_created} questions created — review them per concept`,
+        title: `${json.total_created} questions created. Review them by concept.`,
         description: `Everything is queued as suggestions until you approve.${conceptNote}`,
       })
       setFiles([])
@@ -98,7 +98,7 @@ export default function ImportMaterialDialog({
           <DialogDescription>
             Upload PowerPoints, notes, worksheets, or past tests (PPTX, PDF, DOCX, or photos).
             The AI identifies the concepts your material covers and writes quiz questions for
-            them — everything queues for your review before students see it.
+            them. Everything waits for your review before students see it.
           </DialogDescription>
         </DialogHeader>
 

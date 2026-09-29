@@ -233,7 +233,7 @@ export default function TeacherAssignmentDetailPage() {
         fetchAll()
         return
       }
-      toast({ title: "Graded — ready for review" })
+      toast({ title: "Graded and ready for review" })
       fetchAll()
     } catch (err) {
       console.error(err)
@@ -573,7 +573,7 @@ export default function TeacherAssignmentDetailPage() {
                           ) : (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Loader2 className="h-3 w-3" />
-                              Quiz in progress — grade appears when they finish
+                              Quiz in progress. The grade appears when they finish.
                             </span>
                           )
                         ) : (

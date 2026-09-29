@@ -64,7 +64,7 @@ export function StepsDiagram({ steps, cycle = false }: { steps: Step[]; cycle?: 
       </ol>
       {cycle && (
         <figcaption className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-blue-700">
-          <RotateCw className="h-3.5 w-3.5" /> Repeats — step {steps.length} leads back to step 1
+          <RotateCw className="h-3.5 w-3.5" /> Repeats: step {steps.length} leads back to step 1
         </figcaption>
       )}
     </figure>
@@ -155,7 +155,7 @@ function IndentTree({ nodes, level = 0 }: { nodes: TreeNode[]; level?: number })
           <div className="flex items-baseline gap-2">
             <span className={cn('h-2 w-2 shrink-0 translate-y-[-1px] rounded-full', level === 0 ? 'bg-blue-600' : 'bg-slate-400')} />
             <span className={cn('font-semibold text-slate-900', level > 0 && 'text-sm')}><InlineMarkdown text={n.title} /></span>
-            {n.detail && <span className="text-sm text-slate-500">— <InlineMarkdown text={n.detail} /></span>}
+            {n.detail && <span className="text-sm text-slate-500">· <InlineMarkdown text={n.detail} /></span>}
           </div>
           {n.children.length > 0 && <IndentTree nodes={n.children} level={level + 1} />}
         </li>

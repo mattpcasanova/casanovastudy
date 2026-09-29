@@ -110,14 +110,14 @@ export async function POST(request: NextRequest) {
         results.push({
           concept_id: concept.id,
           created: 0,
-          error: 'Generation failed — try again',
+          error: 'Generation failed. Please try again.',
         })
       }
     }
 
     const totalCreated = results.reduce((sum, r) => sum + r.created, 0)
     if (totalCreated === 0) {
-      return NextResponse.json({ error: 'Generation failed — try again', results }, { status: 502 })
+      return NextResponse.json({ error: 'Generation failed. Please try again.', results }, { status: 502 })
     }
     return NextResponse.json({ results, total_created: totalCreated }, { status: 201 })
   } catch (error) {

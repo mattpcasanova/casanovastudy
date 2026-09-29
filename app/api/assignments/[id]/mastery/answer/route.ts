@@ -103,7 +103,7 @@ export async function POST(
         .gte('answered_at', todayStart.toISOString())
       if ((gradedToday ?? 0) >= DAILY_SA_GRADING_CAP) {
         return NextResponse.json(
-          { error: "You've hit today's limit for AI-graded answers — pick up again tomorrow" },
+          { error: "You've hit today's limit for AI-graded answers. Pick up again tomorrow." },
           { status: 429 }
         )
       }
@@ -129,7 +129,7 @@ export async function POST(
       } catch (err) {
         console.error('Short answer grading failed:', err)
         return NextResponse.json(
-          { error: 'Grading is temporarily unavailable — try again in a moment' },
+          { error: 'Grading is temporarily unavailable. Try again in a moment.' },
           { status: 503 }
         )
       }

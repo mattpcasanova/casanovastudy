@@ -15,7 +15,7 @@ export function useGuideStructure(content: string): GuideStructure {
 }
 
 export const TIER_BLURB: Record<Tier, string> = {
-  essential: 'Know these cold — they carry the most exam weight.',
+  essential: 'Know these cold. They carry the most exam weight.',
   important: 'Applications and examples that build on the essentials.',
   supporting: 'Background and extra detail for a complete picture.',
 }

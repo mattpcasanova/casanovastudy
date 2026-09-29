@@ -121,7 +121,7 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
             <p className="font-medium mb-1">Start your question bank</p>
             <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
               The fastest way: upload your existing PowerPoints, notes, or past tests and the AI
-              builds concepts and quiz questions from them — you approve everything before
+              builds concepts and quiz questions from them. You approve everything before
               students see it. Or create concepts by hand and add questions yourself.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -167,7 +167,7 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
                             </Badge>
                           )}
                           {concept.approved_count === 0 && concept.suggested_count === 0 && (
-                            <span className="text-xs text-muted-foreground">Empty — add questions</span>
+                            <span className="text-xs text-muted-foreground">Empty. Add questions</span>
                           )}
                         </div>
                       </CardContent>

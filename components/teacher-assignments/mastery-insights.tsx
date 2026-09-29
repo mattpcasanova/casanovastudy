@@ -93,7 +93,7 @@ export default function MasteryInsights({ assignmentId }: Props) {
           <h2 className="font-semibold text-lg">Question insights</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Concepts and questions sorted weakest first — where your class needs the most review.
+          Concepts and questions sorted weakest first, showing where your class needs the most review.
         </p>
 
         {!anyAnswers ? (

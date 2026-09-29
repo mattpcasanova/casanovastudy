@@ -248,7 +248,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
           <span><span className="font-semibold text-slate-900">{doneCount}</span> of {queue.length}{queue.length > sessionSize && <span className="text-slate-400"> (incl. {queue.length - sessionSize} retr{queue.length - sessionSize === 1 ? 'y' : 'ies'})</span>}</span>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
             <Clock className="h-3.5 w-3.5" />
-            {!itemState ? 'New' : itemState.box === 0 ? 'Relearning' : itemState.box >= MASTERED_BOX ? 'Mastered — quick check' : `Review · level ${itemState.box}`}
+            {!itemState ? 'New' : itemState.box === 0 ? 'Relearning' : itemState.box >= MASTERED_BOX ? 'Mastered · quick check' : `Review · level ${itemState.box}`}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -302,7 +302,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
             <div className={cn('mt-6 animate-fade-up rounded-xl p-4', lastCorrect ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
               <p className={cn('flex items-center gap-2 font-semibold', lastCorrect ? 'text-emerald-800' : 'text-rose-800')}>
                 {lastCorrect ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                {lastCorrect ? 'Correct!' : "Not quite — you'll see this one again shortly."}
+                {lastCorrect ? 'Correct!' : "Not quite. You'll see this one again shortly."}
               </p>
               {current.activity.explanation && (
                 <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">

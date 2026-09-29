@@ -292,7 +292,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
                 {q.type === 'mc' && <><span className="font-semibold">{String.fromCharCode(65 + q.options.indexOf(q.correctAnswer))}.</span> <InlineMarkdown text={q.correctAnswer} /></>}
                 {q.type === 'tf' && (q.correctAnswer ? 'True' : 'False')}
                 {q.type === 'sa' && <InlineMarkdown text={q.sampleAnswer} />}
-                {q.explanation && <span className="text-slate-500"> — <InlineMarkdown text={q.explanation} /></span>}
+                {q.explanation && <span className="text-slate-500">. <InlineMarkdown text={q.explanation} /></span>}
               </li>
             ))}
           </ol>
@@ -403,7 +403,7 @@ function Feedback({ correct, explanation, correctLabel }: { correct: boolean; ex
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       <p className={cn('flex items-center gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
         {correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-        {correct ? 'Correct!' : <>Not quite — the answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></>}
+        {correct ? 'Correct!' : <>Not quite. The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></>}
       </p>
       {explanation && (
         <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
@@ -452,7 +452,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
   const missed = questions.filter((q) => status(q) !== 'correct')
   const router = useRouter()
   const tone = pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-purple-600' : pct >= 50 ? 'text-amber-600' : 'text-rose-600'
-  const message = pct >= 90 ? 'Excellent — you know this material.' : pct >= 70 ? 'Solid. Review the ones you missed.' : pct >= 50 ? 'Getting there. Focus on the topics below.' : 'Keep going — retry the missed questions.'
+  const message = pct >= 90 ? 'Excellent. You know this material.' : pct >= 70 ? 'Solid. Review the ones you missed.' : pct >= 50 ? 'Getting there. Focus on the topics below.' : 'Keep going. Retry the missed questions.'
 
   const sections: Array<{ name: string; right: number; total: number }> = []
   for (const q of graded) {
@@ -552,7 +552,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
                     )}
                     {q.type === 'sa' && (
                       <>
-                        {saScores[q.id] && <p className="text-slate-700"><span className="font-medium">{saScores[q.id].score}/100</span> — {saScores[q.id].feedback}</p>}
+                        {saScores[q.id] && <p className="text-slate-700"><span className="font-medium">{saScores[q.id].score}/100</span> · {saScores[q.id].feedback}</p>}
                         <p className="mt-1 text-slate-600">Model answer: <InlineMarkdown text={q.sampleAnswer} /></p>
                       </>
                     )}

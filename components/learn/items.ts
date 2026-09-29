@@ -88,8 +88,8 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
           if (!ev.date) continue
           out.push({
             id: `t:${ev.key}`, kind: 'card', topic: era.title,
-            front: `**${ev.title}** — when did it happen, and why did it matter?`,
-            back: [`**${ev.date}**${ev.what ? ` — ${ev.what}` : ''}`, ev.why && `**Why it matters:** ${ev.why}`].filter(Boolean).join('\n\n'),
+            front: `**${ev.title}**: when did it happen, and why did it matter?`,
+            back: [`**${ev.date}**${ev.what ? `: ${ev.what}` : ''}`, ev.why && `**Why it matters:** ${ev.why}`].filter(Boolean).join('\n\n'),
           })
         }
         // Put the era's events in order (3-6 of them, evenly spread).

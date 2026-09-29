@@ -76,7 +76,7 @@ export default function CheckEmailPage() {
               disabled={sending || cooldown > 0}
               className="font-semibold text-blue-600 transition hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              {sending ? 'Sending…' : cooldown > 0 ? `Sent — you can resend in ${cooldown}s` : sent ? 'Resend again' : 'Resend confirmation email'}
+              {sending ? 'Sending…' : cooldown > 0 ? `Sent. You can resend in ${cooldown}s` : sent ? 'Resend again' : 'Resend confirmation email'}
             </button>
           </div>
         )}

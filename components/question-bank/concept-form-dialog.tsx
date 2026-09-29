@@ -80,7 +80,7 @@ export default function ConceptFormDialog({
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "New concept" : "Edit concept"}</DialogTitle>
           <DialogDescription>
-            A concept is a topic students master — keep it focused, like &quot;Sampling
+            A concept is a topic students master. Keep it focused, like &quot;Sampling
             Distributions&quot; rather than &quot;Unit 4&quot;.
           </DialogDescription>
         </DialogHeader>

@@ -37,7 +37,7 @@ export default function ConfirmEmailPage() {
       } catch (err) {
         const msg = (err as { message?: string })?.message || ''
         setErrorMessage(/expired|invalid/i.test(msg)
-          ? 'This confirmation link has expired or was already used. If your account is confirmed, just sign in — otherwise sign in and we’ll offer to resend the link.'
+          ? 'This confirmation link has expired or was already used. If your account is already confirmed, just sign in. If not, sign in and we’ll offer to resend the link.'
           : msg || 'We couldn’t confirm your email.')
         setStatus('error')
       }

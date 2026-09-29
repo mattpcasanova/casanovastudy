@@ -225,7 +225,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
         <div className="flex flex-col gap-3 rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
           <p className="text-sm text-slate-700">
             {running
-              ? <><Loader2 className="mr-1.5 inline h-4 w-4 animate-spin text-teal-600" />Creating your guides — {Object.values(gen).filter((g) => g !== 'error').length} left. Keep this tab open; each unit links up as it finishes.</>
+              ? <><Loader2 className="mr-1.5 inline h-4 w-4 animate-spin text-teal-600" />Creating your guides: {Object.values(gen).filter((g) => g !== 'error').length} left. Keep this tab open; each unit links up as it finishes.</>
               : <><span className="font-semibold text-slate-900">{missing.length} unit{missing.length === 1 ? '' : 's'}</span> {missing.length === 1 ? "doesn't have its" : "don't have their"} guide yet. Create them all at once instead of one by one.</>}
           </p>
           {running ? (
@@ -245,7 +245,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
           <AlertDialogHeader>
             <AlertDialogTitle>Create {missing.length} guides?</AlertDialogTitle>
             <AlertDialogDescription>
-              Each unit gets its own guide in the format the plan suggests, linked back to this plan. It takes about {Math.max(1, Math.ceil(missing.length / 2))} minute{missing.length > 2 ? 's' : ''} — keep this tab open while it runs.
+              Each unit gets its own guide in the format the plan suggests, linked back to this plan. It takes about {Math.max(1, Math.ceil(missing.length / 2))} minute{missing.length > 2 ? 's' : ''}. Keep this tab open while it runs.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -362,7 +362,7 @@ function UnitCard({ unit, planId, child, done, isNext, onToggle, dueDate, genSta
           <p className={cn('mt-4 inline-flex items-center gap-1.5 text-sm font-medium print:hidden', genStatus === 'error' ? 'text-rose-600' : 'text-teal-700')}>
             {genStatus === 'running' && <><Loader2 className="h-4 w-4 animate-spin" /> Creating this guide…</>}
             {genStatus === 'queued' && <><Clock className="h-4 w-4" /> Waiting its turn…</>}
-            {genStatus === 'error' && <><AlertCircle className="h-4 w-4" /> Couldn&apos;t create it — try this one on its own.</>}
+            {genStatus === 'error' && <><AlertCircle className="h-4 w-4" /> Couldn&apos;t create it. Try this one on its own.</>}
           </p>
         ) : null}
         {genStatus !== 'running' && genStatus !== 'queued' && <UnitAction unit={unit} planId={planId} child={child} tone="light" />}
@@ -427,7 +427,7 @@ function ScheduleCard({ schedule, onChange, paced, remaining }: {
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600"><CalendarDays className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-slate-900">Have a test date?</p>
-            <p className="text-sm text-slate-500">Set it and we&apos;ll pace the units for you — it adjusts as you check units off.</p>
+            <p className="text-sm text-slate-500">Set it and we&apos;ll pace the units for you. It adjusts as you check units off.</p>
             <form
               className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center"
               onSubmit={(e) => {
@@ -479,11 +479,11 @@ function ScheduleCard({ schedule, onChange, paced, remaining }: {
         </p>
         <p className="text-sm text-slate-600">
           {past
-            ? 'That date has passed — set a new one to keep pacing.'
+            ? 'That date has passed. Set a new one to keep pacing.'
             : remaining === 0
               ? 'Every unit is studied. Use the time left to review and retake quizzes.'
               : paced!.studyDays === 0
-                ? 'No study days left before the test at this pace — try "Every day".'
+                ? 'No study days left before the test at this pace. Try "Every day".'
                 : <>{remaining} unit{remaining === 1 ? '' : 's'} left · about <strong>{paced!.perWeek}</strong> a week ({dayLabel}){paced!.reviewDate ? <> · final review {friendlyDate(paced!.reviewDate)}</> : null}. Each unit shows its day below.</>}
         </p>
       </div>

@@ -152,7 +152,7 @@ export async function extractQuestionsFromMaterial(
   const anthropic = new Anthropic({ apiKey })
 
   const conceptList = params.concepts
-    .map(c => `- id: ${c.id} | ${c.name}${c.description ? ` — ${c.description}` : ''}`)
+    .map(c => `- id: ${c.id} | ${c.name}${c.description ? `: ${c.description}` : ''}`)
     .join('\n')
 
   const instruction = `You are turning a teacher's course material${params.subject ? ` for ${params.subject}` : ''} (slides, lecture notes, worksheets, past tests) into a concept-tagged question bank for adaptive mastery quizzes.
@@ -166,10 +166,10 @@ Work in two steps:
 
 2. Build the questions:
    - Extract any existing assessment questions from the material (use answer keys to fill in correct answers; skip pure headers/instructions).
-   - Then WRITE NEW questions that test the material's key ideas, definitions, procedures, and worked examples — the material does not need to contain questions. Ground every question in what the material actually covers; do not invent outside content.
+   - Then WRITE NEW questions that test the material's key ideas, definitions, procedures, and worked examples. The material does not need to contain questions. Ground every question in what the material actually covers; do not invent outside content.
    - Aim for 4-6 questions per concept, mixed across types.
 
-Question shapes — one of:
+Question shapes (one of):
 - multiple_choice: 4 "options" with plausible distractors, "correct_answer": {"index": <0-based>}
 - true_false: "correct_answer": {"value": true|false}
 - short_answer: "correct_answer": {"sample_answer": "...", "rubric_notes": "<what to accept/reject>"}

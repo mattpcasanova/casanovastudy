@@ -151,7 +151,7 @@ export default function OutlineFormat({ content, studyGuideId }: OutlineFormatPr
           {checkable.length > 0 && doneCount === checkable.length && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center print:hidden">
               <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-600" />
-              <p className="font-semibold text-emerald-900">Every topic reviewed — nice work.</p>
+              <p className="font-semibold text-emerald-900">Every topic reviewed. Nice work!</p>
               <p className="text-sm text-emerald-700">Try explaining each one out loud without looking to lock it in.</p>
             </div>
           )}

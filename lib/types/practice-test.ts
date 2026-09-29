@@ -4,12 +4,12 @@ export type BigIdea = 1 | 2 | 3 | 4 | 5 | 6
 export const BIG_IDEAS: BigIdea[] = [1, 2, 3, 4, 5, 6]
 
 export const BIG_IDEA_LABELS: Record<BigIdea, string> = {
-  1: 'Big Idea 1 — Atoms, Elements, & Compounds',
-  2: 'Big Idea 2 — Bonding & IMFs',
-  3: 'Big Idea 3 — Chemical Reactions',
-  4: 'Big Idea 4 — Kinetics',
-  5: 'Big Idea 5 — Thermodynamics',
-  6: 'Big Idea 6 — Equilibrium, Acids/Bases & Electrochem',
+  1: 'Big Idea 1: Atoms, Elements, & Compounds',
+  2: 'Big Idea 2: Bonding & IMFs',
+  3: 'Big Idea 3: Chemical Reactions',
+  4: 'Big Idea 4: Kinetics',
+  5: 'Big Idea 5: Thermodynamics',
+  6: 'Big Idea 6: Equilibrium, Acids/Bases & Electrochem',
 }
 
 export interface AnswerKeyEntry {

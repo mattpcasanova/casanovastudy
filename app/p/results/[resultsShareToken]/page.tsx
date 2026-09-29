@@ -26,7 +26,7 @@ export default function ColleagueResultsPage({
         }
         setData(json)
       } catch {
-        if (!cancelled) setError("Network error — check your connection and refresh")
+        if (!cancelled) setError("Network error. Check your connection and refresh.")
       }
     }
     load()

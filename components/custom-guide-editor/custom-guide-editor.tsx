@@ -105,7 +105,7 @@ const subjects = [{ value: 'general', label: 'Any subject' }, ...SUBJECTS.map((x
 
 const gradeLevels = [
   { value: 'general', label: 'Any level' },
-  ...LEVEL_GROUPS.flatMap((g) => g.levels.map((l) => ({ value: l.value, label: l.label.split(' — ')[0] }))),
+  ...LEVEL_GROUPS.flatMap((g) => g.levels.map((l) => ({ value: l.value, label: l.label.split(' (')[0] }))),
 ]
 
 const definitionColorOptions = (Object.keys(DEFINITION_COLORS) as DefinitionColorVariant[]).map(value => ({
@@ -593,7 +593,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
               <History className="hidden h-5 w-5 shrink-0 text-blue-600 sm:block" />
               <p className="flex-1 text-sm text-blue-900">
                 You have an unsaved draft
-                {pendingDraft.metadata.title ? <> — <strong>{pendingDraft.metadata.title}</strong></> : null}
+                {pendingDraft.metadata.title ? <>: <strong>{pendingDraft.metadata.title}</strong></> : null}
                 {' '}from {timeAgo(pendingDraft.savedAt)}.
               </p>
               <div className="flex gap-2">
@@ -946,7 +946,7 @@ function EmptyCanvas({
         </span>
         <span className="flex-1">
           <span className="block text-sm font-semibold text-blue-900">Generate with AI</span>
-          <span className="block text-xs text-blue-700/80">Describe a topic or upload notes — it drafts the blocks for you</span>
+          <span className="block text-xs text-blue-700/80">Describe a topic or upload notes and it drafts the blocks for you</span>
         </span>
         <span className="text-blue-400 transition group-hover:translate-x-0.5">→</span>
       </button>

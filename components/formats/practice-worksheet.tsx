@@ -118,7 +118,7 @@ function answerFor(a: PracticeActivity): React.ReactNode {
     case 'choice':
       return isTrueFalse(a) ? a.options[a.correct] : `${LETTERS[a.correct]}. ${a.options[a.correct]}`
     case 'bug':
-      return `Line ${a.bugLines.join(', ')}${a.fix ? ` — fix: ${a.fix}` : ''}`
+      return `Line ${a.bugLines.join(', ')}${a.fix ? ` (fix: ${a.fix})` : ''}`
   }
 }
 
@@ -147,7 +147,7 @@ export function PracticeWorksheet({ activities, title, className }: { activities
           {activities.map((a, i) => (
             <li key={a.id} className="break-inside-avoid">
               <span className="font-semibold">{i + 1}.</span> <InlineMarkdown text={String(answerFor(a))} />
-              {a.explanation && <span className="text-slate-500"> — <InlineMarkdown text={a.explanation} /></span>}
+              {a.explanation && <span className="text-slate-500">. <InlineMarkdown text={a.explanation} /></span>}
             </li>
           ))}
         </ol>

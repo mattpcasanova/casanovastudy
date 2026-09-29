@@ -115,7 +115,7 @@ export default function ManualQuestionForm({
       if (correctIndex >= options.length) return "Pick the correct option"
     }
     if (type === "short_answer" && !sampleAnswer.trim()) {
-      return "A sample answer is required — the AI grades against it"
+      return "A sample answer is required. The AI grades against it."
     }
     return null
   }
@@ -192,9 +192,9 @@ export default function ManualQuestionForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 — Intro</SelectItem>
-                  <SelectItem value="2">2 — Standard</SelectItem>
-                  <SelectItem value="3">3 — Challenge</SelectItem>
+                  <SelectItem value="1">1 · Intro</SelectItem>
+                  <SelectItem value="2">2 · Standard</SelectItem>
+                  <SelectItem value="3">3 · Challenge</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -284,7 +284,7 @@ export default function ManualQuestionForm({
                   id="sample-answer"
                   value={sampleAnswer}
                   onChange={e => setSampleAnswer(e.target.value)}
-                  placeholder="A model correct answer — the AI grades student responses against this"
+                  placeholder="A model correct answer. The AI grades student responses against this."
                   rows={2}
                 />
               </div>

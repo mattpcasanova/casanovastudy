@@ -278,7 +278,7 @@ export default function FileUploadAssignment() {
             </>
           )}
           {isOverdue && !alreadySubmitted && (
-            <Badge variant="outline" className="text-amber-600 border-amber-600">Past due — submission will be marked late</Badge>
+            <Badge variant="outline" className="text-amber-600 border-amber-600">Past due. Your submission will be marked late.</Badge>
           )}
         </div>
 

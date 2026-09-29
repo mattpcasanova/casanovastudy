@@ -36,7 +36,7 @@ function previewMarkdown(raw: string, format: string): string {
       .replace(/^\s*(Correct Answer|Answer|Explanation):.*$/gim, "")
   } else if (format === "timeline") {
     md = md
-      .replace(/^\s*(?:\*\*)?EVENT:(?:\*\*)?\s*(.*)$/gim, (_m, v: string) => `\n**${v.replace(/\s*\|\s*/, " — ")}**`)
+      .replace(/^\s*(?:\*\*)?EVENT:(?:\*\*)?\s*(.*)$/gim, (_m, v: string) => `\n**${v.replace(/\s*\|\s*/, " · ")}**`)
       .replace(/^\s*(?:\*\*)?(WHAT|WHY|DETAIL|SIGNIFICANCE):(?:\*\*)?\s*/gim, "")
   } else if (format === "flashcards") {
     md = md.replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*/gm, "\n**Q:** ").replace(/\n\s*(?:\*\*)?A:(?:\*\*)?\s*/g, "  \n**A:** ") // hard break → answer on its own line
@@ -141,14 +141,14 @@ export default function StudyGuideGenerating({ title, format, content, statusMes
                   <div key={i} className={cn("h-3 animate-pulse rounded-full bg-slate-100", i === 0 && "h-6")} style={{ width: `${w}%`, animationDelay: `${i * 120}ms` }} />
                 ))}
                 <p className="pt-4 text-center text-sm text-slate-400">
-                  Planning your guide — text will start appearing in a few seconds.
+                  Planning your guide. Text will start appearing in a few seconds.
                 </p>
               </div>
             )}
           </div>
         </div>
         <p className="mt-4 text-center text-sm text-slate-500">
-          {isComplete ? "Opening your guide…" : "You can keep this tab open — the guide saves automatically when it's done."}
+          {isComplete ? "Opening your guide…" : "Keep this tab open. The guide saves automatically when it's done."}
         </p>
       </div>
     </div>

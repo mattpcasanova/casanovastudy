@@ -104,7 +104,7 @@ export default function StudentTakePage({
         }
         setMeta(json)
       } catch {
-        if (!cancelled) setError("Network error — check your connection and refresh")
+        if (!cancelled) setError("Network error. Check your connection and refresh.")
       }
     }
     load()
@@ -154,7 +154,7 @@ export default function StudentTakePage({
         bigIdeaBreakdown: json.bigIdeaBreakdown,
       })
     } catch {
-      setSubmitError("Network error — please try again")
+      setSubmitError("Network error. Please try again.")
     } finally {
       setSubmitting(false)
     }
@@ -348,7 +348,7 @@ export default function StudentTakePage({
         <div>
           {!allAnswered && totalQuestions > 0 && (
             <span className="pt-submit-warn">
-              {totalQuestions - answeredCount} unanswered — you can still submit.
+              {totalQuestions - answeredCount} unanswered. You can still submit.
             </span>
           )}
           {submitError && <span className="pt-submit-warn">{submitError}</span>}

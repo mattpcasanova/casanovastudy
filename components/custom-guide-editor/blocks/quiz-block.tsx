@@ -148,7 +148,7 @@ export function QuizBlock({ block, onUpdate }: QuizBlockProps) {
 
                   {q.questionType === "multiple-choice" && q.options && (
                     <div className="space-y-1">
-                      <p className={cn(fieldLabel, "px-2")}>Options — click a letter to mark the correct one</p>
+                      <p className={cn(fieldLabel, "px-2")}>Options (click a letter to mark the correct one)</p>
                       {q.options.map((option, i) => {
                         const correct = !!option && q.correctAnswer === option
                         return (

@@ -224,7 +224,7 @@ export function PasswordField({ label, value, onChange, showStrength = false, la
           </div>
           <p className="mt-1.5 text-xs text-slate-500">
             {value ? <span className={cn('font-medium', s.text)}>{s.label}. </span> : null}
-            Use at least 8 characters — a short phrase works well.
+            Use at least 8 characters. A short phrase works well.
           </p>
         </div>
       )}
@@ -313,7 +313,7 @@ export function friendlyAuthError(err: unknown, fallback: string): string {
   const m = raw.toLowerCase()
   if (!raw || raw === '{}' || raw === '[object Object]') return fallback
   if (m.includes('invalid login credentials')) return "That email and password don't match. Check for typos, or reset your password."
-  if (m.includes('email not confirmed')) return 'Please confirm your email first — check your inbox for the link we sent.'
+  if (m.includes('email not confirmed')) return 'Please confirm your email first. Check your inbox for the link we sent.'
   if (m.includes('rate limit') || m.includes('too many')) return 'Too many attempts. Please wait a minute and try again.'
   if (m.includes('network') || m.includes('failed to fetch')) return "We couldn't reach the server. Check your connection and try again."
   if (m.includes('password should be at least')) return 'Your password needs at least 6 characters.'

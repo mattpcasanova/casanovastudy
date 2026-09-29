@@ -138,7 +138,7 @@ export async function DELETE(
     if (deleteError) {
       if (deleteError.code === '23503') {
         return NextResponse.json(
-          { error: 'This question has been used in a quiz and cannot be deleted — archive it instead' },
+          { error: 'This question has been used in a quiz and can’t be deleted. Archive it instead.' },
           { status: 409 }
         )
       }

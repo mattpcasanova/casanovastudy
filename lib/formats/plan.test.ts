@@ -65,7 +65,7 @@ describe('parsePlan', () => {
   it('builds a focused study request for a unit', () => {
     const u = plan.phases[0].units[0]
     expect(unitStudyRequest(plan.title!, u)).toBe(
-      'SAT Study Plan — Unit 1: Linear Equations and Functions. Goal: Solve and graph linear equations quickly. Cover: slope; systems of equations; word problems.'
+      'SAT Study Plan, Unit 1: Linear Equations and Functions. Goal: Solve and graph linear equations quickly. Cover: slope; systems of equations; word problems.'
     )
   })
 })

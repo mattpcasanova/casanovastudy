@@ -393,7 +393,7 @@ export default function CalendarPage() {
                           type="button"
                           onClick={() => setOpenEvent(ev)}
                           className={`w-full text-left text-[11px] truncate flex items-center gap-1 px-1.5 py-1 rounded ${COLOR_DOT[ev.color]} text-white hover:brightness-110 transition`}
-                          title={`${ev.title} — ${ev.class_name}`}
+                          title={`${ev.title} · ${ev.class_name}`}
                         >
                           <span className="truncate">{ev.title}</span>
                         </button>

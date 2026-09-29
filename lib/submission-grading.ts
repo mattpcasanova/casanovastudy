@@ -93,7 +93,7 @@ export async function gradeSubmission(submissionId: string): Promise<{ gradingRe
 
   if (aErr || !assignment) throw new Error('Assignment not found')
   if (!assignment.mark_scheme_url) {
-    throw new Error('Assignment has no mark scheme — add one before grading')
+    throw new Error('This assignment has no mark scheme. Add one before grading.')
   }
 
   const fileUrls = (submission.file_urls as FileMeta[]) ?? []

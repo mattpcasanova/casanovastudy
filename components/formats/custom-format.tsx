@@ -646,7 +646,7 @@ function QuizBlock({ questions, title }: { questions: QuizQuestion[]; title?: st
             {correctCount} / {scored.length}
           </p>
           <p className="mt-1 text-sm text-slate-500">
-            {scored.length === 0 ? 'No graded answers yet.' : pct >= 80 ? 'Great work — you know this material.' : pct >= 50 ? 'Solid start. Review the misses and try again.' : 'Worth another pass — review, then retry.'}
+            {scored.length === 0 ? 'No graded answers yet.' : pct >= 80 ? 'Great work. You know this material.' : pct >= 50 ? 'Solid start. Review the misses and try again.' : 'Worth another pass. Review, then retry.'}
           </p>
           <div className="mt-6 flex justify-center gap-2">
             <button type="button" onClick={() => restart(false)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -749,7 +749,7 @@ function QuizBlock({ questions, title }: { questions: QuizQuestion[]; title?: st
               {state.result === 'correct' && <p className="font-semibold text-emerald-800">Correct!</p>}
               {state.result === 'incorrect' && (
                 <p className="font-semibold text-rose-800">
-                  Not quite — the answer is <Markdown text={String(q.correctAnswer)} inline />.
+                  Not quite. The answer is <Markdown text={String(q.correctAnswer)} inline />.
                 </p>
               )}
               {!state.result && (

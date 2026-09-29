@@ -43,7 +43,7 @@ export function FlashcardsBlock({ block, onUpdate }: FlashcardsBlockProps) {
       <InlineInput
         value={block.title || ""}
         onChange={(e) => onUpdate({ title: e.target.value })}
-        placeholder="Deck title — e.g. Key Terms, Unit 3"
+        placeholder="Deck title, e.g. Key Terms, Unit 3"
         className="text-base font-semibold text-slate-900"
       />
 

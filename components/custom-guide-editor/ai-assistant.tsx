@@ -201,7 +201,7 @@ export function AIAssistant({
       }
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
-        setError(streamedCount > 0 ? `Stopped — kept ${streamedCount} section${streamedCount === 1 ? "" : "s"}.` : "Generation stopped.")
+        setError(streamedCount > 0 ? `Stopped. Kept ${streamedCount} section${streamedCount === 1 ? "" : "s"}.` : "Generation stopped.")
       } else {
         console.error("AI generation error:", err)
         setError(err instanceof Error ? err.message : "Failed to generate content")
@@ -214,7 +214,7 @@ export function AIAssistant({
   }
 
   const genericPlaceholder = hasSourceFiles
-    ? "Describe what you want — or leave blank to build a full guide from your files."
+    ? "Describe what you want, or leave blank to build a full guide from your files."
     : "e.g. Photosynthesis: an outline, key-term flashcards, and a short quiz."
 
   return (

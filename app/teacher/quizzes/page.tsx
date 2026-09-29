@@ -82,7 +82,7 @@ export default function QuizzesPage() {
             <h1 className="text-2xl font-bold tracking-tight">Quizzes</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Adaptive quizzes built from your question bank. Students loop through concept-tagged
-              questions until they master each one — and you get live progress and per-question insights.
+              questions until they master each one, and you get live progress and per-question insights.
             </p>
           </div>
           <Button onClick={() => setCreateOpen(true)}>
@@ -103,7 +103,7 @@ export default function QuizzesPage() {
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {concepts.length === 0
-                    ? "Create concepts, then add questions — AI-suggested or written by you. Approve the ones you want students to see."
+                    ? "Create concepts, then add questions (AI-suggested or written by you). Approve the ones you want students to see."
                     : (
                       <>
                         <span className={bankReady ? "font-medium text-foreground" : "font-medium text-amber-700"}>

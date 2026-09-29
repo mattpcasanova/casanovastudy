@@ -34,10 +34,10 @@ export const LEVEL_GROUPS = [
   {
     label: 'Experience',
     levels: [
-      { value: 'beginner', label: 'Beginner — new to this' },
-      { value: 'intermediate', label: 'Intermediate — know the basics' },
-      { value: 'advanced', label: 'Advanced — going deep' },
-      { value: 'professional', label: 'Professional — working in the field' },
+      { value: 'beginner', label: 'Beginner (new to this)' },
+      { value: 'intermediate', label: 'Intermediate (know the basics)' },
+      { value: 'advanced', label: 'Advanced (going deep)' },
+      { value: 'professional', label: 'Professional (working in the field)' },
     ],
   },
 ] as const

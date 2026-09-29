@@ -263,7 +263,7 @@ export default function TeacherPracticeTestsPage() {
                 id="pt-title"
                 value={createTitle}
                 onChange={(e) => setCreateTitle(e.target.value)}
-                placeholder="AP Chem — Section I Practice"
+                placeholder="AP Chem: Section I Practice"
                 disabled={creating}
                 maxLength={200}
               />

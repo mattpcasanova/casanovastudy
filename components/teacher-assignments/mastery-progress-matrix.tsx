@@ -79,7 +79,7 @@ export default function MasteryProgressMatrix({ assignmentId }: { assignmentId: 
         toast({ title: json.error ?? "Failed to finalize", variant: "destructive" })
         return
       }
-      toast({ title: "Finalized — graded as-is" })
+      toast({ title: "Finalized and graded as-is" })
       await load()
     } catch {
       toast({ title: "Network error", variant: "destructive" })

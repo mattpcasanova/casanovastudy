@@ -179,7 +179,7 @@ export function PracticeSession({
           <div className={cn('mt-6 animate-fade-up rounded-xl p-4', outcome.correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : outcome.note ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
             <p className={cn('flex items-center gap-2 font-semibold', outcome.correct ? 'text-emerald-800' : outcome.note ? 'text-amber-800' : 'text-rose-800')}>
               {outcome.correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-              {outcome.correct ? (streak >= 3 ? `Correct — ${streak} in a row!` : 'Correct!') : outcome.note ?? 'Not quite — review the answer above.'}
+              {outcome.correct ? (streak >= 3 ? `Correct! ${streak} in a row.` : 'Correct!') : outcome.note ?? 'Not quite. Review the answer above.'}
             </p>
             {current.explanation && (
               <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
@@ -312,7 +312,7 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: (co
       if (next.size === terms.length && !finished.current) {
         finished.current = true
         const m = mistakes.current
-        onDone(m === 0, m ? `All matched, with ${m} miss${m === 1 ? '' : 'es'} — try it clean next time.` : undefined)
+        onDone(m === 0, m ? `All matched, with ${m} miss${m === 1 ? '' : 'es'}. Try it clean next time.` : undefined)
       }
     } else {
       mistakes.current++
@@ -529,7 +529,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
           {pool.length ? (
             <div className="flex flex-wrap gap-2">{pool.map((x) => chip(x, null))}</div>
           ) : (
-            <p className="py-1.5 text-center text-sm text-slate-400">All sorted — check your answer, or tap an item to move it back.</p>
+            <p className="py-1.5 text-center text-sm text-slate-400">All sorted. Check your answer, or tap an item to move it back.</p>
           )}
         </div>
       )}
@@ -645,7 +645,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
   const correct = activities.filter((a) => results[a.id]?.correct).length
   const pct = activities.length ? Math.round((correct / activities.length) * 100) : 0
   const missed = activities.filter((a) => !results[a.id]?.correct)
-  const message = pct >= 90 ? 'Outstanding — you really know this.' : pct >= 70 ? 'Nice work. A little more practice on the misses.' : pct >= 50 ? 'Good start. Run the missed ones again.' : 'Keep at it — practice the missed activities.'
+  const message = pct >= 90 ? 'Outstanding. You really know this.' : pct >= 70 ? 'Nice work. A little more practice on the misses.' : pct >= 50 ? 'Good start. Run the missed ones again.' : 'Keep at it. Practice the missed activities.'
 
   const topics: Array<{ name: string; right: number; total: number }> = []
   for (const a of activities) {

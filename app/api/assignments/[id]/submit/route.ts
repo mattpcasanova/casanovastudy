@@ -48,7 +48,7 @@ export async function POST(
     }
     if (assignment.type === 'mastery_quiz') {
       return NextResponse.json(
-        { error: 'This is a mastery quiz — answer questions in the app instead of uploading files' },
+        { error: 'This is a mastery quiz. Answer the questions in the app instead of uploading files.' },
         { status: 400 }
       )
     }

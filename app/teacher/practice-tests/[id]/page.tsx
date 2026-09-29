@@ -518,7 +518,7 @@ export default function TeacherPracticeTestEditPage() {
           {questionsContentExpanded && (
             <CardContent>
               <p className="text-xs text-muted-foreground mb-2">
-                Paste a JSON object with shape <code>{"{ \"questions\": [...], \"stems\": {...} }"}</code> matching the standalone quiz HTML's data structure. Leave empty to skip — students will only see "Question N" and four answer letters.
+                Paste a JSON object with shape <code>{"{ \"questions\": [...], \"stems\": {...} }"}</code> matching the standalone quiz HTML's data structure. Leave empty to skip. Students will only see "Question N" and four answer letters.
               </p>
               <Textarea
                 value={questionsContentRaw}

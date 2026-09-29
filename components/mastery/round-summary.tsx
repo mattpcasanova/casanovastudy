@@ -35,7 +35,7 @@ export default function RoundSummary({
         <h2 className="text-xl font-semibold mb-1">Round {round} complete</h2>
         <p className="text-sm text-muted-foreground mb-5">
           {remaining === 0
-            ? "All concepts resolved — wrapping up."
+            ? "All concepts resolved. Wrapping up."
             : `${remaining} concept${remaining === 1 ? "" : "s"} still to master. Keep going!`}
         </p>
 

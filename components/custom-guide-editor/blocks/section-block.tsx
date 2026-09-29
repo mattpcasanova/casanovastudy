@@ -62,7 +62,7 @@ export function SectionBlock({ block, onUpdate, actions, selectedBlockId }: Sect
                     className="flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-400 transition-colors hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600"
                   >
                     <Plus className="h-4 w-4" />
-                    Empty section — add a block
+                    Empty section. Add a block
                   </button>
                 }
               />

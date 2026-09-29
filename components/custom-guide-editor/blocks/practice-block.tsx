@@ -98,7 +98,7 @@ export function PracticeBlock({ block, onUpdate }: PracticeBlockProps) {
       <InlineInput
         value={block.title || ""}
         onChange={(e) => onUpdate({ title: e.target.value })}
-        placeholder="Practice title — e.g. Cell organelles review"
+        placeholder="Practice title, e.g. Cell organelles review"
         className="text-base font-semibold text-slate-900"
       />
 
@@ -212,12 +212,12 @@ const ActivityEditor = memo(function ActivityEditor({
         <InlineInput
           value={activity.explanation ?? ""}
           onChange={(e) => set({ ...activity, explanation: e.target.value })}
-          placeholder="Explanation (optional) — shown after the student answers"
+          placeholder="Explanation (optional), shown after the student answers"
           className="text-sm text-slate-600"
         />
         {hint && (
           <p className="flex items-center gap-1.5 px-2 text-xs text-amber-700">
-            <AlertTriangle className="h-3.5 w-3.5" /> {hint} — until then it&apos;s hidden from students.
+            <AlertTriangle className="h-3.5 w-3.5" /> {hint}. Until then it&apos;s hidden from students.
           </p>
         )}
       </div>
@@ -251,7 +251,7 @@ function MatchFields({ a, set, bindFirst }: FieldProps<MatchActivity>) {
   const setPairs = (pairs: MatchActivity["pairs"]) => set({ ...a, pairs })
   return (
     <>
-      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction — e.g. Match each organelle to its job" bindFirst={bindFirst} />
+      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction, e.g. Match each organelle to its job" bindFirst={bindFirst} />
       <div className="space-y-1.5">
         {a.pairs.map((p, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -342,8 +342,8 @@ function OrderFields({ a, set, bindFirst }: FieldProps<OrderActivity>) {
   }
   return (
     <>
-      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction — e.g. Put the stages of mitosis in order" bindFirst={bindFirst} />
-      <p className="px-2 text-xs text-slate-400">Enter the steps in the correct order — students see them shuffled.</p>
+      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction, e.g. Put the stages of mitosis in order" bindFirst={bindFirst} />
+      <p className="px-2 text-xs text-slate-400">Enter the steps in the correct order. Students see them shuffled.</p>
       <div className="space-y-1.5">
         {a.items.map((item, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -366,7 +366,7 @@ function SortFields({ a, set, bindFirst }: FieldProps<SortActivity>) {
     setBuckets(a.buckets.map((b, j) => (j === i ? { ...b, ...patch } : b)))
   return (
     <>
-      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction — e.g. Sort each example into the right category" bindFirst={bindFirst} />
+      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction, e.g. Sort each example into the right category" bindFirst={bindFirst} />
       <div className={cn("grid gap-2", a.buckets.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
         {a.buckets.map((b, i) => (
           <div key={i} className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/60 p-2">
@@ -402,7 +402,7 @@ function ChoiceFields({ a, set, bindFirst }: FieldProps<ChoiceActivity>) {
           ref={bindFirst}
           value={a.prompt}
           onChange={(e) => set({ ...a, prompt: e.target.value })}
-          placeholder="Statement — e.g. Bacteria have a nucleus."
+          placeholder="Statement, e.g. Bacteria have a nucleus."
           className="font-medium text-slate-900"
         />
         <div className="flex items-center gap-2 px-2">
@@ -544,7 +544,7 @@ function BugFields({ a, set, bindFirst }: FieldProps<BugActivity>) {
   }
   return (
     <>
-      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction — e.g. This should return the largest number. Find the bug." bindFirst={bindFirst} />
+      <PromptInput value={a.prompt} onChange={(prompt) => set({ ...a, prompt })} placeholder="Instruction, e.g. This should return the largest number. Find the bug." bindFirst={bindFirst} />
       <div className="flex items-center gap-2 px-2">
         <span className={fieldLabel}>Language</span>
         <LanguageSelect value={a.code.lang} onChange={(lang) => set({ ...a, code: { ...a.code, lang } })} />
@@ -553,7 +553,7 @@ function BugFields({ a, set, bindFirst }: FieldProps<BugActivity>) {
       {a.code.text.trim() && lineCount >= 2 && (
         <div>
           <p className="px-2 text-xs text-slate-500">
-            Click the buggy line{a.bugLines.length ? "s" : ""} below{a.bugLines.length ? ` — marked: ${a.bugLines.join(", ")}` : ""}.
+            Click the buggy line{a.bugLines.length ? "s" : ""} below{a.bugLines.length ? ` (marked: ${a.bugLines.join(", ")})` : ""}.
           </p>
           <CodeLines
             lang={a.code.lang}
@@ -567,7 +567,7 @@ function BugFields({ a, set, bindFirst }: FieldProps<BugActivity>) {
         className={cn(rowField, "font-mono")}
         value={a.fix ?? ""}
         onChange={(e) => set({ ...a, fix: e.target.value })}
-        placeholder="Fixed line (optional) — e.g. best = nums[0]"
+        placeholder="Fixed line (optional), e.g. best = nums[0]"
       />
     </>
   )

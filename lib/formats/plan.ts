@@ -144,7 +144,7 @@ export function parsePlan(content: string): ParsedPlan {
 
 /** The topic text used to generate one unit's guide. */
 export function unitStudyRequest(planTitle: string, unit: PlanUnit): string {
-  const parts = [`${planTitle} — Unit ${unit.number}: ${unit.title}.`]
+  const parts = [`${planTitle}, Unit ${unit.number}: ${unit.title}.`]
   if (unit.goal) parts.push(`Goal: ${unit.goal}`)
   if (unit.covers.length) parts.push(`Cover: ${unit.covers.join('; ')}.`)
   return parts.join(' ')

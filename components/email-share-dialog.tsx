@@ -91,7 +91,7 @@ export default function EmailShareDialog({
             Share via Email
           </DialogTitle>
           <DialogDescription>
-            Send this study guide to someone via email. They&apos;ll get a link to open it — no account needed to view.
+            Send this study guide to someone via email. They&apos;ll get a link to open it. No account needed to view.
           </DialogDescription>
         </DialogHeader>
 

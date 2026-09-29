@@ -152,7 +152,7 @@ const FORMATS: Array<{
     value: "practice",
     icon: Puzzle,
     label: "Practice",
-    desc: "Match, fill in blanks, sort and order — hands-on review",
+    desc: "Match, fill in blanks, sort and order for hands-on review",
     selected: "border-orange-500 ring-4 ring-orange-500/15 bg-orange-50/50",
     iconIdle: "bg-orange-100 text-orange-700",
     iconOn: "bg-orange-500 text-white",
@@ -173,7 +173,7 @@ const FORMATS: Array<{
     value: "plan",
     icon: MapIcon,
     label: "Study plan",
-    desc: "Break a big goal into units — SAT, interviews, certifications",
+    desc: "Break a big goal like the SAT or an interview into units",
     selected: "border-teal-500 ring-4 ring-teal-500/15 bg-teal-50/50",
     iconIdle: "bg-teal-100 text-teal-700",
     iconOn: "bg-teal-600 text-white",
@@ -440,8 +440,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (file.size > maxSize) {
       const mb = (file.size / 1024 / 1024).toFixed(1)
       return canProcessClientSide
-        ? `${file.name} is ${mb}MB — the limit is 50MB.`
-        : `${file.name} is ${mb}MB — PDFs are limited to 10MB. Try compressing or splitting it.`
+        ? `${file.name} is ${mb}MB. The limit is 50MB.`
+        : `${file.name} is ${mb}MB. PDFs are limited to 10MB, so try compressing or splitting it.`
     }
     return null
   }
@@ -578,7 +578,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             <span className="block text-yellow-300">to study today?</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-50 sm:text-xl">
-            Type a topic, paste your notes, or upload your materials — and get a study guide built for your class, exam, interview, or just for learning.
+            Type a topic, paste your notes, or upload your materials to get a study guide built for your class, exam, interview, or just for learning.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
             {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice", "Study plans", "Cheat sheets", "Timelines"].map((l) => (
@@ -640,7 +640,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </span>
                 ) : autoFilled ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                    <Sparkles className="h-3.5 w-3.5" /> Suggested from your files — edit freely
+                    <Sparkles className="h-3.5 w-3.5" /> Suggested from your files. Edit freely
                   </span>
                 ) : null}
               </div>
@@ -654,7 +654,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 }}
                 disabled={isGenerating}
                 rows={6}
-                placeholder={"e.g. The French Revolution for my unit test on Friday — or SAT reading, a coding interview, AWS certification…"}
+                placeholder={"e.g. The French Revolution for my unit test on Friday, SAT reading, a coding interview, AWS certification…"}
                 className="min-h-[10rem] flex-1 resize-none border-0 bg-transparent px-4 pb-4 pt-2 text-base leading-relaxed shadow-none placeholder:text-slate-400 focus-visible:ring-0 sm:text-[1.05rem]"
               />
             </div>
@@ -735,7 +735,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   <span className="block font-semibold text-slate-800">Only use what&apos;s in my files</span>
                   <span className="text-slate-500">
                     {strictSources
-                      ? "Sticks to your materials — best when your teacher tests exactly what's in them."
+                      ? "Sticks to your materials. Best when your teacher tests exactly what's in them."
                       : "Uses your files as the backbone and fills gaps with outside knowledge."}
                   </span>
                 </span>
@@ -879,7 +879,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 </Label>
                 <Input
                   id="studyGuideName"
-                  placeholder={hasSource ? deriveTitle(studyRequest, files) : "e.g. Biology Chapter 5 — Cell Structure"}
+                  placeholder={hasSource ? deriveTitle(studyRequest, files) : "e.g. Biology Chapter 5: Cell Structure"}
                   value={studyGuideName}
                   onChange={(e) => setStudyGuideName(e.target.value)}
                   disabled={isGenerating}

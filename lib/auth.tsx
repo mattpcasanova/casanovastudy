@@ -292,7 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         msg.includes('too many requests')
       ) {
         throw new Error(
-          "We're sending a lot of confirmation emails right now. Please wait a few minutes and try again — your account hasn't been created yet."
+          "We're sending a lot of confirmation emails right now. Please wait a few minutes and try again. Your account hasn't been created yet."
         )
       }
       if (msg.includes('already registered') || msg.includes('already in use')) {

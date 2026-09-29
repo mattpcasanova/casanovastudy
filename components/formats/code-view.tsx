@@ -142,7 +142,7 @@ export function CodeLines({
         <span className="font-mono text-[0.7rem] uppercase tracking-wider text-slate-400">{resolved ? languageLabel(resolved) : 'Code'}</span>
         <CopyButton text={text} />
       </div>
-      <div className="overflow-x-auto py-2" role={onPick ? 'listbox' : undefined} aria-label={onPick ? 'Code lines — pick the line with the bug' : undefined}>
+      <div className="overflow-x-auto py-2" role={onPick ? 'listbox' : undefined} aria-label={onPick ? 'Code lines: pick the line with the bug' : undefined}>
         {lines.map((lineHtml, idx) => {
           const n = idx + 1
           const st = lineState?.(n) ?? null

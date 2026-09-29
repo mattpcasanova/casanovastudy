@@ -100,7 +100,7 @@ export default function MasteryConfigFields({
           <p className="text-sm text-muted-foreground">Loading concepts…</p>
         ) : concepts.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No concepts yet — create them in your{" "}
+            No concepts yet. Create them in your{" "}
             <Link href="/teacher/question-bank" className="text-primary hover:underline">
               Question Bank
             </Link>{" "}
@@ -142,8 +142,8 @@ export default function MasteryConfigFields({
         )}
         {value.concept_ids.length > 0 && (
           <p className="text-xs text-muted-foreground">
-            {value.concept_ids.length} concept{value.concept_ids.length === 1 ? "" : "s"} selected —
-            students master each one to finish
+            {value.concept_ids.length} concept{value.concept_ids.length === 1 ? "" : "s"} selected.
+            Students master each one to finish.
           </p>
         )}
       </div>
@@ -158,15 +158,15 @@ export default function MasteryConfigFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="0.7">70% — lighter touch</SelectItem>
-            <SelectItem value="0.8">80% — recommended</SelectItem>
-            <SelectItem value="0.9">90% — strict</SelectItem>
-            <SelectItem value="1">100% — perfect streak</SelectItem>
+            <SelectItem value="0.7">70% (lighter touch)</SelectItem>
+            <SelectItem value="0.8">80% (recommended)</SelectItem>
+            <SelectItem value="0.9">90% (strict)</SelectItem>
+            <SelectItem value="1">100% (perfect streak)</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
           A concept is mastered when the student&apos;s recent answers hit this accuracy.
-          Early mistakes age out — students can always recover.
+          Early mistakes age out, so students can always recover.
         </p>
       </div>
 

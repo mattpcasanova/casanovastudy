@@ -81,7 +81,7 @@ export default function MasteryPlayer({ assignmentId, classId, title, descriptio
         }
         enterPlayableState(json)
       } catch {
-        setPhase({ name: "error", message: "Network error — check your connection and refresh" })
+        setPhase({ name: "error", message: "Network error. Check your connection and refresh." })
       }
     }
     load()
@@ -127,7 +127,7 @@ export default function MasteryPlayer({ assignmentId, classId, title, descriptio
       setRollups(prev => prev.map(r => (r.concept_id === result.concept.concept_id ? result.concept : r)))
       setPhase({ ...phase, name: "feedback", result })
     } catch {
-      toast({ title: "Network error — your answer wasn't submitted", variant: "destructive" })
+      toast({ title: "Network error. Your answer wasn't submitted.", variant: "destructive" })
     } finally {
       setSubmitting(false)
     }
@@ -220,7 +220,7 @@ export default function MasteryPlayer({ assignmentId, classId, title, descriptio
             <CardContent className="p-6">
               {description && <p className="mb-4 whitespace-pre-wrap">{description}</p>}
               <p className="text-sm text-muted-foreground mb-4">
-                Answer questions on each concept until you master it — you need{" "}
+                Answer questions on each concept until you master it. You need{" "}
                 {Math.round(state.config.mastery_threshold * 100)}% correct on your recent answers.
                 Wrong answers don&apos;t count against you once you get back on track. You can leave
                 and pick up where you left off anytime.

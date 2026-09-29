@@ -56,7 +56,7 @@ export async function finalizeAttempt(
     explanation:
       r.status === 'mastered'
         ? `Mastered after ${r.answered_count} question${r.answered_count === 1 ? '' : 's'} (${r.correct_count} correct).`
-        : `Not yet mastered — answered ${r.answered_count} question${r.answered_count === 1 ? '' : 's'} (${r.correct_count} correct).`,
+        : `Not yet mastered. Answered ${r.answered_count} question${r.answered_count === 1 ? '' : 's'} (${r.correct_count} correct).`,
   }))
 
   const contentLines = [
@@ -67,7 +67,7 @@ export async function finalizeAttempt(
     ...rollups.map(r => {
       const name = conceptNames.get(r.concept_id) ?? 'Concept'
       const status = r.status === 'mastered' ? '✅ Mastered' : '⚠️ Needs more practice'
-      return `- **${name}**: ${status} — ${r.correct_count}/${r.answered_count} correct`
+      return `- **${name}**: ${status}, ${r.correct_count}/${r.answered_count} correct`
     }),
   ]
 

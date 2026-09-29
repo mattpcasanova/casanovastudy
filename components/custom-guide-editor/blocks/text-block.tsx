@@ -26,7 +26,7 @@ export function TextBlock({ block, onUpdate }: TextBlockProps) {
     <div>
       <AutoTextarea
         minRows={3}
-        placeholder="Start writing… Markdown works — **bold**, lists, ## headings, tables."
+        placeholder="Start writing… Markdown works: **bold**, lists, ## headings, tables."
         value={data.markdown}
         onChange={(e) => onUpdate({ data: { ...data, markdown: e.target.value } })}
         onFocus={() => setFocused(true)}

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           console.error(`Text extraction failed for ${f.name}:`, err)
           return NextResponse.json(
-            { error: `Couldn't read ${f.name ?? 'file'} — try exporting it as PDF` },
+            { error: `Couldn't read ${f.name ?? 'file'}. Try exporting it as a PDF.` },
             { status: 422 }
           )
         }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error('Extraction failed:', err)
       return NextResponse.json(
-        { error: 'Could not extract questions from this material — try a clearer PDF' },
+        { error: 'Could not extract questions from this material. Try a clearer PDF.' },
         { status: 502 }
       )
     }

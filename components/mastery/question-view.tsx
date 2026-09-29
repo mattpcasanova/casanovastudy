@@ -92,7 +92,7 @@ export default function QuestionView({
           <Textarea
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder="Type your answer — show your reasoning"
+            placeholder="Type your answer and show your reasoning"
             rows={4}
             maxLength={2000}
           />
