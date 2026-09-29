@@ -24,7 +24,7 @@ export function shareGuideEmail(e: ShareGuideEmail): { subject: string; html: st
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
         <tr><td style="border-left:4px solid ${BRAND.blue};background-color:${BRAND.page};border-radius:0 10px 10px 0;padding:14px 18px;font-family:${SANS};font-size:15px;line-height:23px;color:${BRAND.body};font-style:italic;">
           &ldquo;${escapeHtml(e.message.trim()).replace(/\n/g, '<br>')}&rdquo;
-          <div style="margin-top:6px;font-style:normal;font-size:13px;color:${BRAND.muted};">— ${who}</div>
+          <div style="margin-top:6px;font-style:normal;font-size:13px;color:${BRAND.muted};">From ${who}</div>
         </td></tr>
       </table>`
     : ''
@@ -38,7 +38,7 @@ export function shareGuideEmail(e: ShareGuideEmail): { subject: string; html: st
 
   const body = [
     heading(`${who} shared a study guide with you`),
-    paragraph('Open it to study with flashcards, quizzes and practice — no download needed.', { muted: true }),
+    paragraph('Open it to study with flashcards, quizzes and practice. No download needed.', { muted: true }),
     guideCard,
     message,
     button(e.url, 'Open the study guide'),
@@ -59,7 +59,7 @@ export function shareGuideEmail(e: ShareGuideEmail): { subject: string; html: st
       e.message?.trim() ? `\n"${e.message.trim()}"\n` : '',
       `Open it here: ${e.url}`,
       '',
-      '— Casanova Study',
+      'Casanova Study',
     ].join('\n'),
   }
 }
@@ -85,7 +85,7 @@ export function authEmails(siteUrl: string): Record<string, { subject: string; h
         'Welcome to Casanova Study!',
         'You’re one step away from turning your notes, slides and topics into study guides, flashcards and quizzes. Confirm your email to activate your account.',
         'Confirm my email',
-        'Didn’t sign up? You can ignore this email — no account will be activated.'
+        'Didn’t sign up? You can safely ignore this email. No account will be activated.'
       ),
     },
     'reset-password': {
@@ -95,7 +95,7 @@ export function authEmails(siteUrl: string): Record<string, { subject: string; h
         'Reset your password',
         'We got a request to reset the password for your Casanova Study account. Click below to choose a new one. The link works once and expires soon.',
         'Choose a new password',
-        'Didn’t ask for this? You can ignore this email — your password won’t change.'
+        'Didn’t ask for this? You can safely ignore this email. Your password won’t change.'
       ),
     },
     'magic-link': {
