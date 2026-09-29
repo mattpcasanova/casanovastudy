@@ -6,8 +6,8 @@
 // matches the question exactly. A spec that can't be parsed shows a quiet
 // placeholder instead of breaking the page.
 
-import { memo, useId, useMemo, type ReactNode } from 'react'
-import { LineChart } from 'lucide-react'
+import { memo, useId, useMemo, useRef, type ReactNode } from 'react'
+import { LineChart, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { evaluate, type Expr } from '@/lib/graphs/expr'
 import { boxExit, layoutDiagram } from '@/lib/graphs/diagram'
@@ -17,6 +17,7 @@ import {
   type HistogramSpec, type NumberlineSpec, type PlaneSpec, type Pt, type ScatterSpec,
 } from '@/lib/graphs/spec'
 import { useDesmos } from '@/components/desmos/desmos-context'
+import { useExplain } from '@/components/explain/explain-context'
 import { LewisFigure, MoleculeFigure, ReactionFigure, VseprFigure } from './chem-figures'
 import { PedigreeFigure, PunnettFigure } from './bio-figures'
 import { FreeBodyFigure } from './physics-figures'
@@ -793,16 +794,68 @@ function Drawing({ spec }: { spec: GraphSpec }) {
   }
 }
 
-export function GraphFigure({ spec, className, compact = false }: { spec: GraphSpec; className?: string; compact?: boolean }) {
+const FIGURE_NAMES: Record<GraphSpec['kind'], string> = {
+  plane: 'graph', geometry: 'geometry figure', scatter: 'scatterplot', bar: 'bar chart', histogram: 'histogram',
+  dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', diagram: 'diagram', 'free-body': 'free-body diagram',
+  reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model',
+  punnett: 'Punnett square', pedigree: 'pedigree',
+}
+
+function figureName(spec: GraphSpec): string {
+  if (spec.kind === 'plane' && spec.yLabel?.startsWith('Potential energy')) return 'energy curve'
+  return FIGURE_NAMES[spec.kind]
+}
+
+/** Text of the few blocks just before and after a figure: what the guide says about it. */
+function textAround(el: HTMLElement | null): string {
+  if (!el) return ''
+  const parts: string[] = []
+  let prev = el.previousElementSibling
+  for (let i = 0; prev && i < 3; i++, prev = prev.previousElementSibling) parts.unshift(prev.textContent ?? '')
+  const next = el.nextElementSibling
+  if (next) parts.push(next.textContent ?? '')
+  return parts.join('\n').replace(/[ \t]+/g, ' ').trim().slice(-1800)
+}
+
+export function GraphFigure({ spec, source, className, compact = false, allowExplain = true }: {
+  spec: GraphSpec; source?: string; className?: string; compact?: boolean
+  /** Off while a quiz/practice question is unanswered, so the figure can't be used to get the answer. */
+  allowExplain?: boolean
+}) {
   const desmos = useDesmos()
+  const explain = useExplain()
+  const figRef = useRef<HTMLElement>(null)
+  const askAboutFigure = () => {
+    const name = figureName(spec)
+    const around = textAround(figRef.current)
+    explain?.ask({
+      label: `Explain this ${name}${spec.title ? `: ${cleanLabel(spec.title)}` : ''}`,
+      prompt: [
+        `Explain this ${name} from my study guide: what it shows, how to read it, and what I should take away from it.`,
+        `What it shows: ${describeGraph(spec)}`,
+        source ? `How the app draws it (for your reference only):\n${source}` : '',
+        around ? `What the guide says around it:\n"""\n${around}\n"""` : '',
+      ].filter(Boolean).join('\n\n'),
+    })
+  }
   const canExplore = !!desmos && (spec.kind === 'plane' ? spec.plots.length > 0 || spec.points.length > 0 : spec.kind === 'scatter')
   const notes = [
     ...spec.notes,
     ...(spec.kind === 'geometry' && spec.notToScale ? ['Note: Figure not drawn to scale.'] : []),
   ]
   return (
-    <figure className={cn(frame, compact && 'my-4 p-3 sm:p-4', 'bg-white', className)}>
-      {spec.title && <div className="mb-2 text-center text-sm font-semibold text-slate-800">{cleanLabel(spec.title)}</div>}
+    <figure ref={figRef} className={cn(frame, compact && 'my-4 p-3 sm:p-4', 'relative bg-white', className)}>
+      {explain && allowExplain && (
+        <button
+          type="button"
+          onClick={askAboutFigure}
+          className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-sm ring-1 ring-violet-200 backdrop-blur transition hover:bg-violet-50 hover:ring-violet-400 print:hidden"
+          aria-label={`Explain this ${figureName(spec)}`}
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Explain
+        </button>
+      )}
+      {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}
       {/* Inside a question the figure supports the text, so keep it smaller. */}
       <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
         <Drawing spec={spec} />
@@ -827,7 +880,7 @@ export function GraphFigure({ spec, className, compact = false }: { spec: GraphS
 }
 
 /** Parses and draws a ```graph fence body. */
-export const GraphFence = memo(function GraphFence({ text, compact }: { text: string; compact?: boolean }) {
+export const GraphFence = memo(function GraphFence({ text, compact, allowExplain }: { text: string; compact?: boolean; allowExplain?: boolean }) {
   const result = useMemo(() => parseGraphSpec(text), [text])
   if (!result.ok) {
     return (
@@ -836,5 +889,5 @@ export const GraphFence = memo(function GraphFence({ text, compact }: { text: st
       </div>
     )
   }
-  return <GraphFigure spec={result.spec} compact={compact} />
+  return <GraphFigure spec={result.spec} source={text} compact={compact} allowExplain={allowExplain} />
 })

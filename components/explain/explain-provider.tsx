@@ -10,7 +10,7 @@
 // sheet (phone), with quick follow-ups. The thread lives in memory only.
 // The dock also hosts the Desmos calculator button when that is enabled.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowUp, Calculator, Loader2, RotateCcw, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -20,12 +20,9 @@ import { signInPath } from '@/lib/sign-in-path'
 import { StudyMarkdown } from '@/components/formats/study-markdown'
 import { useDesmos } from '@/components/desmos/desmos-context'
 
-/** What to ask: `label` is shown in the thread, `prompt` is sent to the AI. */
-export interface ExplainRequest { label: string; prompt: string }
+import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from './explain-context'
 
-interface ExplainApi { ask: (req: ExplainRequest) => void }
-const ExplainContext = createContext<ExplainApi | null>(null)
-export const useExplain = () => useContext(ExplainContext)
+export { useExplain, type ExplainRequest }
 
 interface Turn { role: 'user' | 'assistant'; content: string; label?: string }
 
@@ -34,6 +31,8 @@ const FOLLOW_UPS: ExplainRequest[] = [
   { label: 'Give an example', prompt: 'Give me one concrete example.' },
   { label: 'Show the steps', prompt: 'Show the steps.' },
 ]
+
+const TIP_KEY = 'cs:hint:explain'
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
 
@@ -71,6 +70,15 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<{ text: string; context: string; rect: DOMRect } | null>(null)
   const finePointer = useFinePointer()
+  // One-time tip so students learn they can highlight text (remembered per browser).
+  const [showTip, setShowTip] = useState(false)
+  useEffect(() => {
+    try { if (!localStorage.getItem(TIP_KEY)) setShowTip(true) } catch { /* storage unavailable */ }
+  }, [])
+  const dismissTip = useCallback(() => {
+    setShowTip(false)
+    try { localStorage.setItem(TIP_KEY, '1') } catch { /* storage unavailable */ }
+  }, [])
   const turnsRef = useRef<Turn[]>([])
   turnsRef.current = turns
 
@@ -96,6 +104,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
 
   const send = useCallback(async (req: ExplainRequest) => {
     setOpen(true)
+    dismissTip()
     setError(null)
     if (!user || busy) return
     const history: Turn[] = [...turnsRef.current, { role: 'user', content: req.prompt, label: req.label }]
@@ -126,7 +135,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
     } finally {
       setBusy(false)
     }
-  }, [user, busy, guideId])
+  }, [user, busy, guideId, dismissTip])
 
   const explainSelection = useCallback(() => {
     if (!selection) return
@@ -178,15 +187,29 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
               <Calculator className="h-4 w-4 text-blue-600" /> Calculator
             </button>
           )}
+          {showTip && !touchSelection && (
+            <div role="note" className="relative mb-1 w-64 animate-fade-up rounded-xl bg-slate-900 p-3.5 text-sm text-white shadow-xl">
+              <p className="font-semibold">Stuck on something?</p>
+              <p className="mt-1 text-white/80">
+                {finePointer
+                  ? 'Highlight any text in this guide, then click Explain. You can also ask about any graph or model with its Explain button, or click Ask AI to type a question.'
+                  : 'Press and hold any text to select it, then tap Explain selection. Graphs and models have their own Explain button, and Ask AI lets you type a question.'}
+              </p>
+              <button type="button" onClick={dismissTip} className="mt-2.5 rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold hover:bg-white/25">Got it</button>
+              <span className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-slate-900" />
+            </div>
+          )}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={touchSelection ? explainSelection : () => setOpen((o) => !o)}
+            onClick={touchSelection ? explainSelection : () => { dismissTip(); setOpen((o) => !o) }}
+            title={finePointer ? 'Ask a question, or highlight any text to have it explained' : undefined}
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg transition',
               touchSelection
                 ? 'bg-slate-900 text-white ring-4 ring-blue-500/30'
                 : 'border border-slate-200 bg-white text-slate-800 hover:border-violet-300 hover:text-violet-700',
+              showTip && !touchSelection && 'ring-4 ring-violet-400/40 motion-safe:animate-pulse',
             )}
           >
             <Sparkles className={cn('h-4 w-4', touchSelection ? 'text-cyan-300' : 'text-violet-600')} />
@@ -258,6 +281,7 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
         ) : turns.length === 0 ? (
           <div className="space-y-3 text-sm text-slate-600">
             <p><span className="font-semibold text-slate-900">Highlight any text</span> in your guide, then tap <span className="font-semibold text-slate-900">Explain</span>.</p>
+            <p>Every graph and model has its own <span className="font-semibold text-slate-900">Explain</span> button in its corner.</p>
             <p>Or ask a question about this guide below.</p>
           </div>
         ) : (

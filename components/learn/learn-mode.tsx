@@ -276,7 +276,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
               <p className={cn(fontDisplay, 'text-center text-xl font-medium leading-snug text-slate-900 sm:text-2xl')}>
                 <QuestionStem text={current.front} listClassName="text-left" />
               </p>
-              {current.figure && <div className="mx-auto mt-4 max-w-lg"><GraphFence text={current.figure} compact /></div>}
+              {current.figure && <div className="mx-auto mt-4 max-w-lg"><GraphFence text={current.figure} compact allowExplain={revealed} /></div>}
               {!revealed ? (
                 <div className="mt-8 flex justify-center">
                   <Button size="lg" variant="outline" onClick={() => setRevealed(true)}>

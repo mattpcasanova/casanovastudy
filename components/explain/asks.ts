@@ -4,7 +4,7 @@
 
 import type { Question } from '@/lib/formats/quiz'
 import type { PracticeActivity } from '@/lib/formats/practice'
-import type { ExplainRequest } from './explain-provider'
+import type { ExplainRequest } from './explain-context'
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
 const letter = (i: number) => String.fromCharCode(65 + i)

@@ -179,7 +179,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
         <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
           <QuestionStem text={current.question} />
         </p>
-        {current.figure && <GraphFence text={current.figure} compact />}
+        {current.figure && <GraphFence text={current.figure} compact allowExplain={revealed} />}
 
         {current.type === 'mc' && (
           <div className="space-y-2.5" role="radiogroup">

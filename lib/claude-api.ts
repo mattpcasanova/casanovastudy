@@ -358,6 +358,7 @@ const EXPLAIN_RULES = `Rules:
 - Use short paragraphs, and bullets only for lists. Bold a key term sparingly.
 - Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else ($$\\frac{a}{b}$$, $$e^{2x}$$, $$\\sqrt{x}$$). Never calculator notation like x^2 or a/b.
 - "Show the steps": number the steps and show each calculation. "Simpler": plainer words and an everyday comparison. "Example": one concrete worked example.
+- For a figure (graph, chart, diagram or model): say what it shows, how to read it (axes, labels, symbols, colors), and the one or two things to take away. Describe what the student sees; never mention the spec or code behind it.
 - For a quiz question: explain why the correct answer is right; if the student picked a different option, say what made it tempting and why it's wrong.
 - Never use em dashes. If they ask about something unrelated to studying, briefly steer back to the guide.`
 
@@ -2182,6 +2183,8 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') yield chunk.delta.text
     }
+    const { usage } = await stream.finalMessage()
+    console.log('Explain usage:', { input: usage.input_tokens, output: usage.output_tokens, cost: `$${guideCost(usage.input_tokens, usage.output_tokens).toFixed(4)}` })
   }
 
   async gradeShortAnswer(params: {
