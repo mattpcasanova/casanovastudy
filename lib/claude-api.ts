@@ -315,6 +315,52 @@ function describeLevel(gradeLevel?: string, difficulty?: string): string {
   return difficulty ? `${base}; requested difficulty: ${difficulty}` : base
 }
 
+// Study-guide generation (standard, streaming and custom guides) runs on one
+// model. Claude Opus 5.5: thinking is always on and effort sets how much it
+// thinks; its default effort is `medium` (a level below Opus 4.8's), so it is
+// set explicitly. max_tokens covers the thinking as well as the guide. On a
+// safety-classifier decline (rare for school material), `fallbacks: 'default'`
+// reruns the request on another model instead of failing. SDK 0.61 types
+// predate these fields, so the params are cast; they are sent verbatim.
+const GUIDE_MODEL = 'claude-opus-5-5'
+const GUIDE_PRICE = { input: 4, output: 20 } // $ per million tokens
+
+// Effort by format, measured 2026-09-29 (scripts/eval-figures.ts): at `low`,
+// item formats kept the same length and every math answer checked was right,
+// for about half the cost and time; teaching formats (outline, summary) came
+// out ~25% shorter, so they keep `medium`.
+const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline'])
+
+function guideRequest(content: Anthropic.MessageParam['content'], format?: string): any {
+  const effort = process.env.GUIDE_EFFORT || (format && LOW_EFFORT_FORMATS.has(format) ? 'low' : 'medium')
+  return {
+    model: GUIDE_MODEL,
+    max_tokens: 32000,
+    thinking: { type: 'adaptive' },
+    // GUIDE_EFFORT overrides only for eval runs (scripts/eval-figures.ts).
+    output_config: { effort },
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    messages: [{ role: 'user', content }],
+  }
+}
+
+export function guideCost(inputTokens: number, outputTokens: number): number {
+  return (inputTokens * GUIDE_PRICE.input + outputTokens * GUIDE_PRICE.output) / 1_000_000
+}
+
+export interface ExplainTurn { role: 'user' | 'assistant'; content: string }
+
+// The "Explain" side panel: a short tutor reply about something in a guide.
+const EXPLAIN_RULES = `Rules:
+- Explain exactly what they asked about, grounded in the guide excerpt. If the guide seems wrong, say so gently and give the correct idea.
+- Be brief: about 60-180 words unless they ask for more. Start with the explanation itself, no preamble ("Great question").
+- Use short paragraphs, and bullets only for lists. Bold a key term sparingly.
+- Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else ($$\\frac{a}{b}$$, $$e^{2x}$$, $$\\sqrt{x}$$). Never calculator notation like x^2 or a/b.
+- "Show the steps": number the steps and show each calculation. "Simpler": plainer words and an everyday comparison. "Example": one concrete worked example.
+- For a quiz question: explain why the correct answer is right; if the student picked a different option, say what made it tempting and why it's wrong.
+- Never use em dashes. If they ask about something unrelated to studying, briefly steer back to the guide.`
+
 export class ClaudeService {
   private anthropic: Anthropic
 
@@ -338,25 +384,13 @@ export class ClaudeService {
       console.log('📊 Token Usage Analysis:', {
         promptLength: prompt.length,
         estimatedInputTokens,
-        maxOutputTokens: 12000,
-        totalEstimatedTokens: estimatedInputTokens + 12000,
+        maxOutputTokens: 32000,
         contentPreview: prompt.substring(0, 200) + '...'
       })
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-opus-4-8',
-        max_tokens: 12000,
-        // SDK 0.61 types predate adaptive thinking (only 'enabled'|'disabled'),
-        // but the value is forwarded to the API verbatim at runtime. Cast to
-        // keep the stale type from blocking; Opus 4.8 accepts adaptive.
-        thinking: { type: 'adaptive' } as any,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
+      // Streamed + finalMessage(): the SDK refuses non-streaming requests with a
+      // max_tokens this large.
+      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format))).finalMessage()
 
       // Adaptive thinking emits a thinking block first, so content[0] is NOT the
       // text; find the text block explicitly (see CLAUDE.md model-migration gotcha).
@@ -376,7 +410,7 @@ export class ClaudeService {
         inputTokens: actualUsage.input_tokens,
         outputTokens: actualUsage.output_tokens,
         totalTokens: actualUsage.total_tokens,
-        costEstimate: `~$${(actualUsage.total_tokens * 0.000015).toFixed(4)}` // Rough cost estimate
+        costEstimate: `~$${guideCost(actualUsage.input_tokens, actualUsage.output_tokens).toFixed(4)}`
       })
 
       return {
@@ -395,18 +429,7 @@ export class ClaudeService {
 
       console.log('📊 Starting streaming generation...')
 
-      const stream = await this.anthropic.messages.stream({
-        model: 'claude-opus-4-8',
-        max_tokens: 12000,
-        // See note above: SDK 0.61 types lack 'adaptive'; forwarded at runtime.
-        thinking: { type: 'adaptive' } as any,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
+      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format)))
 
       let fullContent = ''
 
@@ -2103,24 +2126,11 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
       messageContent = prompt
     }
 
-    // Opus 4.8 with adaptive thinking for richer, better-structured multi-format
-    // guides (matches generateStudyGuide). Opus rejects non-default temperature —
+    // Same model/config as generateStudyGuide (see guideRequest). Opus rejects non-default temperature —
     // do NOT add one here. The loop below only accumulates `text_delta`, so the
     // leading thinking block is skipped automatically; never buffer thinking deltas
     // into the JSON. (Same trap as reading response.content[0] in the non-stream path.)
-    const stream = await this.anthropic.messages.stream({
-      model: 'claude-opus-4-8',
-      max_tokens: 12000,
-      // SDK 0.61 types predate adaptive thinking ('enabled'|'disabled' only);
-      // cast to keep the stale type from blocking. Opus 4.8 accepts adaptive.
-      thinking: { type: 'adaptive' } as any,
-      messages: [
-        {
-          role: 'user',
-          content: messageContent
-        }
-      ]
-    })
+    const stream = this.anthropic.beta.messages.stream(guideRequest(messageContent))
 
     let fullContent = ''
 
@@ -2153,6 +2163,27 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
    * study-guide quiz self-check (/api/score-short-answer).
    * Returns strict JSON parsed from the model; caller validates the shape.
    */
+  /** Streams a short tutor explanation for the Explain panel (text deltas only). */
+  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
+    const level = params.gradeLevel && params.gradeLevel !== 'general' ? params.gradeLevel : 'high school or early college'
+    const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
+    const system = `You are a patient tutor inside a study app. A student at the ${level} level is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${EXPLAIN_RULES}`
+    const stream = this.anthropic.beta.messages.stream({
+      model: GUIDE_MODEL,
+      max_tokens: 4000,
+      thinking: { type: 'adaptive' },
+      // Quick answers: low effort keeps the panel fast and each reply ~half a cent.
+      output_config: { effort: 'low' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      system,
+      messages: params.turns,
+    } as any)
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') yield chunk.delta.text
+    }
+  }
+
   async gradeShortAnswer(params: {
     question: string
     sampleAnswer: string

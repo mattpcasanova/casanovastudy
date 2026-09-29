@@ -13,6 +13,8 @@ import { ActivityBody, activityMeta } from '@/components/formats/practice-format
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
 import { QuestionStem } from '@/components/formats/question-stem'
 import { GraphFence } from '@/components/formats/graph-figure'
+import { ExplainButton } from '@/components/explain/explain-provider'
+import { activityAsk } from '@/components/explain/asks'
 import type { LearnItem } from './items'
 
 // ── Persisted state: instant browser copy + account copy (source of truth) ──
@@ -286,6 +288,10 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
                   <div className="rounded-xl bg-violet-50/60 p-5 ring-1 ring-inset ring-violet-100">
                     <StudyMarkdown content={current.back} compact />
                   </div>
+                  <ExplainButton build={() => ({
+                    label: `Explain this card: “${current.front.split('\n')[0].slice(0, 110)}”`,
+                    prompt: `Explain this flashcard from my guide.\nQuestion: ${current.front}\nAnswer: ${current.back}`,
+                  })} />
                   {!checked && (
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Button variant="outline" size="lg" onClick={() => record(false)} className="border-rose-200 text-rose-700 hover:bg-rose-50">
@@ -313,6 +319,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
                   <span><InlineMarkdown text={current.activity.explanation} /></span>
                 </p>
               )}
+              <ExplainButton build={() => activityAsk(current.activity)}>{lastCorrect ? 'Explain more' : 'Why?'}</ExplainButton>
             </div>
           )}
         </div>

@@ -1,0 +1,322 @@
+"use client"
+
+// "Explain" for study guides: ask the AI about any part of a guide.
+//  - Highlight text inside the guide: on desktop an "Explain" pill appears
+//    next to the selection; on phones (where the OS owns the selection menu)
+//    the always-visible dock button turns into "Explain selection".
+//  - The dock's "Ask AI" button opens the panel to type a question.
+//  - Quiz/practice/Learn feedback boxes show an ExplainButton ("Why?").
+// Answers stream from /api/explain into a side panel (desktop) or bottom
+// sheet (phone), with quick follow-ups. The thread lives in memory only.
+// The dock also hosts the Desmos calculator button when that is enabled.
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import Link from 'next/link'
+import { ArrowUp, Calculator, Loader2, RotateCcw, Sparkles, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
+import { authFetch } from '@/lib/auth-fetch'
+import { signInPath } from '@/lib/sign-in-path'
+import { StudyMarkdown } from '@/components/formats/study-markdown'
+import { useDesmos } from '@/components/desmos/desmos-context'
+
+/** What to ask: `label` is shown in the thread, `prompt` is sent to the AI. */
+export interface ExplainRequest { label: string; prompt: string }
+
+interface ExplainApi { ask: (req: ExplainRequest) => void }
+const ExplainContext = createContext<ExplainApi | null>(null)
+export const useExplain = () => useContext(ExplainContext)
+
+interface Turn { role: 'user' | 'assistant'; content: string; label?: string }
+
+const FOLLOW_UPS: ExplainRequest[] = [
+  { label: 'Simpler', prompt: 'Explain that more simply.' },
+  { label: 'Give an example', prompt: 'Give me one concrete example.' },
+  { label: 'Show the steps', prompt: 'Show the steps.' },
+]
+
+const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
+
+/** The text around a selection: the nearest block with enough substance, capped. */
+function contextAround(range: Range, root: HTMLElement, selected: string): string {
+  let el: Element | null = range.commonAncestorContainer.nodeType === 1
+    ? (range.commonAncestorContainer as Element)
+    : range.commonAncestorContainer.parentElement
+  while (el && el !== root && el.parentElement && (el.textContent?.length ?? 0) < 700) el = el.parentElement
+  const text = (el?.textContent ?? '').replace(/\s+/g, ' ').trim()
+  if (text.length <= 2500) return text
+  const at = Math.max(0, text.indexOf(selected.slice(0, 40)))
+  return text.slice(Math.max(0, at - 1200), at + 1300)
+}
+
+function useFinePointer(): boolean {
+  const [fine, setFine] = useState(true)
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: fine)')
+    setFine(mq.matches)
+    const on = () => setFine(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return fine
+}
+
+export function ExplainProvider({ guideId, children }: { guideId: string; children: ReactNode }) {
+  const { user } = useAuth()
+  const desmos = useDesmos()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selection, setSelection] = useState<{ text: string; context: string; rect: DOMRect } | null>(null)
+  const finePointer = useFinePointer()
+  const turnsRef = useRef<Turn[]>([])
+  turnsRef.current = turns
+
+  // Track highlighted text inside the guide.
+  useEffect(() => {
+    let frame = 0
+    const read = () => {
+      const sel = window.getSelection()
+      const root = rootRef.current
+      if (!sel || sel.isCollapsed || !sel.rangeCount || !root) { setSelection(null); return }
+      const range = sel.getRangeAt(0)
+      if (!root.contains(range.commonAncestorContainer)) { setSelection(null); return }
+      const text = sel.toString().replace(/\s+/g, ' ').trim()
+      if (text.length < 2 || text.length > 800) { setSelection(null); return }
+      setSelection({ text, context: contextAround(range, root, text), rect: range.getBoundingClientRect() })
+    }
+    const onChange = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(read) }
+    const onScroll = () => setSelection((s) => (s ? { ...s, rect: window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0).getBoundingClientRect() : s.rect } : s))
+    document.addEventListener('selectionchange', onChange)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { document.removeEventListener('selectionchange', onChange); window.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
+  }, [])
+
+  const send = useCallback(async (req: ExplainRequest) => {
+    setOpen(true)
+    setError(null)
+    if (!user || busy) return
+    const history: Turn[] = [...turnsRef.current, { role: 'user', content: req.prompt, label: req.label }]
+    setTurns([...history, { role: 'assistant', content: '' }])
+    setBusy(true)
+    try {
+      const res = await authFetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studyGuideId: guideId, turns: history.map(({ role, content }) => ({ role, content })) }),
+      })
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Could not get an explanation. Please try again.')
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let text = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        text += decoder.decode(value, { stream: true })
+        setTurns([...history, { role: 'assistant', content: text }])
+      }
+    } catch (e) {
+      setTurns(history) // keep the question, drop the empty answer
+      setError(e instanceof Error ? e.message : 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }, [user, busy, guideId])
+
+  const explainSelection = useCallback(() => {
+    if (!selection) return
+    const { text, context } = selection
+    window.getSelection()?.removeAllRanges()
+    setSelection(null)
+    void send({
+      label: `“${clip(text, 140)}”`,
+      prompt: `Explain this part of my study guide: "${text}"\n\nThe guide around it:\n"""\n${context}\n"""`,
+    })
+  }, [selection, send])
+
+  const api = useMemo<ExplainApi>(() => ({ ask: (req) => void send(req) }), [send])
+
+  // Desktop: pill above (or below) the highlighted text.
+  const pill = selection && finePointer && !busy ? (() => {
+    const { rect } = selection
+    const top = rect.top > 70 ? rect.top - 46 : rect.bottom + 8
+    const left = Math.min(Math.max(rect.left + rect.width / 2, 70), window.innerWidth - 70)
+    return (
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()} // keep the selection while clicking
+        onClick={explainSelection}
+        style={{ top, left }}
+        className="fixed z-50 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-lg ring-1 ring-white/20 transition hover:bg-blue-700 print:hidden"
+      >
+        <Sparkles className="h-4 w-4 text-cyan-300" /> Explain
+      </button>
+    )
+  })() : null
+
+  const touchSelection = selection && !finePointer
+
+  return (
+    <ExplainContext.Provider value={api}>
+      <div ref={rootRef}>{children}</div>
+      {pill}
+
+      {/* Dock: always visible, bottom-left (the guide's menu is bottom-right). */}
+      {!(open && !finePointer) && (
+        <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2 sm:bottom-6 sm:left-6 print:hidden">
+          {desmos && (
+            <button
+              type="button"
+              onClick={desmos.open}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:border-blue-300 hover:text-blue-700"
+            >
+              <Calculator className="h-4 w-4 text-blue-600" /> Calculator
+            </button>
+          )}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={touchSelection ? explainSelection : () => setOpen((o) => !o)}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg transition',
+              touchSelection
+                ? 'bg-slate-900 text-white ring-4 ring-blue-500/30'
+                : 'border border-slate-200 bg-white text-slate-800 hover:border-violet-300 hover:text-violet-700',
+            )}
+          >
+            <Sparkles className={cn('h-4 w-4', touchSelection ? 'text-cyan-300' : 'text-violet-600')} />
+            {touchSelection ? 'Explain selection' : 'Ask AI'}
+          </button>
+        </div>
+      )}
+
+      {open && (
+        <ExplainPanel
+          signedIn={!!user}
+          turns={turns}
+          busy={busy}
+          error={error}
+          onSend={(req) => void send(req)}
+          onClear={() => { setTurns([]); setError(null) }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </ExplainContext.Provider>
+  )
+}
+
+function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }: {
+  signedIn: boolean; turns: Turn[]; busy: boolean; error: string | null
+  onSend: (req: ExplainRequest) => void; onClear: () => void; onClose: () => void
+}) {
+  const [draft, setDraft] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }) }, [turns])
+  const submit = () => {
+    const q = draft.trim()
+    if (!q || busy) return
+    setDraft('')
+    onSend({ label: q, prompt: q })
+  }
+  const last = turns[turns.length - 1]
+
+  return (
+    <aside
+      className={cn(
+        'fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl print:hidden',
+        'sm:inset-x-auto sm:bottom-6 sm:right-4 sm:top-20 sm:h-auto sm:w-[420px] sm:rounded-2xl',
+      )}
+      aria-label="Explain"
+    >
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-700"><Sparkles className="h-4 w-4" /></span>
+        <span className="font-semibold text-slate-900">Explain</span>
+        <div className="ml-auto flex items-center gap-1">
+          {turns.length > 0 && (
+            <button type="button" onClick={onClear} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Start over">
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {!signedIn ? (
+          <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
+            <p className="font-semibold text-slate-900">Sign in to ask for explanations</p>
+            <p className="mt-1">It&apos;s free. Highlight anything in a guide and get it explained in plain words.</p>
+            <Link href={signInPath()} className="mt-3 inline-flex rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white hover:bg-blue-700">Sign in</Link>
+          </div>
+        ) : turns.length === 0 ? (
+          <div className="space-y-3 text-sm text-slate-600">
+            <p><span className="font-semibold text-slate-900">Highlight any text</span> in your guide, then tap <span className="font-semibold text-slate-900">Explain</span>.</p>
+            <p>Or ask a question about this guide below.</p>
+          </div>
+        ) : (
+          turns.map((t, i) => (t.role === 'user' ? (
+            <div key={i} className="ml-8 rounded-2xl rounded-br-md bg-violet-50 px-3.5 py-2.5 text-sm text-violet-950 ring-1 ring-inset ring-violet-100">
+              {t.label ?? t.content}
+            </div>
+          ) : (
+            <div key={i} className="text-[0.95rem]">
+              {t.content ? <StudyMarkdown content={t.content} compact /> : <span className="inline-flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Thinking…</span>}
+            </div>
+          )))
+        )}
+        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {signedIn && !busy && last?.role === 'assistant' && last.content && (
+          <div className="flex flex-wrap gap-2">
+            {FOLLOW_UPS.map((f) => (
+              <button key={f.label} type="button" onClick={() => onSend(f)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700">
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {signedIn && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); submit() }}
+          className="flex items-end gap-2 border-t border-slate-200 p-3"
+        >
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+            rows={1}
+            maxLength={1500}
+            placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about this guide…'}
+            className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+          <button type="submit" disabled={!draft.trim() || busy} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white transition hover:bg-violet-700 disabled:opacity-40" aria-label="Send">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+          </button>
+        </form>
+      )}
+    </aside>
+  )
+}
+
+/** "Why?" button for feedback boxes. Renders nothing outside an ExplainProvider. */
+export function ExplainButton({ build, className, children = 'Explain this' }: { build: () => ExplainRequest; className?: string; children?: ReactNode }) {
+  const explain = useExplain()
+  if (!explain) return null
+  return (
+    <button
+      type="button"
+      onClick={() => explain.ask(build())}
+      className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 print:hidden', className)}
+    >
+      <Sparkles className="h-3.5 w-3.5" /> {children}
+    </button>
+  )
+}

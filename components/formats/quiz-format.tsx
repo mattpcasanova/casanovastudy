@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles } from 'lucide-react'
@@ -11,6 +11,8 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
+import { ExplainButton } from '@/components/explain/explain-provider'
+import { quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
@@ -236,14 +238,19 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
               scoring[current.id] ? (
                 <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" /> Scoring your answer…</div>
               ) : (
-                <ShortAnswerFeedback score={saScores[current.id]} sample={current.sampleAnswer} />
+                <ShortAnswerFeedback score={saScores[current.id]} sample={current.sampleAnswer} extra={<ExplainButton build={() => quizAsk(current, answers[current.id])} />} />
               )
             )}
           </div>
         )}
 
         {revealed && current.type !== 'sa' && (
-          <Feedback correct={isObjectiveCorrect(current, answers[current.id])} explanation={current.explanation} correctLabel={correctLabel(current)} />
+          <Feedback
+            correct={isObjectiveCorrect(current, answers[current.id])}
+            explanation={current.explanation}
+            correctLabel={correctLabel(current)}
+            extra={<ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>}
+          />
         )}
       </div>
 
@@ -394,7 +401,7 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
   )
 }
 
-function Feedback({ correct, explanation, correctLabel }: { correct: boolean; explanation?: string; correctLabel: string }) {
+function Feedback({ correct, explanation, correctLabel, extra }: { correct: boolean; explanation?: string; correctLabel: string; extra?: ReactNode }) {
   return (
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       <p className={cn('flex items-center gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
@@ -407,11 +414,12 @@ function Feedback({ correct, explanation, correctLabel }: { correct: boolean; ex
           <span><InlineMarkdown text={explanation} /></span>
         </p>
       )}
+      {extra}
     </div>
   )
 }
 
-function ShortAnswerFeedback({ score, sample }: { score?: ShortAnswerScore; sample: string }) {
+function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScore; sample: string; extra?: ReactNode }) {
   return (
     <div className={cn('rounded-xl p-4', !score ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : score.isCorrect ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-amber-50 ring-1 ring-inset ring-amber-200')}>
       {score ? (
@@ -429,6 +437,7 @@ function ShortAnswerFeedback({ score, sample }: { score?: ShortAnswerScore; samp
         <p className={cn(eyebrow, 'mb-1 text-slate-500')}>Model answer</p>
         <p className="text-sm leading-relaxed text-slate-700"><InlineMarkdown text={sample} /></p>
       </div>
+      {extra}
     </div>
   )
 }

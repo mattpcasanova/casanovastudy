@@ -6,6 +6,8 @@ import type { GraphSpec } from '@/lib/graphs/spec'
 export interface DesmosApi {
   /** Opens the calculator panel and loads a figure's functions/points into it. */
   openWith: (spec: GraphSpec) => void
+  /** Opens the calculator panel as-is (used by the Explain dock's Calculator button). */
+  open: () => void
 }
 
 // null when the calculator isn't offered for this guide (or no API key is set).

@@ -2,14 +2,15 @@
 // quizzes and reports how many figures each got, their kinds, and any that fail
 // to parse. Use it to tune the budgets in lib/formats/figures.ts.
 //
-//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs]
+//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs] [--only=case,case]
+//   GUIDE_EFFORT=low … to compare effort levels
 //
 // Costs real API calls (one Opus quiz generation per case).
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { ClaudeService } from '../lib/claude-api'
+import { ClaudeService, guideCost } from '../lib/claude-api'
 import { figurePolicy } from '../lib/formats/figures'
 import { parseQuizContent } from '../lib/formats/quiz'
 import { parseGraphSpec } from '../lib/graphs/spec'
@@ -60,16 +61,16 @@ function fenceStats(content: string) {
 async function run(c: Case, svc: ClaudeService, outDir: string) {
   if (c.format && c.format !== 'quiz') {
     const started = Date.now()
-    const { content } = await svc.generateStudyGuide({
+    const { content, usage } = await svc.generateStudyGuide({
       content: '', format: c.format, subject: c.subject, goal: c.goal, gradeLevel: c.gradeLevel, studyRequest: c.studyRequest,
     } as Parameters<ClaudeService['generateStudyGuide']>[0])
     writeFileSync(path.join(outDir, `${c.name}.md`), content)
     const st = fenceStats(content)
-    return { case: c.name, format: c.format, figures: st.total, expected: `${c.expect[0]}-${c.expect[1]}`, inRange: st.total >= c.expect[0] && st.total <= c.expect[1], kinds: st.kinds, failures: st.failures, warnings: st.warnings, seconds: Math.round((Date.now() - started) / 1000) }
+    return { case: c.name, format: c.format, figures: st.total, expected: `${c.expect[0]}-${c.expect[1]}`, inRange: st.total >= c.expect[0] && st.total <= c.expect[1], kinds: st.kinds, failures: st.failures, warnings: st.warnings, seconds: Math.round((Date.now() - started) / 1000), outTokens: usage.output_tokens, cost: +guideCost(usage.input_tokens, usage.output_tokens).toFixed(3) }
   }
   const tier = figurePolicy({ subject: c.subject, goal: c.goal, text: c.studyRequest })
   const started = Date.now()
-  const { content } = await svc.generateStudyGuide({
+  const { content, usage } = await svc.generateStudyGuide({
     content: '', format: 'quiz', subject: c.subject, goal: c.goal, gradeLevel: c.gradeLevel, studyRequest: c.studyRequest,
   } as Parameters<ClaudeService['generateStudyGuide']>[0])
   writeFileSync(path.join(outDir, `${c.name}.md`), content)
@@ -91,6 +92,7 @@ async function run(c: Case, svc: ClaudeService, outDir: string) {
   return {
     case: c.name, tier, questions: questions.length, figures: withFig.length, expected: `${c.expect[0]}-${c.expect[1]}`,
     inRange, unattached: fences - withFig.length, kinds, failures, warnings, seconds: Math.round((Date.now() - started) / 1000),
+    outTokens: usage.output_tokens, cost: +guideCost(usage.input_tokens, usage.output_tokens).toFixed(3),
   }
 }
 
@@ -99,9 +101,13 @@ async function main() {
   mkdirSync(outDir, { recursive: true })
   const svc = new ClaudeService()
   const set = process.argv.find((a) => a.startsWith('--set='))?.slice(6)
-  const cases = set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : [...CASES, ...CHEM_CASES, ...PACK_CASES]
+  const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7).split(',')
+  const all = [...CASES, ...CHEM_CASES, ...PACK_CASES]
+  const cases = only ? all.filter((c) => only.includes(c.name)) : set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : all
   const results = await Promise.all(cases.map((c) => run(c, svc, outDir).catch((e) => ({ case: c.name, error: String(e) }))))
   console.log(JSON.stringify(results, null, 2))
+  const total = results.reduce((sum, r) => sum + ((r as { cost?: number }).cost ?? 0), 0)
+  console.log(`\nTotal cost: $${total.toFixed(2)} for ${results.length} guides`)
   console.log(`\nGenerated quizzes saved in ${outDir}`)
 }
 

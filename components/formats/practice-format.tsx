@@ -14,6 +14,8 @@ import { InlineMarkdown } from './study-markdown'
 import { QuestionStem } from './question-stem'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
+import { ExplainButton } from '@/components/explain/explain-provider'
+import { activityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 
 interface PracticeFormatProps {
@@ -189,6 +191,7 @@ export function PracticeSession({
                 <span><InlineMarkdown text={current.explanation} /></span>
               </p>
             )}
+            <ExplainButton build={() => activityAsk(current)}>{outcome.correct ? 'Explain more' : 'Why?'}</ExplainButton>
           </div>
         )}
       </div>

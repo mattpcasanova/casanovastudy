@@ -113,9 +113,10 @@ function storageKey(guideId: string, mode: Mode) {
 
 /**
  * Wraps a guide view. When `mode` is set (and an API key exists) it shows a
- * floating "Calculator" button and lets figures open in Desmos.
+ * floating "Calculator" button (or lets the Explain dock show it, with
+ * showButton={false}) and lets figures open in Desmos.
  */
-export function DesmosProvider({ guideId, mode, children }: { guideId: string; mode: Mode | null; children: ReactNode }) {
+export function DesmosProvider({ guideId, mode, showButton = true, children }: { guideId: string; mode: Mode | null; showButton?: boolean; children: ReactNode }) {
   const enabled = !!API_KEY && !!mode
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState<Mode>(mode ?? 'graphing')
@@ -123,13 +124,14 @@ export function DesmosProvider({ guideId, mode, children }: { guideId: string; m
 
   const api = useMemo<DesmosApi | null>(() => (enabled ? {
     openWith: (spec) => { setActive('graphing'); setPending(spec); setOpen(true) },
+    open: () => setOpen(true),
   } : null), [enabled])
 
   if (!enabled) return <>{children}</>
   return (
     <DesmosContext.Provider value={api}>
       {children}
-      {!open && (
+      {!open && showButton && (
         <button
           type="button"
           onClick={() => setOpen(true)}
