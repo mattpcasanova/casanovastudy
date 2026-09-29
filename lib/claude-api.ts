@@ -254,6 +254,15 @@ ${FIGURE_SYNTAX}
 ${extra}`
 }
 
+// Keeps guides on the learner's topic (e.g. "SAT Math" never drifts into
+// Reading and Writing or into how the SAT is scored) and every question
+// answerable from what the guide shows.
+const SCOPE_RULES = `SCOPE RULES:
+- Everything must serve what the learner asked to study: their topic, focus and materials. When they name a section, unit, chapter or skill (e.g. "SAT Math", "AP Bio Unit 3", "the French Revolution's causes"), cover only that; never add other sections of the same exam or course (a "SAT Math" guide has no Reading and Writing content, and vice versa).
+- No content about the test or course itself (format, timing, number of questions, adaptive design, scoring, registration, test-day logistics), and never questions about it, unless the learner asks (a study plan's Overview may summarize it in a few lines). Strategies for solving the actual problems are welcome.
+- No filler background (history of the subject or the exam, why the topic matters in general) unless it helps answer the kinds of questions the learner will face.
+- Every question and activity must be answerable from what this guide teaches or the learner's materials cover, and answer options must only use terms the learner has seen. If a question refers to statements (I, II, III), a passage, data, code or a figure, put them in the question itself: statements go on their own lines ("I. ...", "II. ...") directly under the question line, before the options.`
+
 // How each study goal changes the guide. Keys match GOALS in lib/study-options.ts.
 const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
   class: {
@@ -263,7 +272,7 @@ const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
   },
   exam: {
     label: 'a standardized exam',
-    rules: `- If you recognize the exam (SAT, ACT, AP, IB, GRE, GMAT, LSAT, MCAT, etc.), open with a SHORT overview of how the relevant section is structured and scored (current format; say if it recently changed). In quiz, flashcard, practice, cheat sheet and timeline guides there is no room for an overview; fold one key fact into the one-line description instead.
+    rules: `- If you recognize the exam (SAT, ACT, AP, IB, GRE, GMAT, LSAT, MCAT, etc.), write for it: its question types, difficulty and the traps it uses. Do NOT describe the test itself (sections, timing, number of questions, adaptive modules, scoring, tools allowed) unless the learner asks about the test or the format is a study plan; the learner wants to learn the content, not read about the exam.
 - Prioritize the highest-yield content and the question types that appear most, and for each area give the strategy: how to recognize the question type, a step-by-step approach, time-saving shortcuts, and the traps/wrong-answer patterns the test uses.
 - Worked examples and practice questions should imitate the exam's real style and difficulty.`,
   },
@@ -488,6 +497,8 @@ ${topicFocus ? `TOPIC FOCUS: ${topicFocus}\n` : ''}${additionalInstructions ? `L
 ${goal ? `GOAL (${GOAL_GUIDANCE[goal].label.toUpperCase()}):\n${GOAL_GUIDANCE[goal].rules}\n` : `GOAL: not specified; infer it from the request (a school test, a standardized exam, a job interview, a certification, or general learning) and write for that. If it is clearly none of these, default to understanding plus self-testing.\n`}
 ${sourceRules}
 
+${SCOPE_RULES}
+
 ${formatInstructions}
 
 ${figures}${STUDY_GUIDE_STYLE_RULES}
@@ -647,7 +658,7 @@ Sample Answer: <a complete, specific model answer, 2-4 sentences>
 Rules:
 - 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer.
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.
-- Each question, option and answer stays on its own single line. Put nothing between questions except blank lines; no callouts, tables or notes. The one exception: a \`\`\`graph figure block may sit directly under a question line (see FIGURES, if present). Output ONLY the title, the one-line description, the ## headings and the items; no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
+- Each question, option and answer stays on its own single line. Put nothing between questions except blank lines; no callouts, tables or notes. The exceptions: statements a question refers to ("I. ...", "II. ...") go on their own lines under the question line, and a \`\`\`graph figure block may sit directly under a question line (see FIGURES, if present). Output ONLY the title, the one-line description, the ## headings and the items; no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
       practice: `FORMAT: INTERACTIVE PRACTICE. A set of hands-on activities students click through (matching, fill-in-the-blank, ordering, sorting, and questions).
 Use exactly this skeleton:
 # <Guide title>
@@ -2023,6 +2034,8 @@ SECTION TYPES YOU CAN USE:
   }
 }
 Practice rules: 5-10 activities per practice section, mixing at least three kinds. "match": 3-6 pairs with short, distinct definitions. "fill": one sentence with 1-2 answers in [brackets] (alternates separated by |). "order": 3-6 items listed in the CORRECT order (the app shuffles). "sort": 2-3 buckets, 2-4 short items each. "multiple-choice": 2-6 options, "correctAnswer" exactly equal to one option. "true-false": "correctAnswer" is "True" or "False". Any activity may carry an optional "code": { "lang", "text" } snippet (shown above it; use \\n for newlines). "bug": "code" is required (4-12 lines) with EXACTLY ONE buggy line (everything else correct, so applying "fix" makes the code correct), "bugLines" is that 1-based line, "fix" is the corrected line. For programming topics make at least half the activities code-based (predict the output, find the bug, time/space complexity, missing line); default to Python.
+
+${SCOPE_RULES}
 
 GUIDELINES:
 1. Generate unique IDs for all sections (use format like "sec-1", "def-2", "quiz-3")

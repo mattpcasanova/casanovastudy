@@ -11,6 +11,7 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
+import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 
@@ -174,7 +175,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
           {current.section && <span className="ml-auto max-w-[60%] truncate rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{current.section}</span>}
         </div>
         <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
-          <InlineMarkdown text={current.question} />
+          <QuestionStem text={current.question} />
         </p>
         {current.figure && <GraphFence text={current.figure} compact />}
 
@@ -270,7 +271,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
               {q.section && (i === 0 || allQuestions[i - 1].section !== q.section) && (
                 <p className={cn(fontDisplay, 'break-after-avoid pb-2 text-base font-semibold text-slate-900')}>{q.section}</p>
               )}
-              <p className="mb-2 font-semibold text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+              <p className="mb-2 font-semibold text-slate-900">{i + 1}. <QuestionStem text={q.question} listClassName="text-sm" /></p>
               {q.figure && <div className="ml-5 max-w-md"><GraphFence text={q.figure} compact /></div>}
               {q.type === 'mc' && <div className="ml-5 space-y-1">{q.options.map((o, oi) => <div key={oi}>○ <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span> <InlineMarkdown text={o} /></div>)}</div>}
               {q.type === 'tf' && <div className="ml-5">○ True &nbsp;&nbsp;&nbsp; ○ False</div>}
@@ -536,7 +537,7 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
                     {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
                   </span>
                   <div className="min-w-0 flex-1 text-sm">
-                    <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <InlineMarkdown text={q.question} /></p>
+                    <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <QuestionStem text={q.question} listClassName="text-sm" /></p>
                     {q.figure && !ok && <div className="max-w-sm"><GraphFence text={q.figure} compact /></div>}
                     {q.type !== 'sa' && (
                       <>

@@ -11,6 +11,7 @@ import { loadProgress, saveProgress } from '@/lib/progress'
 import { buildSession, gradeItem, summarize, MASTERED_BOX, type ItemState, type LearnState } from '@/lib/learn/scheduler'
 import { ActivityBody, activityMeta } from '@/components/formats/practice-format'
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
+import { QuestionStem } from '@/components/formats/question-stem'
 import { GraphFence } from '@/components/formats/graph-figure'
 import type { LearnItem } from './items'
 
@@ -271,7 +272,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
           ) : (
             <div>
               <p className={cn(fontDisplay, 'text-center text-xl font-medium leading-snug text-slate-900 sm:text-2xl')}>
-                <InlineMarkdown text={current.front} />
+                <QuestionStem text={current.front} listClassName="text-left" />
               </p>
               {current.figure && <div className="mx-auto mt-4 max-w-lg"><GraphFence text={current.figure} compact /></div>}
               {!revealed ? (

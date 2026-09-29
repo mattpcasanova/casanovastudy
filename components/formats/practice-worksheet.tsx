@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { eyebrow, fontDisplay } from '@/lib/formats/design'
 import { seededShuffle, isTrueFalse, type PracticeActivity } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
+import { QuestionStem } from './question-stem'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
 
@@ -34,7 +35,7 @@ function Question({ a, n }: { a: PracticeActivity; n: number }) {
       <p className="text-sm">
         <span className="font-semibold text-slate-900">{n}. </span>
         <span className={cn(eyebrow, 'mr-2 text-slate-500')}>{label}</span>
-        {a.kind !== 'fill' && a.prompt && <span className="font-medium text-slate-900"><InlineMarkdown text={a.prompt} /></span>}
+        {a.kind !== 'fill' && a.prompt && <span className="font-medium text-slate-900"><QuestionStem text={a.prompt} listClassName="text-sm" /></span>}
       </p>
       {a.figure && <div className="max-w-md"><GraphFence text={a.figure} compact /></div>}
       {a.code && a.kind !== 'bug' && <CodeBlock lang={a.code.lang} text={a.code.text} compact className="my-2" />}

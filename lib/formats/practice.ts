@@ -156,19 +156,23 @@ export function parsePractice(content: string): PracticeActivity[] {
       if (buckets.length >= 2) out.push(withCode({ kind: 'sort', id, topic, prompt: head || 'Sort each item into the right group', buckets, explanation }))
     } else if (kind === 'MC_QUESTION') {
       const options: string[] = []
+      const stem: string[] = [] // lines between the question and its options (I./II./III. statements, data)
       let letter = ''
       for (const l of rest) {
         const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
         const ans = l.match(/answer\s*:?\**\s*:?\s*\(?([A-F])\b/i)
         if (ans && /answer/i.test(l.slice(0, 20))) letter = ans[1].toUpperCase()
         else if (opt) options.push(clean(opt[2]))
+        else if (!options.length && l.trim()) stem.push(clean(l))
       }
       const correct = letter ? letter.charCodeAt(0) - 65 : 0
-      if (head && options.length >= 2 && correct < options.length) out.push(withCode({ kind: 'choice', id, topic, prompt: head, options, correct, explanation }))
+      const prompt = [head, ...stem].join('\n')
+      if (head && options.length >= 2 && correct < options.length) out.push(withCode({ kind: 'choice', id, topic, prompt, options, correct, explanation }))
     } else if (kind === 'TF_QUESTION') {
       const ans = rest.find((l) => /answer\s*:/i.test(l))
       const isTrue = ans ? /true/i.test(ans.split(/answer\s*:/i)[1] ?? '') : true
-      if (head) out.push(withCode({ kind: 'choice', id, topic, prompt: head, options: ['True', 'False'], correct: isTrue ? 0 : 1, explanation }))
+      const stem = rest.slice(0, Math.max(0, rest.indexOf(ans ?? ''))).filter((l) => l.trim()).map(clean)
+      if (head) out.push(withCode({ kind: 'choice', id, topic, prompt: [head, ...stem].join('\n'), options: ['True', 'False'], correct: isTrue ? 0 : 1, explanation }))
     } else if (kind === 'FIND_BUG') {
       const lineRow = rest.find((l) => /^\*{0,2}bug\s*lines?\s*:/i.test(l))
       const fixRow = rest.find((l) => /^\*{0,2}fix(ed line)?\s*:/i.test(l))

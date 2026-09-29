@@ -105,9 +105,10 @@ export function parseQuizContent(content: string): Question[] {
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 16, lines.length))
       const options: string[] = []
+      const stem: string[] = [] // lines before the options: I./II./III. statements, data, a short passage
       let correctAnswer = ''
       let explanation: string | undefined
-      for (let j = i + 1; j < Math.min(i + 16, lines.length); j++) {
+      for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
         if (FIG.test(l)) continue
@@ -115,6 +116,7 @@ export function parseQuizContent(content: string): Question[] {
         const exp = explanationOf(l)
         if (exp) explanation = exp
         else if (opt && !/answer/i.test(l.slice(0, 12))) options.push(strip(opt[2]))
+        else if (!options.length && !/answer\s*:/i.test(l)) stem.push(strip(l))
         else if (/answer\s*:/i.test(l)) {
           const m = l.match(/answer:?\**\s*:?\s*\(?([A-F])\b/i)
           if (m) {
@@ -124,7 +126,7 @@ export function parseQuizContent(content: string): Question[] {
         }
       }
       if (options.length > 0) {
-        questions.push({ type: 'mc', id: `q-${questions.length}`, question: text, options, correctAnswer: correctAnswer || options[0], section, explanation, ...(figure ? { figure } : {}) })
+        questions.push({ type: 'mc', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), options, correctAnswer: correctAnswer || options[0], section, explanation, ...(figure ? { figure } : {}) })
       }
     } else if (line.includes('TF_QUESTION:')) {
       const text = questionText(line, 'TF')

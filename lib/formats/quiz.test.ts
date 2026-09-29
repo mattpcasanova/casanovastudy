@@ -95,3 +95,26 @@ Correct Answer: A`)
     if (qs[0].type === 'mc') expect(qs[0].options).toEqual(['1', '2'])
   })
 })
+
+describe('statement stems', () => {
+  it('keeps I/II/III statements with the question', () => {
+    const qs = parseQuizContent(`MC_QUESTION: MgO has a higher melting point than NaF. Which factors explain this?
+I. Mg²⁺ is more positively charged than Na⁺
+II. O²⁻ is more negatively charged than F⁻
+III. O²⁻ is smaller than F⁻
+A) I and II only
+B) I and III only
+C) II and III only
+D) I, II, and III
+Correct Answer: D
+Explanation: All three strengthen coulombic attraction.`)
+    expect(qs).toHaveLength(1)
+    expect(qs[0].question.split('\n')).toEqual([
+      'MgO has a higher melting point than NaF. Which factors explain this?',
+      'I. Mg²⁺ is more positively charged than Na⁺',
+      'II. O²⁻ is more negatively charged than F⁻',
+      'III. O²⁻ is smaller than F⁻',
+    ])
+    if (qs[0].type === 'mc') expect(qs[0].correctAnswer).toBe('I, II, and III')
+  })
+})

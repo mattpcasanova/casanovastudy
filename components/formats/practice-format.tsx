@@ -11,6 +11,7 @@ import {
   type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity,
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
+import { QuestionStem } from './question-stem'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
 import { PracticeWorksheet } from './practice-worksheet'
@@ -280,7 +281,7 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
     <>
       {activity.kind !== 'fill' && activity.prompt && (
         <p className={cn(fontDisplay, 'font-medium leading-snug text-slate-900', compact ? 'mb-4 text-lg' : 'mb-5 text-xl sm:text-[1.45rem]')}>
-          <InlineMarkdown text={activity.prompt} />
+          <QuestionStem text={activity.prompt} />
         </p>
       )}
       {activity.figure && <GraphFence text={activity.figure} compact />}

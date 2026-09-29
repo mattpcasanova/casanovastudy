@@ -254,3 +254,16 @@ Correct Answer: B`)
     expect(a.figure).toBe('plot: 2x')
   })
 })
+
+describe('statement stems in practice', () => {
+  it('keeps I/II/III statements in the prompt', () => {
+    const [a] = parsePractice(`MC_QUESTION: Which factors explain this?
+I. Charge
+II. Size
+A) I only
+B) I and II
+Correct Answer: B`)
+    expect(a.prompt).toBe('Which factors explain this?\nI. Charge\nII. Size')
+    if (a.kind === 'choice') expect(a.options).toEqual(['I only', 'I and II'])
+  })
+})
