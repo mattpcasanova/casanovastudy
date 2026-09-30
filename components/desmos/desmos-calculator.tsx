@@ -7,7 +7,7 @@
 // convenience, saved in localStorage under cs:desmos:<guideId>:<mode>.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Calculator, Maximize2, Minimize2, X } from 'lucide-react'
+import { Calculator, GripHorizontal, RotateCcw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toLatex, type Expr } from '@/lib/graphs/expr'
 import type { GraphSpec, Pt } from '@/lib/graphs/spec'
@@ -105,27 +105,49 @@ export function figureToDesmos(spec: GraphSpec): { exprs: Record<string, unknown
   return { exprs }
 }
 
+/** A walkthrough's expressions (+ optional data table) as Desmos expression objects. */
+export function setupToDesmos(setup: DesmosSetup): { exprs: Record<string, unknown>[]; bounds?: DesmosSetup['bounds'] } {
+  const exprs: Record<string, unknown>[] = setup.expressions.slice(0, 20).map((latex, i) => ({ id: `help-${i}`, latex, color: CYCLE[i % CYCLE.length] }))
+  if (setup.table?.length) {
+    exprs.unshift({
+      id: 'help-table',
+      type: 'table',
+      columns: [
+        { latex: 'x_{1}', values: setup.table.map((p) => n(p[0])) },
+        { latex: 'y_{1}', values: setup.table.map((p) => n(p[1])), points: true, lines: false, color: '#2563eb' },
+      ],
+    })
+  }
+  return { exprs, bounds: setup.bounds }
+}
+
 // ── Provider + panel ────────────────────────────────────────────────────────
 
 function storageKey(guideId: string, mode: Mode) {
   return `cs:desmos:${guideId}:${mode}`
 }
 
+/** Expressions (Desmos LaTeX) plus optional data table and window, e.g. from a "Solve it in Desmos" answer. */
+export interface DesmosSetup { expressions: string[]; table?: Pt[]; bounds?: { left: number; right: number; bottom: number; top: number } }
+type Pending = { kind: 'figure'; spec: GraphSpec } | { kind: 'setup'; setup: DesmosSetup }
+
 /**
  * Wraps a guide view. When `mode` is set (and an API key exists) it shows a
  * floating "Calculator" button (or lets the Explain dock show it, with
- * showButton={false}) and lets figures open in Desmos.
+ * showButton={false}) and lets figures and Desmos walkthroughs load into it.
  */
 export function DesmosProvider({ guideId, mode, showButton = true, children }: { guideId: string; mode: Mode | null; showButton?: boolean; children: ReactNode }) {
   const enabled = !!API_KEY && !!mode
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState<Mode>(mode ?? 'graphing')
-  const [pending, setPending] = useState<GraphSpec | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
 
   const api = useMemo<DesmosApi | null>(() => (enabled ? {
-    openWith: (spec) => { setActive('graphing'); setPending(spec); setOpen(true) },
+    openWith: (spec) => { setActive('graphing'); setPending({ kind: 'figure', spec }); setOpen(true) },
+    load: (setup) => { setActive('graphing'); setPending({ kind: 'setup', setup }); setOpen(true) },
     open: () => setOpen(true),
-  } : null), [enabled])
+    graphing: mode === 'graphing',
+  } : null), [enabled, mode])
 
   if (!enabled) return <>{children}</>
   return (
@@ -154,15 +176,84 @@ export function DesmosProvider({ guideId, mode, showButton = true, children }: {
   )
 }
 
+// ── Panel geometry: draggable + resizable on desktop, height-adjustable sheet on phones ──
+
+interface Rect { x: number; y: number; w: number; h: number }
+const RECT_KEY = 'cs:desmos:rect'
+const MIN_W = 340
+const MIN_H = 320
+
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(true)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    setDesktop(mq.matches)
+    const on = () => setDesktop(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return desktop
+}
+
+/** Default: left side, below the header, leaving the bottom-left dock visible. */
+function defaultRect(): Rect {
+  const vw = window.innerWidth, vh = window.innerHeight
+  const w = Math.min(640, vw - 32)
+  return { x: 16, y: 80, w, h: Math.max(MIN_H, vh - 80 - 120) }
+}
+
+function clampRect(r: Rect): Rect {
+  const vw = window.innerWidth, vh = window.innerHeight
+  const w = Math.min(Math.max(r.w, MIN_W), vw - 16)
+  const h = Math.min(Math.max(r.h, MIN_H), vh - 16)
+  return { w, h, x: Math.min(Math.max(r.x, 8), vw - w - 8), y: Math.min(Math.max(r.y, 8), vh - 48) }
+}
+
+/** Pointer-drag helper: calls onMove with the pointer delta since the drag started. */
+function startDrag(e: React.PointerEvent, onMove: (dx: number, dy: number) => void, onEnd?: () => void) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  const sx = e.clientX, sy = e.clientY
+  const prevSelect = document.body.style.userSelect
+  document.body.style.userSelect = 'none'
+  const move = (ev: PointerEvent) => onMove(ev.clientX - sx, ev.clientY - sy)
+  const up = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+    window.removeEventListener('pointercancel', up)
+    document.body.style.userSelect = prevSelect
+    onEnd?.()
+  }
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
+  window.addEventListener('pointercancel', up)
+}
+
 function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied }: {
   guideId: string; mode: Mode; onMode: (m: Mode) => void; onClose: () => void
-  pending: GraphSpec | null; onPendingApplied: () => void
+  pending: Pending | null; onPendingApplied: () => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const calcRef = useRef<DesmosCalc | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  // Desmos switches to a cramped phone layout under ~500px, so start wide.
-  const [wide, setWide] = useState(true)
+  const desktop = useIsDesktop()
+  const [rect, setRect] = useState<Rect | null>(null)
+  const [sheetVh, setSheetVh] = useState(62)
+  const rectRef = useRef<Rect | null>(null)
+  rectRef.current = rect
+
+  // Restore the last position/size (clamped to this window).
+  useEffect(() => {
+    let saved: Rect | null = null
+    try { saved = JSON.parse(localStorage.getItem(RECT_KEY) || 'null') } catch { /* ignore */ }
+    setRect(clampRect(saved ?? defaultRect()))
+    const onResize = () => setRect((r) => (r ? clampRect(r) : r))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const persist = () => {
+    try { if (rectRef.current) localStorage.setItem(RECT_KEY, JSON.stringify(rectRef.current)) } catch { /* storage unavailable */ }
+  }
 
   const save = useCallback(() => {
     const calc = calcRef.current
@@ -198,13 +289,22 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
     }
   }, [guideId, mode, save])
 
-  // Load a figure once the graphing calculator is up.
+  // Desmos has to be told when its container changes size.
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const ro = new ResizeObserver(() => calcRef.current?.resize())
+    ro.observe(host)
+    return () => ro.disconnect()
+  }, [])
+
+  // Load a figure or a walkthrough setup once the graphing calculator is up.
   useEffect(() => {
     const calc = calcRef.current
     if (!pending || status !== 'ready' || !calc || mode !== 'graphing') return
-    const { exprs, bounds } = figureToDesmos(pending)
-    const old = calc.getExpressions().filter((e) => String(e.id).startsWith('fig-'))
+    const old = calc.getExpressions().filter((e) => /^(fig|help)-/.test(String(e.id)))
     if (old.length) calc.removeExpressions(old)
+    const { exprs, bounds } = pending.kind === 'figure' ? figureToDesmos(pending.spec) : setupToDesmos(pending.setup)
     for (const e of exprs) {
       try { calc.setExpression(e) } catch { /* skip anything Desmos rejects */ }
     }
@@ -212,43 +312,94 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
     onPendingApplied()
   }, [pending, status, mode, onPendingApplied])
 
-  useEffect(() => { calcRef.current?.resize() }, [wide])
+  const header = (
+    <div
+      className={cn('flex items-center gap-2 border-b border-slate-200 px-3 py-2', desktop && 'cursor-move touch-none')}
+      onPointerDown={desktop ? (e) => {
+        if ((e.target as HTMLElement).closest('button')) return
+        const start = rectRef.current
+        if (!start) return
+        startDrag(e, (dx, dy) => setRect(clampRect({ ...start, x: start.x + dx, y: start.y + dy })), persist)
+      } : undefined}
+    >
+      {desktop && <GripHorizontal className="h-4 w-4 shrink-0 text-slate-300" aria-hidden />}
+      <div className="flex rounded-lg bg-slate-100 p-0.5 text-sm">
+        {(['graphing', 'scientific'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => onMode(m)}
+            className={cn('rounded-md px-3 py-1 font-medium capitalize transition', m === mode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <div className="ml-auto flex items-center gap-1">
+        {desktop && (
+          <button type="button" onClick={() => { const r = clampRect(defaultRect()); setRect(r); rectRef.current = r; persist() }} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Reset size and position" title="Reset size and position">
+            <RotateCcw className="h-4 w-4" />
+          </button>
+        )}
+        <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Close calculator">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
 
+  const body = (
+    <div className="relative isolate min-h-0 flex-1">
+      {/* isolate: Desmos's own z-indexes stay inside, so the resize grip stays on top. */}
+      <div ref={hostRef} className="absolute inset-0" />
+      {status === 'loading' && <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Loading calculator…</div>}
+      {status === 'error' && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-slate-500">The calculator could not load. Check your connection and try again.</div>}
+    </div>
+  )
+
+  if (!desktop) {
+    return (
+      <aside style={{ height: `${sheetVh}vh` }} className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl print:hidden" aria-label="Desmos calculator">
+        {/* Drag the handle to make the sheet taller or shorter. */}
+        <div
+          className="flex h-5 shrink-0 touch-none items-center justify-center"
+          onPointerDown={(e) => {
+            const start = sheetVh
+            startDrag(e, (_dx, dy) => setSheetVh(Math.min(92, Math.max(30, start - (dy / window.innerHeight) * 100))))
+          }}
+          aria-label="Resize calculator"
+        >
+          <span className="h-1.5 w-10 rounded-full bg-slate-300" />
+        </div>
+        {header}
+        {body}
+      </aside>
+    )
+  }
+
+  if (!rect) return null
   return (
     <aside
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex h-[62vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl print:hidden',
-        'sm:inset-x-auto sm:bottom-24 sm:right-4 sm:top-20 sm:h-auto sm:rounded-2xl',
-        wide ? 'sm:w-[min(680px,calc(100vw-2rem))]' : 'sm:w-[420px]',
-      )}
+      style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+      className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:hidden"
       aria-label="Desmos calculator"
     >
-      <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
-        <div className="flex rounded-lg bg-slate-100 p-0.5 text-sm">
-          {(['graphing', 'scientific'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onMode(m)}
-              className={cn('rounded-md px-3 py-1 font-medium capitalize transition', m === mode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setWide((w) => !w)} className="hidden rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 sm:block" aria-label={wide ? 'Make narrower' : 'Make wider'}>
-            {wide ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
-          <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Close calculator">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <div ref={hostRef} className="absolute inset-0" />
-        {status === 'loading' && <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Loading calculator…</div>}
-        {status === 'error' && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-slate-500">The calculator could not load. Check your connection and try again.</div>}
+      {header}
+      {body}
+      {/* Corner grip: drag to resize. */}
+      <div
+        className="absolute bottom-0 right-0 z-20 h-6 w-6 cursor-nwse-resize touch-none rounded-tl-md bg-white/80"
+        onPointerDown={(e) => {
+          const start = rectRef.current
+          if (!start) return
+          startDrag(e, (dx, dy) => setRect(clampRect({ ...start, w: start.w + dx, h: start.h + dy })), persist)
+        }}
+        aria-label="Resize calculator"
+        title="Drag to resize"
+      >
+        <svg viewBox="0 0 10 10" className="absolute bottom-1 right-1 h-2.5 w-2.5 text-slate-400" aria-hidden>
+          <path d="M9 1 L1 9 M9 5 L5 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
       </div>
     </aside>
   )

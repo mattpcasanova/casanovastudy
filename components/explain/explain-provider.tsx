@@ -227,15 +227,19 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
           onSend={(req) => void send(req)}
           onClear={() => { setTurns([]); setError(null) }}
           onClose={() => setOpen(false)}
+          desmosFollowUp={!!desmos?.graphing}
         />
       )}
     </ExplainContext.Provider>
   )
 }
 
-function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }: {
+const DESMOS_FOLLOW_UP: ExplainRequest = { label: 'Show me in Desmos', prompt: 'Solve it in Desmos: show me step by step how to do this with the Desmos graphing calculator.' }
+
+function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, desmosFollowUp }: {
   signedIn: boolean; turns: Turn[]; busy: boolean; error: string | null
   onSend: (req: ExplainRequest) => void; onClear: () => void; onClose: () => void
+  desmosFollowUp: boolean
 }) {
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -298,7 +302,7 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
         {signedIn && !busy && last?.role === 'assistant' && last.content && (
           <div className="flex flex-wrap gap-2">
-            {FOLLOW_UPS.map((f) => (
+            {[...FOLLOW_UPS, ...(desmosFollowUp ? [DESMOS_FOLLOW_UP] : [])].map((f) => (
               <button key={f.label} type="button" onClick={() => onSend(f)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700">
                 {f.label}
               </button>
@@ -327,6 +331,22 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose }
         </form>
       )}
     </aside>
+  )
+}
+
+/** "Solve it in Desmos" for math feedback boxes; only when the guide has the graphing calculator. */
+export function DesmosHelpButton({ build, className }: { build: () => ExplainRequest; className?: string }) {
+  const explain = useExplain()
+  const desmos = useDesmos()
+  if (!explain || !desmos?.graphing) return null
+  return (
+    <button
+      type="button"
+      onClick={() => explain.ask(build())}
+      className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 print:hidden', className)}
+    >
+      <Calculator className="h-3.5 w-3.5 text-blue-600" /> Solve it in Desmos
+    </button>
   )
 }
 

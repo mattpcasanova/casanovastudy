@@ -13,8 +13,8 @@ import { ActivityBody, activityMeta } from '@/components/formats/practice-format
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
 import { QuestionStem } from '@/components/formats/question-stem'
 import { GraphFence } from '@/components/formats/graph-figure'
-import { ExplainButton } from '@/components/explain/explain-provider'
-import { activityAsk } from '@/components/explain/asks'
+import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
+import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import type { LearnItem } from './items'
 
 // ── Persisted state: instant browser copy + account copy (source of truth) ──
@@ -319,7 +319,10 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
                   <span><InlineMarkdown text={current.activity.explanation} /></span>
                 </p>
               )}
-              <ExplainButton build={() => activityAsk(current.activity)}>{lastCorrect ? 'Explain more' : 'Why?'}</ExplainButton>
+              <div className="flex flex-wrap gap-2">
+                <ExplainButton build={() => activityAsk(current.activity)}>{lastCorrect ? 'Explain more' : 'Why?'}</ExplainButton>
+                {(current.activity.kind === 'choice' || current.activity.kind === 'fill') && <DesmosHelpButton build={() => desmosActivityAsk(current.activity)} />}
+              </div>
             </div>
           )}
         </div>

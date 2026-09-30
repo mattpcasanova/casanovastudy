@@ -11,8 +11,8 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
-import { ExplainButton } from '@/components/explain/explain-provider'
-import { quizAsk } from '@/components/explain/asks'
+import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
+import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
@@ -249,7 +249,12 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
             correct={isObjectiveCorrect(current, answers[current.id])}
             explanation={current.explanation}
             correctLabel={correctLabel(current)}
-            extra={<ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>}
+            extra={
+              <div className="flex flex-wrap gap-2">
+                <ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>
+                <DesmosHelpButton build={() => desmosQuizAsk(current)} />
+              </div>
+            }
           />
         )}
       </div>

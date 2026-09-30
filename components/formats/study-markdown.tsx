@@ -21,6 +21,7 @@ import { CHECK_ANSWER_SEPARATOR, FIGURE_GROUP_SEPARATOR, type CalloutKind } from
 import { AsciiDiagram, StepsDiagram, TreeDiagram, looksLikeAsciiDiagram, parseSteps, parseTree } from './diagrams'
 import { CodeBlock } from './code-view'
 import { GraphFence } from './graph-figure'
+import { DesmosSteps } from './desmos-steps'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 import { remarkScripts } from '@/lib/formats/scripts'
 
@@ -146,6 +147,7 @@ function PreBlock({ node }: { node?: HastNode }) {
   if (l === 'steps' || l === 'flow' || l === 'process' || l === 'sequence') return <StepsDiagram steps={parseSteps(text)} />
   if (l === 'cycle') return <StepsDiagram steps={parseSteps(text)} cycle />
   if (l === 'tree' || l === 'hierarchy') return <TreeDiagram roots={parseTree(text)} />
+  if (l === 'desmos') return <DesmosSteps text={text} />
   if (GRAPH_FENCE_LANGS.test(l)) return <GraphFence text={text} />
   if (l === 'graph-group') {
     const bodies = text.split(new RegExp(`^${FIGURE_GROUP_SEPARATOR}$`, 'm')).map((b) => b.trim()).filter(Boolean)

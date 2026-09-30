@@ -27,6 +27,27 @@ export function quizAsk(q: Question, chosen?: string): ExplainRequest {
   return { label: `Why? “${clip(q.question.split('\n')[0], 110)}”`, prompt: lines.join('\n') }
 }
 
+const DESMOS_INTRO = 'Show me step by step how to solve this with the Desmos graphing calculator, so I can do it myself on the test:'
+
+/** "Solve it in Desmos" for a quiz question. */
+export function desmosQuizAsk(q: Question): ExplainRequest {
+  const base = quizAsk(q)
+  return {
+    label: `Solve in Desmos: “${clip(q.question.split('\n')[0], 100)}”`,
+    prompt: base.prompt.replace('Explain this question from my quiz:', DESMOS_INTRO).replace(/\nI picked: .*$/m, ''),
+  }
+}
+
+/** "Solve it in Desmos" for a practice activity (multiple choice / fill-in). */
+export function desmosActivityAsk(a: PracticeActivity): ExplainRequest {
+  const base = activityAsk(a)
+  const title = a.kind === 'fill' ? a.parts.map((p) => (typeof p === 'string' ? p : '___')).join('') : a.prompt
+  return {
+    label: `Solve in Desmos: “${clip(title.split('\n')[0], 100)}”`,
+    prompt: base.prompt.replace('Explain this practice activity from my guide:', DESMOS_INTRO),
+  }
+}
+
 export function activityAsk(a: PracticeActivity): ExplainRequest {
   const lines = ['Explain this practice activity from my guide:', a.prompt]
   switch (a.kind) {
