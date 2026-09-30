@@ -62,6 +62,25 @@ import VisualsInfo from "@/components/visuals-info"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
 
+type GuideLength = "short" | "medium" | "long"
+const LENGTH_OPTIONS: { value: GuideLength; label: string }[] = [
+  { value: "short", label: "Short" },
+  { value: "medium", label: "Medium" },
+  { value: "long", label: "Long" },
+]
+// What each length means for the chosen format (matches LENGTH_TARGETS in lib/claude-api.ts).
+const LENGTH_HINTS: Record<string, Record<GuideLength, string>> = {
+  outline: { short: "~2 min read", medium: "~6 min read", long: "~12 min read" },
+  summary: { short: "~2 min read", medium: "~6 min read", long: "~12 min read" },
+  quiz: { short: "8 questions", medium: "12-18 questions", long: "25-30 questions" },
+  flashcards: { short: "15-20 cards", medium: "30-50 cards", long: "60-80 cards" },
+  practice: { short: "8-10 activities", medium: "14-20 activities", long: "25-30 activities" },
+  cheatsheet: { short: "5-7 boxes", medium: "8-14 boxes", long: "14-18 boxes" },
+  timeline: { short: "8-12 events", medium: "14-24 events", long: "25-35 events" },
+  plan: { short: "4-6 units", medium: "6-14 units", long: "12-20 units" },
+}
+const LENGTH_GENERIC: Record<GuideLength, string> = { short: "Quick review", medium: "Standard", long: "In depth" }
+
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
   isGenerating: boolean
@@ -275,6 +294,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [topicFocus, setTopicFocus] = useState("")
   const [goal, setGoal] = useState<StudyGoal | "">("")
   const [strictSources, setStrictSources] = useState(true)
+  const [length, setLength] = useState<GuideLength>("medium")
   // Graphs/models on by default; the last choice is remembered on this device.
   const [visuals, setVisualsState] = useState(true)
   const setVisuals = (on: boolean) => {
@@ -539,6 +559,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
+      length,
     })
   }
 
@@ -909,8 +930,41 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               </div>
             </div>
 
+            <div className="mt-5 flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm">
+                <span className="block font-semibold text-slate-800">Length</span>
+                <span className="text-slate-500">
+                  {length === "short" ? "Just the essentials." : length === "long" ? "Everything, with more detail and examples." : "A full guide without the extras."}
+                </span>
+              </span>
+              <div className="grid shrink-0 grid-cols-3 gap-1 rounded-lg bg-white p-1 ring-1 ring-inset ring-slate-200" role="radiogroup" aria-label="Guide length">
+                {LENGTH_OPTIONS.map((o) => {
+                  const on = length === o.value
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={isGenerating}
+                      onClick={() => setLength(o.value)}
+                      className={cn(
+                        "flex min-w-[5.5rem] flex-col items-center rounded-md px-3 py-1.5 text-sm transition",
+                        on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      )}
+                    >
+                      <span className="font-semibold">{o.label}</span>
+                      <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
+                        {(format && LENGTH_HINTS[format]?.[o.value]) || LENGTH_GENERIC[o.value]}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             {showVisualsSwitch && (
-              <label className="mt-5 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+              <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
                 <span className="text-sm">
                   <span className="flex items-center gap-1.5 font-semibold text-slate-800">
                     <LineChart className="h-4 w-4 text-blue-600" /> Include visuals

@@ -15,6 +15,7 @@ export interface StudyGuideData {
   difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
   additionalInstructions?: string
   visuals?: boolean // false = no graphs/models (see components/visuals-info.tsx)
+  length?: 'short' | 'medium' | 'long' // Short / Medium / Long picker; default medium
 }
 
 export interface ProcessedFile {
@@ -57,6 +58,7 @@ export interface StudyGuideRequest {
   planUnit?: string // PlanUnit.key within that plan
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models
+  length?: 'short' | 'medium' | 'long'
 }
 
 export interface StudyGuideResponse {
@@ -112,6 +114,7 @@ export interface ClaudeApiRequest {
   sourcePolicy?: 'strict' | 'expand'
   materialsKind?: 'notes' | 'assessment' | 'topic_list'
   visuals?: boolean // false = leave out graphs and science models
+  length?: 'short' | 'medium' | 'long' // guide length; default medium
 }
 
 export interface ClaudeApiResponse {

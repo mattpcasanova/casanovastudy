@@ -109,6 +109,7 @@ export default function Home() {
         planId: data.planId,
         planUnit: data.planUnit,
         visuals: data.visuals,
+        length: data.length,
       }
 
       const response = await authFetch('/api/generate-study-guide-stream', {

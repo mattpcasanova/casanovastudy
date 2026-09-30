@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
           sourcePolicy: body.sourcePolicy === 'expand' ? 'expand' : 'strict',
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
           visuals: body.visuals !== false,
+          length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).

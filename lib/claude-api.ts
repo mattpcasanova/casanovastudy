@@ -263,6 +263,51 @@ const SCOPE_RULES = `SCOPE RULES:
 - No filler background (history of the subject or the exam, why the topic matters in general) unless it helps answer the kinds of questions the learner will face.
 - Every question and activity must be answerable from what this guide teaches or the learner's materials cover, and answer options must only use terms the learner has seen. If a question refers to statements (I, II, III), a passage, data, code or a figure, put them in the question itself: statements go on their own lines ("I. ...", "II. ...") directly under the question line, before the options.`
 
+// Guide length (the Short / Medium / Long choice on the homepage; default
+// medium). The targets override the counts in the per-format skeletons.
+export type GuideLength = 'short' | 'medium' | 'long'
+const LENGTH_TARGETS: Record<string, Record<GuideLength, string>> = {
+  outline: {
+    short: 'about 400-700 words of guide text: 4-6 topics with 2-3 tight bullets each, at most one table, no Supporting group, and a Quick Review of 3-5 bullets (no table)',
+    medium: 'about 1,200-2,000 words of guide text: 6-10 topics',
+    long: 'about 2,500-4,000 words of guide text: 10-16 topics, with fuller detail and more worked examples',
+  },
+  summary: {
+    short: 'about 400-700 words of guide text: 3-5 topics with one short paragraph each, and 3-5 Key Takeaways',
+    medium: 'about 1,200-2,000 words of guide text',
+    long: 'about 2,500-4,000 words of guide text, with fuller detail and more examples',
+  },
+  quiz: {
+    short: '8 questions total in 2-3 topic sections (about 6 multiple choice, 1-2 true/false, at most 1 short answer)',
+    medium: '12-18 questions total',
+    long: '25-30 questions total in 4-6 topic sections',
+  },
+  flashcards: { short: '15-20 cards total in 2-3 decks', medium: '30-50 cards total', long: '60-80 cards total in 5-8 decks' },
+  practice: { short: '8-10 activities total in 2-3 topic sections', medium: '14-20 activities total', long: '25-30 activities total' },
+  cheatsheet: { short: '5-7 boxes', medium: '8-14 boxes', long: '14-18 boxes' },
+  timeline: { short: '8-12 events in 2-3 eras', medium: '14-24 events', long: '25-35 events in 4-6 eras' },
+  plan: { short: '4-6 units in 2 phases', medium: '6-14 units', long: '12-20 units in 3-5 phases' },
+}
+
+function lengthInstructions(format: string, length: GuideLength | undefined): string {
+  const len = length ?? 'medium'
+  const target = LENGTH_TARGETS[format]?.[len]
+  if (!target) return ''
+  const lines = [
+    `LENGTH: ${len.toUpperCase()} (the learner picked this; it overrides any counts in the format rules above).`,
+    `- Target: ${target}. Figure blocks don't count toward word targets.`,
+  ]
+  if (len === 'short') {
+    lines.push(
+      '- Short means short. Cover only the most essential ideas, cut asides, background and extra examples, and stop at the target. A short guide the learner actually reads beats a complete one they skip.',
+      '- Keep figures to the essential ones (at most 2-3 in a quiz or practice set).',
+    )
+  } else if (len === 'medium') {
+    lines.push('- If the learner\'s own words ask for a different length (e.g. "keep it brief", "go in depth"), follow their words instead.')
+  }
+  return lines.join('\n')
+}
+
 // How each study goal changes the guide. Keys match GOALS in lib/study-options.ts.
 const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
   class: {
@@ -331,8 +376,9 @@ const GUIDE_PRICE = { input: 4, output: 20 } // $ per million tokens
 // out ~25% shorter, so they keep `medium`.
 const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline'])
 
-function guideRequest(content: Anthropic.MessageParam['content'], format?: string): any {
-  const effort = process.env.GUIDE_EFFORT || (format && LOW_EFFORT_FORMATS.has(format) ? 'low' : 'medium')
+function guideRequest(content: Anthropic.MessageParam['content'], format?: string, length?: GuideLength): any {
+  // Short guides of any format also run at low effort: less to write, less to plan.
+  const effort = process.env.GUIDE_EFFORT || ((format && LOW_EFFORT_FORMATS.has(format)) || length === 'short' ? 'low' : 'medium')
   return {
     model: GUIDE_MODEL,
     max_tokens: 32000,
@@ -391,7 +437,7 @@ export class ClaudeService {
 
       // Streamed + finalMessage(): the SDK refuses non-streaming requests with a
       // max_tokens this large.
-      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format))).finalMessage()
+      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length)).finalMessage()
 
       // Adaptive thinking emits a thinking block first, so content[0] is NOT the
       // text; find the text block explicitly (see CLAUDE.md model-migration gotcha).
@@ -430,7 +476,7 @@ export class ClaudeService {
 
       console.log('📊 Starting streaming generation...')
 
-      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format)))
+      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length))
 
       let fullContent = ''
 
@@ -524,6 +570,8 @@ ${sourceRules}
 ${SCOPE_RULES}
 
 ${formatInstructions}
+
+${lengthInstructions(String(format), request.length)}
 
 ${figures}${STUDY_GUIDE_STYLE_RULES}
 ${studyRequest ? `
