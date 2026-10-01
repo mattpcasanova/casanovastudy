@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles } from 'lucide-react'
@@ -16,6 +16,7 @@ import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
+import { useRecordResult } from '@/components/study-results-context'
 
 interface QuizFormatProps {
   content: string
@@ -52,6 +53,15 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
 
   const current = questions[Math.min(index, questions.length - 1)]
 
+  // Each question is logged once per run (practice reveal or test submit).
+  const logResult = useRecordResult()
+  const logged = useRef(new Set<string>())
+  const log = (q: Question, correct: boolean, score?: number) => {
+    if (logged.current.has(q.id)) return
+    logged.current.add(q.id)
+    logResult({ source: 'quiz', itemId: `q:${q.id}`, itemKind: q.type, topic: q.section, correct, score })
+  }
+
   const scoreShortAnswer = async (q: ShortAnswerQuestion): Promise<ShortAnswerScore | null> => {
     const studentAnswer = answers[q.id]
     if (!studentAnswer?.trim()) return null
@@ -79,18 +89,32 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     if (finished || (mode === 'practice' && checked[q.id])) return
     setAnswers((a) => ({ ...a, [q.id]: value }))
     // Practice mode: objective questions check themselves on click.
-    if (mode === 'practice' && q.type !== 'sa') setChecked((c) => ({ ...c, [q.id]: true }))
+    if (mode === 'practice' && q.type !== 'sa') {
+      setChecked((c) => ({ ...c, [q.id]: true }))
+      log(q, isObjectiveCorrect(q, value))
+    }
   }
 
   const checkShortAnswer = async (q: ShortAnswerQuestion) => {
     setChecked((c) => ({ ...c, [q.id]: true }))
-    await scoreShortAnswer(q)
+    const score = await scoreShortAnswer(q)
+    if (score) log(q, score.isCorrect, score.score)
   }
 
   const finish = async () => {
     setSubmitting(true)
     const pending = questions.filter((q): q is ShortAnswerQuestion => q.type === 'sa' && !saScores[q.id] && !!answers[q.id]?.trim())
-    await Promise.all(pending.map(scoreShortAnswer))
+    const fresh = await Promise.all(pending.map(scoreShortAnswer))
+    const scores: Record<string, ShortAnswerScore> = { ...saScores }
+    pending.forEach((q, i) => { const r = fresh[i]; if (r) scores[q.id] = r })
+    for (const q of questions) {
+      if (q.type === 'sa') {
+        const r = scores[q.id]
+        if (r) log(q, r.isCorrect, r.score)
+      } else if (answers[q.id]) {
+        log(q, isObjectiveCorrect(q, answers[q.id]))
+      }
+    }
     setSubmitting(false)
     setFinished(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -98,6 +122,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
 
   const restart = (ids: string[] | null) => {
     setSubset(ids)
+    logged.current = new Set()
     setAnswers({})
     setChecked({})
     setSaScores({})
@@ -339,11 +364,13 @@ function Navigator({ questions, index, status, onJump }: { questions: Question[]
   })
   const showLabels = groups.length > 1 && groups.some((g) => g.section)
   return (
-    <div className={cn('mt-4 flex flex-wrap gap-x-5 gap-y-3', !showLabels && 'gap-x-1.5')}>
+    // Phones drop the topic labels and let all numbers flow together, so the
+    // question itself isn't pushed below the fold.
+    <div className={cn('mt-4 flex flex-wrap gap-1.5', showLabels ? 'sm:gap-x-5 sm:gap-y-3' : 'gap-x-1.5')}>
       {groups.map((g, gi) => (
-        <div key={gi} className="min-w-0">
-          {showLabels && <p className="mb-1.5 max-w-[14rem] truncate text-[0.7rem] font-medium uppercase tracking-wide text-slate-400">{g.section || 'Questions'}</p>}
-          <div className="flex flex-wrap gap-1.5">
+        <div key={gi} className="contents min-w-0 sm:block">
+          {showLabels && <p className="mb-1.5 hidden max-w-[14rem] truncate text-[0.7rem] font-medium uppercase tracking-wide text-slate-400 sm:block">{g.section || 'Questions'}</p>}
+          <div className="contents sm:flex sm:flex-wrap sm:gap-1.5">
             {g.items.map(({ q, i }) => (
               <button
                 key={q.id}
@@ -352,7 +379,7 @@ function Navigator({ questions, index, status, onJump }: { questions: Question[]
                 aria-label={`Question ${i + 1}`}
                 aria-current={i === index}
                 className={cn(
-                  'h-8 w-8 rounded-lg text-xs font-semibold tabular-nums transition',
+                  'h-9 w-9 rounded-lg text-xs font-semibold tabular-nums transition sm:h-8 sm:w-8',
                   STATUS_DOT[status(q)],
                   i === index && 'ring-2 ring-purple-500 ring-offset-2'
                 )}
@@ -409,9 +436,9 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
 function Feedback({ correct, explanation, correctLabel, extra }: { correct: boolean; explanation?: string; correctLabel: string; extra?: ReactNode }) {
   return (
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
-      <p className={cn('flex items-center gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
-        {correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-        {correct ? 'Correct!' : <>Not quite. The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></>}
+      <p className={cn('flex items-start gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
+        {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0" />}
+        {correct ? 'Correct!' : <span>Not quite. The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></span>}
       </p>
       {explanation && (
         <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">

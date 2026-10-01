@@ -43,6 +43,7 @@ import PageBanner from '@/components/page-banner'
 import LearnCallout from '@/components/learn/learn-callout'
 import { DesmosProvider } from '@/components/desmos/desmos-calculator'
 import { ExplainProvider } from '@/components/explain/explain-provider'
+import { StudyResultsProvider } from '@/components/study-results-context'
 import { calculatorFor } from '@/lib/formats/figures'
 
 const FORMAT_META = {
@@ -442,7 +443,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       <div className="container mx-auto px-4 py-8 print:max-w-none print:px-0 print:py-0">
         <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
         <DesmosProvider guideId={studyGuide.id} mode={calculatorMode} showButton={false}>
-          <ExplainProvider guideId={studyGuide.id}>{renderFormat()}</ExplainProvider>
+          <ExplainProvider guideId={studyGuide.id}>
+            <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}>{renderFormat()}</StudyResultsProvider>
+          </ExplainProvider>
         </DesmosProvider>
       </div>
 

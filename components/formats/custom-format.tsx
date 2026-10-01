@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, useRef, memo } from 'react'
 import ReactMarkdown, { type Components, type Options } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -47,6 +47,7 @@ import { PracticeSession } from './practice-format'
 import { GraphFence } from './graph-figure'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 import { remarkScripts } from '@/lib/formats/scripts'
+import { useRecordResult } from '@/components/study-results-context'
 
 interface CustomFormatProps {
   content: CustomGuideContent
@@ -593,8 +594,16 @@ function QuizBlock({ questions, title }: { questions: QuizQuestion[]; title?: st
   const scored = Object.values(answers).filter(a => a.result)
   const correctCount = scored.filter(a => a.result === 'correct').length
 
-  const setState = (patch: Partial<QuizAnswerState>) =>
+  const logResult = useRecordResult()
+  const logged = useRef(new Set<string>()) // first graded answer per question per run
+
+  const setState = (patch: Partial<QuizAnswerState>) => {
     setAnswers(prev => ({ ...prev, [q.id]: { ...state, ...patch } }))
+    if (patch.result && !logged.current.has(q.id)) {
+      logged.current.add(q.id)
+      logResult({ source: 'custom', itemId: `c:${q.id}`, itemKind: q.questionType, topic: title, correct: patch.result === 'correct' })
+    }
+  }
 
   const check = () => {
     if (q.questionType === 'multiple-choice' || q.questionType === 'true-false') {
@@ -610,6 +619,7 @@ function QuizBlock({ questions, title }: { questions: QuizQuestion[]; title?: st
 
   const restart = (shuffle: boolean) => {
     setOrder(shuffle ? [...questions].sort(() => Math.random() - 0.5) : questions)
+    logged.current = new Set()
     setAnswers({})
     setIndex(0)
     setFinished(false)

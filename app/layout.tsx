@@ -1,10 +1,11 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { DM_Sans } from "next/font/google"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth"
+import { ServiceWorkerRegistrar } from "@/components/pwa/pwa"
 import "./globals.css"
 
 const dmSans = DM_Sans({
@@ -20,8 +21,19 @@ export const metadata: Metadata = {
   icons: {
     icon: "/images/casanova-study-icon.png",
     shortcut: "/images/casanova-study-icon.png",
-    apple: "/images/casanova-study-icon.png",
+    apple: "/icons/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    title: "Casanova Study",
+    statusBarStyle: "default",
+  },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#1e40af",
 }
 
 export default function RootLayout({
@@ -35,6 +47,7 @@ export default function RootLayout({
         <AuthProvider>
           <Suspense fallback={null}>{children}</Suspense>
         </AuthProvider>
+        <ServiceWorkerRegistrar />
         <Analytics />
       </body>
     </html>

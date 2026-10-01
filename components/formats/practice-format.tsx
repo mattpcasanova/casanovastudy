@@ -17,6 +17,7 @@ import { GraphFence } from './graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
+import { useRecordResult } from '@/components/study-results-context'
 
 interface PracticeFormatProps {
   content: string
@@ -67,12 +68,24 @@ export function PracticeSession({
   const [bestStreak, setBestStreak] = useState(0)
   const [round, setRound] = useState(0) // bumps to remount activities on restart
   const topRef = useRef<HTMLDivElement>(null)
+  const logResult = useRecordResult()
+  const logged = useRef(new Set<string>()) // first answer per activity per run
 
   const done = index >= activities.length
   const current = activities[Math.min(index, activities.length - 1)]
 
   const record = (correct: boolean, note?: string) => {
     if (!current) return
+    if (!logged.current.has(current.id)) {
+      logged.current.add(current.id)
+      logResult({
+        source: inline ? 'custom' : 'practice',
+        itemId: `${inline ? 'c' : 'p'}:${current.id}`,
+        itemKind: current.kind,
+        topic: current.topic || title,
+        correct,
+      })
+    }
     setResults((r) => ({ ...r, [current.id]: { correct, note } }))
     setChecked(true)
     const next = correct ? streak + 1 : 0
@@ -95,6 +108,7 @@ export function PracticeSession({
 
   const restart = (ids: string[] | null) => {
     setSubset(ids)
+    logged.current = new Set()
     setResults({})
     setIndex(0)
     setChecked(false)

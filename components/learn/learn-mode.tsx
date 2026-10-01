@@ -15,6 +15,8 @@ import { QuestionStem } from '@/components/formats/question-stem'
 import { GraphFence } from '@/components/formats/graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
+import { useRecordResult } from '@/components/study-results-context'
+import { InstallAppCard } from '@/components/pwa/pwa'
 import type { LearnItem } from './items'
 
 // ── Persisted state: instant browser copy + account copy (source of truth) ──
@@ -78,6 +80,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
   const [sessionSize, setSessionSize] = useState(0)
   const [attempt, setAttempt] = useState(0) // remount key for repeated items
   const presented = useRef<{ key: string; st?: ItemState } | null>(null)
+  const logResult = useRecordResult()
 
   const start = (ahead = false) => {
     let session = buildSession(ids, state)
@@ -103,6 +106,17 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
     setLastCorrect(correct)
     setState(gradeItem(state, current.id, correct))
     setFirstTry((f) => (current.id in f ? f : { ...f, [current.id]: correct }))
+    // Only the first answer this session counts toward weak spots; re-queued
+    // misses would otherwise inflate the item's accuracy.
+    if (!(current.id in firstTry)) {
+      logResult({
+        source: 'learn',
+        itemId: current.id,
+        itemKind: current.kind === 'card' ? 'card' : current.activity.kind,
+        topic: current.topic,
+        correct,
+      })
+    }
     // Missed items come back at the end of this session until they stick.
     if (!correct) setQueue((q) => [...q, current.id])
   }
@@ -168,6 +182,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
     const reviews = planned.filter((id) => state[id]).length
     return (
       <Shell guideId={guideId} title={title}>
+        <InstallAppCard reason="Open Learn mode in one tap and study a few cards whenever you have a minute." />
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><Brain className="h-6 w-6" /></span>

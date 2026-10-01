@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from '@/lib/auth'
 import { CLASSES_ENABLED } from '@/lib/features'
+import { IosSteps, useInstall } from '@/components/pwa/pwa'
 
 // Get user initials from name or email
 function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
@@ -38,6 +39,8 @@ export default function NavigationHeader() {
 
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { mode: installMode, install } = useInstall()
+  const [iosStepsOpen, setIosStepsOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -496,6 +499,23 @@ export default function NavigationHeader() {
                   <Users className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Students</span>
                 </Link>
+              </>
+            )}
+
+            {installMode && (
+              <>
+                <div className="h-px bg-white/10 my-1" />
+                <button
+                  type="button"
+                  onClick={() => (installMode === 'prompt' ? void install() : setIosStepsOpen((o) => !o))}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:bg-white/10"
+                >
+                  <Download className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Install the app</span>
+                </button>
+                {installMode === 'ios' && iosStepsOpen && (
+                  <div className="mx-3 mb-2 rounded-lg bg-white px-3 pb-3 pt-0.5"><IosSteps /></div>
+                )}
               </>
             )}
           </nav>

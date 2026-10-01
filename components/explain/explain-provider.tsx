@@ -173,6 +173,8 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   return (
     <ExplainContext.Provider value={api}>
       <div ref={rootRef}>{children}</div>
+      {/* Room to scroll the last answer/Next button clear of the floating dock. */}
+      <div aria-hidden className={cn('print:hidden', desmos ? 'h-28' : 'h-16', 'sm:h-12')} />
       {pill}
 
       {/* Dock: always visible, bottom-left (the guide's menu is bottom-right). */}

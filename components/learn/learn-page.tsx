@@ -6,6 +6,7 @@ import LearnMode from './learn-mode'
 import { learnItemsFor } from './items'
 import { DesmosProvider } from '@/components/desmos/desmos-calculator'
 import { ExplainProvider } from '@/components/explain/explain-provider'
+import { StudyResultsProvider } from '@/components/study-results-context'
 import { calculatorFor } from '@/lib/formats/figures'
 
 // Client wrapper: item extraction uses client-side parsers.
@@ -15,7 +16,9 @@ export default function LearnPage({ guide }: { guide: Pick<StudyGuideRecord, 'id
   return (
     <DesmosProvider guideId={guide.id} mode={mode} showButton={false}>
       <ExplainProvider guideId={guide.id}>
-        <LearnMode guideId={guide.id} title={guide.title} items={items} />
+        <StudyResultsProvider guideId={guide.id} subject={guide.subject}>
+          <LearnMode guideId={guide.id} title={guide.title} items={items} />
+        </StudyResultsProvider>
       </ExplainProvider>
     </DesmosProvider>
   )
