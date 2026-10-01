@@ -274,6 +274,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
             correct={isObjectiveCorrect(current, answers[current.id])}
             explanation={current.explanation}
             correctLabel={correctLabel(current)}
+            pickedLabel={pickedLabel(current, answers[current.id])}
             extra={
               <div className="flex flex-wrap gap-2">
                 <ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>
@@ -339,6 +340,13 @@ function isObjectiveCorrect(q: Question, answer: string | undefined): boolean {
   if (q.type === 'mc') return answer === q.correctAnswer
   if (q.type === 'tf') return answer === (q.correctAnswer ? 'true' : 'false')
   return false
+}
+
+function pickedLabel(q: Question, answer: string | undefined): string | undefined {
+  if (!answer) return undefined
+  if (q.type === 'tf') return answer === 'true' ? 'True' : 'False'
+  if (q.type === 'mc') { const i = q.options.indexOf(answer); return i < 0 ? undefined : String.fromCharCode(65 + i) }
+  return undefined
 }
 
 function correctLabel(q: Question): string {
@@ -427,18 +435,40 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
         </span>
       )}
       <span className={cn('leading-snug text-slate-800', center && 'font-semibold')}><InlineMarkdown text={label} /></span>
-      {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
-      {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
+      {locked && (correct || wrong) && (
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <AnswerTag yours={selected} correct={correct} />
+          {correct ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
+        </span>
+      )}
     </button>
   )
 }
 
-function Feedback({ correct, explanation, correctLabel, extra }: { correct: boolean; explanation?: string; correctLabel: string; extra?: ReactNode }) {
+// Spells out which option was the student's and which is right, so a red
+// outline next to a green check can't be misread as "my answer was right".
+export function AnswerTag({ yours, correct }: { yours: boolean; correct: boolean }) {
+  if (!yours && !correct) return null
+  return (
+    <span className={cn(
+      'rounded-full px-2 py-0.5 text-[0.7rem] font-semibold',
+      correct ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+    )}>
+      {yours ? 'Your answer' : 'Correct answer'}
+    </span>
+  )
+}
+
+function Feedback({ correct, explanation, correctLabel, pickedLabel, extra }: { correct: boolean; explanation?: string; correctLabel: string; pickedLabel?: string; extra?: ReactNode }) {
   return (
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       <p className={cn('flex items-start gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
         {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0" />}
-        {correct ? 'Correct!' : <span>Not quite. The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span></span>}
+        {correct ? 'Correct!' : (
+          <span>
+            Not quite.{pickedLabel && <> You picked <InlineMarkdown text={pickedLabel} />.</>} The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span>
+          </span>
+        )}
       </p>
       {explanation && (
         <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">

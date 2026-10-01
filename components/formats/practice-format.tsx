@@ -18,6 +18,7 @@ import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-pr
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { useRecordResult } from '@/components/study-results-context'
+import { AnswerTag } from './quiz-format'
 
 interface PracticeFormatProps {
   content: string
@@ -614,8 +615,12 @@ function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDon
               </span>
             )}
             <span className="leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
-            {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
-            {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
+            {(correct || wrong) && (
+              <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                <AnswerTag yours={picked === i} correct={correct} />
+                {correct ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
+              </span>
+            )}
           </button>
         )
       })}
