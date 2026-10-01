@@ -3,6 +3,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest, StudyGuideResponse, ApiResponse } from '@/types'
 import { createRouteHandlerClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { normalizeDifficulty } from '@/lib/study-options'
 
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<StudyGuideResponse>>> {
   const startTime = Date.now()
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       gradeLevel: body.gradeLevel,
       format: body.format,
       topicFocus: body.topicFocus,
-      difficultyLevel: body.difficultyLevel,
+      difficultyLevel: normalizeDifficulty(body.difficultyLevel),
       additionalInstructions: body.additionalInstructions
     })
     const claudeTime = Date.now() - claudeStart
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
         format: body.format,
         content: claudeResponse.content,
         topic_focus: body.topicFocus,
-        difficulty_level: body.difficultyLevel,
+        difficulty_level: normalizeDifficulty(body.difficultyLevel),
         additional_instructions: body.additionalInstructions,
         file_count: body.cloudinaryFiles?.length || body.files?.length || 0,
         token_usage: claudeResponse.usage,

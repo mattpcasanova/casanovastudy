@@ -58,6 +58,7 @@ import { parsePlan, unitStudyRequest } from "@/lib/formats/plan"
 import { takePrefill } from "@/lib/prefill"
 import { useAuth } from "@/lib/auth"
 import { visualsRelevant } from "@/lib/formats/figures"
+import { DIFFICULTY_FORMATS, type GuideDifficulty } from "@/lib/study-options"
 import VisualsInfo from "@/components/visuals-info"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
@@ -80,6 +81,14 @@ const LENGTH_HINTS: Record<string, Record<GuideLength, string>> = {
   plan: { short: "4-6 units", medium: "6-14 units", long: "12-20 units" },
 }
 const LENGTH_GENERIC: Record<GuideLength, string> = { short: "Quick review", medium: "Standard", long: "In depth" }
+
+// Question difficulty (DIFFICULTY rules in lib/claude-api.ts). Separate from
+// grade level, which describes the learner rather than the questions.
+const DIFFICULTY_OPTIONS: { value: GuideDifficulty; label: string; hint: string; examHint: string }[] = [
+  { value: "easier", label: "Easier", hint: "Build confidence", examHint: "Build confidence" },
+  { value: "standard", label: "Standard", hint: "Typical test", examHint: "Like the real test" },
+  { value: "hard", label: "Hard", hint: "Challenge me", examHint: "Its toughest" },
+]
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
@@ -295,6 +304,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [goal, setGoal] = useState<StudyGoal | "">("")
   const [strictSources, setStrictSources] = useState(true)
   const [length, setLength] = useState<GuideLength>("medium")
+  const [difficulty, setDifficulty] = useState<GuideDifficulty>("standard")
   // Graphs/models on by default; the last choice is remembered on this device.
   const [visuals, setVisualsState] = useState(true)
   const setVisuals = (on: boolean) => {
@@ -560,6 +570,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       additionalInstructions: additionalInstructions || undefined,
       visuals,
       length,
+      difficultyLevel: !format || DIFFICULTY_FORMATS.includes(format) ? difficulty : undefined,
     })
   }
 
@@ -963,6 +974,45 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               </div>
             </div>
 
+            {(!format || DIFFICULTY_FORMATS.includes(format)) && (
+              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm">
+                  <span className="block font-semibold text-slate-800">Difficulty</span>
+                  <span className="text-slate-500">
+                    {difficulty === "easier"
+                      ? "Core ideas, one or two steps at a time."
+                      : difficulty === "hard"
+                        ? "Multi-step questions with tempting wrong answers."
+                        : "A realistic mix, like the real thing."}
+                  </span>
+                </span>
+                <div className="grid shrink-0 grid-cols-3 gap-1 rounded-lg bg-white p-1 ring-1 ring-inset ring-slate-200" role="radiogroup" aria-label="Difficulty">
+                  {DIFFICULTY_OPTIONS.map((o) => {
+                    const on = difficulty === o.value
+                    return (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        disabled={isGenerating}
+                        onClick={() => setDifficulty(o.value)}
+                        className={cn(
+                          "flex min-w-[5.5rem] flex-col items-center rounded-md px-3 py-1.5 text-sm transition",
+                          on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        )}
+                      >
+                        <span className="font-semibold">{o.label}</span>
+                        <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
+                          {goal === "exam" ? o.examHint : o.hint}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {showVisualsSwitch && (
               <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
                 <span className="text-sm">
@@ -1041,7 +1091,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           </Button>
           <p className="text-sm text-slate-500">
             {isFormValid && sourceSummary
-              ? `${FORMATS.find((f) => f.value === format)?.label} from ${sourceSummary} · usually ready in under a minute`
+              ? `${FORMATS.find((f) => f.value === format)?.label} from ${sourceSummary} · ${difficulty === "hard" && DIFFICULTY_FORMATS.includes(format) ? "hard questions take about 2 minutes" : "usually ready in under a minute"}`
               : "Takes about a minute. Your guide is saved to My Guides."}
           </p>
         </div>

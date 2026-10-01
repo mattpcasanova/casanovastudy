@@ -82,3 +82,13 @@ export function displayLevel(value?: string | null): string {
   if (!value || value === 'general') return ''
   return LEVEL_SHORT[value] ?? titleize(value)
 }
+
+/** Question difficulty (the Easier / Standard / Hard picker); default standard. */
+export type GuideDifficulty = 'easier' | 'standard' | 'hard'
+export const DIFFICULTIES: GuideDifficulty[] = ['easier', 'standard', 'hard']
+/** Formats where the picker means something (questions or worked examples). */
+export const DIFFICULTY_FORMATS = ['quiz', 'practice', 'flashcards', 'outline', 'summary']
+
+export function normalizeDifficulty(value: unknown): GuideDifficulty {
+  return DIFFICULTIES.includes(value as GuideDifficulty) ? (value as GuideDifficulty) : 'standard'
+}

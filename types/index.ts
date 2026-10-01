@@ -12,7 +12,7 @@ export interface StudyGuideData {
   gradeLevel: string
   format: StudyGuideFormat
   topicFocus?: string
-  difficultyLevel?: 'beginner' | 'intermediate' | 'advanced'
+  difficultyLevel?: 'easier' | 'standard' | 'hard' // Difficulty picker; default standard
   additionalInstructions?: string
   visuals?: boolean // false = no graphs/models (see components/visuals-info.tsx)
   length?: 'short' | 'medium' | 'long' // Short / Medium / Long picker; default medium
@@ -107,7 +107,7 @@ export interface ClaudeApiRequest {
   gradeLevel: string
   format: string
   topicFocus?: string
-  difficultyLevel?: string
+  difficultyLevel?: 'easier' | 'standard' | 'hard' // question difficulty; default standard
   additionalInstructions?: string
   studyRequest?: string
   goal?: string

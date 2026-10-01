@@ -4,7 +4,7 @@ import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
-import { GOAL_VALUES, MATERIALS_KINDS, type MaterialsKind } from '@/lib/study-options'
+import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           gradeLevel: body.gradeLevel,
           format: body.format,
           topicFocus: body.topicFocus,
-          difficultyLevel: body.difficultyLevel,
+          difficultyLevel: normalizeDifficulty(body.difficultyLevel),
           additionalInstructions: body.additionalInstructions,
           studyRequest: studyRequest || undefined,
           goal: body.goal && GOAL_VALUES.includes(body.goal) ? body.goal : undefined,
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
             format: body.format,
             content: fullContent,
             topic_focus: body.topicFocus || (studyRequest ? studyRequest.slice(0, 200) : undefined),
-            difficulty_level: body.difficultyLevel,
+            difficulty_level: normalizeDifficulty(body.difficultyLevel),
             additional_instructions: body.additionalInstructions,
             file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),
             token_usage: usage,

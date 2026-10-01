@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
+import { DIFFICULTY_FORMATS, type GuideDifficulty } from '@/lib/study-options'
 
 // Turn structured "specific control" directives into an instruction block the
 // custom-guide generator can honor. Returns '' when nothing is specified so the
@@ -308,6 +309,48 @@ function lengthInstructions(format: string, length: GuideLength | undefined): st
   return lines.join('\n')
 }
 
+// Question difficulty (the Easier / Standard / Hard picker; default standard).
+// Separate from the learner's level: an SAT guide for a 9th grader is still an
+// SAT guide, so grade level alone barely moved question difficulty.
+const ITEM_FORMATS = new Set(['quiz', 'practice'])
+
+function difficultyInstructions(format: string, difficulty: GuideDifficulty | undefined): string {
+  if (!DIFFICULTY_FORMATS.includes(format)) return ''
+  const d = difficulty ?? 'standard'
+  if (d === 'standard') {
+    return `DIFFICULTY: STANDARD. Match the typical difficulty of the learner's goal, not a simplified version of it: for an exam, the spread of the real test (about a quarter easier, half medium, a quarter hard, written the way that exam writes them); for a class, a normal unit test. Most questions should take more than recalling one fact.`
+  }
+  const lines: string[] = []
+  if (d === 'hard') {
+    lines.push(
+      'DIFFICULTY: HARD (the learner picked this; standard questions felt too easy). It overrides the difficulty mix and any true/false counts in the format and length rules above.',
+      "- Write at the top of the difficulty range for the learner's goal. For a recognized exam, match its hardest questions, the ones most test takers miss (on adaptive tests like the SAT, the harder second module), not its average ones. For a class, write the questions a strong teacher saves for the end of a unit test.",
+      '- What makes a question hard: it takes 2-4 reasoning steps; it combines two or more ideas; it puts a familiar idea in an unfamiliar setup (a word problem, a table, a graph, a rearranged form); the obvious first approach is slow or wrong; and the wrong options are the answers students really get from common mistakes (sign errors, the wrong formula, answering for a different quantity than asked, stopping one step early).',
+      '- What does NOT make a question hard: obscure trivia, content outside the scope, vague or trick wording, or messy arithmetic for its own sake.',
+    )
+    if (ITEM_FORMATS.has(format)) {
+      lines.push(
+        '- Mix: at least 80% hard, the rest upper-medium, and no recall questions. Within each section, go from the medium ones to the hardest.',
+        '- No true/false questions: they are too easy to guess. Use multiple choice, plus short answer where the exam has student-written answers.',
+        '- Before finishing, review each question: if a well-prepared student could answer it in under 30 seconds, replace it with a harder one on the same skill.',
+        '- Explanations show the full solution path and name the mistake behind each tempting wrong answer.',
+        '- Solve every question yourself before writing its options, and check that the keyed answer is the only correct one.',
+      )
+    } else if (format === 'flashcards') {
+      lines.push('- Cards ask for application, distinctions between similar ideas and multi-step reasoning, not definitions alone; answers show the reasoning in brief.')
+    } else {
+      lines.push('- Worked examples and self-checks are hard ones; call out the step where students usually go wrong.')
+    }
+  } else {
+    lines.push(
+      'DIFFICULTY: EASIER (the learner picked this to build confidence first).',
+      '- Mostly one- or two-step questions on the core ideas: about half easy and half medium, nothing hard. Still test understanding, not just recall of words.',
+      '- Use clear, direct wording, and explanations that show each step.',
+    )
+  }
+  return lines.join('\n')
+}
+
 // How each study goal changes the guide. Keys match GOALS in lib/study-options.ts.
 const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
   class: {
@@ -342,7 +385,7 @@ const GOAL_GUIDANCE: Record<string, { label: string; rules: string }> = {
 }
 
 // Plain-language description of the learner's level for the prompt.
-function describeLevel(gradeLevel?: string, difficulty?: string): string {
+function describeLevel(gradeLevel?: string): string {
   const map: Record<string, string> = {
     '6th-8th': 'middle school (grades 6–8)',
     '9th': '9th grade', '10th': '10th grade', '11th': '11th grade', '12th': '12th grade',
@@ -357,7 +400,7 @@ function describeLevel(gradeLevel?: string, difficulty?: string): string {
     : gradeLevel && gradeLevel !== 'general'
       ? gradeLevel
       : 'not specified; infer the right level from the request or materials (default to a motivated high-school/early-college learner)'
-  return difficulty ? `${base}; requested difficulty: ${difficulty}` : base
+  return base
 }
 
 // Study-guide generation (standard, streaming and custom guides) runs on one
@@ -376,9 +419,12 @@ const GUIDE_PRICE = { input: 4, output: 20 } // $ per million tokens
 // out ~25% shorter, so they keep `medium`.
 const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline'])
 
-function guideRequest(content: Anthropic.MessageParam['content'], format?: string, length?: GuideLength): any {
+function guideRequest(content: Anthropic.MessageParam['content'], format?: string, length?: GuideLength, difficulty?: GuideDifficulty): any {
   // Short guides of any format also run at low effort: less to write, less to plan.
-  const effort = process.env.GUIDE_EFFORT || ((format && LOW_EFFORT_FORMATS.has(format)) || length === 'short' ? 'low' : 'medium')
+  // Hard guides never do: hard multi-step questions need the thinking to come
+  // out hard and keyed correctly.
+  const low = (format && LOW_EFFORT_FORMATS.has(format)) || length === 'short'
+  const effort = process.env.GUIDE_EFFORT || (low && difficulty !== 'hard' ? 'low' : 'medium')
   return {
     model: GUIDE_MODEL,
     max_tokens: 32000,
@@ -438,7 +484,7 @@ export class ClaudeService {
 
       // Streamed + finalMessage(): the SDK refuses non-streaming requests with a
       // max_tokens this large.
-      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length)).finalMessage()
+      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length, request.difficultyLevel)).finalMessage()
 
       // Adaptive thinking emits a thinking block first, so content[0] is NOT the
       // text; find the text block explicitly (see CLAUDE.md model-migration gotcha).
@@ -477,7 +523,7 @@ export class ClaudeService {
 
       console.log('📊 Starting streaming generation...')
 
-      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length))
+      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length, request.difficultyLevel))
 
       let fullContent = ''
 
@@ -511,7 +557,7 @@ export class ClaudeService {
   private buildPrompt(request: ClaudeApiRequest): string {
     const { content, format, topicFocus, additionalInstructions, studyRequest } = request
     const goal = request.goal && GOAL_GUIDANCE[request.goal] ? request.goal : null
-    const level = describeLevel(request.gradeLevel, request.difficultyLevel)
+    const level = describeLevel(request.gradeLevel)
     // "general" = left blank; let the model infer it.
     const subject = request.subject && request.subject !== 'general'
       ? request.subject
@@ -573,6 +619,8 @@ ${SCOPE_RULES}
 ${formatInstructions}
 
 ${lengthInstructions(String(format), request.length)}
+
+${difficultyInstructions(String(format), request.difficultyLevel)}
 
 ${figures}${STUDY_GUIDE_STYLE_RULES}
 ${studyRequest ? `
