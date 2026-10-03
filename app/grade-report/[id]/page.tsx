@@ -21,6 +21,9 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import NavigationHeader from "@/components/navigation-header"
 import { useAuth } from "@/lib/auth"
+import { cn } from "@/lib/utils"
+import { displaySerif } from "@/lib/formats/fonts"
+import { fontDisplay } from "@/lib/formats/design"
 
 interface GradingResult {
   id: string
@@ -238,29 +241,30 @@ export default function GradeReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
 
-      {/* Title Banner */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white">
-        <div className="container mx-auto px-4 py-10">
+      {/* Title Banner (same look as the grading and guide pages) */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 pb-24 text-white">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }} />
+        <div className="container relative mx-auto px-4 pt-12">
           <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              Grading Report
+            <h1 className={cn(fontDisplay, "mb-2 text-4xl font-semibold tracking-tight sm:text-5xl")}>
+              Grading report
             </h1>
-            <p className="text-xs sm:text-sm opacity-75">
+            <p className="text-sm text-blue-50/85">
               {gradingResult.studentName} - {new Date(gradingResult.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container relative mx-auto -mt-16 px-4 pb-16">
         <div className="max-w-4xl mx-auto space-y-8">
-          <Card className="shadow-xl">
+          <Card className="rounded-3xl border-slate-200 shadow-2xl shadow-blue-900/10">
             <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl flex items-center gap-3">
+                <CardTitle className={cn(fontDisplay, "flex items-center gap-3 text-2xl font-semibold")}>
                   <CheckCircle className="h-6 w-6 text-green-500" />
                   Grading Complete
                 </CardTitle>
@@ -285,24 +289,24 @@ export default function GradeReportPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Score Summary */}
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-50 rounded-xl border">
+              <div className="grid grid-cols-3 gap-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 p-5 ring-1 ring-inset ring-emerald-200">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{gradingResult.totalMarks}/{gradingResult.totalPossibleMarks}</p>
+                  <p className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>{gradingResult.totalMarks}/{gradingResult.totalPossibleMarks}</p>
                   <p className="text-sm text-muted-foreground">Total Marks</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{gradingResult.percentage.toFixed(1)}%</p>
+                  <p className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>{gradingResult.percentage.toFixed(1)}%</p>
                   <p className="text-sm text-muted-foreground">Percentage</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{gradingResult.grade}</p>
+                  <p className={cn(fontDisplay, "text-3xl font-semibold text-blue-700")}>{gradingResult.grade}</p>
                   <p className="text-sm text-muted-foreground">Grade</p>
                 </div>
               </div>
 
               {/* Grade Breakdown */}
               <div>
-                <h3 className="font-semibold text-lg mb-4">Question Breakdown</h3>
+                <h3 className={cn(fontDisplay, "mb-4 text-xl font-semibold text-slate-900")}>Question breakdown</h3>
                 <div className="space-y-3">
                   {(isEditing && editedBreakdown ? editedBreakdown : gradingResult.gradeBreakdown).map((item, index) => (
                     <div

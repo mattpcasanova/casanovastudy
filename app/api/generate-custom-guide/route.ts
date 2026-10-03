@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { fetchUploadedImages } from '@/lib/uploads/server-images'
 import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { CustomSection } from '@/lib/types/custom-guide'
@@ -99,8 +100,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls, visuals } = body
+  // Prepared in the browser (lib/uploads/prepare.ts): text from files, and uploaded photos/scanned pages.
+  const directContent: Array<{ name: string; content: string }> = Array.isArray(body.directContent)
+    ? body.directContent.filter((d: { content?: unknown }) => typeof d?.content === 'string').map((d: { name?: unknown; content: string }) => ({ name: String(d.name ?? 'file').slice(0, 120), content: d.content.slice(0, 200000) }))
+    : []
+  const imageList = Array.isArray(body.images) ? body.images : []
 
-  const hasFiles = !!cloudinaryFiles && cloudinaryFiles.length > 0
+  const hasFiles = (!!cloudinaryFiles && cloudinaryFiles.length > 0) || directContent.length > 0 || imageList.length > 0
   const hasControls = !!controls && Array.isArray(controls.formats) && controls.formats.length > 0
 
   // Debug logging
@@ -111,6 +117,8 @@ export async function POST(request: NextRequest) {
     mode,
     hasCloudinaryFiles: hasFiles,
     fileCount: cloudinaryFiles?.length || 0,
+    textFiles: directContent.length,
+    images: imageList.length,
     hasControls,
     hasExistingContent: !!existingContent,
     existingContentLength: existingContent?.length || 0
@@ -222,10 +230,20 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Text read in the browser, then photos/scanned pages.
+        if (directContent.length) {
+          sourceContent = [sourceContent, ...directContent.map(d => `--- ${d.name} ---\n${d.content}`)].filter(Boolean).join('\n\n')
+        }
+        let images: Awaited<ReturnType<typeof fetchUploadedImages>> = []
+        if (imageList.length) {
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your photos...' }) + '\n\n'))
+          images = await fetchUploadedImages(imageList)
+        }
+
         // Send progress update
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'progress',
-          message: (sourceContent || pdfDocuments.length > 0) ? 'Analyzing source materials...' : 'Generating your study guide...'
+          message: (sourceContent || pdfDocuments.length > 0 || images.length > 0) ? 'Analyzing source materials...' : 'Generating your study guide...'
         }) + '\n\n'))
 
         let fullContent = ''
@@ -242,7 +260,8 @@ export async function POST(request: NextRequest) {
           controls,
           visuals: visuals !== false,
           // Pass PDF documents for Claude's native PDF reading when text extraction failed
-          pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined
+          pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined,
+          images: images.length > 0 ? images : undefined,
         })
 
         for await (const chunk of streamGenerator) {

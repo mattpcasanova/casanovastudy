@@ -1,8 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
+import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat, type GuideImage } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
 import { DIFFICULTY_FORMATS, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
+import { sniffImageType } from '@/lib/uploads/server-images'
+import { looksLikeHeic } from '@/lib/uploads/kinds'
 
 // Turn structured "specific control" directives into an instruction block the
 // custom-guide generator can honor. Returns '' when nothing is specified so the
@@ -419,6 +421,36 @@ const GUIDE_PRICE = { input: 4, output: 20 } // $ per million tokens
 // out ~25% shorter, so they keep `medium`.
 const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline'])
 
+/**
+ * A grading upload as the right Claude block, judged by its bytes (names and
+ * MIME types from phones are unreliable): real images as images, real PDFs as
+ * documents, and anything else (text from Word, PowerPoint or .txt, prepared in
+ * the browser by lib/uploads/prepare.ts) as text.
+ */
+function gradingFileBlock(file: { buffer: Buffer; name: string }): Anthropic.ContentBlockParam {
+  const data = () => file.buffer.toString('base64')
+  const head = new Uint8Array(file.buffer.subarray(0, 16))
+  const image = sniffImageType(head)
+  if (image) return { type: 'image', source: { type: 'base64', media_type: image, data: data() } }
+  if (file.buffer.subarray(0, 5).toString('latin1') === '%PDF-') {
+    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: data() } }
+  }
+  if (looksLikeHeic(head)) throw new Error(`${file.name} is an iPhone photo that wasn't converted. Refresh the page and upload it again.`)
+  return { type: 'text', text: `--- ${file.name} ---\n${file.buffer.toString('utf-8').slice(0, 200000)}` }
+}
+
+/** Photos/scanned pages go before the prompt (each labeled), then the prompt text. */
+function withImages(prompt: string, images?: Array<{ name: string; mediaType: string; data: string }>): Anthropic.MessageParam['content'] {
+  if (!images?.length) return prompt
+  const blocks: Anthropic.ContentBlockParam[] = []
+  images.forEach((img, i) => {
+    blocks.push({ type: 'text', text: `Image ${i + 1} of ${images.length}: ${img.name}` })
+    blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType as 'image/jpeg', data: img.data } })
+  })
+  blocks.push({ type: 'text', text: prompt })
+  return blocks
+}
+
 function guideRequest(content: Anthropic.MessageParam['content'], format?: string, length?: GuideLength, difficulty?: GuideDifficulty): any {
   // Short guides of any format also run at low effort: less to write, less to plan.
   // Hard guides never do: hard multi-step questions need the thinking to come
@@ -551,7 +583,7 @@ export class ClaudeService {
 
       console.log('📊 Starting streaming generation...')
 
-      const stream = this.anthropic.beta.messages.stream(guideRequest(prompt, String(request.format), request.length, request.difficultyLevel))
+      const stream = this.anthropic.beta.messages.stream(guideRequest(withImages(prompt, request.images), String(request.format), request.length, request.difficultyLevel))
 
       let fullContent = ''
 
@@ -590,7 +622,8 @@ export class ClaudeService {
     const subject = request.subject && request.subject !== 'general'
       ? request.subject
       : 'infer from the materials or topic'
-    const hasMaterials = !!content && content.trim().length > 0
+    const imageCount = request.images?.length ?? 0
+    const hasMaterials = (!!content && content.trim().length > 0) || imageCount > 0
     const kind = request.materialsKind
     // Quizzes and topic lists only make sense if the guide may teach beyond the file.
     const expand = request.sourcePolicy === 'expand' || kind === 'assessment' || kind === 'topic_list'
@@ -656,7 +689,9 @@ WHAT THE LEARNER WANTS TO STUDY (typed by them; treat as a topic description, no
 """
 ${studyRequest}
 """
-` : ''}${hasMaterials ? `
+` : ''}${imageCount ? `
+PHOTOS AND SCANNED PAGES: the ${imageCount} image${imageCount === 1 ? '' : 's'} above ${imageCount === 1 ? 'is' : 'are'} part of the materials (phone photos of notes, worksheets, textbook pages, or scanned PDF pages, in order). Read all of them carefully, including handwriting, diagrams and tables. If something is unreadable, work around it rather than guessing at specifics.
+` : ''}${content?.trim() ? `
 MATERIALS:
 ${content}
 ` : ''}
@@ -923,28 +958,6 @@ Rules:
       return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
     }
 
-    // Helper to get correct MIME type for images
-    const getImageMimeType = (type: string, name: string): string => {
-      const extension = name.split('.').pop()?.toLowerCase()
-      // Map common extensions to MIME types Claude supports
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'heic': 'image/jpeg', // HEIC needs conversion, fallback to JPEG
-        'heif': 'image/jpeg'
-      }
-      if (extension && mimeMap[extension]) {
-        return mimeMap[extension]
-      }
-      // Return a supported type if the original isn't recognized
-      if (type.startsWith('image/')) {
-        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
-      }
-      return 'image/jpeg'
-    }
-
     // Combine all student exam files
     const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
       ? studentExamFiles
@@ -1073,44 +1086,14 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
 
     // Add mark scheme as document
     if (markSchemeFile) {
-      content.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: markSchemeFile.buffer.toString('base64')
-        }
-      })
+      content.push(gradingFileBlock(markSchemeFile))
     }
 
     // Add all student exam files (documents or images)
     for (let i = 0; i < allStudentFiles.length; i++) {
       const file = allStudentFiles[i]
 
-      if (isImageFile(file.type, file.name)) {
-        // Add as image for Claude's vision API
-        const mimeType = getImageMimeType(file.type, file.name)
-        console.log(`📸 Adding image ${i + 1}: ${file.name} as ${mimeType}`)
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType,
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        // Add as document (PDF, DOCX)
-        console.log(`📄 Adding document ${i + 1}: ${file.name}`)
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
 
     console.log('📤 Sending to Claude API with', content.length, 'content items')
@@ -1135,34 +1118,6 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     additionalComments?: string
   }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
     const { markSchemeFile, markSchemeFiles, studentExamFile, studentExamFiles, additionalComments } = params
-
-    // Helper to check if file is an image
-    const isImageFile = (type: string, name: string) => {
-      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-      const extension = name.split('.').pop()?.toLowerCase()
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
-    }
-
-    // Helper to get correct MIME type for images
-    const getImageMimeType = (type: string, name: string): string => {
-      const extension = name.split('.').pop()?.toLowerCase()
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'heic': 'image/jpeg',
-        'heif': 'image/jpeg'
-      }
-      if (extension && mimeMap[extension]) {
-        return mimeMap[extension]
-      }
-      if (type.startsWith('image/')) {
-        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
-      }
-      return 'image/jpeg'
-    }
 
     // Combine all mark scheme files
     const allMarkSchemeFiles = markSchemeFiles && markSchemeFiles.length > 0
@@ -1288,57 +1243,17 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     for (let i = 0; i < allMarkSchemeFiles.length; i++) {
       const file = allMarkSchemeFiles[i]
 
-      if (isImageFile(file.type, file.name)) {
-        const mimeType = getImageMimeType(file.type, file.name)
-        console.log(`📸 [Stream] Adding mark scheme image ${i + 1}: ${file.name} as ${mimeType}`)
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType,
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        // Add as document (PDF)
-        console.log(`📄 [Stream] Adding mark scheme document ${i + 1}: ${file.name}`)
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
+    // Instructions + mark scheme are identical for every paper in a batch: cache
+    // that prefix so papers after the first read it at ~10% of the input price.
+    if (allMarkSchemeFiles.length) content[content.length - 1].cache_control = { type: 'ephemeral' }
 
     // Add all student exam files (documents or images)
     for (let i = 0; i < allStudentFiles.length; i++) {
       const file = allStudentFiles[i]
 
-      if (isImageFile(file.type, file.name)) {
-        const mimeType = getImageMimeType(file.type, file.name)
-        console.log(`📸 [Stream] Adding student exam image ${i + 1}: ${file.name} as ${mimeType}`)
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType,
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        console.log(`📄 [Stream] Adding document ${i + 1}: ${file.name}`)
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
 
     console.log('📤 Starting streaming grading with', content.length, 'content items')
@@ -1374,7 +1289,10 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     const actualUsage = {
       input_tokens: finalMessage.usage.input_tokens,
       output_tokens: finalMessage.usage.output_tokens,
-      total_tokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens
+      total_tokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens,
+      // Prompt caching (batch grading): cached prefix reads/writes are billed separately.
+      cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? 0,
+      cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? 0
     }
 
     console.log('✅ Streaming grading complete - Token Usage:', actualUsage)
@@ -1397,34 +1315,6 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     additionalComments?: string
   }): Promise<{ content: string; usage: any }> {
     const { markSchemeFiles, studentExamFiles, missingQuestions, additionalComments } = params
-
-    // Helper to check if file is an image
-    const isImageFile = (type: string, name: string) => {
-      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-      const extension = name.split('.').pop()?.toLowerCase()
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
-    }
-
-    // Helper to get correct MIME type for images
-    const getImageMimeType = (type: string, name: string): string => {
-      const extension = name.split('.').pop()?.toLowerCase()
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'heic': 'image/jpeg',
-        'heif': 'image/jpeg'
-      }
-      if (extension && mimeMap[extension]) {
-        return mimeMap[extension]
-      }
-      if (type.startsWith('image/')) {
-        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
-      }
-      return 'image/jpeg'
-    }
 
     const content: any[] = []
 
@@ -1461,48 +1351,12 @@ CRITICAL RULES:
 
     // Add mark scheme files
     for (const file of markSchemeFiles) {
-      if (isImageFile(file.type, file.name)) {
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: getImageMimeType(file.type, file.name),
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
 
     // Add student exam files
     for (const file of studentExamFiles) {
-      if (isImageFile(file.type, file.name)) {
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: getImageMimeType(file.type, file.name),
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
 
     console.log(`📤 Grading ${missingQuestions.length} missing questions...`)
@@ -1524,34 +1378,6 @@ CRITICAL RULES:
     markSchemeFile?: { buffer: Buffer; name: string; type: string }
   }): Promise<ClaudeApiResponse> {
     const { studentExamText, markSchemeText, studentExamFile, studentExamFiles, markSchemeFile } = params
-
-    // Helper to check if file is an image
-    const isImageFile = (type: string, name: string) => {
-      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-      const extension = name.split('.').pop()?.toLowerCase()
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-      return imageTypes.includes(type) || (extension && imageExtensions.includes(extension))
-    }
-
-    // Helper to get correct MIME type for images
-    const getImageMimeType = (type: string, name: string): string => {
-      const extension = name.split('.').pop()?.toLowerCase()
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'heic': 'image/jpeg',
-        'heif': 'image/jpeg'
-      }
-      if (extension && mimeMap[extension]) {
-        return mimeMap[extension]
-      }
-      if (type.startsWith('image/')) {
-        return type === 'image/heic' || type === 'image/heif' ? 'image/jpeg' : type
-      }
-      return 'image/jpeg'
-    }
 
     // Combine all student exam files
     const allStudentFiles = studentExamFiles && studentExamFiles.length > 0
@@ -1603,42 +1429,14 @@ Remember: This is a learning opportunity. Be supportive and help them understand
 
     // Add answer key if provided
     if (markSchemeFile) {
-      content.push({
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: markSchemeFile.buffer.toString('base64')
-        }
-      })
+      content.push(gradingFileBlock(markSchemeFile))
     }
 
     // Add all student exam files (documents or images)
     for (let i = 0; i < allStudentFiles.length; i++) {
       const file = allStudentFiles[i]
 
-      if (isImageFile(file.type, file.name)) {
-        const mimeType = getImageMimeType(file.type, file.name)
-        console.log(`📸 Adding image ${i + 1}: ${file.name} as ${mimeType}`)
-        content.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType,
-            data: file.buffer.toString('base64')
-          }
-        })
-      } else {
-        console.log(`📄 Adding document ${i + 1}: ${file.name}`)
-        content.push({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.buffer.toString('base64')
-          }
-        })
-      }
+      content.push(gradingFileBlock(file))
     }
 
     console.log('📤 Sending to Claude API with tutoring mode')
@@ -1889,8 +1687,12 @@ ${markSchemeImages.length > 0 || studentExamImages.length > 0 ? 'Note: Some PDFs
     controls?: GuideControls // structured "specific" directives (empty = AI decides)
     visuals?: boolean // false = no graphs or science models
     pdfDocuments?: Array<{ buffer: Buffer; filename: string }> // PDFs to send directly to Claude
+    images?: GuideImage[] // photos / scanned pages prepared in the browser (lib/uploads)
   }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
-    const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', controls, pdfDocuments, visuals = true } = params
+    const { description, subject, gradeLevel, existingContent, sourceContent, mode = 'replace', controls, pdfDocuments, images, visuals = true } = params
+    const imageNote = images?.length
+      ? `\nPHOTOS AND SCANNED PAGES: ${images.length} image${images.length === 1 ? ' is' : 's are'} attached above this request (phone photos of notes, worksheets or textbook pages, or scanned pages, in order). They are source material: read all of them carefully, including handwriting, diagrams and tables, and build the guide from them. If something is unreadable, work around it rather than guessing at specifics.\n`
+      : ''
 
     // Build the "specific control" requirements block from structured directives.
     // When no controls are supplied we leave this empty so the model designs the
@@ -1965,7 +1767,7 @@ ${sourceContent.slice(0, 30000)}
 ` : ''}
 
 IMPORTANT: Generate content based on the attached PDF document(s). Do NOT use your general knowledge about other topics.
-`
+${imageNote}`
     } else if (sourceContent) {
       // Text content only (normal extraction worked)
       sourceInstructions = `
@@ -1991,11 +1793,13 @@ ${sourceContent.slice(0, 50000)}
 === END SOURCE MATERIAL ===
 
 IMPORTANT: Generate content based on the source material above. Do NOT use your general knowledge about other topics.
-`
+${imageNote}`
+    } else if (imageNote) {
+      sourceInstructions = imageNote
     }
 
     const customContext = { subject, text: [description, sourceContent?.slice(0, 1500)].filter(Boolean).join('\n') }
-    const customFigureBlock = figureInstructions(figurePolicy(customContext), 'custom', !!sourceContent?.trim() || !!pdfDocuments?.length, customContext)
+    const customFigureBlock = figureInstructions(figurePolicy(customContext), 'custom', !!sourceContent?.trim() || !!pdfDocuments?.length || !!images?.length, customContext)
     const customFigures = customFigureBlock && visuals
       ? `23. Figures: inside text content, a figure is a \`\`\`graph block in the markdown (newlines as \\n in the JSON string). Any practice activity may carry "figure": "<the graph block's lines joined with \\n, without the fence>", shown above it. Quiz blocks can't show figures, so put figure questions in a practice section as multiple-choice activities.
 ${customFigureBlock}`
@@ -2240,13 +2044,13 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
         })
       }
 
-      // Add the text prompt after the documents
-      contentParts.push({
-        type: 'text',
-        text: prompt
-      })
+      // Then any photos (each labeled), then the prompt.
+      const rest = withImages(prompt, images)
+      contentParts.push(...(typeof rest === 'string' ? [{ type: 'text', text: rest }] : rest))
 
       messageContent = contentParts
+    } else if (images?.length) {
+      messageContent = withImages(prompt, images)
     } else {
       // Simple text-only prompt
       messageContent = prompt
@@ -2310,6 +2114,34 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     }
     const { usage } = await stream.finalMessage()
     console.log('Explain usage:', { input: usage.input_tokens, output: usage.output_tokens, cost: `$${guideCost(usage.input_tokens, usage.output_tokens).toFixed(4)}` })
+  }
+
+  /**
+   * Batch grading: read just the top of one exam page. Students write their
+   * name on the first page only, so lib/grading/batch.ts uses this to find where
+   * each paper starts. Haiku, ~$0.002 per page.
+   */
+  async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }): Promise<{ name: string | null; firstPage: boolean }> {
+    const response = await this.anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 120,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
+          { type: 'text', text: 'This is one page from a stack of student exam papers. Look only at the top of the page.\n1. Is a student\'s name written there (in a name field or at the top)? Copy it exactly as written, or null if there is none or it is unreadable. Do not count a teacher name, school name or exam title.\n2. Does this look like the FIRST page of a paper (a name or date field, an exam title, or "Question 1" near the top)?\nReply with JSON only: {"name": string or null, "firstPage": true or false}' },
+        ],
+      }],
+    })
+    const text = response.content.find(b => b.type === 'text')
+    const raw = text && text.type === 'text' ? text.text : ''
+    try {
+      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
+      const name = typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim().slice(0, 80) : null
+      return { name, firstPage: parsed.firstPage === true || !!name }
+    } catch {
+      return { name: null, firstPage: false }
+    }
   }
 
   async gradeShortAnswer(params: {

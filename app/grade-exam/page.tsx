@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, FileText, X, CheckCircle, Download, FileCheck, AlertCircle, Edit2 } from "lucide-react"
+import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, Users, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
@@ -13,6 +14,11 @@ import { AutocompleteInput } from "@/components/autocomplete-input"
 import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
 import { processFile, compressImageFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
+import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
+import { DropZone, FileList, GradingHero, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { displaySerif } from "@/lib/formats/fonts"
+import { fontDisplay } from "@/lib/formats/design"
+import { cn } from "@/lib/utils"
 
 interface GradingResult {
   id?: string
@@ -49,6 +55,8 @@ export default function GradeExamPage() {
   // Drag and drop state
   const [dragActive, setDragActive] = useState(false)
   const [answerSheetDragActive, setAnswerSheetDragActive] = useState(false)
+  const studentInputRef = useRef<HTMLInputElement>(null)
+  const answerInputRef = useRef<HTMLInputElement>(null)
 
   // Optional metadata fields for organization
   const [studentFirstName, setStudentFirstName] = useState("")
@@ -62,7 +70,6 @@ export default function GradeExamPage() {
 
   // Conditional text based on user type
   const isTeacher = user?.user_type === 'teacher'
-  const pageTitle = isTeacher ? 'Exam Grading Assistant' : 'Check My Work'
   const pageSubtitle = isTeacher
     ? 'Upload student exams to receive detailed grading with marks and feedback'
     : 'Upload your practice work to get helpful feedback and improve your understanding'
@@ -74,33 +81,12 @@ export default function GradeExamPage() {
     }
   }, [gradingResult, isTeacher])
 
+  // Any photo (HEIC too), PDF, Word, PowerPoint or text file; prepared in the browser (lib/uploads).
   const validateFile = (file: File): string | null => {
-    const maxSize = 100 * 1024 * 1024
-    const allowedDocTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "text/plain"
-    ]
-    const allowedImageTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/heic",
-      "image/heif"
-    ]
-    const allowedExtensions = ['pdf', 'docx', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
-
-    const extension = file.name.split('.').pop()?.toLowerCase()
-    const isValidType = allowedDocTypes.includes(file.type) || allowedImageTypes.includes(file.type)
-    const isValidExtension = extension && allowedExtensions.includes(extension)
-
-    if (!isValidType && !isValidExtension) {
-      return "Only PDF, DOCX, PPTX, TXT, JPG, PNG, HEIC, or WebP files are supported."
-    }
-    if (file.size > maxSize) {
-      return "File size too large. Please upload files smaller than 100MB"
-    }
+    const kind = uploadKind(file.name, file.type)
+    if (kind === "legacy") return legacyHelp(file.name)
+    if (kind === "unsupported" && file.type) return "That file type isn't supported. Try a photo, PDF, Word or PowerPoint file."
+    if (file.size > UPLOAD_LIMITS.maxFileBytes) return `File too large. Files up to ${UPLOAD_LIMITS.maxFileBytes / 1024 / 1024} MB work.`
     return null
   }
 
@@ -475,278 +461,165 @@ export default function GradeExamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-800 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
-              backgroundSize: "20px 20px",
-            }}
-          ></div>
-        </div>
+      <GradingHero
+        title={isTeacher ? "Grade exams" : "Check your work"}
+        accent={isTeacher ? "in minutes, not hours" : "and see what to fix"}
+        subtitle={pageSubtitle}
+        chips={isTeacher ? ["Handwriting", "Phone photos", "Scanned PDFs", "Any mark scheme", "Editable feedback", "PDF reports"] : ["Handwriting", "Phone photos", "Scanned PDFs", "Clear feedback"]}
+      />
 
-        <div className="container mx-auto px-4 relative">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-5xl font-bold">{pageTitle}</h1>
-            <p className="text-lg opacity-90">{pageSubtitle}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
+      <div className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">
         {!isGrading && !gradingResult && (
-          <div className="max-w-5xl mx-auto space-y-10">
-            {/* Upload Section */}
-            <section>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
+          <div className="space-y-6">
+            {/* 1: the student's work */}
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <StepCard highlight={dragActive ? "drag" : errors.studentExam ? "error" : null}>
+                {dragActive && (
+                  <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-blue-50/95">
+                    <Upload className="mb-2 h-10 w-10 text-blue-600" />
+                    <p className="text-lg font-semibold text-blue-900">Drop the pages here</p>
+                    <p className="text-sm text-blue-700">{UPLOAD_HINT}</p>
+                  </div>
+                )}
+                <StepHeading n={1} title={isTeacher ? "The student's exam" : "Your work"} hint={studentExamFiles.length ? `${studentExamFiles.length} file${studentExamFiles.length === 1 ? "" : "s"}` : "Every page, in order"} />
+                <DropZone
+                  label={studentExamFiles.length ? "Add more pages" : "Upload the pages"}
+                  onBrowse={() => studentInputRef.current?.click()}
+                  hasFiles={studentExamFiles.length > 0}
+                  disabled={isGrading}
+                />
+                <input ref={studentInputRef} type="file" id="studentExam" accept={UPLOAD_ACCEPT} onChange={handleStudentExamUpload} className="hidden" disabled={isGrading} multiple />
+                {errors.studentExam && <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-rose-600"><AlertCircle className="h-4 w-4" /> {errors.studentExam}</p>}
+                <FileList files={studentExamFiles} onRemove={(i) => removeStudentExam(i)} disabled={isGrading} />
+              </StepCard>
+            </div>
+
+            {/* Batch grading entry point */}
+            {isTeacher && (
+              <Link href="/grade-exam/batch" className="group flex items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4 transition hover:border-blue-300 hover:bg-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700"><Users className="h-5 w-5" /></span>
+                <span className="flex-1">
+                  <span className="block font-semibold text-slate-900">Grading a whole class?</span>
+                  <span className="block text-sm text-slate-500">Drop in the whole stack of photos or scans. We sort it into students and grade every paper.</span>
+                </span>
+                <ArrowRight className="h-5 w-5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+              </Link>
+            )}
+
+            {/* 2: mark scheme */}
+            <div
+              onDragEnter={handleAnswerSheetDrag}
+              onDragLeave={handleAnswerSheetDrag}
+              onDragOver={handleAnswerSheetDrag}
+              onDrop={handleAnswerSheetDrop}
+            >
+              <StepCard highlight={answerSheetDragActive ? "drag" : errors.answerSheet ? "error" : null}>
+                <StepHeading n={2} title={isTeacher ? "Mark scheme" : "Answer key"} hint="Recommended for accurate marks" />
+                {answerSheetFile ? (
+                  <FileList files={[answerSheetFile]} onRemove={() => removeAnswerSheet()} disabled={isGrading} />
+                ) : (
+                  <DropZone label="Upload the answers" onBrowse={() => answerInputRef.current?.click()} disabled={isGrading} compact />
+                )}
+                <input ref={answerInputRef} type="file" id="answerSheet" accept={UPLOAD_ACCEPT} onChange={handleAnswerSheetUpload} className="hidden" disabled={isGrading} />
+                {errors.answerSheet && <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-rose-600"><AlertCircle className="h-4 w-4" /> {errors.answerSheet}</p>}
+              </StepCard>
+            </div>
+
+            {/* 3: details */}
+            <StepCard>
+              <StepHeading n={3} title="Add details" hint="Optional" />
+              <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Upload Documents</h2>
-                  <p className="text-sm text-gray-600">Student exam and optional answer sheet</p>
+                  <label htmlFor="additionalComments" className="block text-sm font-semibold text-slate-800">Instructions for the grader</label>
+                  <span className="text-sm text-slate-500">Guides the marking; won&apos;t appear in the report.</span>
+                  <Textarea
+                    id="additionalComments"
+                    placeholder="e.g. Be lenient on Question 3, accept answers without units"
+                    value={additionalComments}
+                    onChange={(e) => setAdditionalComments(e.target.value)}
+                    rows={3}
+                    disabled={isGrading}
+                    className="mt-2 resize-none rounded-xl border-slate-200 bg-slate-50/60 text-base focus:bg-white"
+                  />
                 </div>
-              </div>
 
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-blue-100/50 rounded-2xl blur-xl"></div>
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8 space-y-6">
-                  {/* Student Exam Upload */}
-                  <div className="space-y-3">
-                    <Label htmlFor="studentExam" className="text-gray-900 font-semibold flex items-center gap-2">
-                      Student Exam * {studentExamFiles.length > 0 && <span className="text-xs text-gray-500 font-normal">({studentExamFiles.length} file{studentExamFiles.length !== 1 ? 's' : ''})</span>}
-                    </Label>
-
-                    <div
-                      className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
-                        isGrading
-                          ? "opacity-50 cursor-not-allowed border-gray-300"
-                          : dragActive
-                          ? "border-blue-500 bg-blue-50 scale-[1.01]"
-                          : errors.studentExam
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                      }`}
-                      onDragEnter={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDragOver={handleDrag}
-                      onDrop={handleDrop}
-                    >
-                      <Upload className={`h-16 w-16 mx-auto mb-4 ${dragActive ? "text-blue-500 scale-110" : "text-gray-400"} transition-all`} />
-                      <p className="text-lg mb-2 text-gray-900 font-medium">
-                        Drag and drop your files here, or{" "}
-                        <label className="text-blue-600 hover:text-blue-700 cursor-pointer underline font-semibold">
-                          browse
-                          <input
-                            type="file"
-                            id="studentExam"
-                            accept=".pdf,.docx,.pptx,.txt,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                            onChange={handleStudentExamUpload}
-                            className="hidden"
-                            disabled={isGrading}
-                            multiple
-                          />
-                        </label>
-                      </p>
-                      <p className="text-sm text-gray-600">PDF, DOCX, images (JPG, PNG, HEIC) - Max 100MB per file</p>
-                      <p className="text-xs text-blue-600 mt-1">For handwritten exams: upload multiple page photos</p>
+                {isTeacher && (
+                  <div className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200 sm:p-5">
+                    <p className="text-sm text-slate-600"><span className="font-semibold text-slate-800">Report details</span> help you find and organize reports later.</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="studentFirstName" className="text-sm font-medium text-slate-700">Student first name</Label>
+                        <AutocompleteInput id="studentFirstName" placeholder="e.g., John" value={studentFirstName} onChange={setStudentFirstName} disabled={isGrading} className="bg-white border-slate-200" fieldName="studentFirstName" userId={user?.id} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="studentLastName" className="text-sm font-medium text-slate-700">Student last name</Label>
+                        <AutocompleteInput id="studentLastName" placeholder="e.g., Smith" value={studentLastName} onChange={setStudentLastName} disabled={isGrading} className="bg-white border-slate-200" fieldName="studentLastName" userId={user?.id} />
+                      </div>
                     </div>
-                    {errors.studentExam && <p className="text-sm text-red-600">{errors.studentExam}</p>}
-
-                    {studentExamFiles.length > 0 && (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {studentExamFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all group">
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-medium text-gray-900 truncate">{file.name}</span>
-                                <span className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => removeStudentExam(index)} className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-600" disabled={isGrading}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Answer Sheet Upload */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="answerSheet" className="text-gray-900 font-semibold">Answer Sheet (Optional but Recommended)</Label>
-                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="examTitle" className="text-sm font-medium text-slate-700">Exam title</Label>
+                      <AutocompleteInput id="examTitle" placeholder="e.g., Chapter 3 Test, Midterm Exam" value={examTitle} onChange={setExamTitle} disabled={isGrading} className="bg-white border-slate-200" userId={user?.id} fieldName="examTitle" />
                     </div>
-                    <p className="text-sm text-gray-600 -mt-1">Providing an answer sheet helps ensure accurate grading and detailed feedback</p>
-                    <div
-                      className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
-                        isGrading
-                          ? "opacity-50 cursor-not-allowed border-gray-300"
-                          : answerSheetDragActive
-                          ? "border-blue-500 bg-blue-50 scale-[1.01]"
-                          : errors.answerSheet
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                      }`}
-                      onDragEnter={handleAnswerSheetDrag}
-                      onDragLeave={handleAnswerSheetDrag}
-                      onDragOver={handleAnswerSheetDrag}
-                      onDrop={handleAnswerSheetDrop}
-                    >
-                      {answerSheetFile ? (
-                        <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
-                          <div className="flex items-center gap-3">
-                            <FileText className="h-5 w-5 text-green-500" />
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{answerSheetFile.name}</span>
-                              <span className="text-xs text-gray-500">{(answerSheetFile.size / 1024 / 1024).toFixed(1)} MB</span>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={removeAnswerSheet} className="text-gray-500 hover:text-red-600" disabled={isGrading}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className={`h-12 w-12 mx-auto mb-4 ${answerSheetDragActive ? "text-blue-500 scale-110" : "text-gray-400"} transition-all`} />
-                          <p className="text-base mb-2 text-gray-900 font-medium">
-                            Drag and drop your answer sheet here, or{" "}
-                            <label className="text-blue-600 hover:text-blue-700 cursor-pointer underline font-semibold">
-                              browse
-                              <input type="file" id="answerSheet" accept=".pdf,.docx,.pptx,.txt" onChange={handleAnswerSheetUpload} className="hidden" disabled={isGrading} />
-                            </label>
-                          </p>
-                          <p className="text-sm text-gray-600">PDF, DOCX, PPTX, or TXT format (max 100MB)</p>
-                        </>
-                      )}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="className" className="text-sm font-medium text-slate-700">Class</Label>
+                        <AutocompleteInput id="className" placeholder="e.g., AP Biology, Marine Science" value={className} onChange={setClassName} disabled={isGrading} className="bg-white border-slate-200" fieldName="className" userId={user?.id} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="classPeriod" className="text-sm font-medium text-slate-700">Period</Label>
+                        <AutocompleteInput id="classPeriod" placeholder="e.g., 1, 2A, Morning" value={classPeriod} onChange={setClassPeriod} disabled={isGrading} className="bg-white border-slate-200" fieldName="classPeriod" userId={user?.id} />
+                      </div>
                     </div>
-                    {errors.answerSheet && <p className="text-sm text-red-600">{errors.answerSheet}</p>}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Separator */}
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-
-            {/* Additional Options Section */}
-            <section>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-cyan-600 rounded-full"></div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Additional Options</h2>
-                  <p className="text-sm text-gray-600">Customize grading instructions and report details</p>
-                </div>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-cyan-100/50 rounded-2xl blur-xl"></div>
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8 space-y-6">
-                  {/* Grading Instructions */}
-                  <div className="space-y-3">
-                    <Label htmlFor="additionalComments" className="text-gray-900 font-semibold">Instructions for the Grader (Optional)</Label>
-                    <Textarea
-                      id="additionalComments"
-                      placeholder="Add specific instructions for the grader (e.g., 'Be lenient on Question 3', 'Focus on application skills', etc.)"
-                      value={additionalComments}
-                      onChange={(e) => setAdditionalComments(e.target.value)}
-                      rows={4}
-                      disabled={isGrading}
-                      className="resize-none text-base bg-gray-50 border-2 border-gray-300 focus:border-blue-500 focus:bg-white shadow-sm placeholder:text-gray-400"
-                    />
-                    <p className="text-xs text-gray-500">These instructions guide the grader but won't appear in the report</p>
-                  </div>
-
-                  {/* Optional Metadata Fields for Organization */}
-                  {isTeacher && (
-                    <div className="space-y-4 p-6 bg-gray-50/80 rounded-xl border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-3 py-1 bg-gray-200 text-gray-700 text-xs font-semibold rounded-full">OPTIONAL</span>
-                        <span className="text-sm text-gray-600">Report details - helps organize your reports</span>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="studentFirstName" className="text-gray-700 font-medium text-sm">Student First Name</Label>
-                          <AutocompleteInput id="studentFirstName" placeholder="e.g., John" value={studentFirstName} onChange={setStudentFirstName} disabled={isGrading} className="bg-white border-gray-200" fieldName="studentFirstName" userId={user?.id} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="studentLastName" className="text-gray-700 font-medium text-sm">Student Last Name</Label>
-                          <AutocompleteInput id="studentLastName" placeholder="e.g., Smith" value={studentLastName} onChange={setStudentLastName} disabled={isGrading} className="bg-white border-gray-200" fieldName="studentLastName" userId={user?.id} />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="examTitle" className="text-gray-700 font-medium text-sm">Exam Title</Label>
-                        <AutocompleteInput id="examTitle" placeholder="e.g., Chapter 3 Test, Midterm Exam" value={examTitle} onChange={setExamTitle} disabled={isGrading} className="bg-white border-gray-200" userId={user?.id} fieldName="examTitle" />
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="className" className="text-gray-700 font-medium text-sm">Class</Label>
-                          <AutocompleteInput id="className" placeholder="e.g., AP Biology, Marine Science" value={className} onChange={setClassName} disabled={isGrading} className="bg-white border-gray-200" fieldName="className" userId={user?.id} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="classPeriod" className="text-gray-700 font-medium text-sm">Period</Label>
-                          <AutocompleteInput id="classPeriod" placeholder="e.g., 1, 2A, Morning" value={classPeriod} onChange={setClassPeriod} disabled={isGrading} className="bg-white border-gray-200" fieldName="classPeriod" userId={user?.id} />
-                        </div>
-                      </div>
-
-                      {/* Link to Student Account */}
-                      <div className="pt-4 border-t border-gray-200">
-                        <StudentLinkSelector
-                          teacherId={user?.id || ''}
-                          firstName={studentFirstName}
-                          lastName={studentLastName}
-                          selectedStudentId={selectedStudentUserId}
-                          onSelect={(studentId, student) => {
-                            setSelectedStudentUserId(studentId)
-                            // Auto-populate fields from student data
-                            if (student) {
-                              if (student.first_name) setStudentFirstName(student.first_name)
-                              if (student.last_name) setStudentLastName(student.last_name)
-                              // Use the first class if available
-                              if (student.classes && student.classes.length > 0) {
-                                const firstClass = student.classes[0]
-                                if (firstClass.class_name) setClassName(firstClass.class_name)
-                                if (firstClass.class_period) setClassPeriod(firstClass.class_period)
-                              }
+                    <div className="border-t border-slate-200 pt-4">
+                      <StudentLinkSelector
+                        teacherId={user?.id || ''}
+                        firstName={studentFirstName}
+                        lastName={studentLastName}
+                        selectedStudentId={selectedStudentUserId}
+                        onSelect={(studentId, student) => {
+                          setSelectedStudentUserId(studentId)
+                          // Auto-populate fields from student data
+                          if (student) {
+                            if (student.first_name) setStudentFirstName(student.first_name)
+                            if (student.last_name) setStudentLastName(student.last_name)
+                            // Use the first class if available
+                            if (student.classes && student.classes.length > 0) {
+                              const firstClass = student.classes[0]
+                              if (firstClass.class_name) setClassName(firstClass.class_name)
+                              if (firstClass.class_period) setClassPeriod(firstClass.class_period)
                             }
-                          }}
-                          disabled={isGrading}
-                        />
-                      </div>
+                          }
+                        }}
+                        disabled={isGrading}
+                      />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            </section>
+            </StepCard>
 
-            {/* Grade Button */}
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl blur-2xl opacity-30"></div>
-              <Button
-                onClick={handleGradeExam}
-                disabled={studentExamFiles.length === 0 || isGrading}
-                className="relative w-full h-16 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
-              >
-                <div className="flex items-center gap-3">
-                  <FileCheck className="h-6 w-6" />
-                  Grade Exam {studentExamFiles.length > 1 && `(${studentExamFiles.length} pages)`}
-                </div>
+            {/* Grade */}
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <Button onClick={handleGradeExam} disabled={studentExamFiles.length === 0 || isGrading} size="lg" className={cn(primaryCta, studentExamFiles.length === 0 && "opacity-80")}>
+                <FileCheck className="mr-2 h-5 w-5" />
+                {isTeacher ? "Grade exam" : "Check my work"}{studentExamFiles.length > 1 ? ` (${studentExamFiles.length} files)` : ""}
               </Button>
+              <p className="text-sm text-slate-500">Usually ready in under a minute. {isTeacher ? "Reports are saved to Graded Exams." : ""}</p>
             </div>
           </div>
         )}
 
         {/* Loading State */}
         {isGrading && (
-          <div className="max-w-5xl mx-auto">
+          <StepCard>
             <StreamingGenerationProgress
               content={gradingContent}
               statusMessage={statusMessage}
@@ -754,43 +627,32 @@ export default function GradeExamPage() {
               loadingText="Grading exam..."
               completeText="Exam graded successfully!"
             />
-          </div>
+          </StepCard>
         )}
 
         {/* Results Section */}
         {gradingResult && !isGrading && (
-          <div className="max-w-5xl mx-auto">
-            <section>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-8 bg-gradient-to-b from-green-500 to-green-600 rounded-full"></div>
+          <StepCard>
+            <div className="space-y-6">
+              {/* Summary */}
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 p-6 ring-1 ring-inset ring-emerald-200">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Grading Complete</h2>
-                  <p className="text-sm text-gray-600">Review the results below</p>
+                  <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-700"><CheckCircle className="h-4 w-4" /> Grading complete</p>
+                  <p className={cn(fontDisplay, "mt-2 text-5xl font-semibold text-slate-900")}>
+                    {gradingResult.totalMarks}<span className="text-slate-400"> / {gradingResult.totalPossibleMarks}</span>
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">marks</p>
                 </div>
+                <p className={cn(fontDisplay, "text-4xl font-semibold text-emerald-700")}>
+                  {gradingResult.totalPossibleMarks ? ((gradingResult.totalMarks / gradingResult.totalPossibleMarks) * 100).toFixed(1) : "0.0"}%
+                </p>
               </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-green-100/50 to-blue-100/50 rounded-2xl blur-xl"></div>
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 p-8 space-y-6">
-                  {/* Summary */}
-                  <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <CheckCircle className="h-6 w-6 text-green-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">Total Score</h3>
-                  </div>
-                  <p className="text-4xl font-bold text-green-600">
-                    {gradingResult.totalMarks} / {gradingResult.totalPossibleMarks} marks
-                  </p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {((gradingResult.totalMarks / gradingResult.totalPossibleMarks) * 100).toFixed(1)}%
-                  </p>
-                </div>
 
                 {/* Grade Breakdown */}
                 {gradingResult.gradeBreakdown && gradingResult.gradeBreakdown.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-900">Question Breakdown</h3>
+                      <h3 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>Question breakdown</h3>
                       {isTeacher && !isEditing && (
                         <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="border-gray-300">
                           <Edit2 className="h-4 w-4 mr-2" />
@@ -947,7 +809,7 @@ export default function GradeExamPage() {
                 {/* Full Response Text */}
                 {gradingResult.fullResponse && (
                   <div className="pt-6 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Full Grading Report</h3>
+                    <h3 className={cn(fontDisplay, "mb-3 text-xl font-semibold text-slate-900")}>Full grading report</h3>
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 max-h-96 overflow-y-auto">
                       <pre className="whitespace-pre-wrap text-sm font-mono text-gray-700">{gradingResult.fullResponse}</pre>
                     </div>
@@ -964,10 +826,8 @@ export default function GradeExamPage() {
                     </Button>
                   </div>
                 )}
-                </div>
-              </div>
-            </section>
-          </div>
+            </div>
+          </StepCard>
         )}
       </div>
     </div>

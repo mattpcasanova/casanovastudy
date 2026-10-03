@@ -13,6 +13,14 @@
     },
     "app/api/grading-suggestions/route.ts": {
       "maxDuration": 10
+    },
+    "app/api/grade-batch/paper/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "app/api/grade-batch/split/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "headers": [

@@ -110,11 +110,18 @@ export async function meterExplain(userId: string): Promise<MeteredExplain> {
   return { block: null, eventId: c.eventId, remaining: Math.max(0, c.limit - c.used), limit: c.limit, plan: tier }
 }
 
-/** Grading: Premium only when plans are on; always recorded. */
-export async function checkGrading(userId: string): Promise<PlanBlock | null> {
+/** Whether this user may grade (Premium only when plans are on). Records nothing. */
+export async function gradingBlock(userId: string): Promise<PlanBlock | null> {
   if (PLANS_ENABLED && (await getPlan(userId)).tier === 'free') {
     return { error: 'Grading is part of Premium.', code: 'premium_only', kind: 'grading' }
   }
+  return null
+}
+
+/** Grading one paper: Premium only when plans are on; always recorded. */
+export async function checkGrading(userId: string): Promise<PlanBlock | null> {
+  const block = await gradingBlock(userId)
+  if (block) return block
   await record(userId, 'grading')
   return null
 }

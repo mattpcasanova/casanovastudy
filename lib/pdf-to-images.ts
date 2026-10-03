@@ -4,13 +4,6 @@ const MAX_TOTAL_UPLOAD_SIZE = 4.2 * 1024 * 1024 // 4.2MB total to stay under Ver
 
 export { MAX_TOTAL_UPLOAD_SIZE }
 
-interface ConvertedImage {
-  data: Blob
-  name: string
-  type: string
-  pageNumber: number
-}
-
 /**
  * Compress an image blob to be under the max size
  */
@@ -98,77 +91,6 @@ export async function loadPdfJs(): Promise<any> {
 }
 
 /**
- * Convert a PDF file to an array of compressed image blobs
- * Uses dynamic import to avoid server-side rendering issues
- */
-export async function convertPdfToImages(
-  file: File,
-  onProgress?: (current: number, total: number) => void
-): Promise<ConvertedImage[]> {
-  const pdfjsLib = await loadPdfJs()
-
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const numPages = pdf.numPages
-  const images: ConvertedImage[] = []
-  const baseName = file.name.replace(/\.pdf$/i, '')
-
-  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-    if (onProgress) {
-      onProgress(pageNum, numPages)
-    }
-
-    const page = await pdf.getPage(pageNum)
-    const viewport = page.getViewport({ scale: 1 })
-
-    // Calculate scale to fit within target resolution while maintaining aspect ratio
-    const scale = Math.min(
-      TARGET_RESOLUTION / viewport.width,
-      TARGET_RESOLUTION / viewport.height,
-      2 // Max 2x scale to avoid huge images
-    )
-
-    const scaledViewport = page.getViewport({ scale })
-
-    // Create canvas
-    const canvas = document.createElement('canvas')
-    canvas.width = scaledViewport.width
-    canvas.height = scaledViewport.height
-    const ctx = canvas.getContext('2d')
-
-    if (!ctx) {
-      throw new Error('Failed to create canvas context')
-    }
-
-    // Render page to canvas
-    // intent 'print': the default 'display' intent paces rendering with
-    // requestAnimationFrame, which browsers pause in background tabs — so a
-    // teacher who switched tabs while grading would see it stall indefinitely.
-    await page.render({
-      canvasContext: ctx,
-      viewport: scaledViewport,
-      intent: 'print',
-    }).promise
-
-    // Compress the image
-    const blob = await compressImage(canvas, MAX_IMAGE_SIZE)
-
-    images.push({
-      data: blob,
-      name: `${baseName}_page_${pageNum}.jpg`,
-      type: 'image/jpeg',
-      pageNumber: pageNum,
-    })
-
-    // Clean up
-    canvas.width = 0
-    canvas.height = 0
-  }
-
-  return images
-}
-
-/**
  * Compress a single image file to be under the max size
  */
 export async function compressImageFile(
@@ -227,42 +149,22 @@ export async function compressImageFile(
 }
 
 /**
- * Check if a file needs processing (PDF or large image)
- */
-export function needsProcessing(file: File): boolean {
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  const isLargeImage = file.type.startsWith('image/') && file.size > MAX_IMAGE_SIZE
-  return isPdf || isLargeImage
-}
-
-/**
- * Process a file - convert PDF to images or compress large images
+ * Prepare one grading upload (teacher page and student assignments): every PDF
+ * page and photo becomes a JPEG (HEIC included, decoded in the browser), and
+ * Word/PowerPoint/text files become a plain-text file, so the grader never gets
+ * a mislabeled file. Uses the shared preparer in lib/uploads/prepare.ts.
  */
 export async function processFile(
   file: File,
   onProgress?: (message: string) => void
 ): Promise<File[]> {
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-
-  if (isPdf) {
-    if (onProgress) onProgress(`Converting PDF to images...`)
-
-    const images = await convertPdfToImages(file, (current, total) => {
-      if (onProgress) onProgress(`Processing page ${current} of ${total}...`)
-    })
-
-    return images.map((img) => new File([img.data], img.name, { type: img.type }))
+  const { prepareMaterials } = await import('./uploads/prepare')
+  const prepared = await prepareMaterials([file], { pdfMode: 'images', maxImages: 100, onProgress })
+  if (prepared.problems.length && !prepared.images.length && !prepared.texts.length) {
+    throw new Error(prepared.problems.join(' '))
   }
-
-  // For images, compress if needed
-  if (file.type.startsWith('image/')) {
-    if (file.size > MAX_IMAGE_SIZE) {
-      if (onProgress) onProgress(`Compressing image...`)
-      const compressed = await compressImageFile(file)
-      return [new File([compressed], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })]
-    }
-  }
-
-  // Return as-is if no processing needed
-  return [file]
+  return [
+    ...prepared.images.map((img) => new File([img.blob], img.name, { type: 'image/jpeg' })),
+    ...prepared.texts.map((t) => new File([t.content], t.name.replace(/\.[^.]+$/, '') + '.txt', { type: 'text/plain' })),
+  ]
 }

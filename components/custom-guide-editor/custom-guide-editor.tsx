@@ -56,6 +56,8 @@ import CustomFormat from "@/components/formats/custom-format"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { ClientCompression } from "@/lib/client-compression"
+import { prepareMaterials } from "@/lib/uploads/prepare"
+import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS } from "@/lib/uploads/kinds"
 import { deduplicateBlocks, countDuplicates } from "@/lib/deduplication"
 import {
   Eye,
@@ -163,9 +165,9 @@ function timeAgo(ts: number): string {
 
 interface SourceFile {
   name: string
-  content: string
+  content: string // text read in the browser (lib/uploads/prepare.ts)
   size: number
-  url?: string // Cloudinary URL - passed to AI for processing (same as home page)
+  images?: Array<{ url: string; name: string }> // photos / scanned pages, uploaded to Cloudinary
 }
 
 interface StoredDraft {
@@ -344,44 +346,36 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
 
   // ── Source files ───────────────────────────────────────────────────────────
   const sourceFilesForAI = sourceFiles.length > 0
-    ? sourceFiles.map(f => ({ name: f.name, url: f.url, content: f.content }))
+    ? sourceFiles.map(f => ({ name: f.name, content: f.content, images: f.images }))
     : undefined
 
   const uploadSourceFiles = async (files: File[]) => {
     if (files.length === 0) return
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
-      'text/plain'
-    ]
-    const allowedExtensions = ['.pdf', '.docx', '.pptx', '.ppt', '.txt']
-
     setIsProcessingFile(true)
     setFileError(null)
 
     const newFiles: SourceFile[] = []
     const errors: string[] = []
 
+    // Photos and scanned pages share one per-guide budget.
+    let imageRoom = UPLOAD_LIMITS.maxGuideImages - sourceFiles.reduce((n, f) => n + (f.images?.length ?? 0), 0)
     for (const file of files) {
-      const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
-        errors.push(`${file.name}: unsupported type (use PDF, DOCX, PPTX, or TXT)`)
-        continue
-      }
-      if (file.size > 20 * 1024 * 1024) {
-        errors.push(`${file.name}: must be under 20MB`)
-        continue
-      }
       if (sourceFiles.some(sf => sf.name === file.name)) {
         errors.push(`${file.name}: already added`)
         continue
       }
       try {
-        // Text extraction happens server-side during AI generation (same as home page)
-        const result = await ClientCompression.uploadToCloudinary(file, 'custom-guides')
-        newFiles.push({ name: file.name, content: '', size: file.size, url: result.url })
+        // Same preparation as the homepage: text read here, photos shrunk and uploaded.
+        const prepared = await prepareMaterials([file], { maxImages: Math.max(0, imageRoom) })
+        errors.push(...prepared.problems)
+        const images: Array<{ url: string; name: string }> = []
+        for (const img of prepared.images) {
+          const up = await ClientCompression.uploadToCloudinary(img.blob, 'custom-guides', img.name)
+          images.push({ url: up.url, name: img.name })
+        }
+        imageRoom -= images.length
+        const content = prepared.texts.map(t => t.content).join('\n\n')
+        if (content || images.length) newFiles.push({ name: file.name, content, size: file.size, images })
       } catch (err) {
         errors.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`)
       }
@@ -813,7 +807,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx,.pptx,.ppt,.txt"
+              accept={UPLOAD_ACCEPT}
               multiple
               onChange={(e) => uploadSourceFiles(Array.from(e.target.files ?? []))}
               className="hidden"
@@ -841,9 +835,9 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
                 <Upload className="h-5 w-5 text-slate-400" />
               )}
               <span className="text-sm font-medium text-slate-700">
-                {isProcessingFile ? 'Uploading…' : 'Drop files or browse'}
+                {isProcessingFile ? 'Preparing…' : 'Drop files or browse'}
               </span>
-              <span className="text-[0.7rem] text-slate-400">PDF, DOCX, PPTX, TXT · up to 20MB</span>
+              <span className="text-[0.7rem] text-slate-400">{UPLOAD_HINT}</span>
             </button>
             {fileError && <p className="mt-2 whitespace-pre-line text-xs text-rose-600">{fileError}</p>}
           </section>

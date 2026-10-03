@@ -14,6 +14,7 @@ import {
   RotateCcw,
   FileText,
   FileImage,
+  Image as ImageIcon,
   File as FileIcon,
   Loader2,
   AlertCircle,
@@ -62,6 +63,7 @@ import { visualsRelevant } from "@/lib/formats/figures"
 import { DIFFICULTY_FORMATS, type GuideDifficulty } from "@/lib/study-options"
 import { PLAN_LIMITS, isFreeFormat, premiumOnlyReason } from "@/lib/plan-rules"
 import { formatReset, usePlan } from "@/components/plan/plan-provider"
+import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
 import VisualsInfo from "@/components/visuals-info"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
@@ -459,39 +461,21 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files])
 
+  // Photos (any phone format), PDFs, Word, PowerPoint and text all work; everything
+  // is converted and shrunk in the browser before upload (lib/uploads/prepare.ts).
   const validateFile = (file: File): string | null => {
-    const maxCloudinarySize = 10 * 1024 * 1024
-    const maxClientProcessSize = 50 * 1024 * 1024
-    const validTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-powerpoint",
-      "application/x-iwork-keynote-sffkey",
-      "",
-    ]
-    const validExtensions = [".pdf", ".pptx", ".docx", ".doc", ".ppt", ".key"]
-    const extension = "." + file.name.split(".").pop()?.toLowerCase()
-
-    const isOldPPT = extension === ".ppt" || file.type === "application/vnd.ms-powerpoint"
-    const isKeynote = extension === ".key" || file.type === "application/x-iwork-keynote-sffkey"
-    if (isOldPPT || isKeynote) {
+    const kind = uploadKind(file.name, file.type)
+    if (kind === "legacy") {
       setUnsupportedFileName(file.name)
       setShowConversionHelp(true)
       return "UNSUPPORTED_FORMAT"
     }
-
-    if (!validTypes.includes(file.type) && !validExtensions.includes(extension)) {
-      return `${file.name}: unsupported file type. Upload a PDF, PowerPoint (.pptx) or Word (.docx) file.`
+    // Unknown types with an empty MIME may still be HEIC photos; prepare.ts sniffs them.
+    if (kind === "unsupported" && file.type) {
+      return `${file.name}: this file type isn't supported. Try a photo, PDF, Word or PowerPoint file.`
     }
-
-    const canProcessClientSide = extension === ".pptx" || extension === ".docx"
-    const maxSize = canProcessClientSide ? maxClientProcessSize : maxCloudinarySize
-    if (file.size > maxSize) {
-      const mb = (file.size / 1024 / 1024).toFixed(1)
-      return canProcessClientSide
-        ? `${file.name} is ${mb}MB. The limit is 50MB.`
-        : `${file.name} is ${mb}MB. PDFs are limited to 10MB, so try compressing or splitting it.`
+    if (file.size > UPLOAD_LIMITS.maxFileBytes) {
+      return `${file.name} is ${(file.size / 1024 / 1024).toFixed(0)} MB. Files up to ${UPLOAD_LIMITS.maxFileBytes / 1024 / 1024} MB work; try splitting it.`
     }
     return null
   }
@@ -536,6 +520,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   }
 
   const getFileIcon = (file: File) => {
+    const kind = uploadKind(file.name, file.type)
+    if (kind === "image" || kind === "heic") return <ImageIcon className="h-4 w-4 text-emerald-600" />
     if (file.type === "application/pdf") return <FileText className="h-4 w-4 text-rose-500" />
     if (file.type.includes("presentation")) return <FileImage className="h-4 w-4 text-orange-500" />
     if (file.type.includes("document")) return <FileText className="h-4 w-4 text-blue-500" />
@@ -673,7 +659,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-blue-50/95">
               <Upload className="mb-2 h-10 w-10 text-blue-600" />
               <p className="text-lg font-semibold text-blue-900">Drop your files here</p>
-              <p className="text-sm text-blue-700">PDF, PowerPoint, or Word</p>
+              <p className="text-sm text-blue-700">{UPLOAD_HINT}</p>
             </div>
           )}
 
@@ -747,6 +733,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   Drag &amp; drop or <span className="font-semibold text-blue-700 underline-offset-2 group-hover:underline">browse</span>
                 </span>
                 <span className="mt-3 flex flex-wrap justify-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wide">
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">Photos</span>
                   <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-700">PDF</span>
                   <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-700">PowerPoint</span>
                   <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">Word</span>
@@ -756,7 +743,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.ppt,.pptx,.docx,.key"
+                accept={UPLOAD_ACCEPT}
                 onChange={(e) => {
                   if (e.target.files?.length) handleFiles(Array.from(e.target.files))
                   e.target.value = ""
@@ -1139,7 +1126,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         </Link>
       </div>
 
-      {/* Conversion help for .ppt / Keynote */}
+      {/* Conversion help for .ppt / .doc / Keynote / Pages */}
       <Dialog open={showConversionHelp} onOpenChange={setShowConversionHelp}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1147,23 +1134,18 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <AlertCircle className="h-5 w-5" />
               File format not supported
             </DialogTitle>
-            <DialogDescription className="pt-2 text-left">
-              <strong>{unsupportedFileName}</strong> can&apos;t be read directly.
-              {unsupportedFileName.endsWith(".key")
-                ? " Keynote files are Mac 'bundle' files that browsers can't open."
-                : " The old PowerPoint format (.ppt) needs converting first."}
-            </DialogDescription>
+            <DialogDescription className="pt-2 text-left">{legacyHelp(unsupportedFileName)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2 text-sm">
             <div className="rounded-lg bg-green-50 p-3">
               <p className="font-semibold text-green-800">Export as PDF (recommended)</p>
               <ol className="mt-1 list-inside list-decimal space-y-1 text-green-700">
-                <li>Open it in {unsupportedFileName.endsWith(".key") ? "Keynote" : "PowerPoint, Keynote, or Google Slides"}</li>
-                <li>Choose <strong>File → Export {unsupportedFileName.endsWith(".key") ? "To → PDF" : "as PDF"}</strong></li>
+                <li>Open it in the app it came from (Keynote, Pages, PowerPoint, Word or Google Docs)</li>
+                <li>Choose <strong>File → Export</strong> (or <strong>Save As</strong>) <strong>→ PDF</strong></li>
                 <li>Attach the PDF here</li>
               </ol>
             </div>
-            {!unsupportedFileName.endsWith(".key") && (
+            {unsupportedFileName.toLowerCase().endsWith(".ppt") && (
               <div className="rounded-lg bg-blue-50 p-3">
                 <p className="font-semibold text-blue-800">Or save as .pptx</p>
                 <p className="mt-1 text-blue-700">In PowerPoint: <strong>File → Save As → PowerPoint Presentation (.pptx)</strong></p>

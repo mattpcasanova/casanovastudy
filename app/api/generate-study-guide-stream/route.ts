@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
 import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { fetchUploadedImages } from '@/lib/uploads/server-images'
 
 function sseError(message: string, status: number) {
   return new Response('data: ' + JSON.stringify({ type: 'error', message }) + '\n\n', { status, headers: { 'Content-Type': 'text/event-stream' } })
@@ -27,9 +28,11 @@ export async function POST(request: NextRequest) {
   const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
   const hasDirectContent = body.directContent && body.directContent.length > 0
   const hasLegacyFiles = body.files && body.files.length > 0
+  // Photos and scanned pages, prepared in the browser and uploaded to Cloudinary.
+  const hasImages = Array.isArray(body.images) && body.images.length > 0
   // Students can type what they want to study instead of uploading files.
   const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
-  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && studyRequest.length < 3) {
+  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && !hasImages && studyRequest.length < 3) {
     return sseError('Upload a file or describe what you want to study', 400)
   }
   if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
@@ -73,12 +76,19 @@ export async function POST(request: NextRequest) {
           allContent.push(...body.files!.map((f: { name: string; content: string }) => ({ name: f.name, content: f.content })))
         }
 
+        // 4. Photos and scanned pages go to Claude as images.
+        let images: Awaited<ReturnType<typeof fetchUploadedImages>> = []
+        if (hasImages) {
+          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your photos...' }) + '\n\n'))
+          images = await fetchUploadedImages(body.images)
+        }
+
         // Combine all content
         const combinedContent = allContent
           .map(file => `--- ${file.name} ---\n${file.content}`)
           .join('\n\n')
 
-        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length || hasImages ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
 
         // Generate with streaming
         const claudeService = new ClaudeService()
@@ -99,6 +109,7 @@ export async function POST(request: NextRequest) {
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
           visuals: body.visuals !== false,
           length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
+          images,
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).
@@ -152,7 +163,7 @@ export async function POST(request: NextRequest) {
             topic_focus: body.topicFocus || (studyRequest ? studyRequest.slice(0, 200) : undefined),
             difficulty_level: normalizeDifficulty(body.difficultyLevel),
             additional_instructions: body.additionalInstructions,
-            file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0),
+            file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0),
             token_usage: usage,
             user_id: user.id,
             parent_guide_id: parentGuideId,

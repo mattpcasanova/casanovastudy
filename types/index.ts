@@ -42,6 +42,7 @@ export interface StudyGuideRequest {
   files?: ProcessedFile[]
   cloudinaryFiles?: CloudinaryFile[]
   directContent?: DirectContent[]  // Content processed client-side (bypasses Cloudinary)
+  images?: Array<{ url: string; name: string }> // Photos/scanned pages prepared in the browser (lib/uploads)
   studyGuideName: string
   subject: string
   gradeLevel: string
@@ -115,6 +116,14 @@ export interface ClaudeApiRequest {
   materialsKind?: 'notes' | 'assessment' | 'topic_list'
   visuals?: boolean // false = leave out graphs and science models
   length?: 'short' | 'medium' | 'long' // guide length; default medium
+  /** Photos and scanned pages (base64), sent to Claude as image blocks ahead of the prompt. */
+  images?: GuideImage[]
+}
+
+export interface GuideImage {
+  name: string
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  data: string
 }
 
 export interface ClaudeApiResponse {

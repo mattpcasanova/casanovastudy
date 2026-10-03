@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
-import { shouldBypassCloudinary, processFileClientSide } from "@/lib/client-file-processor"
+import { prepareMaterials, type PreparedImage } from "@/lib/uploads/prepare"
 import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
@@ -34,69 +34,27 @@ export default function Home() {
     window.scrollTo({ top: 0 })
 
     try {
-      const cloudinaryFiles: File[] = []
-      const clientProcessFiles: File[] = []
-
-      for (const file of data.files) {
-        if (shouldBypassCloudinary(file)) {
-          clientProcessFiles.push(file)
-        } else {
-          cloudinaryFiles.push(file)
-        }
+      // Read and shrink everything in the browser: photos (HEIC too) become JPEGs,
+      // scanned PDF pages become images, text-based files become text.
+      const prepared = await prepareMaterials(data.files, { onProgress: setStatusMessage })
+      if (prepared.problems.length) {
+        toast({ title: 'Some files were skipped', description: prepared.problems.join(' ') })
+      }
+      if (data.files.length && !prepared.texts.length && !prepared.images.length && !data.studyRequest?.trim()) {
+        throw new Error('None of your files could be read. ' + prepared.problems.join(' '))
       }
 
-      console.log('File processing plan:', {
-        cloudinary: cloudinaryFiles.map(f => f.name),
-        clientSide: clientProcessFiles.map(f => f.name)
-      })
-
-      let cloudinaryUploads: any[] = []
-      if (cloudinaryFiles.length > 0) {
-        setStatusMessage('Uploading files...')
-        cloudinaryUploads = await Promise.all(
-          cloudinaryFiles.map(async (file) => {
-            return await ClientCompression.uploadToCloudinary(file);
-          })
-        )
+      let imageUploads: Array<{ url: string; name: string }> = []
+      if (prepared.images.length) {
+        setStatusMessage(prepared.images.length === 1 ? 'Uploading your photo...' : `Uploading ${prepared.images.length} photos and pages...`)
+        imageUploads = await uploadInBatches(prepared.images)
       }
 
-      let clientProcessedContent: Array<{ name: string; content: string }> = []
-      if (clientProcessFiles.length > 0) {
-        for (const file of clientProcessFiles) {
-          setStatusMessage(`Processing ${file.name}...`)
-          try {
-            const result = await processFileClientSide(file, setStatusMessage)
-            if (result.type === 'text' && result.content) {
-              clientProcessedContent.push({
-                name: file.name,
-                content: result.content
-              })
-            } else if (result.type === 'images' && result.images) {
-              console.log(`Converted ${file.name} to ${result.images.length} images`)
-              for (let i = 0; i < result.images.length; i++) {
-                const img = result.images[i]
-                const imageFile = new File([img.data], img.name, { type: 'image/jpeg' })
-                const upload = await ClientCompression.uploadToCloudinary(imageFile)
-                cloudinaryUploads.push(upload)
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to process ${file.name}:`, error)
-            throw new Error(`Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
-          }
-        }
-      }
-
-      setStatusMessage(data.files.length ? 'Files processed! Starting generation...' : 'Starting generation...')
+      setStatusMessage(data.files.length ? 'Files ready! Starting generation...' : 'Starting generation...')
 
       const studyGuideRequest = {
-        cloudinaryFiles: cloudinaryUploads.map(upload => ({
-          url: upload.url,
-          filename: upload.filename,
-          size: upload.size,
-          format: upload.format
-        })),
-        directContent: clientProcessedContent.length > 0 ? clientProcessedContent : undefined,
+        directContent: prepared.texts.length > 0 ? prepared.texts : undefined,
+        images: imageUploads.length > 0 ? imageUploads : undefined,
         studyGuideName: data.studyGuideName,
         subject: data.subject,
         gradeLevel: data.gradeLevel,
@@ -209,4 +167,19 @@ export default function Home() {
       </main>
     </AuthGate>
   )
+}
+
+/** Uploads prepared photos/pages to Cloudinary, four at a time, keeping their order. */
+async function uploadInBatches(images: PreparedImage[]): Promise<Array<{ url: string; name: string }>> {
+  const out: Array<{ url: string; name: string }> = new Array(images.length)
+  let next = 0
+  const worker = async () => {
+    while (next < images.length) {
+      const i = next++
+      const up = await ClientCompression.uploadToCloudinary(images[i].blob, 'guide-images', images[i].name)
+      out[i] = { url: up.url, name: images[i].name }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, images.length) }, worker))
+  return out
 }

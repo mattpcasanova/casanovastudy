@@ -1,94 +1,12 @@
 import { NextRequest } from 'next/server'
-import { ClaudeService } from '@/lib/claude-api'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
-import { parseGradingOutput } from '@/lib/grading/parse'
+import { gradePaper } from '@/lib/grading/grade-paper'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
 export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
 export const dynamic = 'force-dynamic'
-
-// Helper to normalize question numbers for deduplication
-function normalizeQuestionNumber(qNum: string): string {
-  // Normalize for comparison but KEEP section prefixes to distinguish
-  // Section A "2a" from Section C "2a"
-  return qNum
-    .toLowerCase()
-    .replace(/^question\s*/i, '')  // Remove "Question" prefix
-    .replace(/^q\.?\s*/i, '')       // Remove "Q" or "Q." prefix
-    .replace(/\s+/g, '')            // Remove all whitespace for comparison
-    .replace(/\(/g, '(')
-    .replace(/\)/g, ')')
-    // Keep section prefixes like "sectiona", "sectionb", "sectionc" intact
-}
-
-// Parse the mark scheme summary from Claude's response
-function parseMarkSchemeSummary(content: string): { questions: Array<{num: string, marks: number}>, total: number } | null {
-  const match = content.match(/\[MARK SCHEME SUMMARY\]([\s\S]*?)\[END SUMMARY\]/i)
-  if (!match) return null
-
-  const summaryText = match[1]
-  const questions: Array<{num: string, marks: number}> = []
-
-  // Parse entries like "1a(2)" or "Section A 2b(5)" - supports various formats
-  // Match patterns: "1a(2)", "1(a)(3)", "Section A 2b(5)", "2 (4)", etc.
-  const entryPattern = /([A-Za-z0-9\s()]+?)\s*\((\d+)\)/g
-  let entry
-  while ((entry = entryPattern.exec(summaryText)) !== null) {
-    const questionNum = entry[1].trim()
-    const marks = parseInt(entry[2])
-    // Skip if it looks like "Total" or other non-question entries
-    if (!/total|marks|summary/i.test(questionNum) && marks > 0) {
-      questions.push({ num: questionNum, marks })
-    }
-  }
-
-  const totalMatch = summaryText.match(/Total:\s*(\d+)/i)
-  const total = totalMatch ? parseInt(totalMatch[1]) : questions.reduce((s, q) => s + q.marks, 0)
-
-  return { questions, total }
-}
-
-// Find questions that were expected but not graded
-function findMissingQuestions(
-  expected: Array<{num: string, marks: number}>,
-  graded: Array<{questionNumber: string, marksPossible: number}>
-): Array<{num: string, marks: number}> {
-  const normalizedGraded = new Set(graded.map(q => normalizeQuestionNumber(q.questionNumber)))
-  return expected.filter(q => !normalizedGraded.has(normalizeQuestionNumber(q.num)))
-}
-
-// Filter out questions that weren't in the mark scheme (phantom questions)
-function filterToMarkSchemeQuestions(
-  graded: Array<{questionNumber: string, marksAwarded: number, marksPossible: number, explanation: string}>,
-  expected: Array<{num: string, marks: number}>
-): Array<{questionNumber: string, marksAwarded: number, marksPossible: number, explanation: string}> {
-  const normalizedExpected = new Set(expected.map(q => normalizeQuestionNumber(q.num)))
-
-  return graded.filter(q => {
-    const normalized = normalizeQuestionNumber(q.questionNumber)
-    // Check if this question matches any expected question
-    if (normalizedExpected.has(normalized)) return true
-
-    // Also check partial matches for complex question numbers
-    // e.g., "Section B 1a(i)" should match "1a(i)" if section prefix differs
-    for (const exp of expected) {
-      const expNorm = normalizeQuestionNumber(exp.num)
-      // Check if one contains the other (for section prefix variations)
-      if (normalized.includes(expNorm) || expNorm.includes(normalized)) {
-        return true
-      }
-    }
-
-    console.log(`⚠️ Filtering out unexpected question: "${q.questionNumber}" (not in mark scheme summary)`)
-    return false
-  })
-}
-
-// Line-based parser (lib/grading/parse.ts) — the old single regex truncated
-// feedback at words like "percentage"/"total" and mixed "Question 1"/"2" labels.
-const parseGradingResponse = parseGradingOutput
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
@@ -201,22 +119,8 @@ export async function POST(request: NextRequest) {
           message: 'Grading exam...'
         }) + '\n\n'))
 
-        // Generate grading with streaming
-        const claudeService = new ClaudeService()
-        let fullContent = ''
-
-        const streamGenerator = isTeacher
-          ? claudeService.gradeExamWithImagesStream({
-              markSchemeText: '',
-              studentExamText: '',
-              markSchemeFiles: markSchemeBuffers,
-              studentExamFiles: studentExamBuffers,
-              additionalComments: additionalComments || undefined
-            })
-          : null
-
-        if (!streamGenerator) {
-          // For non-teachers, use the non-streaming student grading
+        if (!isTeacher) {
+          // Students use /api/grade-exam (non-streaming).
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({
             type: 'error',
             message: 'Streaming not available for student grading'
@@ -225,97 +129,23 @@ export async function POST(request: NextRequest) {
           return
         }
 
-        for await (const chunk of streamGenerator) {
-          fullContent += chunk
-          // Send content chunk
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-            type: 'content',
-            chunk
-          }) + '\n\n'))
-        }
-
-        // Parse the grading response
-        let { breakdown, totalMarks, totalPossible, grade } = parseGradingResponse(fullContent)
-
-        // Check for missing questions using the mark scheme summary
-        const markSchemeSummary = parseMarkSchemeSummary(fullContent)
-        if (markSchemeSummary) {
-          // First, filter out any "phantom" questions not in the mark scheme
-          const originalCount = breakdown.length
-          breakdown = filterToMarkSchemeQuestions(breakdown, markSchemeSummary.questions)
-          if (breakdown.length < originalCount) {
-            console.log(`🔍 Filtered out ${originalCount - breakdown.length} phantom question(s) not in mark scheme`)
-            // Recalculate totals after filtering
-            totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
-            totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
-          }
-
-          const missingQuestions = findMissingQuestions(markSchemeSummary.questions, breakdown)
-
-          if (missingQuestions.length > 0) {
-            console.log(`⚠️ Missing ${missingQuestions.length} questions, making follow-up call...`)
-            controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-              type: 'progress',
-              message: `Grading ${missingQuestions.length} additional question${missingQuestions.length > 1 ? 's' : ''}...`
-            }) + '\n\n'))
-
-            // Make follow-up call to grade missing questions
-            try {
-              const followUpResult = await claudeService.gradeMissingQuestions({
-                markSchemeFiles: markSchemeBuffers,
-                studentExamFiles: studentExamBuffers,
-                missingQuestions: missingQuestions.map(q => `${q.num}(${q.marks})`),
-                additionalComments: additionalComments || undefined
-              })
-
-              if (followUpResult.content) {
-                // Stream the follow-up content
-                controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-                  type: 'content',
-                  chunk: '\n\n--- Additional Questions ---\n\n' + followUpResult.content
-                }) + '\n\n'))
-
-                fullContent += '\n\n--- Additional Questions ---\n\n' + followUpResult.content
-
-                // Parse the follow-up response and merge
-                const followUpParsed = parseGradingResponse(followUpResult.content)
-                if (followUpParsed.breakdown.length > 0) {
-                  // Add new questions to breakdown (avoiding duplicates)
-                  const existingNormalized = new Set(breakdown.map(q => normalizeQuestionNumber(q.questionNumber)))
-                  for (const item of followUpParsed.breakdown) {
-                    if (!existingNormalized.has(normalizeQuestionNumber(item.questionNumber))) {
-                      breakdown.push(item)
-                    }
-                  }
-
-                  // Recalculate totals
-                  totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
-                  totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
-                  const newPercentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
-                  grade = 'F'
-                  if (newPercentage >= 90) grade = 'A'
-                  else if (newPercentage >= 80) grade = 'B'
-                  else if (newPercentage >= 70) grade = 'C'
-                  else if (newPercentage >= 60) grade = 'D'
-
-                  console.log(`✅ Added ${followUpParsed.breakdown.length} missing questions. New total: ${totalMarks}/${totalPossible}`)
-                }
-              }
-            } catch (followUpError) {
-              console.error('Follow-up grading failed:', followUpError)
-              // Continue with what we have
-            }
-          }
-        } else {
-          console.log('⚠️ No mark scheme summary found in response - cannot verify completeness')
-        }
+        // Shared engine (lib/grading/grade-paper.ts): marks, completeness check, follow-up, totals.
+        const graded = await gradePaper({
+          markScheme: markSchemeBuffers,
+          student: studentExamBuffers,
+          additionalComments: additionalComments || undefined,
+          onChunk: (chunk) => controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'content', chunk }) + '\n\n')),
+          onProgress: (message) => controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message }) + '\n\n')),
+        })
+        const { breakdown, totalMarks, totalPossible, grade, usage } = graded
+        const fullContent = graded.content
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'progress',
           message: 'Saving results...'
         }) + '\n\n'))
 
-        const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
+        const percentage = graded.percentage
 
         // Determine student name: use metadata if provided, otherwise extract from original filename
         let studentName = 'Student'
@@ -350,7 +180,8 @@ export async function POST(request: NextRequest) {
             additional_comments: additionalComments || null,
             class_name: className || null,
             class_period: classPeriod || null,
-            exam_title: examTitle || null
+            exam_title: examTitle || null,
+            token_usage: usage ? { ...usage, model: 'claude-sonnet-5', pages: studentExamFiles.length + markSchemeFiles.length } : null
           })
           .select()
           .single()

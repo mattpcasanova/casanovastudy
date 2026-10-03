@@ -15,15 +15,15 @@ import { usePlan } from "@/components/plan/plan-provider"
 
 interface SourceFileForAI {
   name: string
-  url?: string
   content?: string
+  images?: Array<{ url: string; name: string }>
 }
 
 interface AIAssistantProps {
   subject: string
   gradeLevel: string
   currentBlocks: EditorBlock[]
-  sourceFiles?: SourceFileForAI[] // Files with Cloudinary URLs - processed like home page
+  sourceFiles?: SourceFileForAI[] // prepared in the browser: text + uploaded photos/pages
   onContentGenerated: (content: CustomGuideContent, mode: 'replace' | 'add') => void
   onSectionAdded?: (section: CustomSection, mode: 'replace' | 'add', isFirst: boolean) => void
   onGeneratingChange?: (generating: boolean) => void
@@ -149,7 +149,8 @@ export function AIAssistant({
           subject,
           gradeLevel,
           existingContent: existingContentSummary,
-          cloudinaryFiles: sourceFiles?.filter(f => f.url).map(f => ({ url: f.url, filename: f.name })),
+          directContent: sourceFiles?.filter(f => f.content).map(f => ({ name: f.name, content: f.content })),
+          images: sourceFiles?.flatMap(f => f.images ?? []),
           mode,
           // Structured directives only in "specific" mode; omitted = AI decides.
           controls: directMode === 'specific' ? controls : undefined,
