@@ -18,7 +18,7 @@ import { useAuth } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { signInPath } from '@/lib/sign-in-path'
 import { StudyMarkdown } from '@/components/formats/study-markdown'
-import { useDesmos } from '@/components/desmos/desmos-context'
+import { useDesmos, useDesmosSheet } from '@/components/desmos/desmos-context'
 import { DesmosStepsStreaming } from '@/components/formats/desmos-steps'
 
 import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from './explain-context'
@@ -248,6 +248,8 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
 }) {
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Phones: with the calculator sheet open, take the space above it instead of sliding underneath.
+  const calcSheetVh = useDesmosSheet()
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }) }, [turns])
   const submit = () => {
     const q = draft.trim()
@@ -260,9 +262,11 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
   return (
     <aside
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl print:hidden',
+        'fixed inset-x-0 z-50 flex flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl print:hidden',
+        calcSheetVh != null ? 'top-0 rounded-b-2xl' : 'bottom-0 h-[75vh] rounded-t-2xl',
         'sm:inset-x-auto sm:bottom-6 sm:right-4 sm:top-20 sm:h-auto sm:w-[420px] sm:rounded-2xl',
       )}
+      style={calcSheetVh != null ? { bottom: `calc(${calcSheetVh}vh + 6px)` } : undefined}
       aria-label="Explain"
     >
       <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">

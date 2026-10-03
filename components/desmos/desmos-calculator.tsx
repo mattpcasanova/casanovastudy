@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { toLatex, type Expr } from '@/lib/graphs/expr'
 import type { GraphSpec, Pt } from '@/lib/graphs/spec'
 import type { CalculatorMode as Mode } from '@/lib/formats/figures'
-import { DesmosContext, type DesmosApi } from './desmos-context'
+import { DesmosContext, DesmosSheetContext, type DesmosApi } from './desmos-context'
 
 const MODES: { value: Mode; label: string }[] = [
   { value: 'basic', label: 'Basic' },
@@ -173,6 +173,9 @@ export function DesmosProvider({ guideId, mode, showButton = true, children }: {
   const [open, setOpen] = useState(false)
   const [active, setActiveState] = useState<Mode>(mode ?? 'graphing')
   const [pending, setPending] = useState<Pending | null>(null)
+  // Phone sheet height lives here so the Explain panel can split the screen with it.
+  const [sheetVh, setSheetVh] = useState(55)
+  const desktop = useIsDesktop()
 
   // The guide's default (basic for middle school), unless the student picked another one here before.
   useEffect(() => { if (mode) setActiveState(savedMode(guideId) ?? mode) }, [guideId, mode])
@@ -193,7 +196,9 @@ export function DesmosProvider({ guideId, mode, showButton = true, children }: {
   if (!enabled) return <>{children}</>
   return (
     <DesmosContext.Provider value={api}>
-      {children}
+      <DesmosSheetContext.Provider value={open && !desktop ? sheetVh : null}>
+        {children}
+      </DesmosSheetContext.Provider>
       {!open && showButton && (
         <button
           type="button"
@@ -211,6 +216,9 @@ export function DesmosProvider({ guideId, mode, showButton = true, children }: {
           onClose={() => setOpen(false)}
           pending={pending}
           onPendingApplied={() => setPending(null)}
+          desktop={desktop}
+          sheetVh={sheetVh}
+          onSheetVh={setSheetVh}
         />
       )}
     </DesmosContext.Provider>
@@ -270,9 +278,10 @@ function startDrag(e: React.PointerEvent, onMove: (dx: number, dy: number) => vo
   window.addEventListener('pointercancel', up)
 }
 
-function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied }: {
+function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied, desktop, sheetVh, onSheetVh }: {
   guideId: string; mode: Mode; onMode: (m: Mode) => void; onClose: () => void
   pending: Pending | null; onPendingApplied: () => void
+  desktop: boolean; sheetVh: number; onSheetVh: (vh: number) => void
 }) {
   // State, not a ref: on desktop the panel renders nothing until its saved
   // position is read, so the calculator must wait for the container to exist.
@@ -282,9 +291,7 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
   const calcRef = useRef<DesmosCalc | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
-  const desktop = useIsDesktop()
   const [rect, setRect] = useState<Rect | null>(null)
-  const [sheetVh, setSheetVh] = useState(62)
   const rectRef = useRef<Rect | null>(null)
   rectRef.current = rect
 
@@ -418,7 +425,7 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
           className="flex h-5 shrink-0 touch-none items-center justify-center"
           onPointerDown={(e) => {
             const start = sheetVh
-            startDrag(e, (_dx, dy) => setSheetVh(Math.min(92, Math.max(30, start - (dy / window.innerHeight) * 100))))
+            startDrag(e, (_dx, dy) => onSheetVh(Math.min(85, Math.max(30, start - (dy / window.innerHeight) * 100))))
           }}
           aria-label="Resize calculator"
         >

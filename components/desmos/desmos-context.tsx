@@ -22,3 +22,14 @@ export const DesmosContext = createContext<DesmosApi | null>(null)
 export function useDesmos(): DesmosApi | null {
   return useContext(DesmosContext)
 }
+
+/**
+ * Height (vh) of the calculator's phone bottom sheet while it is open, else
+ * null. The Explain panel uses it to sit above the calculator on phones instead
+ * of underneath it, so walkthrough steps stay readable while typing them.
+ */
+export const DesmosSheetContext = createContext<number | null>(null)
+
+export function useDesmosSheet(): number | null {
+  return useContext(DesmosSheetContext)
+}
