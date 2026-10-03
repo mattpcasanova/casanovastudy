@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
+import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { runGradingPipeline, type FileMeta } from '@/lib/grade-exam-pipeline'
 
 export const maxDuration = 300
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!userId) {
       return NextResponse.json({ success: false, error: 'You must be logged in to use the grading feature' }, { status: 401 })
     }
+    const gradingBlock = await checkGrading(userId)
+    if (gradingBlock) return planBlockResponse(gradingBlock)
 
     // Determine user type (teacher vs student affects grading tone/temperature)
     const serverSupabase = createAdminClient()

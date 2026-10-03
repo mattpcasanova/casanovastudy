@@ -12,6 +12,8 @@ import { StudyGuideData } from "@/types"
 import { ClientCompression } from "@/lib/client-compression"
 import { shouldBypassCloudinary, processFileClientSide } from "@/lib/client-file-processor"
 import { authFetch } from "@/lib/auth-fetch"
+import { isPlanBlock } from "@/lib/plan-rules"
+import { usePlan } from "@/components/plan/plan-provider"
 
 export default function Home() {
   const router = useRouter()
@@ -21,6 +23,7 @@ export default function Home() {
   const [isComplete, setIsComplete] = useState(false)
   const [pending, setPending] = useState<{ title: string; format: string }>({ title: '', format: '' })
   const { toast } = useToast()
+  const { openPremium, refresh: refreshPlan } = usePlan()
 
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
@@ -121,7 +124,18 @@ export default function Home() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start generation')
+        const text = await response.text()
+        let block: unknown = null
+        try { block = JSON.parse(text) } catch { /* SSE-formatted error */ }
+        if (isPlanBlock(block)) {
+          openPremium(block)
+          void refreshPlan()
+          setIsGenerating(false)
+          setStatusMessage('')
+          return
+        }
+        const sse = text.match(/^data: (.*)$/m)?.[1]
+        throw new Error((sse && JSON.parse(sse).message) || 'Failed to start generation')
       }
 
       const reader = response.body?.getReader()

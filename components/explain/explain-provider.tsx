@@ -20,6 +20,9 @@ import { signInPath } from '@/lib/sign-in-path'
 import { StudyMarkdown } from '@/components/formats/study-markdown'
 import { useDesmos, useDesmosSheet } from '@/components/desmos/desmos-context'
 import { DesmosStepsStreaming } from '@/components/formats/desmos-steps'
+import { formatReset, usePlan } from '@/components/plan/plan-provider'
+import { isPlanBlock } from '@/lib/plan-rules'
+import { PLANS_ENABLED } from '@/lib/features'
 
 import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from './explain-context'
 
@@ -68,6 +71,10 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   const [open, setOpen] = useState(false)
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
+  // Free plan: explanations left today (from the route's X-Usage-Remaining header).
+  const [freeLeft, setFreeLeft] = useState<{ left: number; limit: number } | null>(null)
+  const [limited, setLimited] = useState(false)
+  const { openPremium } = usePlan()
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<{ text: string; context: string; rect: DOMRect } | null>(null)
   const finePointer = useFinePointer()
@@ -119,8 +126,17 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
       })
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}))
+        if (isPlanBlock(data)) {
+          const reset = formatReset(data.resetsAt)
+          setLimited(true)
+          throw new Error(`${data.error}${reset ? ` More unlock at ${reset}.` : ''}`)
+        }
         throw new Error(data.error || 'Could not get an explanation. Please try again.')
       }
+      setLimited(false)
+      const left = Number(res.headers.get('X-Usage-Remaining'))
+      const limit = Number(res.headers.get('X-Usage-Limit'))
+      setFreeLeft(res.headers.get('X-Plan') === 'free' && Number.isFinite(left) && limit ? { left, limit } : null)
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let text = ''
@@ -233,6 +249,9 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
           onClear={() => { setTurns([]); setError(null) }}
           onClose={() => setOpen(false)}
           desmosFollowUp={!!desmos?.graphing}
+          freeLeft={freeLeft}
+          limited={limited}
+          onPremium={() => openPremium()}
         />
       )}
     </ExplainContext.Provider>
@@ -241,10 +260,13 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
 
 const DESMOS_FOLLOW_UP: ExplainRequest = { label: 'Show me in Desmos', prompt: 'Solve it in Desmos: show me step by step how to do this with the Desmos graphing calculator.' }
 
-function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, desmosFollowUp }: {
+function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, desmosFollowUp, freeLeft, limited, onPremium }: {
   signedIn: boolean; turns: Turn[]; busy: boolean; error: string | null
   onSend: (req: ExplainRequest) => void; onClear: () => void; onClose: () => void
   desmosFollowUp: boolean
+  freeLeft: { left: number; limit: number } | null
+  limited: boolean
+  onPremium: () => void
 }) {
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -312,7 +334,17 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
             </div>
           )))
         )}
-        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && (
+          limited ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+              {error}
+              {PLANS_ENABLED && <>{' '}<button type="button" onClick={onPremium} className="font-semibold text-blue-700 hover:underline">Premium or a code</button></>}
+            </p>
+          ) : <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+        )}
+        {freeLeft && !limited && freeLeft.left <= 2 && (
+          <p className="text-center text-xs text-slate-500">{freeLeft.left === 0 ? 'That was your last free explanation for today.' : `${freeLeft.left} of ${freeLeft.limit} free explanations left today.`}</p>
+        )}
         {signedIn && !busy && last?.role === 'assistant' && last.content && (
           <div className="flex flex-wrap gap-2">
             {[...FOLLOW_UPS, ...(desmosFollowUp ? [DESMOS_FOLLOW_UP] : [])].map((f) => (

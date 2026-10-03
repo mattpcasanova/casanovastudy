@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { CLASSES_ENABLED } from '@/lib/features'
 import { IosSteps, useInstall } from '@/components/pwa/pwa'
+import { PlanMenuItems } from '@/components/plan/plan-menu'
 
 // Get user initials from name or email
 function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
@@ -292,6 +293,7 @@ export default function NavigationHeader() {
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
+                  <PlanMenuItems />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -324,6 +326,7 @@ export default function NavigationHeader() {
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
+                  <PlanMenuItems />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />

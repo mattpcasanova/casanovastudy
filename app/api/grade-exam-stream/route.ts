@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
+import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { parseGradingOutput } from '@/lib/grading/parse'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
@@ -96,6 +97,12 @@ export async function POST(request: NextRequest) {
   // Get authenticated user (try cookie auth first, fall back to FormData userId)
   let userId: string | null = null
   const cookieUser = await getRequestUser(request)
+
+  // Grading is Premium; signed-out callers get the in-stream sign-in error below.
+  if (cookieUser) {
+    const gradingBlock = await checkGrading(cookieUser.id)
+    if (gradingBlock) return planBlockResponse(gradingBlock)
+  }
 
   const stream = new ReadableStream({
     async start(controller) {

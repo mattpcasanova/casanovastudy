@@ -25,7 +25,12 @@ export async function generateGuide(body: GenerateGuideBody, signal?: AbortSigna
     body: JSON.stringify(body),
     signal,
   })
-  if (!response.ok || !response.body) throw new Error(response.status === 401 ? 'Please sign in again' : 'Could not start generation')
+  if (!response.ok || !response.body) {
+    if (response.status === 401) throw new Error('Please sign in again')
+    // A plan limit or Premium-only format comes back as JSON with a readable reason.
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.error || 'Could not start generation')
+  }
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

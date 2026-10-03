@@ -5,6 +5,11 @@ import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
+import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+
+function sseError(message: string, status: number) {
+  return new Response('data: ' + JSON.stringify({ type: 'error', message }) + '\n\n', { status, headers: { 'Content-Type': 'text/event-stream' } })
+}
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder()
@@ -13,38 +18,32 @@ export async function POST(request: NextRequest) {
   // Identity comes only from the session (never a body userId). Writes use the
   // admin client with that verified id, so they don't depend on RLS.
   const user = await getRequestUser(request)
-  if (!user) {
-    return new Response('data: ' + JSON.stringify({ type: 'error', message: 'Please sign in to create a study guide' }) + '\n\n', {
-      status: 401,
-      headers: { 'Content-Type': 'text/event-stream' },
-    })
-  }
+  if (!user) return sseError('Please sign in to create a study guide', 401)
   const supabase = createAdminClient()
+
+  // Validate before metering, so a bad request never uses up a guide.
+  let body: StudyGuideRequest
+  try { body = await request.json() } catch { return sseError('Invalid request', 400) }
+  const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
+  const hasDirectContent = body.directContent && body.directContent.length > 0
+  const hasLegacyFiles = body.files && body.files.length > 0
+  // Students can type what they want to study instead of uploading files.
+  const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
+  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && studyRequest.length < 3) {
+    return sseError('Upload a file or describe what you want to study', 400)
+  }
+  if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
+    return sseError('Missing required fields', 400)
+  }
+
+  // Plan (lib/plans.ts): free accounts get the four original formats (no Long, no Hard) and 3 guides a week.
+  const meter = await meterGuide(user.id, { format: body.format, length: body.length, difficulty: normalizeDifficulty(body.difficultyLevel) })
+  if (meter.block) return planBlockResponse(meter.block)
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
         console.log('🚀 Study guide streaming generation started')
-        const body: StudyGuideRequest = await request.json()
-
-        // Validate request - now also accepts directContent
-        const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
-        const hasDirectContent = body.directContent && body.directContent.length > 0
-        const hasLegacyFiles = body.files && body.files.length > 0
-        // Students can type what they want to study instead of uploading files.
-        const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
-
-        if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && studyRequest.length < 3) {
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: 'Upload a file or describe what you want to study' }) + '\n\n'))
-          controller.close()
-          return
-        }
-
-        if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: 'Missing required fields' }) + '\n\n'))
-          controller.close()
-          return
-        }
 
         // Send progress update
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Processing your materials...' }) + '\n\n'))
@@ -163,6 +162,7 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (supabaseError || !savedGuide) {
+          await releaseUsage(meter.eventId)
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'error', message: `Failed to save: ${supabaseError?.message}` }) + '\n\n'))
           controller.close()
           return
@@ -184,6 +184,7 @@ export async function POST(request: NextRequest) {
 
       } catch (error) {
         console.error('❌ Streaming generation error:', error)
+        await releaseUsage(meter.eventId) // nothing was saved, so it doesn't count
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'error',
           message: error instanceof Error ? error.message : 'Failed to generate study guide'

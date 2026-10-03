@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
+import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { CustomSection } from '@/lib/types/custom-guide'
@@ -132,6 +133,10 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 
+  // The builder's AI is Premium only; each run counts toward Premium's monthly guides.
+  const meter = await meterGuide(user.id, { customAi: true })
+  if (meter.block) return planBlockResponse(meter.block)
+
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -188,6 +193,7 @@ export async function POST(request: NextRequest) {
                     type: 'error',
                     message: `Failed to process ${file.filename}: ${extractionError instanceof Error ? extractionError.message : 'Unknown error'}`
                   }) + '\n\n'))
+                  await releaseUsage(meter.eventId)
                   controller.close()
                   return
                 }
@@ -197,6 +203,7 @@ export async function POST(request: NextRequest) {
                   type: 'error',
                   message: extractionError instanceof Error ? extractionError.message : 'Failed to process source files'
                 }) + '\n\n'))
+                await releaseUsage(meter.eventId)
                 controller.close()
                 return
               }
@@ -309,6 +316,7 @@ export async function POST(request: NextRequest) {
 
       } catch (error) {
         console.error('Custom guide generation error:', error)
+        await releaseUsage(meter.eventId)
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'error',
           message: error instanceof Error ? error.message : 'Failed to generate study guide'

@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth"
+import { PlanProvider } from "@/components/plan/plan-provider"
 import { ServiceWorkerRegistrar } from "@/components/pwa/pwa"
 import "./globals.css"
 
@@ -45,7 +46,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans ${dmSans.variable} ${GeistMono.variable}`}>
         <AuthProvider>
-          <Suspense fallback={null}>{children}</Suspense>
+          <PlanProvider>
+            <Suspense fallback={null}>{children}</Suspense>
+          </PlanProvider>
         </AuthProvider>
         <ServiceWorkerRegistrar />
         <Analytics />

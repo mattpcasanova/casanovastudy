@@ -2,27 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ClaudeService, type ExplainTurn } from '@/lib/claude-api'
+import { meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
 
 // The Explain panel (components/explain/): a short tutor reply about a
 // highlighted passage, a question the student typed, or a quiz question.
 // Signed-in users only; the guide's title/subject/level are looked up here.
-// Replies stream back as plain text.
+// Replies stream back as plain text. Every message (follow-ups too) counts
+// toward the plan's rolling daily limit (lib/plan-rules.ts); the
+// X-Usage-Remaining header tells the panel how many are left.
 
-const HOURLY_LIMIT = 40
-const DAILY_LIMIT = 150
 const MAX_TURNS = 12
 const MAX_CHARS = 6000
-const askedBy = new Map<string, number[]>() // per-instance, best-effort
-
-function overLimit(userId: string): string | null {
-  const now = Date.now()
-  const recent = (askedBy.get(userId) ?? []).filter((t) => t > now - 86_400_000)
-  askedBy.set(userId, recent)
-  if (recent.filter((t) => t > now - 3_600_000).length >= HOURLY_LIMIT) return 'You’ve asked a lot in the last hour. Take a short break and try again soon.'
-  if (recent.length >= DAILY_LIMIT) return 'You’ve reached today’s limit for explanations. It resets tomorrow.'
-  recent.push(now)
-  return null
-}
 
 export async function POST(request: NextRequest) {
   const user = await getRequestUser(request)
@@ -44,8 +34,8 @@ export async function POST(request: NextRequest) {
     .from('study_guides').select('title, subject, grade_level, topic_focus').eq('id', body.studyGuideId).maybeSingle()
   if (!guide) return NextResponse.json({ error: 'Study guide not found' }, { status: 404 })
 
-  const limited = overLimit(user.id)
-  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
+  const meter = await meterExplain(user.id)
+  if (meter.block) return planBlockResponse(meter.block)
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -57,11 +47,20 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error('Explain error:', error)
+        await releaseUsage(meter.eventId)
         controller.enqueue(encoder.encode('\n\n_Sorry, something went wrong. Please try again._'))
       } finally {
         controller.close()
       }
     },
   })
-  return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } })
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Usage-Remaining': String(meter.remaining),
+      'X-Usage-Limit': String(meter.limit),
+      'X-Plan': meter.plan,
+    },
+  })
 }

@@ -37,6 +37,7 @@ import {
   Check,
   PenSquare,
   ArrowRight,
+  Crown,
   LineChart,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -59,6 +60,8 @@ import { takePrefill } from "@/lib/prefill"
 import { useAuth } from "@/lib/auth"
 import { visualsRelevant } from "@/lib/formats/figures"
 import { DIFFICULTY_FORMATS, type GuideDifficulty } from "@/lib/study-options"
+import { PLAN_LIMITS, isFreeFormat, premiumOnlyReason } from "@/lib/plan-rules"
+import { formatReset, usePlan } from "@/components/plan/plan-provider"
 import VisualsInfo from "@/components/visuals-info"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
@@ -322,6 +325,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [arrival, setArrival] = useState<Arrival | null>(null)
   const arrivalRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
+  const { plan, isPremium, openPremium } = usePlan()
+  const freeGuides = plan && !isPremium ? plan.usage.guide : null
+  const freeGuidesLeft = freeGuides ? Math.max(0, freeGuides.limit - freeGuides.used) : null
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -551,6 +557,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (!format) newErrors.format = "Pick a format."
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0 || isGenerating) return
+
+    // Free plan: check options and the weekly count here, before files are processed.
+    if (plan && !isPremium) {
+      const usesDifficulty = !format || DIFFICULTY_FORMATS.includes(format)
+      const reason = premiumOnlyReason({ format, length, difficulty: usesDifficulty ? difficulty : undefined })
+      if (reason) return openPremium({ error: reason, code: "premium_only" })
+      if (freeGuides && freeGuides.used >= freeGuides.limit) {
+        return openPremium({ error: `You've used your ${freeGuides.limit} free guides for this week.`, code: "limit_reached", kind: "guide", resetsAt: freeGuides.resetsAt ?? undefined })
+      }
+    }
 
     onGenerateStudyGuide({
       files,
@@ -845,6 +861,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                     <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white">
                       <Check className="h-3.5 w-3.5" />
                     </span>
+                  ) : plan && !isPremium && !isFreeFormat(f.value) ? (
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-amber-800"><Crown className="h-3 w-3" /> Premium</span>
                   ) : f.badge ? (
                     <span className="absolute right-3 top-3 rounded-full bg-orange-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">{f.badge}</span>
                   ) : null}
@@ -964,7 +982,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       )}
                     >
-                      <span className="font-semibold">{o.label}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "long" && <Crown className={cn("h-3 w-3", on ? "text-amber-200" : "text-amber-500")} aria-label="Premium" />}</span>
                       <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
                         {(format && LENGTH_HINTS[format]?.[o.value]) || LENGTH_GENERIC[o.value]}
                       </span>
@@ -1002,7 +1020,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                           on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         )}
                       >
-                        <span className="font-semibold">{o.label}</span>
+                        <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "hard" && <Crown className={cn("h-3 w-3", on ? "text-amber-200" : "text-amber-500")} aria-label="Premium" />}</span>
                         <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
                           {goal === "exam" ? o.examHint : o.hint}
                         </span>
@@ -1089,6 +1107,15 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <><Sparkles className="mr-2 h-5 w-5" /> Generate study guide</>
             )}
           </Button>
+          {freeGuides && (
+            <p className={cn("text-sm font-medium", freeGuidesLeft ? "text-slate-600" : "text-amber-700")}>
+              {freeGuidesLeft
+                ? `${freeGuidesLeft} of ${PLAN_LIMITS.free.guide.limit} free guides left this week`
+                : `You've used this week's ${PLAN_LIMITS.free.guide.limit} free guides. Next one unlocks ${formatReset(freeGuides.resetsAt) ?? "soon"}.`}
+              {" "}
+              <button type="button" onClick={() => openPremium()} className="font-semibold text-blue-700 hover:underline">Premium</button>
+            </p>
+          )}
           <p className="text-sm text-slate-500">
             {isFormValid && sourceSummary
               ? `${FORMATS.find((f) => f.value === format)?.label} from ${sourceSummary} · ${difficulty === "hard" && DIFFICULTY_FORMATS.includes(format) ? "hard questions take about 2 minutes" : "usually ready in under a minute"}`

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { cn } from "@/lib/utils"
-import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle } from "lucide-react"
+import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle, Crown } from "lucide-react"
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { Segmented, fieldLabel } from "./editor-ui"
@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch"
 import VisualsInfo from "@/components/visuals-info"
 import { visualsRelevant } from "@/lib/formats/figures"
 import { authFetch } from "@/lib/auth-fetch"
+import { isPlanBlock } from "@/lib/plan-rules"
+import { usePlan } from "@/components/plan/plan-provider"
 
 interface SourceFileForAI {
   name: string
@@ -68,6 +70,7 @@ export function AIAssistant({
   onGeneratingChange,
   disabled
 }: AIAssistantProps) {
+  const { plan, isPremium, openPremium } = usePlan()
   const [directMode, setDirectMode] = useState<DirectMode>('generic')
   const [description, setDescription] = useState("")
   const [controls, setControls] = useState<GuideControls>(defaultControls)
@@ -105,6 +108,11 @@ export function AIAssistant({
   }
 
   const handleGenerate = async () => {
+    // The builder's AI is Premium; free accounts can still build by hand.
+    if (plan && !isPremium) {
+      openPremium({ error: "The AI assistant in the custom builder is part of Premium. You can still build guides by hand.", code: "premium_only", kind: "custom_ai" })
+      return
+    }
     if (!canGenerate) {
       setError(directMode === 'specific'
         ? "Pick at least one format, add a description, or upload source materials"
@@ -151,6 +159,7 @@ export function AIAssistant({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        if (isPlanBlock(errorData)) openPremium(errorData)
         throw new Error(errorData.error || "Failed to connect to AI service")
       }
 
@@ -232,7 +241,10 @@ export function AIAssistant({
             <Sparkles className="h-4 w-4" />
           </span>
           <div>
-            <h3 className="text-sm font-semibold leading-tight">AI assistant</h3>
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold leading-tight">
+              AI assistant
+              {plan && !isPremium && <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-300 px-1.5 py-px text-[0.6rem] font-bold uppercase tracking-wide text-amber-950"><Crown className="h-2.5 w-2.5" /> Premium</span>}
+            </h3>
             <p className="text-xs text-blue-50/80">Draft blocks from a prompt or your files</p>
           </div>
         </div>
