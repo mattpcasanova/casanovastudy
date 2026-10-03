@@ -4,15 +4,21 @@
 // Desmos" walkthrough tells the student to type, shown as math, with a button
 // that types them into the calculator (and loads any data table / window).
 
-import { useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo } from 'react'
 import katex from 'katex'
-import { Calculator, CornerDownLeft } from 'lucide-react'
+import { Calculator, CornerDownLeft, Loader2 } from 'lucide-react'
 import { parseDesmosBlock } from '@/lib/graphs/desmos-setup'
 import { useDesmos } from '@/components/desmos/desmos-context'
 
+/** True while the answer holding these steps is still streaming (the block may be half written). */
+export const DesmosStepsStreaming = createContext(false)
+
 export function DesmosSteps({ text }: { text: string }) {
   const desmos = useDesmos()
+  const streaming = useContext(DesmosStepsStreaming)
   const setup = useMemo(() => parseDesmosBlock(text), [text])
+  // Fetch Desmos while the answer is still streaming, so "Load into Desmos" opens fast.
+  useEffect(() => { desmos?.preload() }, [desmos])
   if (!setup.expressions.length && !setup.table) return null
   return (
     <div className="not-prose my-4 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/50">
@@ -40,9 +46,10 @@ export function DesmosSteps({ text }: { text: string }) {
           <button
             type="button"
             onClick={() => desmos.load(setup)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            disabled={streaming}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
-            <CornerDownLeft className="h-4 w-4" /> Load into Desmos
+            {streaming ? <><Loader2 className="h-4 w-4 animate-spin" /> Writing steps…</> : <><CornerDownLeft className="h-4 w-4" /> Load into Desmos</>}
           </button>
           <span className="ml-2 text-xs text-slate-500">Then try typing them yourself next time.</span>
         </div>

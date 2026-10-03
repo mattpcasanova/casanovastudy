@@ -444,7 +444,7 @@ export function guideCost(inputTokens: number, outputTokens: number): number {
 export interface ExplainTurn { role: 'user' | 'assistant'; content: string }
 
 // The "Explain" side panel: a short tutor reply about something in a guide.
-const EXPLAIN_RULES = `Rules:
+export const EXPLAIN_RULES = `Rules:
 - Explain exactly what they asked about, grounded in the guide excerpt. If the guide seems wrong, say so gently and give the correct idea.
 - Be brief: about 60-180 words unless they ask for more. Start with the explanation itself, no preamble ("Great question").
 - Use short paragraphs, and bullets only for lists. Bold a key term sparingly.

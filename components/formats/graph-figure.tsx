@@ -838,7 +838,7 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
       ].filter(Boolean).join('\n\n'),
     })
   }
-  const canExplore = !!desmos && (spec.kind === 'plane' ? spec.plots.length > 0 || spec.points.length > 0 : spec.kind === 'scatter')
+  const canExplore = !!desmos?.graphing && (spec.kind === 'plane' ? spec.plots.length > 0 || spec.points.length > 0 : spec.kind === 'scatter')
   const notes = [
     ...spec.notes,
     ...(spec.kind === 'geometry' && spec.notToScale ? ['Note: Figure not drawn to scale.'] : []),

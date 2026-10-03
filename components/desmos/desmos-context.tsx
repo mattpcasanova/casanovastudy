@@ -10,7 +10,9 @@ export interface DesmosApi {
   open: () => void
   /** Types a walkthrough's expressions (and data table) into the graphing calculator. */
   load: (setup: { expressions: string[]; table?: Pt[]; bounds?: { left: number; right: number; bottom: number; top: number } }) => void
-  /** True when this guide's calculator is the graphing one (math), false for scientific (chemistry). */
+  /** Starts downloading the Desmos script so the panel opens fast later. */
+  preload: () => void
+  /** True when this guide's calculator is the graphing one (math); false for scientific (chemistry) or basic (middle school). */
   graphing: boolean
 }
 

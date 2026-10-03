@@ -92,7 +92,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   // Desmos only where the real test gives one (math/science); none for plans/timelines.
   const calculatorMode = studyGuide.format === 'plan' || studyGuide.format === 'timeline'
     ? null
-    : calculatorFor({ subject: studyGuide.subject, text: [studyGuide.title, studyGuide.topic_focus].filter(Boolean).join('\n') })
+    : calculatorFor({ subject: studyGuide.subject, level: studyGuide.grade_level, text: [studyGuide.title, studyGuide.topic_focus].filter(Boolean).join('\n') })
 
   const handleSaveToMyGuides = async () => {
     if (!user) return

@@ -47,6 +47,27 @@ describe('calculatorFor', () => {
     expect(calculatorFor({ subject: 'test-prep', text: 'SAT Reading and Writing' })).toBeNull()
     expect(calculatorFor({ subject: 'english', text: 'Poetry terms' })).toBeNull()
   })
+  it('hides it for ACT English and Reading', () => {
+    expect(calculatorFor({ subject: 'general', text: 'ACT English Practice Quiz: Pushing Past 24\nHelp me on the act english section' })).toBeNull()
+    expect(calculatorFor({ subject: 'test-prep', text: 'ACT Reading: main idea and inference' })).toBeNull()
+    expect(calculatorFor({ subject: 'test-prep', text: 'ACT Math: geometry' })).toBe('graphing')
+  })
+  it('picks scientific for computation-heavy science, graphing for graph topics', () => {
+    expect(calculatorFor({ subject: 'science', text: "Newton's laws and net force" })).toBe('scientific')
+    expect(calculatorFor({ subject: 'science', text: 'Kinematics: position-time and velocity-time graphs' })).toBe('graphing')
+    expect(calculatorFor({ subject: 'science', text: 'AP Chemistry Unit 2: bonding' })).toBe('scientific')
+    expect(calculatorFor({ subject: 'mathematics', text: 'AP Statistics: regression' })).toBe('graphing')
+    expect(calculatorFor({ subject: 'general', text: 'Hard SAT Math Practice Quiz' })).toBe('graphing')
+  })
+  it('hides it for ACT Science (no calculator allowed)', () => {
+    expect(calculatorFor({ subject: 'test-prep', text: 'ACT Science: data representation and research summaries' })).toBeNull()
+  })
+  it('defaults to a basic calculator for middle school', () => {
+    expect(calculatorFor({ subject: 'mathematics', level: '6th-8th', text: 'Ratios and rates' })).toBe('basic')
+    expect(calculatorFor({ subject: 'mathematics', text: '6th grade fractions and decimals' })).toBe('basic')
+    expect(calculatorFor({ subject: 'science', level: '6th-8th', text: 'Density' })).toBe('basic')
+    expect(calculatorFor({ subject: 'mathematics', level: '10th', text: 'Ratios and rates' })).toBe('graphing')
+  })
 })
 
 describe('figureBudget', () => {

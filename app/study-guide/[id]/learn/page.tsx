@@ -18,7 +18,7 @@ export default async function LearnRoute({ params }: Props) {
   const { id } = await params
   const { data: guide } = await supabase
     .from('study_guides')
-    .select('id, title, format, content, custom_content, subject, topic_focus')
+    .select('id, title, format, content, custom_content, subject, topic_focus, grade_level')
     .eq('id', id)
     .single()
   if (!guide) notFound()

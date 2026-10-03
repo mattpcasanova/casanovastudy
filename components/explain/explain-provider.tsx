@@ -19,6 +19,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { signInPath } from '@/lib/sign-in-path'
 import { StudyMarkdown } from '@/components/formats/study-markdown'
 import { useDesmos } from '@/components/desmos/desmos-context'
+import { DesmosStepsStreaming } from '@/components/formats/desmos-steps'
 
 import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from './explain-context'
 
@@ -184,6 +185,8 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
             <button
               type="button"
               onClick={desmos.open}
+              onPointerEnter={desmos.preload}
+              onFocus={desmos.preload}
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:border-blue-300 hover:text-blue-700"
             >
               <Calculator className="h-4 w-4 text-blue-600" /> Calculator
@@ -226,7 +229,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
           turns={turns}
           busy={busy}
           error={error}
-          onSend={(req) => void send(req)}
+          onSend={(req) => { if (req === DESMOS_FOLLOW_UP) desmos?.preload(); void send(req) }}
           onClear={() => { setTurns([]); setError(null) }}
           onClose={() => setOpen(false)}
           desmosFollowUp={!!desmos?.graphing}
@@ -297,7 +300,11 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
             </div>
           ) : (
             <div key={i} className="text-[0.95rem]">
-              {t.content ? <StudyMarkdown content={t.content} compact /> : <span className="inline-flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Thinking…</span>}
+              {t.content ? (
+                <DesmosStepsStreaming.Provider value={busy && i === turns.length - 1}>
+                  <StudyMarkdown content={t.content} compact />
+                </DesmosStepsStreaming.Provider>
+              ) : <span className="inline-flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Thinking…</span>}
             </div>
           )))
         )}
@@ -344,7 +351,7 @@ export function DesmosHelpButton({ build, className }: { build: () => ExplainReq
   return (
     <button
       type="button"
-      onClick={() => explain.ask(build())}
+      onClick={() => { desmos.preload(); explain.ask(build()) }}
       className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 print:hidden', className)}
     >
       <Calculator className="h-3.5 w-3.5 text-blue-600" /> Solve it in Desmos

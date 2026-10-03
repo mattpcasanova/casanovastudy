@@ -4,16 +4,22 @@
 // exams give students Desmos, so practicing with it matters). The API script
 // loads only when the student opens the panel. Hidden entirely unless
 // NEXT_PUBLIC_DESMOS_API_KEY is set. Calculator state is a per-browser
-// convenience, saved in localStorage under cs:desmos:<guideId>:<mode>.
+// convenience, saved in localStorage under cs:desmos:<guideId>:<mode>; the
+// calculator the student last picked for a guide is cs:desmos:<guideId>:mode.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Calculator, GripHorizontal, RotateCcw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toLatex, type Expr } from '@/lib/graphs/expr'
 import type { GraphSpec, Pt } from '@/lib/graphs/spec'
+import type { CalculatorMode as Mode } from '@/lib/formats/figures'
 import { DesmosContext, type DesmosApi } from './desmos-context'
 
-type Mode = 'graphing' | 'scientific'
+const MODES: { value: Mode; label: string }[] = [
+  { value: 'basic', label: 'Basic' },
+  { value: 'scientific', label: 'Scientific' },
+  { value: 'graphing', label: 'Graphing' },
+]
 
 interface DesmosCalc {
   setExpression: (e: Record<string, unknown>) => void
@@ -32,6 +38,7 @@ declare global {
     Desmos?: {
       GraphingCalculator: (el: HTMLElement, opts?: Record<string, unknown>) => DesmosCalc
       ScientificCalculator: (el: HTMLElement, opts?: Record<string, unknown>) => DesmosCalc
+      FourFunctionCalculator: (el: HTMLElement, opts?: Record<string, unknown>) => DesmosCalc
     }
   }
 }
@@ -39,19 +46,36 @@ declare global {
 const API_KEY = process.env.NEXT_PUBLIC_DESMOS_API_KEY
 const API_VERSION = 'v1.11'
 
+// The script is ~1 MB gzipped (~4 MB parsed) and Desmos only lets browsers
+// cache it for 5 minutes, so on a slow connection it can take a while. Callers
+// start it early (preload) when a student is about to need it, and a stalled
+// download gives up after LOAD_TIMEOUT_MS so the panel can offer "Try again".
+const LOAD_TIMEOUT_MS = 25_000
 let loader: Promise<void> | null = null
 function loadDesmos(): Promise<void> {
   if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
   if (window.Desmos) return Promise.resolve()
   loader ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement('script')
+    const fail = () => {
+      clearTimeout(timer)
+      s.remove()
+      loader = null
+      reject(new Error('Desmos failed to load'))
+    }
+    const timer = setTimeout(fail, LOAD_TIMEOUT_MS)
     s.src = `https://www.desmos.com/api/${API_VERSION}/calculator.js?apiKey=${encodeURIComponent(API_KEY ?? '')}`
     s.async = true
-    s.onload = () => resolve()
-    s.onerror = () => { loader = null; reject(new Error('Desmos failed to load')) }
+    s.onload = () => { clearTimeout(timer); window.Desmos ? resolve() : fail() }
+    s.onerror = fail
     document.head.appendChild(s)
   })
   return loader
+}
+
+/** Starts downloading Desmos in the background; safe to call often. */
+function preloadDesmos() {
+  if (API_KEY) loadDesmos().catch(() => { /* the panel shows the error if it's opened */ })
 }
 
 // ── Figure → Desmos expressions ─────────────────────────────────────────────
@@ -126,6 +150,14 @@ export function setupToDesmos(setup: DesmosSetup): { exprs: Record<string, unkno
 function storageKey(guideId: string, mode: Mode) {
   return `cs:desmos:${guideId}:${mode}`
 }
+const modeKey = (guideId: string) => `cs:desmos:${guideId}:mode`
+
+function savedMode(guideId: string): Mode | null {
+  try {
+    const v = localStorage.getItem(modeKey(guideId))
+    return MODES.some((m) => m.value === v) ? (v as Mode) : null
+  } catch { return null }
+}
 
 /** Expressions (Desmos LaTeX) plus optional data table and window, e.g. from a "Solve it in Desmos" answer. */
 export interface DesmosSetup { expressions: string[]; table?: Pt[]; bounds?: { left: number; right: number; bottom: number; top: number } }
@@ -139,13 +171,22 @@ type Pending = { kind: 'figure'; spec: GraphSpec } | { kind: 'setup'; setup: Des
 export function DesmosProvider({ guideId, mode, showButton = true, children }: { guideId: string; mode: Mode | null; showButton?: boolean; children: ReactNode }) {
   const enabled = !!API_KEY && !!mode
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState<Mode>(mode ?? 'graphing')
+  const [active, setActiveState] = useState<Mode>(mode ?? 'graphing')
   const [pending, setPending] = useState<Pending | null>(null)
 
+  // The guide's default (basic for middle school), unless the student picked another one here before.
+  useEffect(() => { if (mode) setActiveState(savedMode(guideId) ?? mode) }, [guideId, mode])
+  const setActive = useCallback((m: Mode) => {
+    setActiveState(m)
+    try { localStorage.setItem(modeKey(guideId), m) } catch { /* storage unavailable */ }
+  }, [guideId])
+
   const api = useMemo<DesmosApi | null>(() => (enabled ? {
-    openWith: (spec) => { setActive('graphing'); setPending({ kind: 'figure', spec }); setOpen(true) },
-    load: (setup) => { setActive('graphing'); setPending({ kind: 'setup', setup }); setOpen(true) },
+    // Figures and walkthroughs need graphing; switching for them isn't remembered.
+    openWith: (spec) => { setActiveState('graphing'); setPending({ kind: 'figure', spec }); setOpen(true) },
+    load: (setup) => { setActiveState('graphing'); setPending({ kind: 'setup', setup }); setOpen(true) },
     open: () => setOpen(true),
+    preload: preloadDesmos,
     graphing: mode === 'graphing',
   } : null), [enabled, mode])
 
@@ -233,9 +274,14 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
   guideId: string; mode: Mode; onMode: (m: Mode) => void; onClose: () => void
   pending: Pending | null; onPendingApplied: () => void
 }) {
-  const hostRef = useRef<HTMLDivElement>(null)
+  // State, not a ref: on desktop the panel renders nothing until its saved
+  // position is read, so the calculator must wait for the container to exist.
+  // (With a ref, an already-loaded Desmos resolved before the container
+  // mounted and the panel sat on "Loading calculator…" forever.)
+  const [host, setHost] = useState<HTMLDivElement | null>(null)
   const calcRef = useRef<DesmosCalc | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
   const desktop = useIsDesktop()
   const [rect, setRect] = useState<Rect | null>(null)
   const [sheetVh, setSheetVh] = useState(62)
@@ -265,10 +311,13 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
     setStatus('loading')
+    if (!host) return
     loadDesmos().then(() => {
-      if (cancelled || !hostRef.current || !window.Desmos) return
+      if (cancelled || !window.Desmos) return
       const opts = { settingsMenu: false, border: false, expressionsCollapsed: false }
-      const calc = mode === 'graphing' ? window.Desmos.GraphingCalculator(hostRef.current, opts) : window.Desmos.ScientificCalculator(hostRef.current, { border: false })
+      const calc = mode === 'graphing' ? window.Desmos.GraphingCalculator(host, opts)
+        : mode === 'scientific' ? window.Desmos.ScientificCalculator(host, { border: false })
+        : window.Desmos.FourFunctionCalculator(host, { border: false })
       calcRef.current = calc
       try {
         const saved = localStorage.getItem(storageKey(guideId, mode))
@@ -287,16 +336,15 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
       calcRef.current?.destroy()
       calcRef.current = null
     }
-  }, [guideId, mode, save])
+  }, [host, guideId, mode, save, attempt])
 
   // Desmos has to be told when its container changes size.
   useEffect(() => {
-    const host = hostRef.current
     if (!host) return
     const ro = new ResizeObserver(() => calcRef.current?.resize())
     ro.observe(host)
     return () => ro.disconnect()
-  }, [])
+  }, [host])
 
   // Load a figure or a walkthrough setup once the graphing calculator is up.
   useEffect(() => {
@@ -324,14 +372,14 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
     >
       {desktop && <GripHorizontal className="h-4 w-4 shrink-0 text-slate-300" aria-hidden />}
       <div className="flex rounded-lg bg-slate-100 p-0.5 text-sm">
-        {(['graphing', 'scientific'] as const).map((m) => (
+        {MODES.map((m) => (
           <button
-            key={m}
+            key={m.value}
             type="button"
-            onClick={() => onMode(m)}
-            className={cn('rounded-md px-3 py-1 font-medium capitalize transition', m === mode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+            onClick={() => onMode(m.value)}
+            className={cn('rounded-md px-2.5 py-1 font-medium transition', m.value === mode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
           >
-            {m}
+            {m.label}
           </button>
         ))}
       </div>
@@ -351,9 +399,14 @@ function DesmosPanel({ guideId, mode, onMode, onClose, pending, onPendingApplied
   const body = (
     <div className="relative isolate min-h-0 flex-1">
       {/* isolate: Desmos's own z-indexes stay inside, so the resize grip stays on top. */}
-      <div ref={hostRef} className="absolute inset-0" />
+      <div ref={setHost} className="absolute inset-0" />
       {status === 'loading' && <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Loading calculator…</div>}
-      {status === 'error' && <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-slate-500">The calculator could not load. Check your connection and try again.</div>}
+      {status === 'error' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-slate-500">
+          The calculator could not load. Check your connection and try again.
+          <button type="button" onClick={() => setAttempt((a) => a + 1)} className="rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white hover:bg-blue-700">Try again</button>
+        </div>
+      )}
     </div>
   )
 

@@ -35,7 +35,7 @@ const VISUAL_TOPICS = new RegExp(
 
 // Exams whose math/science sections are full of figures.
 const SAT_ACT = /\b(P?SAT|ACT)\b|\b(p?sat|act) (math|prep|practice|test)\b|digital sat/ // case-sensitive acronyms: "act"/"sat" are words
-const SAT_VERBAL = /reading (and|&) writing|\bR&W\b|\bgrammar\b|\bvocab/i
+const SAT_VERBAL = /reading (and|&) writing|\bR&W\b|\bgrammar\b|\bvocab|\benglish\b|\breading\b|punctuation|rhetoric|\bessay|\bwriting\b/i
 const SAT_MATH = /\bmath|algebra|geometr|advanced math|problem.solving|data analysis/i
 const AP_CORE = /\bAP (calc|calculus|stat|statistics|physics|precalc|precalculus)/i
 const AP_SUPPORT = /\bAP (chem|chemistry|bio|biology|environmental|APES|macro|micro|econ|economics)/i
@@ -117,15 +117,32 @@ export function visualsRelevant(ctx: FigureContext & { format?: string | null })
   return figurePolicy(ctx) !== 'rare' || wantsChemModels(ctx) || wantsBioModels(ctx) || wantsPhysicsModels(ctx)
 }
 
-/** Whether the guide viewer offers the Desmos calculator, and in which mode. */
-export function calculatorFor(ctx: FigureContext): 'graphing' | 'scientific' | null {
+export type CalculatorMode = 'basic' | 'scientific' | 'graphing'
+
+// Grade 8 and under: a plain four-function calculator, not graphing/scientific.
+const YOUNG_LEVELS = new Set(['6th-8th'])
+const YOUNG_TEXT = /middle school|elementary|\b[1-8](st|nd|rd|th)[ -]grade|\b(first|second|third|fourth|fifth|sixth|seventh|eighth) grade|\bgrade [1-8]\b/i
+
+/**
+ * Whether the guide viewer offers the Desmos calculator, and which one it opens
+ * on. Students can still switch in the panel; this is only the default:
+ *   basic       grade 8 and under (outside SAT/ACT/AP)
+ *   graphing    graph-heavy math and the tests that hand out Desmos (SAT, ACT Math, AP Calc/Stats)
+ *   scientific  computation-heavy science (chemistry, forces, genetics ratios) and non-graph AP science
+ */
+export function calculatorFor(ctx: FigureContext & { level?: string | null }): CalculatorMode | null {
   const s = (ctx.subject ?? '').toLowerCase()
   const t = ctx.text ?? ''
   const tier = figurePolicy(ctx)
   const mathish = s === 'mathematics' || s === 'science' || MATH_WORDS.test(t) || SCIENCE_WORDS.test(t) || AP_CORE.test(t) || AP_SUPPORT.test(t)
   if (tier === 'rare' || !mathish) return null
-  if (SAT_ACT.test(t) && SAT_VERBAL.test(t) && !SAT_MATH.test(t)) return null
-  return CHEM_WORDS.test(t) && !VISUAL_TOPICS.test(t) ? 'scientific' : 'graphing'
+  // Reading/English sections of the SAT/ACT have no calculator, and neither does ACT Science.
+  if (SAT_ACT.test(t) && (SAT_VERBAL.test(t) || /\bscience\b/i.test(t)) && !SAT_MATH.test(t)) return null
+  const exam = SAT_ACT.test(t) || AP_CORE.test(t) || AP_SUPPORT.test(t)
+  if (!exam && (YOUNG_LEVELS.has(ctx.level ?? '') || YOUNG_TEXT.test(t))) return 'basic'
+  if (SAT_ACT.test(t) || AP_CORE.test(t)) return CHEM_WORDS.test(t) ? 'scientific' : 'graphing'
+  const science = CHEM_WORDS.test(t) || s === 'science' || (SCIENCE_WORDS.test(t) && !MATH_WORDS.test(t))
+  return science && !VISUAL_TOPICS.test(t) ? 'scientific' : 'graphing'
 }
 
 /** Figure budget for a format, written into the prompt. Empty = no figures. */
