@@ -9,6 +9,7 @@ import { Segmented, fieldLabel } from "./editor-ui"
 import { Switch } from "@/components/ui/switch"
 import VisualsInfo from "@/components/visuals-info"
 import { visualsRelevant } from "@/lib/formats/figures"
+import { authFetch } from "@/lib/auth-fetch"
 
 interface SourceFileForAI {
   name: string
@@ -131,9 +132,8 @@ export function AIAssistant({
         existingContentSummary = JSON.stringify(blocksToCustomContent(currentBlocks), null, 2)
       }
 
-      const response = await fetch("/api/generate-custom-guide", {
+      const response = await authFetch("/api/generate-custom-guide", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({

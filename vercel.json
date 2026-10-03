@@ -3,9 +3,6 @@
     "app/api/upload/route.ts": {
       "maxDuration": 30
     },
-    "app/api/generate-study-guide/route.ts": {
-      "maxDuration": 120
-    },
     "app/api/grade-exam-stream/route.ts": {
       "maxDuration": 300,
       "memory": 1024

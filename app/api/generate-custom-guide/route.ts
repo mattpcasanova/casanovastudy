@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestUser } from '@/lib/request-user'
 import { ClaudeService } from '@/lib/claude-api'
 import { FileProcessor } from '@/lib/file-processing'
 import { CustomSection } from '@/lib/types/custom-guide'
@@ -84,6 +85,10 @@ function extractCompleteSections(buffer: string, alreadyExtracted: number): { se
 }
 
 export async function POST(request: NextRequest) {
+  // Generating costs real money: signed-in users only (identity from the session).
+  const user = await getRequestUser(request)
+  if (!user) return NextResponse.json({ error: 'Please sign in to generate a guide.' }, { status: 401 })
+
   // Parse request body first to validate before setting up stream
   let body
   try {

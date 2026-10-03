@@ -17,6 +17,7 @@ import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
+import { authFetch } from '@/lib/auth-fetch'
 import { useRecordResult } from '@/components/study-results-context'
 
 interface QuizFormatProps {
@@ -68,7 +69,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     if (!studentAnswer?.trim()) return null
     setScoring((s) => ({ ...s, [q.id]: true }))
     try {
-      const response = await fetch('/api/score-short-answer', {
+      const response = await authFetch('/api/score-short-answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q.question, sampleAnswer: q.sampleAnswer, studentAnswer, subject }),
