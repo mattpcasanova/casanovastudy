@@ -11,6 +11,7 @@ import {
   type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity,
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
+import { ExplanationText } from './explanation-text'
 import { QuestionStem } from './question-stem'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
@@ -203,7 +204,7 @@ export function PracticeSession({
             {current.explanation && (
               <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
                 <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                <span><InlineMarkdown text={current.explanation} /></span>
+                <span><ExplanationText text={current.explanation} /></span>
               </p>
             )}
             <div className="flex flex-wrap gap-2">

@@ -92,3 +92,11 @@ export const DIFFICULTY_FORMATS = ['quiz', 'practice', 'flashcards', 'outline', 
 export function normalizeDifficulty(value: unknown): GuideDifficulty {
   return DIFFICULTIES.includes(value as GuideDifficulty) ? (value as GuideDifficulty) : 'standard'
 }
+
+// Grade 8 and under: from the level picker, or from the title/topic when the
+// level was left blank ("Help my 6th grader study math").
+const YOUNG_TEXT = /middle school|elementary|\b[1-8](st|nd|rd|th)[ -]grade|\b(first|second|third|fourth|fifth|sixth|seventh|eighth) grade|\bgrade [1-8]\b/i
+
+export function isYoungLearner(level?: string | null, text?: string | null): boolean {
+  return level === '6th-8th' || YOUNG_TEXT.test(text ?? '')
+}

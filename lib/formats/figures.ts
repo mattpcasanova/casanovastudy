@@ -11,6 +11,8 @@
 //   rare        everything else. A figure only if the materials contain one
 //               or a question is impossible without it.
 
+import { isYoungLearner } from '@/lib/study-options'
+
 export type FigureTier = 'core' | 'supporting' | 'rare'
 
 export interface FigureContext {
@@ -119,10 +121,6 @@ export function visualsRelevant(ctx: FigureContext & { format?: string | null })
 
 export type CalculatorMode = 'basic' | 'scientific' | 'graphing'
 
-// Grade 8 and under: a plain four-function calculator, not graphing/scientific.
-const YOUNG_LEVELS = new Set(['6th-8th'])
-const YOUNG_TEXT = /middle school|elementary|\b[1-8](st|nd|rd|th)[ -]grade|\b(first|second|third|fourth|fifth|sixth|seventh|eighth) grade|\bgrade [1-8]\b/i
-
 /**
  * Whether the guide viewer offers the Desmos calculator, and which one it opens
  * on. Students can still switch in the panel; this is only the default:
@@ -139,7 +137,8 @@ export function calculatorFor(ctx: FigureContext & { level?: string | null }): C
   // Reading/English sections of the SAT/ACT have no calculator, and neither does ACT Science.
   if (SAT_ACT.test(t) && (SAT_VERBAL.test(t) || /\bscience\b/i.test(t)) && !SAT_MATH.test(t)) return null
   const exam = SAT_ACT.test(t) || AP_CORE.test(t) || AP_SUPPORT.test(t)
-  if (!exam && (YOUNG_LEVELS.has(ctx.level ?? '') || YOUNG_TEXT.test(t))) return 'basic'
+  // Grade 8 and under: a plain four-function calculator.
+  if (!exam && isYoungLearner(ctx.level, t)) return 'basic'
   if (SAT_ACT.test(t) || AP_CORE.test(t)) return CHEM_WORDS.test(t) ? 'scientific' : 'graphing'
   const science = CHEM_WORDS.test(t) || s === 'science' || (SCIENCE_WORDS.test(t) && !MATH_WORDS.test(t))
   return science && !VISUAL_TOPICS.test(t) ? 'scientific' : 'graphing'

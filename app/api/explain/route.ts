@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   if (!body.studyGuideId) return NextResponse.json({ error: 'Missing study guide' }, { status: 400 })
 
   const { data: guide } = await createAdminClient()
-    .from('study_guides').select('title, subject, grade_level').eq('id', body.studyGuideId).maybeSingle()
+    .from('study_guides').select('title, subject, grade_level, topic_focus').eq('id', body.studyGuideId).maybeSingle()
   if (!guide) return NextResponse.json({ error: 'Study guide not found' }, { status: 404 })
 
   const limited = overLimit(user.id)
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       try {
         const claude = new ClaudeService()
-        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, turns })) {
+        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, turns })) {
           controller.enqueue(encoder.encode(text))
         }
       } catch (error) {

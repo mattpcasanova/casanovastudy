@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
-import { DIFFICULTY_FORMATS, type GuideDifficulty } from '@/lib/study-options'
+import { DIFFICULTY_FORMATS, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
 
 // Turn structured "specific control" directives into an instruction block the
 // custom-guide generator can honor. Returns '' when nothing is specified so the
@@ -333,7 +333,7 @@ function difficultyInstructions(format: string, difficulty: GuideDifficulty | un
         '- Mix: at least 80% hard, the rest upper-medium, and no recall questions. Within each section, go from the medium ones to the hardest.',
         '- No true/false questions: they are too easy to guess. Use multiple choice, plus short answer where the exam has student-written answers.',
         '- Before finishing, review each question: if a well-prepared student could answer it in under 30 seconds, replace it with a harder one on the same skill.',
-        '- Explanations show the full solution path and name the mistake behind each tempting wrong answer.',
+        '- Explanations stay short like every other level (the student taps Why? for the full walkthrough): the key step or two that reach the answer, plus the trap behind the most tempting wrong option only if it fits in a few words. Never walk through every option.',
         '- Solve every question yourself before writing its options, and check that the keyed answer is the only correct one.',
       )
     } else if (format === 'flashcards') {
@@ -446,7 +446,7 @@ export interface ExplainTurn { role: 'user' | 'assistant'; content: string }
 // The "Explain" side panel: a short tutor reply about something in a guide.
 export const EXPLAIN_RULES = `Rules:
 - Explain exactly what they asked about, grounded in the guide excerpt. If the guide seems wrong, say so gently and give the correct idea.
-- Be brief: about 60-180 words unless they ask for more. Start with the explanation itself, no preamble ("Great question").
+- Be brief: stay inside the LENGTH given above unless they ask for more. Start with the explanation itself, no preamble ("Great question").
 - Use short paragraphs, and bullets only for lists. Bold a key term sparingly.
 - Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else ($$\\frac{a}{b}$$, $$e^{2x}$$, $$\\sqrt{x}$$). Never calculator notation like x^2 or a/b.
 - "Show the steps": number the steps and show each calculation. "Simpler": plainer words and an everyday comparison. "Example": one concrete worked example.
@@ -454,6 +454,34 @@ export const EXPLAIN_RULES = `Rules:
 - "Solve it in Desmos" (the graphing calculator on the digital SAT and many AP exams): give 3-6 numbered steps saying exactly what to type, what to click or read (click an intersection or x-intercept to see its coordinates, read a table, a regression y_1\\sim mx_1+b for data, a slider for an unknown constant), and how that gives the answer. Put everything to type in ONE \`\`\`desmos block, one expression per line, in Desmos LaTeX (y=x^2-2x-3, y=\\frac{1}{2}x+3, \\sqrt{x}, y_1\\sim mx_1+b); data goes on a line "table: (x, y) (x, y)"; add "window: xmin, xmax, ymin, ymax" when the default view would hide the answer. Name the one Desmos move that saves the most time. If Desmos isn't the fastest route, say so in one line and show how it can still check the answer.
 - For a quiz question: explain why the correct answer is right; if the student picked a different option, say what made it tempting and why it's wrong.
 - Never use em dashes. If they ask about something unrelated to studying, briefly steer back to the guide.`
+
+/**
+ * Who the Explain panel is talking to: reading level and answer length. The
+ * guide's level wins; a blank level falls back to the title/topic ("my 6th
+ * grader"), then to a high-school/early-college default.
+ */
+export function explainAudience(gradeLevel?: string | null, context?: string | null): string {
+  if (isYoungLearner(gradeLevel, context)) {
+    return `STUDENT: a middle schooler (about 11 to 13 years old). Talk the way a friendly 6th grade teacher would at the student's desk.
+- Short sentences, mostly under 12 words. Everyday words. One idea per sentence.
+- If you must use a math or science word, say what it means in plain words right away.
+- Only methods they learn by 6th to 8th grade. No algebra tricks or shortcuts they haven't seen.
+- Steps: at most 4, each one short line with its calculation.
+- A quick everyday picture (money, pizza slices, sharing) only when it really helps.
+LENGTH: about 30-70 words. "Simpler" means even fewer words, not more.`
+  }
+  const level = gradeLevel && gradeLevel !== 'general' ? gradeLevel : ''
+  if (level === '9th' || level === '10th') return `STUDENT: a ${level} grade high school student. Clear, direct sentences; define a term the first time you use it.
+LENGTH: about 50-120 words.`
+  if (level === 'beginner') return `STUDENT: a beginner, new to this topic. Plain words, define every term, no jargon.
+LENGTH: about 50-120 words.`
+  if (level === 'professional') return `STUDENT: a professional who works in the field. Precise and practical; skip the basics.
+LENGTH: about 40-120 words.`
+  if (level) return `STUDENT: ${describeLevel(level)}.
+LENGTH: about 60-160 words.`
+  return `STUDENT: a motivated high school or early college student (the guide doesn't say).
+LENGTH: about 60-160 words.`
+}
 
 export class ClaudeService {
   private anthropic: Anthropic
@@ -768,11 +796,11 @@ B) <option>
 C) <option>
 D) <option>
 Correct Answer: <letter>
-Explanation: <one or two sentences: why the answer is right and why the most tempting wrong option is wrong>
+Explanation: <1-2 short sentences, at most about 35 words: the key step that gets the answer, plus the trap behind the most tempting wrong option if it fits. Never go through every option; the student can ask for more>
 
 TF_QUESTION: <statement>
 Answer: True|False
-Explanation: <one sentence>
+Explanation: <one short sentence, at most about 25 words>
 
 SA_QUESTION: <question>
 Sample Answer: <a complete, specific model answer, 2-4 sentences>
@@ -826,7 +854,7 @@ Fix: <the corrected version of that line>
 Any activity may include ONE fenced code block (with the language name) right after its marker line; it is shown above the activity. A \`\`\`graph figure block works the same way (see FIGURES, if present). Use it for "what does this print?", "what is the time complexity?", or "which line completes this function?" questions (MC_QUESTION with a snippet), or to give context for a FILL.
 
 Any activity may be followed by one line:
-Explanation: <one sentence explaining the answer>
+Explanation: <one short sentence explaining the answer, at most about 30 words>
 Rules:
 - For programming topics (or an interview goal involving coding), make AT LEAST HALF of all activities code-based; count them before you finish: predict the output (MC with a snippet), find the bug, pick the time/space complexity (MC with a snippet), choose the missing line (MC or FILL with a snippet). Keep snippets short (≤12 lines) and runnable-looking; default to Python unless another language is requested. Never put option lines or answers inside the code fence.
 - FIND_BUG snippets must contain EXACTLY ONE bug on ONE line; every other line must be correct, so that applying the Fix line makes the whole snippet correct. Double-check the fixed code works.
@@ -2262,10 +2290,10 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
    * Returns strict JSON parsed from the model; caller validates the shape.
    */
   /** Streams a short tutor explanation for the Explain panel (text deltas only). */
-  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
-    const level = params.gradeLevel && params.gradeLevel !== 'general' ? params.gradeLevel : 'high school or early college'
+  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
     const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
-    const system = `You are a patient tutor inside a study app. A student at the ${level} level is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${EXPLAIN_RULES}`
+    const audience = explainAudience(params.gradeLevel, [params.guideTitle, params.topic].filter(Boolean).join('\n'))
+    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}`
     const stream = this.anthropic.beta.messages.stream({
       model: GUIDE_MODEL,
       max_tokens: 4000,

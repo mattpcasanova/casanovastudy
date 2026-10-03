@@ -11,6 +11,7 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
+import { ExplanationText } from './explanation-text'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
@@ -473,7 +474,7 @@ function Feedback({ correct, explanation, correctLabel, pickedLabel, extra }: { 
       {explanation && (
         <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <span><InlineMarkdown text={explanation} /></span>
+          <span><ExplanationText text={explanation} /></span>
         </p>
       )}
       {extra}

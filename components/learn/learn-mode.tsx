@@ -11,6 +11,7 @@ import { loadProgress, saveProgress } from '@/lib/progress'
 import { buildSession, gradeItem, summarize, MASTERED_BOX, type ItemState, type LearnState } from '@/lib/learn/scheduler'
 import { ActivityBody, activityMeta } from '@/components/formats/practice-format'
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
+import { ExplanationText } from '@/components/formats/explanation-text'
 import { QuestionStem } from '@/components/formats/question-stem'
 import { GraphFence } from '@/components/formats/graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
@@ -331,7 +332,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
               {current.activity.explanation && (
                 <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
                   <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                  <span><InlineMarkdown text={current.activity.explanation} /></span>
+                  <span><ExplanationText text={current.activity.explanation} /></span>
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
