@@ -7,6 +7,7 @@
 import { parseQuizContent } from '@/lib/formats/quiz'
 import { parsePractice, type PracticeActivity } from '@/lib/formats/practice'
 import { plainText } from '@/lib/formats/normalize'
+import type { GuidePrefill } from '@/lib/prefill'
 
 export interface MissedQuestion {
   question: string
@@ -49,4 +50,34 @@ export function missedQuestionsFromGuide(content: string, itemIds: string[]): Mi
     }
   }
   return out.map((m) => ({ question: clip(plainText(m.question), 280), answer: clip(plainText(m.answer), 180) }))
+}
+
+/** The homepage request for "a new quiz on what I missed" in one guide. */
+export function missedPrefill(guide: { title: string; subject?: string | null; gradeLevel?: string | null }, missed: MissedQuestion[]): GuidePrefill {
+  const lines: string[] = []
+  let used = 0
+  for (const [i, m] of missed.entries()) {
+    const line = `${i + 1}. ${m.question} (Correct answer: ${m.answer})`
+    if (used + line.length > 6000) break // the request limit is 8,000 characters
+    lines.push(line)
+    used += line.length
+  }
+  const n = missed.length
+  return {
+    source: 'missed-quiz',
+    sourceTitle: guide.title,
+    studyGuideName: `Review: ${guide.title}`.slice(0, 120),
+    format: 'quiz',
+    subject: guide.subject ?? undefined,
+    gradeLevel: guide.gradeLevel ?? undefined,
+    detail: `${n} question${n === 1 ? '' : 's'} you missed`,
+    studyRequest: [
+      `Make a new practice quiz on what I got wrong in "${guide.title}".`,
+      '',
+      'These are the questions I missed, with the correct answers:',
+      ...lines,
+      '',
+      'Write fresh questions that test the same skills from different angles (don\'t copy these word for word). Start with a couple of easier warm-up questions, then build up, and explain every answer so I understand why.',
+    ].join('\n'),
+  }
 }

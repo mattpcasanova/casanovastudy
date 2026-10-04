@@ -2096,10 +2096,10 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
    * Returns strict JSON parsed from the model; caller validates the shape.
    */
   /** Streams a short tutor explanation for the Explain panel (text deltas only). */
-  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
+  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; learnerNote?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
     const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
     const audience = explainAudience(params.gradeLevel, [params.guideTitle, params.topic].filter(Boolean).join('\n'))
-    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}`
+    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
     const stream = this.anthropic.beta.messages.stream({
       model: GUIDE_MODEL,
       max_tokens: 4000,

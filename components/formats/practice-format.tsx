@@ -18,12 +18,18 @@ import { GraphFence } from './graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
-import { useRecordResult } from '@/components/study-results-context'
+import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { useRouter } from 'next/navigation'
+import { openHomeWithPrefill } from '@/lib/prefill'
+import { missedPrefill, missedQuestionsFromGuide } from '@/lib/learner/missed'
+import { WeakSpotBanner } from './weak-spot-banner'
 import { AnswerTag } from './quiz-format'
 
 interface PracticeFormatProps {
   content: string
   subject: string
+  title?: string
+  gradeLevel?: string
 }
 
 const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof Puzzle }> = {
@@ -37,12 +43,25 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
 
 type Outcome = { correct: boolean; note?: string }
 
-export default function PracticeFormat({ content }: PracticeFormatProps) {
+export default function PracticeFormat({ content, subject, title, gradeLevel }: PracticeFormatProps) {
   const all = useMemo(() => parsePractice(content), [content])
+  const router = useRouter()
+  // What this student got wrong here last time (their latest answer to each activity).
+  const history = useGuideHistory('p:')
   if (all.length === 0) {
     return <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">No practice activities were found in this guide.</div>
   }
-  return <PracticeSession activities={all} />
+  const missedIds = history ? all.filter((a) => history.missedIds.includes(a.id)).map((a) => a.id) : []
+  return (
+    <PracticeSession
+      activities={all}
+      lastMissed={missedIds.length ? {
+        ids: missedIds,
+        topics: history?.topics ?? [],
+        newQuiz: () => router.push(openHomeWithPrefill(missedPrefill({ title: title || 'this practice set', subject, gradeLevel }, missedQuestionsFromGuide(content, missedIds.map((id) => `p:${id}`))))),
+      } : undefined}
+    />
+  )
 }
 
 /**
@@ -55,10 +74,13 @@ export function PracticeSession({
   activities: all,
   variant = 'page',
   title,
+  lastMissed,
 }: {
   activities: PracticeActivity[]
   variant?: 'page' | 'inline'
   title?: string
+  /** Activities the student got wrong last time, for the "Retry those" nudge (page variant). */
+  lastMissed?: { ids: string[]; topics: string[]; newQuiz: () => void }
 }) {
   const inline = variant === 'inline'
   const [subset, setSubset] = useState<string[] | null>(null)
@@ -253,6 +275,9 @@ export function PracticeSession({
   return (
     <>
     <div ref={topRef} className={cn(displaySerif.variable, 'mx-auto max-w-3xl scroll-mt-6 space-y-5 print:hidden')}>
+      {!subset && lastMissed && (
+        <WeakSpotBanner count={lastMissed.ids.length} topics={lastMissed.topics} noun="activity" onRetry={() => restart(lastMissed.ids)} onNewQuiz={lastMissed.newQuiz} />
+      )}
       {/* Progress */}
       <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div className="mb-2.5 flex items-center justify-between gap-3 text-sm">

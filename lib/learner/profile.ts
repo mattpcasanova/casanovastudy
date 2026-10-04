@@ -174,7 +174,7 @@ const words = (s: string) => new Set(s.toLowerCase().split(/[^a-z0-9]+/).filter(
  * A short note for the guide prompt about this learner's history in the guide's
  * subject/topic, or '' when there's nothing relevant. Never names the student.
  */
-export function learnerHistoryNote(profile: LearnerProfile, ctx: { subject?: string | null; text?: string | null }): string {
+export function learnerHistoryNote(profile: LearnerProfile, ctx: { subject?: string | null; text?: string | null }, use: 'guide' | 'tutor' = 'guide'): string {
   const subject = ctx.subject && ctx.subject !== 'general' ? ctx.subject : null
   const asked = words(ctx.text ?? '')
   const relevant = (t: TopicStat) =>
@@ -182,6 +182,14 @@ export function learnerHistoryNote(profile: LearnerProfile, ctx: { subject?: str
   const weak = profile.weak.filter(relevant).slice(0, 5)
   const strong = profile.strong.filter(relevant).slice(0, 3)
   if (!weak.length && !strong.length) return ''
+  if (use === 'tutor') {
+    return [
+      'LEARNER HISTORY (from this student\'s own quiz and practice answers):',
+      weak.length ? `- Recently struggling with: ${weak.map((t) => `${t.topic} (${pct(t.recentAccuracy)} of last ${t.recentAnswered})`).join('; ')}.` : '',
+      strong.length ? `- Already strong at: ${strong.map((t) => t.topic).join('; ')}.` : '',
+      '- If the question touches a topic they struggle with, slow down on the step students usually get wrong there and check that misconception directly. Don\'t list their scores back to them; at most say something like "this is a common slip".',
+    ].filter(Boolean).join('\n')
+  }
   return [
     'LEARNER HISTORY (from this student\'s own quiz and practice answers; use it, don\'t mention it):',
     weak.length ? `- Recently struggling with: ${weak.map((t) => `${t.topic} (${pct(t.recentAccuracy)} of last ${t.recentAnswered})`).join('; ')}. Where these fall inside this guide's scope, explain them more carefully and give them extra practice.` : '',

@@ -18,7 +18,8 @@ import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
-import { useRecordResult } from '@/components/study-results-context'
+import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { WeakSpotBanner } from './weak-spot-banner'
 
 interface QuizFormatProps {
   content: string
@@ -42,6 +43,10 @@ const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf
 export default function QuizFormat({ content, subject, title, gradeLevel }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
+  const router = useRouter()
+  // What this student got wrong here last time (their latest answer to each question).
+  const history = useGuideHistory('q:')
+  const lastMissed = useMemo(() => (history ? allQuestions.filter((q) => history.missedIds.includes(q.id)) : []), [history, allQuestions])
   const questions = useMemo(() => (subset ? allQuestions.filter((q) => subset.includes(q.id)) : allQuestions), [allQuestions, subset])
 
   const [mode, setMode] = useState<Mode>('practice')
@@ -171,6 +176,15 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
+      {!subset && lastMissed.length > 0 && (
+        <WeakSpotBanner
+          count={lastMissed.length}
+          topics={history?.topics ?? []}
+          noun="question"
+          onRetry={() => restart(lastMissed.map((q) => q.id))}
+          onNewQuiz={() => router.push(openHomeWithPrefill(missedQuizPrefill({ title: title || 'this quiz', subject, gradeLevel }, lastMissed)))}
+        />
+      )}
       {/* Header: mode + navigator */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">

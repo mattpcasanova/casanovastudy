@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ClaudeService, type ExplainTurn } from '@/lib/claude-api'
-import { meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { hasPremiumFeatures, meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { consentBlockResponse } from '@/lib/consent'
 
 // The Explain panel (components/explain/): a short tutor reply about a
@@ -40,12 +41,23 @@ export async function POST(request: NextRequest) {
   const meter = await meterExplain(user.id)
   if (meter.block) return planBlockResponse(meter.block)
 
+  // Premium: let the tutor know which topics this student keeps missing.
+  let learnerNote = ''
+  if (await hasPremiumFeatures(user.id)) {
+    const { data: history } = await createAdminClient()
+      .from('study_results').select('subject, topic, correct, answered_at, study_guide_id')
+      .eq('user_id', user.id).order('answered_at', { ascending: false }).limit(2000)
+    if (history?.length) {
+      learnerNote = learnerHistoryNote(buildProfile(history), { subject: guide.subject, text: [guide.title, guide.topic_focus, turns[turns.length - 1].content.slice(0, 600)].filter(Boolean).join('\n') }, 'tutor')
+    }
+  }
+
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
       try {
         const claude = new ClaudeService()
-        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, turns })) {
+        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, learnerNote, turns })) {
           controller.enqueue(encoder.encode(text))
         }
       } catch (error) {

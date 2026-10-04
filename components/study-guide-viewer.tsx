@@ -225,7 +225,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':
-        return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} />
+        return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} />
       case 'plan':
         return <PlanFormat content={studyGuide.content} studyGuideId={studyGuide.id} title={studyGuide.title} subject={studyGuide.subject} gradeLevel={studyGuide.grade_level} isOwner={isOwner} />
       case 'cheatsheet':

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildProfile, learnerHistoryNote, weakSpotsRequest, type AnswerRow } from './profile'
 import { missedQuestionsFromGuide } from './missed'
+import { lastMissed } from './guide-history'
 
 const now = new Date('2026-10-04T15:00:00')
 const at = (daysAgo: number, minute = 0) => { const d = new Date(now); d.setDate(d.getDate() - daysAgo); d.setMinutes(minute); return d.toISOString() }
@@ -83,6 +84,11 @@ describe('learnerHistoryNote', () => {
   it('matches by topic words when the subject is blank', () => {
     expect(learnerHistoryNote(p, { subject: 'general', text: 'quadratics and parabolas' })).toContain('Quadratics')
   })
+  it('has a tutor version that coaches without reading scores back', () => {
+    const note = learnerHistoryNote(p, { subject: 'science', text: 'VSEPR' }, 'tutor')
+    expect(note).toContain('slow down on the step')
+    expect(note).not.toContain('extra practice')
+  })
   it('is empty when nothing is relevant', () => {
     expect(learnerHistoryNote(p, { subject: 'history', text: 'The Civil War' })).toBe('')
   })
@@ -98,5 +104,19 @@ describe('missedQuestionsFromGuide', () => {
   })
   it('ignores ids it does not know', () => {
     expect(missedQuestionsFromGuide(quiz, ['q:q-9', 'l:abc'])).toEqual([])
+  })
+})
+
+describe('lastMissed', () => {
+  const row = (item_id: string, correct: boolean, minute: number, topic = 'Algebra') => ({ item_id, topic, correct, answered_at: `2026-10-04T10:${String(minute).padStart(2, '0')}:00Z` })
+  it('counts an item as missed only if its latest answer was wrong', () => {
+    const h = lastMissed([
+      row('q:q-0', false, 1), row('q:q-0', true, 5),   // missed, then got right
+      row('q:q-1', true, 1), row('q:q-1', false, 6),   // got right, then missed
+      row('q:q-2', false, 2, 'Geometry'),
+      row('p:a1', false, 3),                           // practice item: other prefix
+    ], 'q:')
+    expect(h.missedIds.sort()).toEqual(['q-1', 'q-2'])
+    expect(h.topics).toEqual(['Algebra', 'Geometry'])
   })
 })
