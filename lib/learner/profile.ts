@@ -10,6 +10,8 @@ export interface AnswerRow {
   correct: boolean
   answered_at: string
   study_guide_id?: string | null
+  /** `q:<id>` quiz question, `p:<id>` practice activity (lib/learner/missed.ts). */
+  item_id?: string | null
 }
 
 export interface TopicStat {
@@ -44,8 +46,17 @@ export interface LearnerProfile {
   strong: TopicStat[]
 }
 
-/** Recent window per topic, the minimum answers before judging, and the bands. */
-export const PROFILE_RULES = { recentWindow: 10, minAnswers: 3, weakBelow: 0.7, strongAtLeast: 0.8 }
+/**
+ * Recent window per topic, the minimum answers before judging, and the bands.
+ * A topic with every recent answer wrong counts as weak after just 2 (0 of 2
+ * is a clear signal); everything else needs 3.
+ */
+export const PROFILE_RULES = { recentWindow: 10, minAnswers: 3, allWrongMinAnswers: 2, weakBelow: 0.7, strongAtLeast: 0.8 }
+
+/** Topics are matched per subject, ignoring case. */
+export function topicKey(row: { subject: string | null; topic: string | null }): string {
+  return `${row.subject ?? ''}::${(row.topic ?? '').trim().toLowerCase()}`
+}
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
@@ -79,7 +90,7 @@ export function buildProfile(rows: AnswerRow[], now = new Date()): LearnerProfil
   const byTopic = new Map<string, AnswerRow[]>()
   for (const r of sorted) {
     if (!r.topic?.trim()) continue
-    const key = `${r.subject ?? ''}::${r.topic.trim().toLowerCase()}`
+    const key = topicKey(r)
     byTopic.set(key, [...(byTopic.get(key) ?? []), r])
   }
   const topics: TopicStat[] = [...byTopic].map(([key, list]) => {
@@ -98,8 +109,9 @@ export function buildProfile(rows: AnswerRow[], now = new Date()): LearnerProfil
   })
 
   const judged = topics.filter((t) => t.recentAnswered >= PROFILE_RULES.minAnswers)
+  const allWrong = topics.filter((t) => t.recentAccuracy === 0 && t.recentAnswered >= PROFILE_RULES.allWrongMinAnswers && t.recentAnswered < PROFILE_RULES.minAnswers)
   // Weakest first; ties go to the topic with more evidence, then the more recent one.
-  const weak = judged
+  const weak = [...judged, ...allWrong]
     .filter((t) => t.recentAccuracy < PROFILE_RULES.weakBelow)
     .sort((a, b) => a.recentAccuracy - b.recentAccuracy || b.recentAnswered - a.recentAnswered || b.lastAt.localeCompare(a.lastAt))
   const strong = judged
@@ -111,16 +123,44 @@ export function buildProfile(rows: AnswerRow[], now = new Date()): LearnerProfil
 
 const pct = (x: number) => `${Math.round(x * 100)}%`
 
-/** The homepage request for "Quiz me on my weak spots". */
-export function weakSpotsRequest(weak: TopicStat[], guideTitles: Record<string, string> = {}): { studyRequest: string; studyGuideName: string; detail: string; subject?: string } {
+/**
+ * The homepage request for "Quiz me on my weak spots": each topic, and (when
+ * known) the exact questions the student missed there, so the new quiz targets
+ * those mistakes instead of just the topic name.
+ */
+export function weakSpotsRequest(
+  weak: TopicStat[],
+  guideTitles: Record<string, string> = {},
+  missedByTopic: Record<string, Array<{ question: string; answer: string }>> = {},
+): { studyRequest: string; studyGuideName: string; detail: string; subject?: string } {
   const picks = weak.slice(0, 5)
-  const lines = picks.map((t) => {
+  const BUDGET = 6800 // the request limit is 8,000 characters
+  let used = 0
+  const lines: string[] = []
+  for (const t of picks) {
     const from = t.guideIds.map((id) => guideTitles[id]).filter(Boolean)[0]
-    return `- ${t.topic}${from ? ` (from "${from}")` : ''}: ${pct(t.recentAccuracy)} correct on my last ${t.recentAnswered}`
-  })
+    const head = `- ${t.topic}${from ? ` (from "${from}")` : ''}: ${pct(t.recentAccuracy)} correct on my last ${t.recentAnswered}`
+    lines.push(head)
+    used += head.length
+    const missed = missedByTopic[t.key] ?? []
+    if (missed.length) {
+      lines.push('  Questions I missed:')
+      for (const [i, m] of missed.slice(0, 6).entries()) {
+        const line = `  ${i + 1}. ${m.question} (Correct answer: ${m.answer})`
+        if (used + line.length > BUDGET) break
+        lines.push(line)
+        used += line.length
+      }
+    }
+  }
+  const anyMissed = picks.some((t) => missedByTopic[t.key]?.length)
   const subjects = [...new Set(picks.map((t) => t.subject).filter(Boolean))]
   return {
-    studyRequest: `Make me a practice quiz on the topics I keep getting wrong. Explain each answer clearly and include a few easier warm-up questions before the harder ones.\n${lines.join('\n')}`.slice(0, 7900),
+    studyRequest: [
+      'Make me a practice quiz on the topics I keep getting wrong. Explain each answer clearly and include a few easier warm-up questions before the harder ones.',
+      ...lines,
+      anyMissed ? 'Write fresh questions that test the same skills as the ones I missed, from different angles (don\'t copy them word for word).' : '',
+    ].filter(Boolean).join('\n').slice(0, 7900),
     studyGuideName: picks.length === 1 ? `${picks[0].topic}: Weak Spot Quiz` : 'My Weak Spots Quiz',
     detail: picks.length === 1 ? picks[0].topic : `${picks.length} topics you're weakest on`,
     subject: subjects.length === 1 ? subjects[0]! : undefined,

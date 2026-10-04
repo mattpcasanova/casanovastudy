@@ -170,12 +170,24 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // No subject given: work it out from the finished guide, so answers to it
+        // land under the right subject on the Progress page.
+        let subject = body.subject
+        if (!subject || subject === 'general') {
+          try {
+            subject = (await claudeService.classifySubject({ title, request: studyRequest || body.topicFocus, excerpt: fullContent })) ?? 'general'
+          } catch (e) {
+            console.error('Subject classification failed:', e)
+            subject = 'general'
+          }
+        }
+
         // Save to Supabase
         const { data: savedGuide, error: supabaseError } = await supabase
           .from('study_guides')
           .insert({
             title,
-            subject: body.subject,
+            subject,
             grade_level: body.gradeLevel,
             format: body.format,
             content: fullContent,

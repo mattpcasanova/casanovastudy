@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildProfile, learnerHistoryNote, weakSpotsRequest, type AnswerRow } from './profile'
+import { missedQuestionsFromGuide } from './missed'
 
 const now = new Date('2026-10-04T15:00:00')
 const at = (daysAgo: number, minute = 0) => { const d = new Date(now); d.setDate(d.getDate() - daysAgo); d.setMinutes(minute); return d.toISOString() }
@@ -41,6 +42,16 @@ describe('buildProfile', () => {
   })
 })
 
+describe('two wrong out of two', () => {
+  it('counts as a weak spot, but one wrong answer does not', () => {
+    const p = buildProfile([...rows('science', 'Moles', [false, false]), ...rows('science', 'Ions', [false])], now)
+    expect(p.weak.map((t) => t.topic)).toEqual(['Moles'])
+  })
+  it('two answers with one right is still not judged yet', () => {
+    expect(buildProfile(rows('science', 'Moles', [true, false]), now).weak).toEqual([])
+  })
+})
+
 describe('weakSpotsRequest', () => {
   it('builds a quiz request naming the topics and their source guides', () => {
     const p = buildProfile(rows('science', 'VSEPR and Hybridization', [false, false, true]), now)
@@ -48,6 +59,12 @@ describe('weakSpotsRequest', () => {
     expect(r.studyRequest).toContain('- VSEPR and Hybridization (from "AP Chem Unit 2"): 33% correct on my last 3')
     expect(r.studyGuideName).toBe('VSEPR and Hybridization: Weak Spot Quiz')
     expect(r.subject).toBe('science')
+  })
+  it('includes the questions the student missed and asks for fresh ones', () => {
+    const p = buildProfile(rows('science', 'VSEPR and Hybridization', [false, false, true]), now)
+    const r = weakSpotsRequest(p.weak, {}, { [p.weak[0].key]: [{ question: 'What is the shape of SF4?', answer: 'Seesaw' }] })
+    expect(r.studyRequest).toContain('  1. What is the shape of SF4? (Correct answer: Seesaw)')
+    expect(r.studyRequest).toContain("don't copy them word for word")
   })
 })
 
@@ -68,5 +85,18 @@ describe('learnerHistoryNote', () => {
   })
   it('is empty when nothing is relevant', () => {
     expect(learnerHistoryNote(p, { subject: 'history', text: 'The Civil War' })).toBe('')
+  })
+})
+
+describe('missedQuestionsFromGuide', () => {
+  const quiz = `# Quiz\n\n## Bonding\n\nMC_QUESTION: What is the shape of SF4?\nA) Tetrahedral\nB) Seesaw\nC) Square planar\nD) Linear\nCorrect Answer: B\nExplanation: x\n\nTF_QUESTION: Ionic bonds share electrons.\nAnswer: False\nExplanation: y\n`
+  it('finds quiz questions by their logged ids', () => {
+    expect(missedQuestionsFromGuide(quiz, ['q:q-0', 'q:q-1'])).toEqual([
+      { question: 'What is the shape of SF4?', answer: 'Seesaw' },
+      { question: 'Ionic bonds share electrons.', answer: 'False' },
+    ])
+  })
+  it('ignores ids it does not know', () => {
+    expect(missedQuestionsFromGuide(quiz, ['q:q-9', 'l:abc'])).toEqual([])
   })
 })

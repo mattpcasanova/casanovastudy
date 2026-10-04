@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat, type GuideImage } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
-import { DIFFICULTY_FORMATS, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
+import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
 import { sniffImageType } from '@/lib/uploads/server-images'
 import { looksLikeHeic } from '@/lib/uploads/kinds'
 
@@ -2116,6 +2116,27 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     }
     const { usage } = await stream.finalMessage()
     console.log('Explain usage:', { input: usage.input_tokens, output: usage.output_tokens, cost: `$${guideCost(usage.input_tokens, usage.output_tokens).toFixed(4)}` })
+  }
+
+  /**
+   * A subject for a guide created without one (subject 'general'), so the
+   * Progress page can group answers by subject. Picks the academic subject
+   * (SAT Math → mathematics, ACT English → english); 'test-prep' only for a
+   * mix. Haiku, ~$0.0005. Returns null when unsure.
+   */
+  async classifySubject(input: { title: string; request?: string; excerpt?: string }): Promise<string | null> {
+    const options = SUBJECTS.filter((s) => s.value !== 'other').map((s) => `${s.value} (${s.label})`).join(', ')
+    const response = await this.anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 20,
+      messages: [{
+        role: 'user',
+        content: `Which school subject is this study guide about? Choose exactly one of: ${options}.\nPick the academic subject even for test prep (SAT/ACT math → mathematics; SAT reading/writing or ACT English → english; ACT science → science). Use test-prep only if it mixes several subjects. Reply with the value only, or "unsure".\n\nTitle: ${input.title}\n${input.request ? `Request: ${input.request.slice(0, 600)}\n` : ''}${input.excerpt ? `Start of the guide:\n${input.excerpt.slice(0, 1500)}` : ''}`,
+      }],
+    })
+    const text = response.content.find(b => b.type === 'text')
+    const value = (text && text.type === 'text' ? text.text : '').trim().toLowerCase().replace(/[^a-z-]/g, '')
+    return SUBJECT_VALUES.includes(value) && value !== 'other' ? value : null
   }
 
   /**

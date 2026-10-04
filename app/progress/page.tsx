@@ -16,7 +16,8 @@ import { supabase } from "@/lib/supabase"
 import { flushResults } from "@/lib/results"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { displaySubject } from "@/lib/study-options"
-import { buildProfile, weakSpotsRequest, PROFILE_RULES, type AnswerRow, type TopicStat } from "@/lib/learner/profile"
+import { buildProfile, topicKey, weakSpotsRequest, PROFILE_RULES, type AnswerRow, type TopicStat } from "@/lib/learner/profile"
+import { missedQuestionsFromGuide, type MissedQuestion } from "@/lib/learner/missed"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
@@ -48,7 +49,7 @@ function Progress() {
       await flushResults() // answers still waiting in this browser
       const { data, error: dbError } = await supabase
         .from("study_results")
-        .select("subject, topic, correct, answered_at, study_guide_id")
+        .select("subject, topic, correct, answered_at, study_guide_id, item_id")
         .eq("user_id", user.id)
         .order("answered_at", { ascending: false })
         .limit(5000)
@@ -75,8 +76,38 @@ function Progress() {
   const subjectLabel = subject === null ? "" : subjectTabs.find((t) => t.key === subject)?.label ?? ""
   const thisWeek = profile ? profile.last14.slice(-7).reduce((a, b) => a + b, 0) : 0
 
-  const quizMe = (topics: TopicStat[]) => {
-    const r = weakSpotsRequest(topics, titles)
+  const [preparing, setPreparing] = useState<string | null>(null)
+
+  /** The questions this student recently got wrong in these topics, read back out of their guides. */
+  const missedFor = async (topics: TopicStat[]): Promise<Record<string, MissedQuestion[]>> => {
+    if (!rows) return {}
+    const wanted = new Map<string, Map<string, string[]>>() // topic key -> guide id -> item ids
+    for (const t of topics.slice(0, 5)) {
+      const recentWrong = rows
+        .filter((r) => topicKey(r) === t.key)
+        .slice(0, PROFILE_RULES.recentWindow)
+        .filter((r) => !r.correct && r.item_id && r.study_guide_id)
+      const byGuide = new Map<string, string[]>()
+      for (const r of recentWrong) byGuide.set(r.study_guide_id!, [...(byGuide.get(r.study_guide_id!) ?? []), r.item_id!])
+      wanted.set(t.key, byGuide)
+    }
+    const guideIds = [...new Set([...wanted.values()].flatMap((m) => [...m.keys()]))]
+    if (!guideIds.length) return {}
+    const { data: guides } = await supabase.from("study_guides").select("id, content").in("id", guideIds.slice(0, 10))
+    const content = Object.fromEntries((guides ?? []).map((g) => [g.id, g.content ?? ""]))
+    const out: Record<string, MissedQuestion[]> = {}
+    for (const [key, byGuide] of wanted) {
+      out[key] = [...byGuide].flatMap(([gid, ids]) => (content[gid] ? missedQuestionsFromGuide(content[gid], ids) : []))
+    }
+    return out
+  }
+
+  const quizMe = async (topics: TopicStat[], id: string) => {
+    setPreparing(id)
+    let missed: Record<string, MissedQuestion[]> = {}
+    try { missed = await missedFor(topics) } catch { /* the topic names alone still work */ }
+    setPreparing(null)
+    const r = weakSpotsRequest(topics, titles, missed)
     router.push(openHomeWithPrefill({
       source: "weak-spots",
       sourceTitle: "your Progress page",
@@ -155,11 +186,12 @@ function Progress() {
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h2 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>Weak spots{subjectLabel ? ` in ${subjectLabel}` : ""}</h2>
-                  <p className="text-sm text-slate-500">Topics under {pct(PROFILE_RULES.weakBelow)} on your recent answers (at least {PROFILE_RULES.minAnswers} answered).</p>
+                  <p className="text-sm text-slate-500">Topics under {pct(PROFILE_RULES.weakBelow)} on your recent answers (at least {PROFILE_RULES.minAnswers} answered, or {PROFILE_RULES.allWrongMinAnswers} wrong in a row).</p>
                 </div>
                 {profile.weak.length > 0 && (
-                  <Button onClick={() => quizMe(profile.weak)} className="h-11 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 font-semibold text-white shadow-md hover:brightness-110">
-                    Quiz me on my {subjectLabel ? `${subjectLabel} ` : ""}weak spots <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button onClick={() => void quizMe(profile.weak, "all")} disabled={!!preparing} className="h-11 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 font-semibold text-white shadow-md hover:brightness-110">
+                    {preparing === "all" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Quiz me on my {subjectLabel ? `${subjectLabel} ` : ""}weak spots {preparing !== "all" && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>
                 )}
               </div>
@@ -168,7 +200,7 @@ function Progress() {
               ) : (
                 <ul className="mt-4 divide-y divide-slate-100">
                   {profile.weak.slice(0, 8).map((t) => (
-                    <TopicRow key={t.key} t={t} titles={titles} action={<button type="button" onClick={() => quizMe([t])} className="text-sm font-semibold text-blue-700 hover:underline">Practice</button>} />
+                    <TopicRow key={t.key} t={t} titles={titles} showSubject={subject === null} action={<button type="button" disabled={!!preparing} onClick={() => void quizMe([t], t.key)} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{preparing === t.key && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Practice</button>} />
                   ))}
                 </ul>
               )}
@@ -215,7 +247,7 @@ function Progress() {
               </button>
               {showAll && (
                 <ul className="mt-3 divide-y divide-slate-100">
-                  {[...profile.topics].sort((a, b) => b.lastAt.localeCompare(a.lastAt)).map((t) => <TopicRow key={t.key} t={t} titles={titles} />)}
+                  {[...profile.topics].sort((a, b) => b.lastAt.localeCompare(a.lastAt)).map((t) => <TopicRow key={t.key} t={t} titles={titles} showSubject={subject === null} />)}
                 </ul>
               )}
             </Card>
@@ -261,15 +293,20 @@ function ActivityStrip({ days }: { days: number[] }) {
   )
 }
 
-function TopicRow({ t, titles, action }: { t: TopicStat; titles: Record<string, string>; action?: React.ReactNode }) {
+function TopicRow({ t, titles, action, showSubject }: { t: TopicStat; titles: Record<string, string>; action?: React.ReactNode; showSubject?: boolean }) {
   const guideId = t.guideIds[0]
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
       <span className={cn("w-12 shrink-0 rounded-lg py-1 text-center text-sm font-bold", t.recentAccuracy >= PROFILE_RULES.strongAtLeast ? "bg-emerald-50 text-emerald-700" : t.recentAccuracy >= PROFILE_RULES.weakBelow ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800")}>{pct(t.recentAccuracy)}</span>
       <span className="min-w-0 flex-1">
-        <span className="block font-medium text-slate-900">{t.topic}</span>
+        <span className="flex flex-wrap items-center gap-2 font-medium text-slate-900">
+          {t.topic}
+          {t.recentAnswered < PROFILE_RULES.minAnswers && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.7rem] font-semibold text-slate-500" title={`Only ${t.recentAnswered} answered so far. Answer a few more to be sure.`}>Not enough data yet</span>
+          )}
+        </span>
         <span className="block truncate text-xs text-slate-500">
-          {Math.round(t.recentAccuracy * t.recentAnswered)} of your last {t.recentAnswered} right
+          {showSubject && <>{displaySubject(t.subject) || "Other"} · </>}{Math.round(t.recentAccuracy * t.recentAnswered)} of your last {t.recentAnswered} right
           {guideId && titles[guideId] ? <> · <Link href={`/study-guide/${guideId}`} className="hover:text-blue-700 hover:underline">{titles[guideId]}</Link></> : null}
         </span>
       </span>
