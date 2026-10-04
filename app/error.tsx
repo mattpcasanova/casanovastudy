@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { AlertTriangle } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Home, RotateCcw } from "lucide-react"
+import { StatusPage } from "@/components/status-page"
 
 export default function Error({
   error,
@@ -16,17 +16,15 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
-      <AlertTriangle className="h-10 w-10 text-destructive" />
-      <div>
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          An unexpected error occurred. You can try again, or refresh the page.
-        </p>
-      </div>
-      <Button onClick={reset} variant="outline">
-        Try again
-      </Button>
-    </div>
+    <StatusPage
+      eyebrow="Something went wrong"
+      title="That didn't load"
+      message={<p>Something on our side failed while loading this page. Trying again usually fixes it. Your guides and progress are safe.</p>}
+      actions={[
+        { label: "Try again", icon: RotateCcw, onClick: reset, primary: true },
+        { label: "Home", href: "/", icon: Home },
+      ]}
+      footer={error.digest ? <>If it keeps happening, email <a href="mailto:hello@casanovastudy.com" className="font-semibold text-blue-700 hover:underline">hello@casanovastudy.com</a> with code <span className="font-mono">{error.digest}</span>.</> : undefined}
+    />
   )
 }
