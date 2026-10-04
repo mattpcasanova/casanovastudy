@@ -23,7 +23,7 @@ export function AuthShell({ children, panel = true }: { children: ReactNode; pan
           <div className="w-full max-w-[26rem]">{children}</div>
         </main>
         <footer className="px-5 pb-6 text-center text-xs text-slate-400 lg:px-10">
-          © {new Date().getFullYear()} Casanova Study
+          © {new Date().getFullYear()} Casanova Study · <a href="/privacy" className="hover:text-slate-600 hover:underline">Privacy</a> · <a href="/terms" className="hover:text-slate-600 hover:underline">Terms</a>
         </footer>
       </div>
       {panel && <BrandPanel />}

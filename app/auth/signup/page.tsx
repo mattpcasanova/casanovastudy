@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, ArrowRight, GraduationCap, Presentation } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { isPlausibleBirthDate } from '@/lib/consent-rules'
 import {
   AuthShell, AuthHeading, ColegiaButton, Divider, Field, FormError, PasswordField, PrimaryButton,
   friendlyAuthError,
@@ -37,6 +38,9 @@ export default function SignUpPage() {
     if (!role) return
     if (!firstName.trim() || !lastName.trim()) return setError('Please enter your first and last name.')
     if (password.length < 6) return setError('Your password needs at least 6 characters.')
+    // Students: needed to know who needs a parent's OK (under 13).
+    if (role === 'student' && !birthDate) return setError('Please enter your birth date.')
+    if (birthDate && !isPlausibleBirthDate(birthDate)) return setError('Please check your birth date, especially the year.')
 
     setIsLoading(true)
     try {
@@ -135,9 +139,13 @@ export default function SignUpPage() {
           max={new Date().toISOString().slice(0, 10)}
           onChange={(e) => setBirthDate(e.target.value)}
           disabled={isLoading}
-          labelAside={<span className="text-xs text-slate-400">Optional</span>}
+          required={role === 'student'}
+          labelAside={role === 'student' ? <span className="text-xs text-slate-400">Under 13 needs a parent&apos;s OK</span> : <span className="text-xs text-slate-400">Optional</span>}
         />
         <PrimaryButton type="submit" loading={isLoading} loadingText="Creating your account…">Create account</PrimaryButton>
+        <p className="text-center text-xs text-slate-500">
+          By creating an account you agree to the <Link href="/terms" className="font-semibold text-blue-600 hover:underline">Terms</Link> and <Link href="/privacy" className="font-semibold text-blue-600 hover:underline">Privacy Policy</Link>.
+        </p>
       </form>
 
       <p className="mt-8 text-center text-sm text-slate-600">

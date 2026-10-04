@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp, ShieldCheck } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -296,6 +296,9 @@ export default function NavigationHeader() {
                   </div>
                   <PlanMenuItems />
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
                     Sign Out
@@ -329,6 +332,9 @@ export default function NavigationHeader() {
                   </div>
                   <PlanMenuItems />
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
                     Sign Out

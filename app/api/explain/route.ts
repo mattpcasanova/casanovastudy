@@ -3,6 +3,7 @@ import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ClaudeService, type ExplainTurn } from '@/lib/claude-api'
 import { meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { consentBlockResponse } from '@/lib/consent'
 
 // The Explain panel (components/explain/): a short tutor reply about a
 // highlighted passage, a question the student typed, or a quiz question.
@@ -17,6 +18,8 @@ const MAX_CHARS = 6000
 export async function POST(request: NextRequest) {
   const user = await getRequestUser(request)
   if (!user) return NextResponse.json({ error: 'Please sign in to ask for explanations.' }, { status: 401 })
+  const consentBlock = await consentBlockResponse(user.id) // under-13s need a parent's OK first
+  if (consentBlock) return consentBlock
 
   let body: { studyGuideId?: string; turns?: ExplainTurn[] }
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }

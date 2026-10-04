@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
 import { hasPremiumFeatures, meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { consentBlockResponse } from '@/lib/consent'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
 
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
   // admin client with that verified id, so they don't depend on RLS.
   const user = await getRequestUser(request)
   if (!user) return sseError('Please sign in to create a study guide', 401)
+  // Under-13 students need a parent's OK before anything goes to the AI (COPPA).
+  const consentBlock = await consentBlockResponse(user.id)
+  if (consentBlock) return consentBlock
   const supabase = createAdminClient()
 
   // Validate before metering, so a bad request never uses up a guide.

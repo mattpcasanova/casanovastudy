@@ -120,3 +120,37 @@ export function authEmails(siteUrl: string): Record<string, { subject: string; h
     },
   }
 }
+
+// ── Parental consent (COPPA) ────────────────────────────────────────────────
+// Sent when a student under 13 signs up; the link opens /parent-consent.
+
+export function parentConsentEmail(e: { childName: string; childEmail: string; link: string; siteUrl: string }): { subject: string; html: string; text: string } {
+  const child = escapeHtml(e.childName)
+  const body = [
+    heading(`${child} wants to use Casanova Study`),
+    paragraph(`${child} (${escapeHtml(e.childEmail)}) created a Casanova Study account. Because they're under 13, they can't use it until a parent or guardian says it's OK.`),
+    paragraph('Casanova Study turns class notes and topics into study guides, quizzes and practice, with an AI tutor that explains answers. We collect only what the app needs to work (name, email, birth date, what they study and how they answer), never show ads, and never sell personal information.', { muted: true }),
+    button(e.link, 'Review and decide'),
+    '<div style="height:24px;line-height:24px;">&nbsp;</div>',
+    paragraph('The page explains exactly what we collect and lets you approve or decline. If you decline, the account and its data are deleted.', { muted: true, small: true }),
+    linkFallback(e.link),
+  ].join('\n')
+  return {
+    subject: `${e.childName} needs your OK to use Casanova Study`,
+    html: emailLayout({
+      preheader: `${e.childName} is under 13, so a parent needs to approve their Casanova Study account.`,
+      body,
+      footer: `You got this email because ${child} entered your address as their parent or guardian on Casanova Study. If that's not you, you can ignore it; the account stays locked.`,
+      siteUrl: e.siteUrl,
+    }),
+    text: [
+      `${e.childName} (${e.childEmail}) created a Casanova Study account. Because they're under 13, a parent or guardian needs to approve it first.`,
+      '',
+      `Review and decide: ${e.link}`,
+      '',
+      'If you decline, the account and its data are deleted. If this isn\'t you, ignore this email; the account stays locked.',
+      '',
+      'Casanova Study',
+    ].join('\n'),
+  }
+}
