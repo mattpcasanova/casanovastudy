@@ -38,8 +38,8 @@ import {
   Check,
   PenSquare,
   ArrowRight,
-  Crown,
   LineChart,
+  Target,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -63,6 +63,7 @@ import { visualsRelevant } from "@/lib/formats/figures"
 import { DIFFICULTY_FORMATS, type GuideDifficulty } from "@/lib/study-options"
 import { PLAN_LIMITS, isFreeFormat, premiumOnlyReason } from "@/lib/plan-rules"
 import { formatReset, usePlan } from "@/components/plan/plan-provider"
+import { PremiumBadge, PremiumMark } from "@/components/plan/premium-mark"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
 import VisualsInfo from "@/components/visuals-info"
 
@@ -347,7 +348,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     setFormat(p.format as FormatValue)
     if (p.subject && p.subject !== "general") setSubject(p.subject)
     if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
-    setArrival({ kind: "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+    setArrival({ kind: p.source === "weak-spots" ? "weak" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
   }, [])
 
   // Bring the banner into view once something arrives.
@@ -849,7 +850,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                       <Check className="h-3.5 w-3.5" />
                     </span>
                   ) : plan && !isPremium && !isFreeFormat(f.value) ? (
-                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-amber-800"><Crown className="h-3 w-3" /> Premium</span>
+                    <PremiumBadge className="absolute right-3 top-3" />
                   ) : f.badge ? (
                     <span className="absolute right-3 top-3 rounded-full bg-orange-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">{f.badge}</span>
                   ) : null}
@@ -969,7 +970,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       )}
                     >
-                      <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "long" && <Crown className={cn("h-3 w-3", on ? "text-amber-200" : "text-amber-500")} aria-label="Premium" />}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "long" && <PremiumMark className="h-3.5 w-3.5" />}</span>
                       <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
                         {(format && LENGTH_HINTS[format]?.[o.value]) || LENGTH_GENERIC[o.value]}
                       </span>
@@ -1007,7 +1008,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                           on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         )}
                       >
-                        <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "hard" && <Crown className={cn("h-3 w-3", on ? "text-amber-200" : "text-amber-500")} aria-label="Premium" />}</span>
+                        <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "hard" && <PremiumMark className="h-3.5 w-3.5" />}</span>
                         <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
                           {goal === "exam" ? o.examHint : o.hint}
                         </span>
@@ -1174,12 +1175,14 @@ function StepHeading({ n, title, hint }: { n: number; title: string; hint?: stri
 type Arrival =
   | { kind: "plan"; sourceTitle: string; detail: string }
   | { kind: "missed"; sourceTitle: string; detail: string }
+  | { kind: "weak"; sourceTitle: string; detail: string }
   | { kind: "welcome" }
 
 const ARRIVAL_STYLE = {
   plan: { ring: "ring-teal-200", bg: "from-teal-50 to-white", iconBg: "bg-teal-600", eyebrow: "text-teal-700", button: "bg-teal-600 hover:bg-teal-700", Icon: MapIcon },
   missed: { ring: "ring-purple-200", bg: "from-purple-50 to-white", iconBg: "bg-purple-600", eyebrow: "text-purple-700", button: "bg-purple-600 hover:bg-purple-700", Icon: RotateCcw },
   welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Sparkles },
+  weak: { ring: "ring-amber-200", bg: "from-amber-50 to-white", iconBg: "bg-amber-500", eyebrow: "text-amber-700", button: "bg-amber-500 hover:bg-amber-600", Icon: Target },
 } as const
 
 const ArrivalBanner = forwardRef<HTMLDivElement, {
@@ -1211,6 +1214,10 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
         {planLinked ? " The new guide will link back to your plan." : null}
       </>
     )
+  } else if (arrival.kind === "weak") {
+    eyebrow = "Your weak spots"
+    title = <>A new quiz on {arrival.detail}</>
+    body = <>We filled in a request from your Progress page, built from the questions you&apos;ve been getting wrong. Create it now, or change anything below first.</>
   } else {
     eyebrow = "Practice what you missed"
     title = <>A new quiz on the {arrival.detail}</>

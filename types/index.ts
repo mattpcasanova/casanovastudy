@@ -118,6 +118,8 @@ export interface ClaudeApiRequest {
   length?: 'short' | 'medium' | 'long' // guide length; default medium
   /** Photos and scanned pages (base64), sent to Claude as image blocks ahead of the prompt. */
   images?: GuideImage[]
+  /** LEARNER HISTORY block from the student's answer log (lib/learner/profile.ts), or ''. */
+  learnerNote?: string
 }
 
 export interface GuideImage {

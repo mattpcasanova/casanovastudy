@@ -691,6 +691,8 @@ ${studyRequest}
 """
 ` : ''}${imageCount ? `
 PHOTOS AND SCANNED PAGES: the ${imageCount} image${imageCount === 1 ? '' : 's'} above ${imageCount === 1 ? 'is' : 'are'} part of the materials (phone photos of notes, worksheets, textbook pages, or scanned PDF pages, in order). Read all of them carefully, including handwriting, diagrams and tables. If something is unreadable, work around it rather than guessing at specifics.
+` : ''}${request.learnerNote ? `
+${request.learnerNote}
 ` : ''}${content?.trim() ? `
 MATERIALS:
 ${content}

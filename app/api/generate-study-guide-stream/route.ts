@@ -5,7 +5,8 @@ import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
-import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { hasPremiumFeatures, meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
 
 function sseError(message: string, status: number) {
@@ -90,6 +91,23 @@ export async function POST(request: NextRequest) {
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length || hasImages ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
 
+        // Premium: lean the guide on this student's weak spots in this subject/topic.
+        let learnerNote = ''
+        if (await hasPremiumFeatures(user.id)) {
+          const { data: history } = await supabase
+            .from('study_results')
+            .select('subject, topic, correct, answered_at, study_guide_id')
+            .eq('user_id', user.id)
+            .order('answered_at', { ascending: false })
+            .limit(2000)
+          if (history?.length) {
+            learnerNote = learnerHistoryNote(buildProfile(history), {
+              subject: body.subject,
+              text: [studyRequest, body.topicFocus, body.studyGuideName].filter(Boolean).join('\n'),
+            })
+          }
+        }
+
         // Generate with streaming
         const claudeService = new ClaudeService()
         let fullContent = ''
@@ -110,6 +128,7 @@ export async function POST(request: NextRequest) {
           visuals: body.visuals !== false,
           length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
           images,
+          learnerNote,
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).

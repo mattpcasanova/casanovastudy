@@ -110,6 +110,11 @@ export async function meterExplain(userId: string): Promise<MeteredExplain> {
   return { block: null, eventId: c.eventId, remaining: Math.max(0, c.limit - c.used), limit: c.limit, plan: tier }
 }
 
+/** Premium-only features (e.g. guides shaped by the learner profile): everyone while plans are off. */
+export async function hasPremiumFeatures(userId: string): Promise<boolean> {
+  return !PLANS_ENABLED || (await getPlan(userId)).tier === 'premium'
+}
+
 /** Whether this user may grade (Premium only when plans are on). Records nothing. */
 export async function gradingBlock(userId: string): Promise<PlanBlock | null> {
   if (PLANS_ENABLED && (await getPlan(userId)).tier === 'free') {

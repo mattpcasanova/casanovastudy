@@ -4,7 +4,7 @@
 // missed"). Stored in sessionStorage — not the URL — and consumed once.
 
 export interface GuidePrefill {
-  source: 'missed-quiz'
+  source: 'missed-quiz' | 'weak-spots'
   sourceTitle: string
   studyRequest: string
   studyGuideName: string

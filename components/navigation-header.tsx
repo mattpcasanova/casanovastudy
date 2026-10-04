@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,6 +97,7 @@ export default function NavigationHeader() {
                 { href: '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
                 { href: '/create-guide', label: 'Custom Builder', icon: PenSquare, active: !!pathname?.startsWith('/create-guide'), show: mounted && !!user },
                 { href: '/my-guides', label: 'My Guides', icon: FileText, active: !!(pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')), show: mounted && !!user },
+                { href: '/progress', label: 'Progress', icon: TrendingUp, active: !!pathname?.startsWith('/progress'), show: mounted && !!user },
               ].filter((l) => l.show).map(({ href, label, icon: Icon, active }) => (
                 <Button
                   key={href}
@@ -380,6 +381,15 @@ export default function NavigationHeader() {
                 >
                   <FileText className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Guides</span>
+                </Link>
+                <Link
+                  href="/progress"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname?.startsWith('/progress') ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Progress</span>
                 </Link>
               </>
             )}

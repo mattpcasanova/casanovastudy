@@ -6,7 +6,8 @@
 // Rules: lib/plan-rules.ts. Server: lib/plans.ts, /api/plan, /api/plan/redeem.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, Crown, Loader2, Ticket } from 'lucide-react'
+import { Check, Loader2, Ticket } from 'lucide-react'
+import { PremiumMark } from './premium-mark'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/lib/auth'
 import { PLANS_ENABLED } from '@/lib/features'
@@ -150,8 +151,8 @@ function PremiumDialog({ state, plan, onClose, onRedeemed }: {
     <Dialog open={!!state} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-            {state?.redeemOnly && !redeemedUntil ? <Ticket className="h-5 w-5" /> : <Crown className="h-5 w-5" />}
+          <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-100">
+            {state?.redeemOnly && !redeemedUntil ? <Ticket className="h-5 w-5" /> : <PremiumMark className="h-7 w-7 bg-transparent" />}
           </span>
           <DialogTitle className="text-xl">{title}</DialogTitle>
           {!redeemedUntil && block && (

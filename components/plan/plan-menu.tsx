@@ -1,6 +1,7 @@
 "use client"
 
-import { Crown, Ticket } from 'lucide-react'
+import { Ticket } from 'lucide-react'
+import { PremiumMark } from './premium-mark'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { formatDate, usePlan } from './plan-provider'
 
@@ -15,7 +16,7 @@ export function PlanMenuItems() {
       <DropdownMenuSeparator />
       <button type="button" onClick={() => openPremium()} className="block w-full px-3 py-2 text-left hover:bg-slate-50">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-          <Crown className={isPremium ? 'h-4 w-4 text-amber-500' : 'h-4 w-4 text-slate-400'} />
+          <PremiumMark className={isPremium ? undefined : 'opacity-60 grayscale'} />
           {isPremium ? 'Premium' : 'Free plan'}
         </span>
         <span className="mt-0.5 block text-xs text-muted-foreground">

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { cn } from "@/lib/utils"
-import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle, Crown } from "lucide-react"
+import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle } from "lucide-react"
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { Segmented, fieldLabel } from "./editor-ui"
@@ -12,6 +12,7 @@ import { visualsRelevant } from "@/lib/formats/figures"
 import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
+import { PremiumBadge } from "@/components/plan/premium-mark"
 
 interface SourceFileForAI {
   name: string
@@ -244,7 +245,7 @@ export function AIAssistant({
           <div>
             <h3 className="flex items-center gap-1.5 text-sm font-semibold leading-tight">
               AI assistant
-              {plan && !isPremium && <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-300 px-1.5 py-px text-[0.6rem] font-bold uppercase tracking-wide text-amber-950"><Crown className="h-2.5 w-2.5" /> Premium</span>}
+              {plan && !isPremium && <PremiumBadge className="py-px text-[0.6rem]" />}
             </h3>
             <p className="text-xs text-blue-50/80">Draft blocks from a prompt or your files</p>
           </div>
