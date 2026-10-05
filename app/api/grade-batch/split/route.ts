@@ -11,7 +11,8 @@ import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 // Pages were prepared in the browser and uploaded to Cloudinary.
 
 export const maxDuration = 300
-const MAX_PAGES = 300
+// About 40 students x 11 pages; a 36-student class of 9-page papers is 324.
+const MAX_PAGES = 450
 
 export async function POST(request: NextRequest) {
   const { user, error } = await requireTeacher(request)

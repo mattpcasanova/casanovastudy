@@ -29,7 +29,8 @@ import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { cn } from "@/lib/utils"
 
-const MAX_PAGES = 300
+// About 40 students x 11 pages; a 36-student class of 9-page papers is 324.
+const MAX_PAGES = 450
 // Papers graded at once after the first (which runs alone to write the prompt cache).
 const CONCURRENCY = 5
 
