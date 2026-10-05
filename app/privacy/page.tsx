@@ -69,7 +69,7 @@ const sections: LegalSection[] = [
   },
   {
     id: "schools", title: "Schools and teachers",
-    body: <p>When a school or teacher uses Casanova Study with students, student information is used only to provide the service to that school, under its direction, consistent with the Family Educational Rights and Privacy Act (FERPA). Teachers who upload students&apos; work confirm they are allowed to do so for classroom purposes. Schools can contact us at {EMAIL} about data agreements.</p>,
+    body: <p>When a school or teacher uses Casanova Study with students, student information is used only to provide the service to that school, under its direction, consistent with the Family Educational Rights and Privacy Act (FERPA). Teachers who upload students&apos; work confirm they are allowed to do so for classroom purposes. Schools can contact us at {EMAIL} about data agreements, and our <Link href="/schools" className="font-semibold text-blue-700 hover:underline">page for schools</Link> covers the details districts usually ask for.</p>,
   },
   {
     id: "sharing", title: "When information is shared",

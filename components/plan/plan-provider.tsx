@@ -5,6 +5,7 @@
 // openPremium(block) when a route says no (or a locked option is picked).
 // Rules: lib/plan-rules.ts. Server: lib/plans.ts, /api/plan, /api/plan/redeem.
 
+import Link from 'next/link'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Check, Loader2, Ticket } from 'lucide-react'
 import { PremiumMark } from './premium-mark'
@@ -178,6 +179,7 @@ function PremiumDialog({ state, plan, onClose, onRedeemed }: {
                   ))}
                 </ul>
                 <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Premium is coming soon. If your teacher gave you a code, enter it below.</p>
+                <Link href="/pricing" onClick={onClose} className="mt-3 inline-block text-sm font-semibold text-blue-700 hover:underline">Compare plans and prices</Link>
               </div>
             )}
             {!premium || state?.redeemOnly ? (
