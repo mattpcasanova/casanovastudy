@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupPages, naturalCompare, resultsCsv, splitPoints, type PageHeader } from './batch'
+import { estimateGradingSeconds, groupPages, mostCommon, naturalCompare, resultsCsv, splitNameAndPeriod, splitPoints, type PageHeader } from './batch'
 
 const p = (name: string | null, firstPage = !!name): PageHeader => ({ name, firstPage })
 
@@ -41,5 +41,36 @@ describe('resultsCsv', () => {
   it('quotes names and rounds percentages', () => {
     expect(resultsCsv([{ name: 'O"Neil, Sam', marks: 4, possible: 6, percentage: 66.666, grade: 'D' }]))
       .toBe('"Student","Marks","Out of","Percent","Grade"\n"O""Neil, Sam","4","6","66.7","D"')
+  })
+})
+
+describe('splitNameAndPeriod', () => {
+  it('pulls a period off the end of a name', () => {
+    expect(splitNameAndPeriod('Sean Miller P2')).toEqual({ name: 'Sean Miller', period: '2' })
+    expect(splitNameAndPeriod('Tyler Munne Period 2')).toEqual({ name: 'Tyler Munne', period: '2' })
+    expect(splitNameAndPeriod('Ava Ross, Per. 3b')).toEqual({ name: 'Ava Ross', period: '3B' })
+    expect(splitNameAndPeriod('Ben K (P4)')).toEqual({ name: 'Ben K', period: '4' })
+    expect(splitNameAndPeriod('Cara M - 5th period')).toEqual({ name: 'Cara M', period: '5' })
+  })
+  it('leaves plain names alone', () => {
+    expect(splitNameAndPeriod('Sophia Duncan')).toEqual({ name: 'Sophia Duncan', period: null })
+    expect(splitNameAndPeriod('Philip Pratt')).toEqual({ name: 'Philip Pratt', period: null })
+    expect(splitNameAndPeriod('P2')).toEqual({ name: 'P2', period: null })
+  })
+})
+
+describe('mostCommon', () => {
+  it('picks the most frequent value, ignoring case and blanks', () => {
+    expect(mostCommon(['Unit 3 Test', null, 'unit 3 test', 'Quiz', ''])).toBe('Unit 3 Test')
+    expect(mostCommon([null, undefined, ' '])).toBeNull()
+  })
+})
+
+describe('estimateGradingSeconds', () => {
+  it('runs the first paper alone, then the rest in parallel', () => {
+    expect(estimateGradingSeconds([], 3)).toBe(0)
+    expect(estimateGradingSeconds([9], 3)).toBe(155)
+    // 5 students x 9 pages: 155 + 4*155/3
+    expect(estimateGradingSeconds([9, 9, 9, 9, 9], 3)).toBe(362)
   })
 })

@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, Users, ArrowRight } from "lucide-react"
+import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
@@ -15,7 +14,9 @@ import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
 import { processFile, compressImageFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
-import { DropZone, FileList, GradingHero, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { DropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { prepareMaterials } from "@/lib/uploads/prepare"
+import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
@@ -65,6 +66,8 @@ export default function GradeExamPage() {
   const [classPeriod, setClassPeriod] = useState("")
   const [examTitle, setExamTitle] = useState("")
   const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null)
+  const [autoFilled, setAutoFilled] = useState(false)
+  const autofillTried = useRef(false)
 
   const { toast } = useToast()
 
@@ -80,6 +83,39 @@ export default function GradeExamPage() {
       setEditedBreakdown(gradingResult.gradeBreakdown)
     }
   }, [gradingResult, isTeacher])
+
+  // Teachers: read the top of the first page (Haiku) to fill in the student's
+  // name, exam title, class and period. Only empty boxes are filled.
+  useEffect(() => {
+    if (!studentExamFiles.length) autofillTried.current = false
+  }, [studentExamFiles.length])
+
+  const autofillFromPaper = async (file: File) => {
+    if (!isTeacher || autofillTried.current) return
+    autofillTried.current = true
+    try {
+      const prepared = await prepareMaterials([file], { pdfMode: "images", maxImages: 1 })
+      const page = prepared.images[0]
+      if (!page) return
+      const res = await authFetch("/api/grading/read-header", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: await blobToBase64(page.blob) }),
+      })
+      if (!res.ok) return
+      const read: { name: string | null; title: string | null; course: string | null; period: string | null } = await res.json()
+      const keep = (value: string | null) => (prev: string) => (prev.trim() || !value ? prev : value)
+      const [first, ...rest] = (read.name ?? "").split(/\s+/).filter(Boolean)
+      setStudentFirstName(keep(first ?? null))
+      setStudentLastName(keep(rest.join(" ") || null))
+      setExamTitle(keep(read.title))
+      setClassName(keep(read.course))
+      setClassPeriod(keep(read.period))
+      if (read.name || read.title || read.course || read.period) setAutoFilled(true)
+    } catch (e) {
+      console.warn("Could not read the paper's header:", e) // the boxes just stay empty
+    }
+  }
 
   // Any photo (HEIC too), PDF, Word, PowerPoint or text file; prepared in the browser (lib/uploads).
   const validateFile = (file: File): string | null => {
@@ -124,6 +160,7 @@ export default function GradeExamPage() {
       }
 
       if (validFiles.length > 0) {
+        if (!studentExamFiles.length) void autofillFromPaper(validFiles[0])
         setStudentExamFiles(prev => [...prev, ...validFiles])
         setErrors((prev) => ({ ...prev, studentExam: "" }))
         toast({
@@ -185,6 +222,7 @@ export default function GradeExamPage() {
     }
 
     if (validFiles.length > 0) {
+      if (!studentExamFiles.length) void autofillFromPaper(validFiles[0])
       setStudentExamFiles(prev => [...prev, ...validFiles])
       setErrors(prev => ({ ...prev, studentExam: "" }))
       toast({
@@ -474,6 +512,8 @@ export default function GradeExamPage() {
       <div className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">
         {!isGrading && !gradingResult && (
           <div className="space-y-6">
+            {isTeacher && <GradingModeSwitch mode="single" />}
+
             {/* 1: the student's work */}
             <div
               onDragEnter={handleDrag}
@@ -502,18 +542,6 @@ export default function GradeExamPage() {
               </StepCard>
             </div>
 
-            {/* Batch grading entry point */}
-            {isTeacher && (
-              <Link href="/grade-exam/batch" className="group flex items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4 transition hover:border-blue-300 hover:bg-white">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700"><Users className="h-5 w-5" /></span>
-                <span className="flex-1">
-                  <span className="block font-semibold text-slate-900">Grading a whole class?</span>
-                  <span className="block text-sm text-slate-500">Drop in the whole stack of photos or scans. We sort it into students and grade every paper.</span>
-                </span>
-                <ArrowRight className="h-5 w-5 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-              </Link>
-            )}
-
             {/* 2: mark scheme */}
             <div
               onDragEnter={handleAnswerSheetDrag}
@@ -522,7 +550,8 @@ export default function GradeExamPage() {
               onDrop={handleAnswerSheetDrop}
             >
               <StepCard highlight={answerSheetDragActive ? "drag" : errors.answerSheet ? "error" : null}>
-                <StepHeading n={2} title={isTeacher ? "Mark scheme" : "Answer key"} hint="Recommended for accurate marks" />
+                <StepHeading n={2} title={isTeacher ? "Mark scheme" : "Answer key"} />
+                {!answerSheetFile && isTeacher && <MarkSchemeNudge />}
                 {answerSheetFile ? (
                   <FileList files={[answerSheetFile]} onRemove={() => removeAnswerSheet()} disabled={isGrading} />
                 ) : (
@@ -553,7 +582,10 @@ export default function GradeExamPage() {
 
                 {isTeacher && (
                   <div className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200 sm:p-5">
-                    <p className="text-sm text-slate-600"><span className="font-semibold text-slate-800">Report details</span> help you find and organize reports later.</p>
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                      <span><span className="font-semibold text-slate-800">Report details</span> help you find and organize reports later.</span>
+                      {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><Sparkles className="h-3 w-3" />Filled in from the paper, check them</span>}
+                    </p>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="studentFirstName" className="text-sm font-medium text-slate-700">Student first name</Label>
@@ -612,7 +644,7 @@ export default function GradeExamPage() {
                 <FileCheck className="mr-2 h-5 w-5" />
                 {isTeacher ? "Grade exam" : "Check my work"}{studentExamFiles.length > 1 ? ` (${studentExamFiles.length} files)` : ""}
               </Button>
-              <p className="text-sm text-slate-500">Usually ready in under a minute. {isTeacher ? "Reports are saved to Graded Exams." : ""}</p>
+              <p className="text-sm text-slate-500">Takes roughly 15 seconds a page. {isTeacher ? "Reports are saved to Graded Exams." : ""}</p>
             </div>
           </div>
         )}
@@ -832,4 +864,13 @@ export default function GradeExamPage() {
       </div>
     </div>
   )
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "")
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
 }

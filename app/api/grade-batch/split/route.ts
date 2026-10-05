@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
-import { ClaudeService } from '@/lib/claude-api'
+import { ClaudeService, type PageHeaderRead } from '@/lib/claude-api'
+import { splitNameAndPeriod } from '@/lib/grading/batch'
 import { gradingBlock, planBlockResponse } from '@/lib/plans'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 
 // Batch grading, step 1: read the top of each page (Haiku) so the browser can
-// split a stack of pages into one paper per student (lib/grading/batch.ts).
+// split a stack of pages into one paper per student (lib/grading/batch.ts) and
+// fill in the exam title, class and period.
 // Pages were prepared in the browser and uploaded to Cloudinary.
 
 export const maxDuration = 300
@@ -27,16 +29,19 @@ export async function POST(request: NextRequest) {
   }
 
   const claude = new ClaudeService()
-  const headers: Array<{ name: string | null; firstPage: boolean }> = new Array(images.length)
+  const headers: PageHeaderRead[] = new Array(images.length)
   let next = 0
   const worker = async () => {
     while (next < images.length) {
       const i = next++
       try {
-        headers[i] = await claude.readPageHeader({ mediaType: images[i].mediaType, data: images[i].buffer.toString('base64') })
+        const read = await claude.readPageHeader({ mediaType: images[i].mediaType, data: images[i].buffer.toString('base64') })
+        // "Sean Miller P2" -> name + period, in case the model left the period in.
+        const split = read.name ? splitNameAndPeriod(read.name) : null
+        headers[i] = { ...read, name: split?.name ?? null, period: read.period ?? split?.period ?? null }
       } catch (e) {
         console.error(`Page header read failed (${images[i].name}):`, e)
-        headers[i] = { name: null, firstPage: false } // the teacher can fix the split
+        headers[i] = { name: null, firstPage: false, title: null, course: null, period: null } // the teacher can fix the split
       }
     }
   }

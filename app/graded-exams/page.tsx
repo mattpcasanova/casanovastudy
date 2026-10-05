@@ -423,8 +423,8 @@ export default function GradedExamsPage() {
         subtitle="Graded exams, ready to review and share."
         count={gradingResults.length}
         noun="report"
-        actionHref="/grade-exam"
-        actionLabel="Grade an exam"
+        actionHref="/grade-exam/batch"
+        actionLabel="Grade exams"
       />
 
       <div className="container mx-auto px-4 py-8">
@@ -511,9 +511,9 @@ export default function GradedExamsPage() {
           <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><ClipboardList className="h-8 w-8" /></span>
             <h3 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900')}>No reports yet</h3>
-            <p className="mt-2 max-w-md text-slate-500">Upload a mark scheme and a student&apos;s exam to get a graded report with feedback on every question.</p>
+            <p className="mt-2 max-w-md text-slate-500">Upload a class set of papers (and your mark scheme) to get a graded report with feedback on every question.</p>
             <Button asChild size="lg" className="mt-6 bg-blue-600 hover:bg-blue-700">
-              <Link href="/grade-exam"><Plus className="mr-2 h-5 w-5" /> Grade your first exam</Link>
+              <Link href="/grade-exam/batch"><Plus className="mr-2 h-5 w-5" /> Grade your first exams</Link>
             </Button>
           </div>
         )}

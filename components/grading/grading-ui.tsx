@@ -7,7 +7,8 @@
 // Pages wrap themselves in `displaySerif.variable` so `fontDisplay` resolves.
 
 import type { ReactNode } from "react"
-import { CheckCircle2, FileText, Image as ImageIcon, Upload, X } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, CheckCircle2, FileText, Image as ImageIcon, Upload, User, Users, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fontDisplay } from "@/lib/formats/design"
 import { uploadKind } from "@/lib/uploads/kinds"
@@ -137,3 +138,59 @@ export function FileList({ files, onRemove, disabled }: { files: File[]; onRemov
 
 /** The gradient call-to-action button from the homepage. */
 export const primaryCta = "h-14 w-full rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 text-lg font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:brightness-110 hover:shadow-xl sm:w-auto sm:px-12"
+
+/**
+ * Whole class vs one student, the first thing on both grading pages (teachers).
+ * Whole class comes first because it's the usual job.
+ */
+export function GradingModeSwitch({ mode }: { mode: "class" | "single" }) {
+  const options = [
+    { key: "class" as const, href: "/grade-exam/batch", icon: Users, title: "A whole class", text: "Drop in the whole stack. We sort it into students and grade every paper." },
+    { key: "single" as const, href: "/grade-exam", icon: User, title: "One student", text: "Grade a single paper and watch the marking as it happens." },
+  ]
+  return (
+    <nav aria-label="What are you grading?" className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-blue-900/10 sm:grid-cols-2">
+      {options.map((o) => {
+        const active = o.key === mode
+        const Icon = o.icon
+        return (
+          <Link
+            key={o.key}
+            href={o.href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex items-start gap-3 rounded-2xl border-2 p-4 transition",
+              active ? "border-blue-600 bg-blue-50/70" : "border-transparent hover:border-slate-200 hover:bg-slate-50",
+            )}
+          >
+            <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", active ? "bg-blue-600 text-white shadow-md shadow-blue-600/30" : "bg-slate-100 text-slate-600")}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className={cn("block font-semibold", active ? "text-blue-900" : "text-slate-900")}>{o.title}</span>
+              <span className="block text-sm text-slate-500">{o.text}</span>
+            </span>
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+/** Shown while no mark scheme is attached: grading works without one, but marks are much better with it. */
+export function MarkSchemeNudge({ batch }: { batch?: boolean }) {
+  return (
+    <div className="mb-4 flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+      <div>
+        <p className="font-semibold">Highly recommended: add your mark scheme</p>
+        <p className="mt-0.5 text-amber-800">
+          It&apos;s the biggest thing for accurate marks: the grader uses your answers and your mark split instead of working them out itself.
+          {batch
+            ? " No mark scheme? Carry on: we'll write an answer key from the first paper for you to check, and mark everyone against it."
+            : " No mark scheme? You can still grade; the marks will be the AI's own judgement."}
+        </p>
+      </div>
+    </div>
+  )
+}

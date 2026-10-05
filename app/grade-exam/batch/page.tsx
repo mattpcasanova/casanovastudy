@@ -4,12 +4,15 @@
 // (phone photos in any format, scanned PDFs, Word files), we prepare them in the
 // browser (lib/uploads/prepare.ts), upload them to Cloudinary, read the top of
 // each page to find where each student's paper starts (students write their
-// name on page 1 only), let the teacher fix the split, then grade a few papers
-// at a time (/api/grade-batch/paper). Keep the tab open while it grades.
+// name on page 1 only) and fill in the exam details from the papers, let the
+// teacher fix the split, then grade a few papers at a time
+// (/api/grade-batch/paper). With no mark scheme, an answer key is drafted from
+// the first paper (/api/grade-batch/answer-key) for the teacher to check, and
+// every paper is marked against it. Keep the tab open while it grades.
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, Loader2, RotateCcw, Scissors, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2 } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -18,10 +21,10 @@ import { authFetch } from "@/lib/auth-fetch"
 import { ClientCompression } from "@/lib/client-compression"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
-import { DropZone as KitDropZone, FileList, GradingHero, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
-import { groupPages, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
+import { estimateGradingSeconds, groupPages, mostCommon, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { cn } from "@/lib/utils"
@@ -40,6 +43,14 @@ interface Page {
 type PaperStatus = { state: "waiting" | "grading" | "done" | "error"; id?: string; marks?: number; possible?: number; percentage?: number; grade?: string; error?: string }
 
 type Phase = "setup" | "preparing" | "review" | "grading"
+
+type AnswerKey = { status: "none" | "drafting" | "ready" | "error"; text: string; error?: string }
+
+type Scheme = { texts: Array<{ name: string; content: string }>; images: Array<{ url: string; name: string }> }
+
+const ANSWER_KEY_NAME = "Answer key (drafted from the papers, checked by the teacher)"
+
+const minutes = (seconds: number) => (seconds < 90 ? "about a minute" : `about ${Math.round(seconds / 60)} minutes`)
 
 export default function BatchGradingPage() {
   return (
@@ -65,7 +76,9 @@ function BatchGrading() {
   const [error, setError] = useState<string | null>(null)
   const [problems, setProblems] = useState<string[]>([])
 
-  const [markScheme, setMarkScheme] = useState<{ texts: Array<{ name: string; content: string }>; images: Array<{ url: string; name: string }> }>({ texts: [], images: [] })
+  const [markScheme, setMarkScheme] = useState<Scheme>({ texts: [], images: [] })
+  const [answerKey, setAnswerKey] = useState<AnswerKey>({ status: "none", text: "" })
+  const [autoFilled, setAutoFilled] = useState(false)
   const [pages, setPages] = useState<Page[]>([])
   const [headers, setHeaders] = useState<PageHeader[]>([])
   const [starts, setStarts] = useState<boolean[]>([])
@@ -144,15 +157,32 @@ function BatchGrading() {
         ...imageHeaders,
         ...textPapers.map((t) => ({ name: t.label.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), firstPage: true })),
       ]
+      // Fill the exam details from the papers (only the boxes the teacher left empty).
+      const firsts = allHeaders.filter((h) => h.firstPage)
+      const found = { title: mostCommon(firsts.map((h) => h.title)), course: mostCommon(firsts.map((h) => h.course)), period: mostCommon(allHeaders.map((h) => h.period)) }
+      if (found.title && !examTitle.trim()) setExamTitle(found.title)
+      if (found.course && !className.trim()) setClassName(found.course)
+      if (found.period && !classPeriod.trim()) setClassPeriod(found.period)
+      setAutoFilled(Boolean((found.title && !examTitle.trim()) || (found.course && !className.trim()) || (found.period && !classPeriod.trim())))
+
+      const startPoints = splitPoints(allHeaders)
       setMarkScheme(scheme)
       setPages(allPages)
       setHeaders(allHeaders)
-      setStarts(splitPoints(allHeaders))
+      setStarts(startPoints)
       setRemoved(new Set())
       setNames({})
       setResults({})
       setProblems(issues)
       setPhase("review")
+
+      // No mark scheme: write one answer key from the first paper so everyone is marked the same way.
+      if (!scheme.texts.length && !scheme.images.length) {
+        const first = groupPages(startPoints, allHeaders)[0]
+        if (first) void draftAnswerKey(first.pages.map((i) => allPages[i]))
+      } else {
+        setAnswerKey({ status: "none", text: "" })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong")
       setPhase("setup")
@@ -160,6 +190,32 @@ function BatchGrading() {
       setStatus("")
     }
   }
+
+  const draftAnswerKey = async (paperPages: Page[]) => {
+    setAnswerKey({ status: "drafting", text: "" })
+    try {
+      const res = await authFetch("/api/grade-batch/answer-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pages: paperPages.filter((p) => p.url).map((p) => ({ url: p.url, name: p.label })),
+          texts: paperPages.filter((p) => p.text).map((p) => ({ name: p.label, content: p.text })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (isPlanBlock(data)) { openPremium(data); setAnswerKey({ status: "error", text: "", error: data.error }); return }
+      if (!res.ok || !data.key) throw new Error(data.error || "Could not write an answer key")
+      setAnswerKey({ status: "ready", text: data.key })
+    } catch (e) {
+      setAnswerKey({ status: "error", text: "", error: e instanceof Error ? e.message : "Could not write an answer key" })
+    }
+  }
+
+  const hasScheme = markScheme.texts.length > 0 || markScheme.images.length > 0
+  // The checked answer key stands in for the mark scheme (and caches the same way).
+  const schemeForGrading: Scheme = hasScheme || answerKey.status !== "ready" || !answerKey.text.trim()
+    ? markScheme
+    : { texts: [{ name: ANSWER_KEY_NAME, content: answerKey.text }], images: [] }
 
   const gradeOne = async (paper: (typeof papers)[number]) => {
     setResults((r) => ({ ...r, [paper.key]: { state: "grading" } }))
@@ -174,7 +230,7 @@ function BatchGrading() {
           studentName: paper.name,
           examTitle, className, classPeriod,
           additionalComments: notes,
-          markScheme,
+          markScheme: schemeForGrading,
           pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
         }),
@@ -203,6 +259,8 @@ function BatchGrading() {
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length - next) }, worker))
   }
 
+  const estimate = estimateGradingSeconds(papers.map((p) => p.pages.length), CONCURRENCY)
+  const remaining = estimateGradingSeconds(papers.filter((p) => results[p.key]?.state !== "done").map((p) => p.pages.length), CONCURRENCY)
   const done = papers.filter((p) => results[p.key]?.state === "done")
   const failed = papers.filter((p) => results[p.key]?.state === "error")
   const running = papers.some((p) => ["waiting", "grading"].includes(results[p.key]?.state ?? ""))
@@ -222,28 +280,23 @@ function BatchGrading() {
       {/* 1-3: setup */}
       {(phase === "setup" || phase === "preparing") && (
         <div className="space-y-8">
-          <Section n={1} title="Exam details">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <TextInput label="Exam title" value={examTitle} onChange={setExamTitle} placeholder="Unit 4 quiz" />
-              <TextInput label="Class" value={className} onChange={setClassName} placeholder="AP Chemistry" />
-              <TextInput label="Period" value={classPeriod} onChange={setClassPeriod} placeholder="3" />
-            </div>
-            <label className="mt-4 block text-sm font-semibold text-slate-700">
-              Notes for marking <span className="font-normal text-slate-500">(optional)</span>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="e.g. accept answers without units on Q3" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-            </label>
-          </Section>
+          <GradingModeSwitch mode="class" />
 
-          <Section n={2} title="Mark scheme" hint="Recommended. A photo, PDF, Word or text file of the answers.">
-            <DropZone files={markFiles} onFiles={(f) => setMarkFiles((prev) => [...prev, ...f])} onRemove={(i) => setMarkFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} />
-          </Section>
-
-          <Section n={3} title="Student papers" hint="The whole stack: phone photos in any order of students, scanned PDFs, or one file per student. Names only need to be on the first page.">
+          <Section n={1} title="Student papers" hint="The whole stack: phone photos in any order of students, scanned PDFs, or one file per student. Names only need to be on the first page.">
             <DropZone files={paperFiles} onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} onRemove={(i) => setPaperFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} big />
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={sortByName} onChange={(e) => setSortByName(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               Put pages in file-name order (keeps phone photos in the order you took them)
             </label>
+          </Section>
+
+          <Section n={2} title="Mark scheme" hint="A photo, PDF, Word or text file of the answers.">
+            {!markFiles.length && <MarkSchemeNudge batch />}
+            <DropZone files={markFiles} onFiles={(f) => setMarkFiles((prev) => [...prev, ...f])} onRemove={(i) => setMarkFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} />
+          </Section>
+
+          <Section n={3} title="Notes for marking" hint="Optional. The exam title, class and period are filled in from the papers next.">
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="e.g. accept answers without units on Q3" aria-label="Notes for marking" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </Section>
 
           {error && <p className="flex items-start gap-2 rounded-xl bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
@@ -269,7 +322,11 @@ function BatchGrading() {
             </div>
             <div className="flex flex-wrap gap-2">
               {phase === "review" && <Button variant="outline" onClick={() => setPhase("setup")}><RotateCcw className="mr-2 h-4 w-4" />Start over</Button>}
-              {phase === "review" && <Button onClick={() => void gradeAll()} disabled={!papers.length} className="bg-blue-600 hover:bg-blue-700">Grade {papers.length} paper{papers.length === 1 ? "" : "s"}</Button>}
+              {phase === "review" && (
+                <Button onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting"} className="bg-blue-600 hover:bg-blue-700">
+                  {answerKey.status === "drafting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Writing answer key…</> : `Grade ${papers.length} paper${papers.length === 1 ? "" : "s"}`}
+                </Button>
+              )}
               {phase === "grading" && running && <Button variant="outline" onClick={() => { stopRef.current = true }}>Pause after current papers</Button>}
               {phase === "grading" && !running && failed.length > 0 && <Button variant="outline" onClick={() => void gradeAll(failed.map((p) => p.key))}><RotateCcw className="mr-2 h-4 w-4" />Retry {failed.length} failed</Button>}
               {done.length > 0 && <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>}
@@ -277,12 +334,39 @@ function BatchGrading() {
             </div>
           </div>
 
+          <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+            <p className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
+              Exam details
+              {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><Sparkles className="h-3 w-3" />Filled in from the papers, check them</span>}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <TextInput label="Exam title" value={examTitle} onChange={setExamTitle} placeholder="Unit 4 quiz" disabled={phase === "grading"} />
+              <TextInput label="Class" value={className} onChange={setClassName} placeholder="AP Chemistry" disabled={phase === "grading"} />
+              <TextInput label="Period" value={classPeriod} onChange={setClassPeriod} placeholder="3" disabled={phase === "grading"} />
+            </div>
+          </div>
+
+          {!hasScheme && answerKey.status !== "none" && (
+            <AnswerKeyPanel
+              answerKey={answerKey}
+              editable={phase === "review"}
+              onChange={(text) => setAnswerKey({ status: "ready", text })}
+              onRedo={papers[0] ? () => void draftAnswerKey(papers[0].pages.map((i) => pages[i])) : undefined}
+            />
+          )}
+
+          {phase === "review" && papers.length > 0 && (
+            <p className="text-sm text-slate-600">
+              Grading should take <span className="font-semibold text-slate-900">{minutes(estimate)}</span> ({papers.length} paper{papers.length === 1 ? "" : "s"}, {CONCURRENCY} at a time, roughly 15 seconds a page). Keep this tab open while it runs.
+            </p>
+          )}
+
           {phase === "grading" && (
             <div className="h-2 overflow-hidden rounded-full bg-slate-200" aria-label="Grading progress">
               <div className="h-full bg-blue-600 transition-all" style={{ width: `${(done.length / Math.max(1, papers.length)) * 100}%` }} />
             </div>
           )}
-          {phase === "grading" && running && <p className="text-sm text-amber-800">Keep this tab open while papers are graded (about 30 seconds each, {CONCURRENCY} at a time).</p>}
+          {phase === "grading" && running && <p className="text-sm text-amber-800">Keep this tab open while papers are graded: {minutes(remaining)} left.</p>}
           {problems.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{problems.join(" ")}</p>}
 
           <ul className="space-y-3">
@@ -351,9 +435,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         accent="in one go"
         subtitle="Drop in the stack. We sort it into students, you check it, then every paper is graded against your mark scheme."
         chips={["Phone photos", "Scanned PDFs", "Names on page 1 only", "Class results", "CSV export"]}
-      >
-        <Link href="/grade-exam" className="mt-6 inline-block text-sm font-medium text-white/80 hover:text-white">Grading one paper? Use the single grader</Link>
-      </GradingHero>
+      />
       <main className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">{children}</main>
     </div>
   )
@@ -369,11 +451,11 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
   )
 }
 
-function TextInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+function TextInput({ label, value, onChange, placeholder, disabled }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean }) {
   return (
     <label className="block text-sm font-semibold text-slate-700">
       {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
     </label>
   )
 }
@@ -393,6 +475,36 @@ function DropZone({ files, onFiles, onRemove, disabled, big }: { files: File[]; 
       <div className={cn(files.length > 6 && "max-h-72 overflow-y-auto pr-1")}>
         <FileList files={files} onRemove={onRemove} disabled={disabled} />
       </div>
+    </div>
+  )
+}
+
+function AnswerKeyPanel({ answerKey, editable, onChange, onRedo }: { answerKey: AnswerKey; editable: boolean; onChange: (text: string) => void; onRedo?: () => void }) {
+  return (
+    <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-200">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 font-semibold text-amber-900"><KeyRound className="h-4 w-4" />No mark scheme, so here&apos;s an answer key from the first paper</p>
+        {editable && onRedo && answerKey.status !== "drafting" && (
+          <button type="button" onClick={onRedo} className="text-sm font-semibold text-amber-900 underline-offset-2 hover:underline">Write it again</button>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-amber-800">Every student is marked against this key, so totals match across the class. Check the answers and marks, and fix anything that&apos;s wrong before grading.</p>
+      {answerKey.status === "drafting" && (
+        <p className="mt-3 flex items-center gap-2 text-sm text-amber-900"><Loader2 className="h-4 w-4 animate-spin" />Reading the questions and working out the answers (about 1 to 2 minutes). Check the pages below meanwhile.</p>
+      )}
+      {answerKey.status === "error" && (
+        <p className="mt-3 text-sm text-rose-800">{answerKey.error} You can try again, or grade without a key (each paper is then marked on its own).</p>
+      )}
+      {answerKey.status === "ready" && (
+        <textarea
+          value={answerKey.text}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={!editable}
+          rows={Math.min(16, Math.max(6, answerKey.text.split("\n").length + 1))}
+          aria-label="Answer key"
+          className="mt-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-2 font-mono text-[0.8rem] leading-relaxed text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+        />
+      )}
     </div>
   )
 }

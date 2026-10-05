@@ -6,6 +6,14 @@ import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, type Guid
 import { sniffImageType } from '@/lib/uploads/server-images'
 import { looksLikeHeic } from '@/lib/uploads/kinds'
 
+export interface PageHeaderRead {
+  name: string | null
+  firstPage: boolean
+  title: string | null
+  course: string | null
+  period: string | null
+}
+
 // Turn structured "specific control" directives into an instruction block the
 // custom-guide generator can honor. Returns '' when nothing is specified so the
 // model is free to design the guide itself ("generic" mode).
@@ -2140,31 +2148,89 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
   }
 
   /**
-   * Batch grading: read just the top of one exam page. Students write their
-   * name on the first page only, so lib/grading/batch.ts uses this to find where
-   * each paper starts. Haiku, ~$0.002 per page.
+   * Grading: read just the top of one exam page. Batch grading uses the name
+   * and first-page flag to find where each student's paper starts
+   * (lib/grading/batch.ts); both graders use the title, course and period to
+   * fill in the report details. Haiku, ~$0.002 per page.
    */
-  async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }): Promise<{ name: string | null; firstPage: boolean }> {
+  async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }): Promise<PageHeaderRead> {
     const response = await this.anthropic.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 120,
+      max_tokens: 200,
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
-          { type: 'text', text: 'This is one page from a stack of student exam papers. Look only at the top of the page.\n1. Is a student\'s name written there (in a name field or at the top)? Copy it exactly as written, or null if there is none or it is unreadable. Do not count a teacher name, school name or exam title.\n2. Does this look like the FIRST page of a paper (a name or date field, an exam title, or "Question 1" near the top)?\nReply with JSON only: {"name": string or null, "firstPage": true or false}' },
+          { type: 'text', text: `This is one page from a stack of student exam papers. Look mostly at the top of the page.
+1. name: the student's name written there (in a name field or at the top), copied exactly but WITHOUT any class period ("Sean Miller P2" -> "Sean Miller"). null if there is none or it is unreadable. Never a teacher name, school name or exam title.
+2. firstPage: does this look like the FIRST page of a paper (a name or date field, an exam title, or "Question 1" near the top)?
+3. title: the exam or quiz title printed at the top (e.g. "Unit 3 Test: Stoichiometry"), without the course name. null if none.
+4. course: the class or course name if printed (e.g. "AP Chemistry"); if not printed, the school subject the questions are clearly about (e.g. "Chemistry"). null if unclear.
+5. period: the class period if written (e.g. "Period 2", "P2", "Pd 3" -> "2", "2", "3"). null if none.
+Reply with JSON only: {"name": string|null, "firstPage": boolean, "title": string|null, "course": string|null, "period": string|null}` },
         ],
       }],
     })
     const text = response.content.find(b => b.type === 'text')
     const raw = text && text.type === 'text' ? text.text : ''
+    const str = (v: unknown, n: number) => (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null' ? v.trim().slice(0, n) : null)
     try {
       const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
-      const name = typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim().slice(0, 80) : null
-      return { name, firstPage: parsed.firstPage === true || !!name }
+      const name = str(parsed.name, 80)
+      return {
+        name,
+        firstPage: parsed.firstPage === true || !!name,
+        title: str(parsed.title, 120),
+        course: str(parsed.course, 80),
+        period: str(parsed.period, 12),
+      }
     } catch {
-      return { name: null, firstPage: false }
+      return { name: null, firstPage: false, title: null, course: null, period: null }
     }
+  }
+
+  /**
+   * Batch grading without a mark scheme: write one answer key from the
+   * questions printed on a student's paper, so every paper in the class is
+   * marked on the same questions and totals (and the shared prefix caches).
+   * The teacher reviews and edits it before grading. Sonnet 5, adaptive thinking.
+   */
+  async draftAnswerKey(images: Array<{ mediaType: GuideImage['mediaType']; data: string }>, texts: Array<{ name: string; content: string }> = []): Promise<{ key: string; usage: { input_tokens: number; output_tokens: number } }> {
+    const content: Anthropic.ContentBlockParam[] = [
+      ...images.map((img): Anthropic.ContentBlockParam => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.data } })),
+      ...texts.map((t): Anthropic.ContentBlockParam => ({ type: 'text', text: `--- ${t.name} ---\n${t.content.slice(0, 100000)}` })),
+      { type: 'text', text: `Above are the pages of one student's exam paper. The teacher has no mark scheme, so write the answer key and mark scheme they would use to mark the whole class the same way.
+
+Rules:
+- Cover every question and sub-question on the paper, in order, using the labels printed on it (1, 2a, 3(b)(ii)...).
+- Use the marks printed on the paper for each question (e.g. "[3]" or "(2 marks)"). If no marks are printed, give 1 mark for each multiple-choice or short-recall item and a sensible number for longer ones.
+- For each question give the correct answer (short working for calculations) and what earns each mark. Note equivalent answers that should also be accepted.
+- Work out the answers yourself. The student's own answers may be wrong; do not copy them and do not mark them.
+- If a question or figure can't be read, say so on that line instead of guessing.
+- Plain text only, no tables, no em dashes.
+
+Format exactly:
+Total: <N> marks (marks printed on the paper | marks estimated)
+1a (2): <answer>. Marks: <what earns each mark>
+1b (1): <answer>
+...` },
+    ]
+    const stream = this.anthropic.messages.stream({
+      model: 'claude-sonnet-5',
+      max_tokens: 32000,
+      // SDK 0.61 types lack 'adaptive'; forwarded at runtime.
+      thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,
+      messages: [{ role: 'user', content }],
+    })
+    const message = await stream.finalMessage()
+    const key = message.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+      .trim()
+    if (!key) throw new Error(`No answer key came back (stop reason: ${message.stop_reason})`)
+    console.log('Answer key usage:', message.usage)
+    return { key, usage: { input_tokens: message.usage.input_tokens, output_tokens: message.usage.output_tokens } }
   }
 
   async gradeShortAnswer(params: {

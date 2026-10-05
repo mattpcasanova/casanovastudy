@@ -135,9 +135,15 @@ export default function NavigationHeader() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem asChild>
+                      <Link href="/grade-exam/batch" className="flex items-center cursor-pointer">
+                        <Users className="h-4 w-4 mr-2" />
+                        Grade a Class
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/grade-exam" className="flex items-center cursor-pointer">
                         <Plus className="h-4 w-4 mr-2" />
-                        Grade Exam
+                        Grade One Paper
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -406,13 +412,22 @@ export default function NavigationHeader() {
                 <div className="h-px bg-white/10 my-1" />
                 <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Grading</p>
                 <Link
+                  href="/grade-exam/batch"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname === '/grade-exam/batch' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Grade a Class</span>
+                </Link>
+                <Link
                   href="/grade-exam"
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                     pathname === '/grade-exam' ? 'bg-white/20' : 'hover:bg-white/10'
                   }`}
                 >
                   <GraduationCap className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm font-medium">Grade Exam</span>
+                  <span className="text-sm font-medium">Grade One Paper</span>
                 </Link>
                 <Link
                   href="/graded-exams"
