@@ -21,6 +21,9 @@
     "app/api/grade-batch/split/route.ts": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "app/api/cron/review-reminders/route.ts": {
+      "maxDuration": 300
     }
   },
   "headers": [
@@ -40,6 +43,12 @@
           "value": "Content-Type, Authorization"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/review-reminders",
+      "schedule": "0 21 * * *"
     }
   ]
 }

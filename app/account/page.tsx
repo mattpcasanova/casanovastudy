@@ -3,12 +3,14 @@
 // Account & privacy: who you're signed in as, download everything we hold
 // (/api/account/export), and delete your account (/api/account/delete).
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Download, Loader2, ShieldCheck, Trash2 } from "lucide-react"
+import { Bell, Download, Loader2, ShieldCheck, Trash2 } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth"
 import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
@@ -74,6 +76,8 @@ function Account() {
           <p className="mt-1 text-sm capitalize text-slate-500">{user?.user_type}</p>
         </section>
 
+        {user && <RemindersSection userId={user.id} />}
+
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
           <h2 className={cn(fontDisplay, "flex items-center gap-2 text-2xl font-semibold text-slate-900")}><ShieldCheck className="h-5 w-5 text-blue-600" />Your data</h2>
           <p className="mt-2 text-slate-600">Download everything we keep about you: your profile, study guides, answers, progress and gradings. Read how we handle it in our <Link href="/privacy" className="font-semibold text-blue-600 hover:underline">Privacy Policy</Link>.</p>
@@ -98,5 +102,39 @@ function Account() {
         <p className="text-sm text-slate-500">Questions about your data? Email <a href="mailto:privacy@casanovastudy.com" className="font-semibold text-blue-600">privacy@casanovastudy.com</a>.</p>
       </main>
     </div>
+  )
+}
+
+// Email review reminders (lib/reminders/). No row in reminder_prefs = on.
+function RemindersSection({ userId }: { userId: string }) {
+  const [enabled, setEnabled] = useState<boolean | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    void supabase.from("reminder_prefs").select("email_enabled").eq("user_id", userId).maybeSingle().then(({ data }) => {
+      if (live) setEnabled(data?.email_enabled ?? true)
+    })
+    return () => { live = false }
+  }, [userId])
+
+  const change = async (next: boolean) => {
+    const prev = enabled
+    setEnabled(next); setError(null)
+    const { error } = await supabase.from("reminder_prefs").upsert({ user_id: userId, email_enabled: next, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+    if (error) { setEnabled(prev); setError("Could not save. Please try again.") }
+  }
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className={cn(fontDisplay, "flex items-center gap-2 text-2xl font-semibold text-slate-900")}><Bell className="h-5 w-5 text-blue-600" />Study reminders</h2>
+          <p className="mt-2 text-slate-600">Email me when cards are ready for review or a weak spot needs practice. At most once a day, and less often if you take a break.</p>
+        </div>
+        <Switch checked={!!enabled} disabled={enabled === null} onCheckedChange={(v) => void change(v)} aria-label="Email study reminders" className="mt-2 shrink-0" />
+      </div>
+      {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
+    </section>
   )
 }

@@ -25,7 +25,7 @@ export async function deleteAccount(userId: string): Promise<void> {
 export async function exportAccount(userId: string): Promise<Record<string, unknown>> {
   const supabase = createAdminClient()
   const own = (table: string, column = 'user_id', select = '*') => supabase.from(table).select(select).eq(column, userId)
-  const [profile, guides, results, progress, plan, consent, gradings, gradedAsStudent] = await Promise.all([
+  const [profile, guides, results, progress, plan, consent, gradings, gradedAsStudent, reminders] = await Promise.all([
     own('user_profiles', 'id'),
     own('study_guides', 'user_id', 'id, title, subject, grade_level, format, topic_focus, difficulty_level, created_at, content, custom_content'),
     own('study_results'),
@@ -34,6 +34,7 @@ export async function exportAccount(userId: string): Promise<Record<string, unkn
     own('parental_consents', 'user_id', 'status, parent_email, requested_at, decided_at'),
     own('grading_results', 'user_id', 'id, student_name, exam_title, class_name, total_marks, total_possible_marks, percentage, grade, grade_breakdown, created_at'),
     own('grading_results', 'student_user_id', 'id, exam_title, total_marks, total_possible_marks, percentage, grade, grade_breakdown, created_at'),
+    own('reminder_prefs'),
   ])
   return {
     exported_at: new Date().toISOString(),
@@ -43,6 +44,7 @@ export async function exportAccount(userId: string): Promise<Record<string, unkn
     progress: progress.data ?? [],
     plan: plan.data?.[0] ?? null,
     parental_consent: consent.data?.[0] ?? null,
+    reminder_settings: reminders.data?.[0] ?? null,
     gradings_you_made: gradings.data ?? [],
     your_graded_work: gradedAsStudent.data ?? [],
   }

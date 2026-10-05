@@ -154,3 +154,86 @@ export function parentConsentEmail(e: { childName: string; childEmail: string; l
     ].join('\n'),
   }
 }
+
+// ── Review reminder ─────────────────────────────────────────────────────────
+// Sent by the daily job (lib/reminders/run.ts) when Learn cards are due or a
+// weak spot needs work. Every one carries a one-tap unsubscribe link.
+
+export interface ReviewReminderEmail {
+  firstName: string | null
+  guides: { title: string; due: number; url: string }[]
+  totalDue: number
+  minutes: number
+  weak: { topic: string; accuracy: number; url: string } | null
+  streak: number
+  startUrl: string
+  unsubscribeUrl: string
+  siteUrl: string
+}
+
+export function reviewReminderEmail(e: ReviewReminderEmail): { subject: string; html: string; text: string } {
+  const cards = (n: number) => `${n} card${n === 1 ? '' : 's'}`
+  const hi = e.firstName ? `${escapeHtml(e.firstName)}, ` : ''
+  const streakLine = e.streak >= 2 ? `Keep your ${e.streak}-day streak going.` : ''
+  const subject = e.totalDue > 0
+    ? (e.streak >= 2 ? `${cards(e.totalDue)} to review. Keep your ${e.streak}-day streak` : `${cards(e.totalDue)} ready for review`)
+    : `Time to practice ${e.weak?.topic ?? 'your weak spots'}`
+  const headlineFor = (who: string) => e.totalDue > 0
+    ? `${who}${cards(e.totalDue)} ${e.totalDue === 1 ? 'is' : 'are'} ready for review`
+    : `${who}one weak spot to work on`
+  const headline = headlineFor(hi)
+  const intro = e.totalDue > 0
+    ? `Reviewing right when you're about to forget is what makes it stick. About ${e.minutes} minute${e.minutes === 1 ? '' : 's'}. ${streakLine}`.trim()
+    : `A short quiz on it now beats cramming later. ${streakLine}`.trim()
+
+  const rows = e.guides.map((g) => `<tr>
+      <td style="padding:12px 0;border-top:1px solid ${BRAND.line};font-family:${SANS};font-size:15px;line-height:21px;">
+        <a href="${g.url}" style="color:${BRAND.ink};text-decoration:none;font-weight:600;">${escapeHtml(g.title)}</a>
+      </td>
+      <td align="right" style="padding:12px 0 12px 12px;border-top:1px solid ${BRAND.line};font-family:${SANS};font-size:13px;white-space:nowrap;">
+        <a href="${g.url}" style="color:${BRAND.blue};text-decoration:none;font-weight:600;">${cards(g.due)} &rarr;</a>
+      </td>
+    </tr>`).join('\n')
+  const guideList = e.guides.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 28px 0;border-bottom:1px solid ${BRAND.line};">${rows}</table>`
+    : ''
+
+  const weakCard = e.weak
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px 0;">
+        <tr><td style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:16px 18px;font-family:${SANS};">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#b45309;">Weak spot</div>
+          <div style="margin-top:6px;font-size:15px;line-height:22px;color:${BRAND.ink};"><strong>${escapeHtml(e.weak.topic)}</strong>: ${Math.round(e.weak.accuracy * 100)}% on your recent answers.</div>
+          <div style="margin-top:8px;font-size:14px;"><a href="${e.weak.url}" style="color:#b45309;font-weight:600;text-decoration:none;">Practice it &rarr;</a></div>
+        </td></tr>
+      </table>`
+    : ''
+
+  const body = [
+    heading(headline),
+    paragraph(escapeHtml(intro), { muted: true }),
+    guideList,
+    e.totalDue > 0 ? button(e.startUrl, 'Start reviewing') : (e.weak ? button(e.weak.url, 'Practice it') : ''),
+    e.totalDue > 0 ? weakCard : '',
+  ].join('\n')
+
+  return {
+    subject,
+    html: emailLayout({
+      preheader: e.totalDue > 0 ? `About ${e.minutes} minutes to keep it fresh.` : 'A quick quiz on what you missed.',
+      body,
+      footer: `You get study reminders because you use Casanova Study. <a href="${e.unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Turn off reminders</a>`,
+      siteUrl: e.siteUrl,
+    }),
+    text: [
+      headlineFor(e.firstName ? `${e.firstName}, ` : ''),
+      '',
+      intro,
+      '',
+      ...e.guides.map((g) => `- ${g.title}: ${cards(g.due)} (${g.url})`),
+      e.totalDue > 0 ? `\nStart reviewing: ${e.startUrl}` : '',
+      e.weak ? `\nWeak spot: ${e.weak.topic}, ${Math.round(e.weak.accuracy * 100)}% recently. Practice it: ${e.weak.url}` : '',
+      '',
+      `Turn off reminders: ${e.unsubscribeUrl}`,
+    ].join('\n'),
+  }
+}

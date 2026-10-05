@@ -14,6 +14,8 @@ export interface OutgoingEmail {
   html: string
   text: string
   replyTo?: string
+  /** Extra headers, e.g. List-Unsubscribe on reminders. */
+  headers?: Record<string, string>
 }
 
 const DEFAULT_FROM = 'Casanova Study <hello@casanovastudy.com>'
@@ -30,6 +32,7 @@ export async function sendEmail(mail: OutgoingEmail): Promise<void> {
         html: mail.html,
         text: mail.text,
         reply_to: mail.replyTo,
+        headers: mail.headers,
       }),
     })
     if (!res.ok) {
@@ -42,7 +45,7 @@ export async function sendEmail(mail: OutgoingEmail): Promise<void> {
   if (process.env.GMAIL_APP_PASSWORD) {
     const user = process.env.GMAIL_USER || 'mattpcasanova@gmail.com'
     const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass: process.env.GMAIL_APP_PASSWORD } })
-    await transporter.sendMail({ from: `"Casanova Study" <${user}>`, to: mail.to, subject: mail.subject, html: mail.html, text: mail.text, replyTo: mail.replyTo })
+    await transporter.sendMail({ from: `"Casanova Study" <${user}>`, to: mail.to, subject: mail.subject, html: mail.html, text: mail.text, replyTo: mail.replyTo, headers: mail.headers })
     return
   }
 

@@ -12,3 +12,8 @@ export const CLASSES_ENABLED = false
 // Premium. While off nobody is capped (Explain keeps a 150/day safety limit),
 // but guides, explanations and gradings are still recorded in usage_events.
 export const PLANS_ENABLED = false
+
+// Daily review-reminder emails (lib/reminders/, cron /api/cron/review-reminders).
+// Built 2026-10-04. While off the cron does nothing; preview and test-send with
+// scripts/reminders.ts. Turn on only after Matt has seen a sample email.
+export const REMINDERS_ENABLED = false
