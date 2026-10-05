@@ -644,7 +644,7 @@ export default function GradeExamPage() {
                 <FileCheck className="mr-2 h-5 w-5" />
                 {isTeacher ? "Grade exam" : "Check my work"}{studentExamFiles.length > 1 ? ` (${studentExamFiles.length} files)` : ""}
               </Button>
-              <p className="text-sm text-slate-500">Takes roughly 15 seconds a page. {isTeacher ? "Reports are saved to Graded Exams." : ""}</p>
+              <p className="text-sm text-slate-500">Usually about a minute for a 9-page paper. {isTeacher ? "Reports are saved to Graded Exams." : ""}</p>
             </div>
           </div>
         )}

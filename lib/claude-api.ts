@@ -523,10 +523,29 @@ LENGTH: about 60-160 words.`
 LENGTH: about 60-160 words.`
 }
 
+/**
+ * The paper grader (and the answer-key writer). Sonnet 5.5 since 2026-10-05:
+ * on a real 9-page handwritten class set (scripts/eval-grading.ts) it agreed with
+ * Sonnet 5 on 107 of 112 question marks, was as consistent run-to-run, and took
+ * ~55 s and ~$0.15 a paper vs ~190 s and ~$0.29. Effort `medium` was faster still
+ * but swung ~2.5 marks between runs, so grading keeps the default effort.
+ * Sonnet 5.5 rejects thinking {type:'disabled'}; graders always use adaptive.
+ */
+export const GRADING_MODEL = 'claude-sonnet-5-5'
+
+/** Which model marks papers. Defaults are what production uses; scripts/eval-grading.ts compares others. */
+export interface GradingModelOptions {
+  model?: string
+  /** Unset = the model's default effort. */
+  effort?: 'low' | 'medium' | 'high'
+}
+
 export class ClaudeService {
   private anthropic: Anthropic
+  private grading: Required<Pick<GradingModelOptions, 'model'>> & GradingModelOptions
 
-  constructor() {
+  constructor(grading: GradingModelOptions = {}) {
+    this.grading = { model: grading.model ?? GRADING_MODEL, effort: grading.effort }
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new Error('ANTHROPIC_API_KEY environment variable is required')
     }
@@ -534,6 +553,15 @@ export class ClaudeService {
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
+  }
+
+  /** Model, adaptive thinking and (when set) effort for the paper graders. SDK 0.61 types lack 'adaptive' and output_config; both are forwarded at runtime. */
+  private gradingModelParams(): { model: string; thinking: Anthropic.ThinkingConfigParam } {
+    return {
+      model: this.grading.model,
+      thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,
+      ...(this.grading.effort ? { output_config: { effort: this.grading.effort } } : {}),
+    }
   }
 
   async generateStudyGuide(request: ClaudeApiRequest): Promise<ClaudeApiResponse> {
@@ -924,10 +952,8 @@ Rules:
    */
   private async runGradingCall(content: Anthropic.MessageParam['content'], maxTokens: number): Promise<ClaudeApiResponse> {
     const stream = this.anthropic.messages.stream({
-      model: 'claude-sonnet-5',
+      ...this.gradingModelParams(),
       max_tokens: maxTokens,
-      // SDK 0.61 types lack 'adaptive'; forwarded at runtime.
-      thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,
       messages: [{ role: 'user', content }],
     })
     const message = await stream.finalMessage()
@@ -1274,9 +1300,8 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     // thinking never reaches the parser. max_tokens leaves room for thinking +
     // long multi-question breakdowns. (SDK 0.61 types lack 'adaptive'.)
     const stream = await this.anthropic.messages.stream({
-      model: 'claude-sonnet-5',
+      ...this.gradingModelParams(),
       max_tokens: 32000,
-      thinking: { type: 'adaptive' } as any,
       messages: [
         {
           role: 'user',
@@ -2193,7 +2218,7 @@ Reply with JSON only: {"name": string|null, "firstPage": boolean, "title": strin
    * Batch grading without a mark scheme: write one answer key from the
    * questions printed on a student's paper, so every paper in the class is
    * marked on the same questions and totals (and the shared prefix caches).
-   * The teacher reviews and edits it before grading. Sonnet 5, adaptive thinking.
+   * The teacher reviews and edits it before grading. GRADING_MODEL, adaptive thinking.
    */
   async draftAnswerKey(images: Array<{ mediaType: GuideImage['mediaType']; data: string }>, texts: Array<{ name: string; content: string }> = []): Promise<{ key: string; usage: { input_tokens: number; output_tokens: number } }> {
     const content: Anthropic.ContentBlockParam[] = [
@@ -2216,7 +2241,7 @@ Total: <N> marks (marks printed on the paper | marks estimated)
 ...` },
     ]
     const stream = this.anthropic.messages.stream({
-      model: 'claude-sonnet-5',
+      model: GRADING_MODEL,
       max_tokens: 32000,
       // SDK 0.61 types lack 'adaptive'; forwarded at runtime.
       thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,

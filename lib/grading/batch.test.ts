@@ -69,24 +69,24 @@ describe('mostCommon', () => {
 describe('estimateGradingSeconds', () => {
   it('runs the first paper alone, then the rest in parallel', () => {
     expect(estimateGradingSeconds([], 3)).toBe(0)
-    expect(estimateGradingSeconds([9], 3)).toBe(155)
-    // 5 students x 9 pages: 155 + 4*155/3
-    expect(estimateGradingSeconds([9, 9, 9, 9, 9], 3)).toBe(362)
+    expect(estimateGradingSeconds([9], 3)).toBe(60)
+    // 5 students x 9 pages: 60 + 4*60/3
+    expect(estimateGradingSeconds([9, 9, 9, 9, 9], 3)).toBe(140)
   })
 })
 
 describe('measuredSecondsPerPage + remainingSeconds', () => {
   it('learns the per-page time from finished papers', () => {
     expect(measuredSecondsPerPage([])).toBeUndefined()
-    expect(measuredSecondsPerPage([{ pages: 9, seconds: 155 }, { pages: 9, seconds: 155 }])).toBe(15)
-    expect(measuredSecondsPerPage([{ pages: 1, seconds: 8 }])).toBe(5) // floor
+    expect(measuredSecondsPerPage([{ pages: 9, seconds: 60 }, { pages: 9, seconds: 60 }])).toBe(5)
+    expect(measuredSecondsPerPage([{ pages: 1, seconds: 8 }])).toBe(2) // floor
   })
   it('shares the work left across the workers', () => {
     expect(remainingSeconds([], 5)).toBe(0)
-    // 10 waiting 9-page papers, 5 at a time: 10*155/5
-    expect(remainingSeconds(Array.from({ length: 10 }, () => ({ pages: 9 })), 5)).toBe(310)
+    // 10 waiting 9-page papers, 5 at a time: 10*60/5
+    expect(remainingSeconds(Array.from({ length: 10 }, () => ({ pages: 9 })), 5)).toBe(120)
     // one paper nearly done is at least 10 s, and never less than the longest one left
     expect(remainingSeconds([{ pages: 9, elapsed: 200 }], 5)).toBe(10)
-    expect(remainingSeconds([{ pages: 9, elapsed: 55 }, { pages: 1 }], 5)).toBe(100)
+    expect(remainingSeconds([{ pages: 9, elapsed: 55 }, { pages: 1 }], 5)).toBe(20)
   })
 })

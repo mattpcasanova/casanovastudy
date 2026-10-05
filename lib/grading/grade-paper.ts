@@ -1,11 +1,11 @@
 // Grade one student paper against a mark scheme: the shared engine behind the
 // single-paper grader (/api/grade-exam-stream) and batch grading
-// (/api/grade-batch/paper). Streams Claude's marking (Sonnet 5, adaptive
+// (/api/grade-batch/paper). Streams Claude's marking (GRADING_MODEL, adaptive
 // thinking), checks every mark-scheme question was graded, re-grades any it
 // missed, drops "phantom" questions not in the scheme, and tallies the result.
 // Moved out of the stream route 2026-10-03; behavior unchanged.
 
-import { ClaudeService } from '@/lib/claude-api'
+import { ClaudeService, type GradingModelOptions } from '@/lib/claude-api'
 import { parseGradingOutput, type GradedQuestion } from '@/lib/grading/parse'
 
 export type { GradedQuestion }
@@ -36,22 +36,30 @@ export function normalizeQuestionNumber(qNum: string): string {
     .replace(/\s+/g, '')
 }
 
-/** The "[MARK SCHEME SUMMARY] ... [END SUMMARY]" block Claude writes first. */
+/**
+ * The "[MARK SCHEME SUMMARY] ... [END SUMMARY]" block Claude writes first:
+ * "1a(2), 1b(3), L1-2(1), 3.1(4), Section A 2b(5), 1(a)(3)". Items are split on
+ * commas/semicolons/new lines and the LAST "(n)" in each item is the marks, so
+ * labels keep hyphens, dots and their own brackets ("L1-1a", "1(a)"). The old
+ * pattern dropped everything before a hyphen or dot ("L1-1a" -> "1a"), so every
+ * question looked unmarked and whole papers were graded twice.
+ */
 export function parseMarkSchemeSummary(content: string): { questions: Array<{ num: string; marks: number }>; total: number } | null {
   const match = content.match(/\[MARK SCHEME SUMMARY\]([\s\S]*?)\[END SUMMARY\]/i)
   if (!match) return null
   const summaryText = match[1]
   const questions: Array<{ num: string; marks: number }> = []
-  // Entries like "1a(2)", "1(a)(3)", "Section A 2b(5)", "2 (4)".
-  const entryPattern = /([A-Za-z0-9\s()]+?)\s*\((\d+)\)/g
-  let entry
-  while ((entry = entryPattern.exec(summaryText)) !== null) {
-    const questionNum = entry[1].trim()
-    const marks = parseInt(entry[2])
-    if (!/total|marks|summary/i.test(questionNum) && marks > 0) questions.push({ num: questionNum, marks })
+  for (const raw of summaryText.split(/[,;\n]+/)) {
+    const item = raw.replace(/\*\*/g, '').replace(/^\s*[-*•]\s*/, '').trim()
+    if (!item || /^(total|marks|summary|list)\b/i.test(item)) continue
+    const m = item.match(/^(.+?)\s*\((\d+(?:\.\d+)?)\s*(?:marks?)?\)\s*$/i)
+    if (!m) continue
+    const num = m[1].trim()
+    const marks = parseFloat(m[2])
+    if (num && marks > 0 && num.length <= 60) questions.push({ num, marks })
   }
-  const totalMatch = summaryText.match(/Total:\s*(\d+)/i)
-  const total = totalMatch ? parseInt(totalMatch[1]) : questions.reduce((s, q) => s + q.marks, 0)
+  const totalMatch = summaryText.match(/Total:\s*(\d+(?:\.\d+)?)/i)
+  const total = totalMatch ? parseFloat(totalMatch[1]) : questions.reduce((s, q) => s + q.marks, 0)
   return { questions, total }
 }
 
@@ -98,8 +106,10 @@ export async function gradePaper(input: {
   /** Live marking text (the single-paper page streams it). */
   onChunk?: (text: string) => void
   onProgress?: (message: string) => void
+  /** Model/effort override (scripts/eval-grading.ts); production uses the defaults. */
+  grading?: GradingModelOptions
 }): Promise<GradedPaper> {
-  const claude = new ClaudeService()
+  const claude = new ClaudeService(input.grading)
   const gen = claude.gradeExamWithImagesStream({
     markSchemeText: '',
     studentExamText: '',
@@ -130,13 +140,17 @@ export async function gradePaper(input: {
     }
 
     const missing = findMissingQuestions(summary.questions, breakdown)
-    if (missing.length > 0) {
+    // A follow-up is for the odd skipped question. If most of the paper looks
+    // "missing", the labels just didn't line up; re-grading would double-count.
+    const labelsMismatched = breakdown.length > 0 && missing.length > summary.questions.length / 2
+    if (labelsMismatched) console.warn(`Skipping follow-up: ${missing.length}/${summary.questions.length} questions look unmarked, probably a label mismatch`)
+    if (missing.length > 0 && !labelsMismatched) {
       input.onProgress?.(`Grading ${missing.length} additional question${missing.length > 1 ? 's' : ''}...`)
       try {
         const followUp = await claude.gradeMissingQuestions({
           markSchemeFiles: input.markScheme,
           studentExamFiles: input.student,
-          missingQuestions: missing.map(q => `${q.num}(${q.marks})`),
+          missingQuestions: missing.map(q => `${q.num} (${q.marks} mark${q.marks === 1 ? '' : 's'})`),
           additionalComments: input.additionalComments || undefined,
         })
         // The follow-up call is part of this paper's cost.
@@ -150,7 +164,11 @@ export async function gradePaper(input: {
           content += extra
           input.onChunk?.(extra)
           const seen = new Set(breakdown.map(q => normalizeQuestionNumber(q.questionNumber)))
+          const missingKeys = new Set(missing.map(q => normalizeQuestionNumber(q.num)))
           for (const item of parseGradingOutput(followUp.content).breakdown) {
+            // The follow-up sometimes echoes the marks into the label ("PA-e(1)"); drop them when that's the case.
+            const bare = item.questionNumber.replace(/\s*\(\d+(?:\.\d+)?(?:\s*marks?)?\)\s*$/i, '')
+            if (bare !== item.questionNumber && missingKeys.has(normalizeQuestionNumber(bare))) item.questionNumber = bare
             if (!seen.has(normalizeQuestionNumber(item.questionNumber))) breakdown.push(item)
           }
           totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)

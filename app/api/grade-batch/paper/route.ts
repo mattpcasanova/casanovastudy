@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { GRADING_MODEL } from '@/lib/claude-api'
 import { requireTeacher } from '@/lib/api-auth'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { gradePaper, markingProgress, type PaperFile } from '@/lib/grading/grade-paper'
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
             class_name: str(body.className, 120),
             class_period: str(body.classPeriod, 40),
             exam_title: str(body.examTitle, 200),
-            token_usage: graded.usage ? { ...graded.usage, model: 'claude-sonnet-5', pages: student.length } : null,
+            token_usage: graded.usage ? { ...graded.usage, model: GRADING_MODEL, pages: student.length } : null,
           })
           .select('id')
           .single()

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { GRADING_MODEL } from '@/lib/claude-api'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
             class_name: className || null,
             class_period: classPeriod || null,
             exam_title: examTitle || null,
-            token_usage: usage ? { ...usage, model: 'claude-sonnet-5', pages: studentExamFiles.length + markSchemeFiles.length } : null
+            token_usage: usage ? { ...usage, model: GRADING_MODEL, pages: studentExamFiles.length + markSchemeFiles.length } : null
           })
           .select()
           .single()

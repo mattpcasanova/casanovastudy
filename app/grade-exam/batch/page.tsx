@@ -405,7 +405,7 @@ function BatchGrading() {
 
           {phase === "review" && papers.length > 0 && (
             <p className="text-sm text-slate-600">
-              Grading should take <span className="font-semibold text-slate-900">{minutes(estimate)}</span> ({papers.length} paper{papers.length === 1 ? "" : "s"}, {CONCURRENCY} at a time, roughly 15 seconds a page). Keep this tab open while it runs.
+              Grading should take <span className="font-semibold text-slate-900">{minutes(estimate)}</span> ({papers.length} paper{papers.length === 1 ? "" : "s"}, {CONCURRENCY} at a time, roughly a minute for a 9-page paper). Keep this tab open while it runs.
             </p>
           )}
 
