@@ -2233,6 +2233,38 @@ Total: <N> marks (marks printed on the paper | marks estimated)
     return { key, usage: { input_tokens: message.usage.input_tokens, output_tokens: message.usage.output_tokens } }
   }
 
+  /**
+   * Class report for a graded batch (lib/grading/insights.ts builds `classData`:
+   * per-question stats + feedback snippets, students numbered not named).
+   * Returns the raw reply; parseClassInsights reads it. Sonnet 5, thinking off
+   * (a summary, not marking), ~10-20 s and a few cents.
+   */
+  async classInsights(classData: string, meta: { examTitle?: string | null; className?: string | null }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+    const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
+    const response = await this.anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: 4000,
+      thinking: { type: 'disabled' },
+      messages: [{
+        role: 'user',
+        content: `A teacher graded a class set${about ? ` (${about})` : ''}. Below is how the class did on every question, with marking feedback from the students who lost the most marks.
+
+${classData}
+
+Write a short class report for the teacher as JSON:
+- "summary": 2-3 sentences on how the class did overall and where the main gaps are.
+- "topics": group EVERY question into 2-8 topics named the way a teacher would (e.g. "Mole conversions", "Plate boundaries"). Use the question labels exactly as given; each question in exactly one topic. Work out what each question tests from the feedback. If papers used different labels for the same question, put all of those labels in the same topic.
+- "struggles": the 3-5 questions the class found hardest (low averages, many zeros). "question" is ONE label copied exactly from the list. For each, say concretely what students commonly got wrong, based on the feedback (e.g. "Most students skipped converting grams to moles before using the ratio.").
+- "reteach": 2-4 short, specific suggestions for what to go over again in class.
+Never name or number individual students. No em dashes. Reply with JSON only:
+{"summary": "...", "topics": [{"name": "...", "questions": ["1a", "1b"]}], "struggles": [{"question": "1b", "issue": "..."}], "reteach": ["..."]}`,
+      }],
+    })
+    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('')
+    console.log('Class insights usage:', response.usage)
+    return { text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens } }
+  }
+
   async gradeShortAnswer(params: {
     question: string
     sampleAnswer: string

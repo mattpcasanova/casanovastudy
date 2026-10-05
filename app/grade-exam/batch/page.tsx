@@ -24,13 +24,14 @@ import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
 import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
-import { estimateGradingSeconds, groupPages, mostCommon, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
+import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { cn } from "@/lib/utils"
 
 const MAX_PAGES = 300
-const CONCURRENCY = 3
+// Papers graded at once after the first (which runs alone to write the prompt cache).
+const CONCURRENCY = 5
 
 interface Page {
   label: string
@@ -40,7 +41,13 @@ interface Page {
   thumb?: string
 }
 
-type PaperStatus = { state: "waiting" | "grading" | "done" | "error"; id?: string; marks?: number; possible?: number; percentage?: number; grade?: string; error?: string }
+type PaperStatus = {
+  state: "waiting" | "grading" | "done" | "error"
+  id?: string; marks?: number; possible?: number; percentage?: number; grade?: string; error?: string
+  /** Live progress while grading. */
+  message?: string; graded?: number; total?: number | null
+  startedAt?: number; seconds?: number
+}
 
 type Phase = "setup" | "preparing" | "review" | "grading"
 
@@ -50,7 +57,9 @@ type Scheme = { texts: Array<{ name: string; content: string }>; images: Array<{
 
 const ANSWER_KEY_NAME = "Answer key (drafted from the papers, checked by the teacher)"
 
-const minutes = (seconds: number) => (seconds < 90 ? "about a minute" : `about ${Math.round(seconds / 60)} minutes`)
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
+
+const minutes = (seconds: number) => (seconds < 60 ? "under a minute" : seconds < 90 ? "about a minute" : `about ${Math.round(seconds / 60)} minutes`)
 
 export default function BatchGradingPage() {
   return (
@@ -85,6 +94,14 @@ function BatchGrading() {
   const [removed, setRemoved] = useState<Set<number>>(new Set())
   const [names, setNames] = useState<Record<number, string>>({}) // keyed by a paper's first page index
   const [results, setResults] = useState<Record<number, PaperStatus>>({})
+  const [gradingStartedAt, setGradingStartedAt] = useState<number | null>(null)
+  // A one-second clock while grading, for elapsed time and time left.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (phase !== "grading") return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [phase])
   const batchId = useRef<string>(typeof crypto !== "undefined" ? crypto.randomUUID() : "")
   const stopRef = useRef(false)
 
@@ -217,8 +234,10 @@ function BatchGrading() {
     ? markScheme
     : { texts: [{ name: ANSWER_KEY_NAME, content: answerKey.text }], images: [] }
 
-  const gradeOne = async (paper: (typeof papers)[number]) => {
-    setResults((r) => ({ ...r, [paper.key]: { state: "grading" } }))
+  const gradeOne = async (paper: (typeof papers)[number], attempt = 1): Promise<void> => {
+    const startedAt = Date.now()
+    const update = (patch: Partial<PaperStatus>) => setResults((r) => ({ ...r, [paper.key]: { ...r[paper.key], ...patch } as PaperStatus }))
+    setResults((r) => ({ ...r, [paper.key]: { state: "grading", message: attempt > 1 ? "Trying again" : "Starting", startedAt } }))
     try {
       const imagePages = paper.pages.map((i) => pages[i]).filter((p) => p.url)
       const textPages = paper.pages.map((i) => pages[i]).filter((p) => p.text)
@@ -235,11 +254,30 @@ function BatchGrading() {
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
         }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (isPlanBlock(data)) { stopRef.current = true; openPremium(data); throw new Error(data.error) }
-      if (!res.ok) throw new Error(data.error || "Grading failed")
-      setResults((r) => ({ ...r, [paper.key]: { state: "done", id: data.id, marks: data.totalMarks, possible: data.totalPossible, percentage: data.percentage, grade: data.grade } }))
+      // Plan blocks and auth errors come back as plain JSON before any streaming.
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}))
+        if (isPlanBlock(data)) { stopRef.current = true; openPremium(data); throw new Error(data.error) }
+        throw new Error(data.error || "Grading failed")
+      }
+      let finished = false
+      await readNdjson(res.body, (event) => {
+        if (event.type === "status") update({ message: String(event.message) })
+        else if (event.type === "progress") update({ graded: Number(event.graded), total: event.total == null ? null : Number(event.total), message: undefined })
+        else if (event.type === "error") throw new Error(String(event.error || "Grading failed"))
+        else if (event.type === "done") {
+          finished = true
+          setResults((r) => ({ ...r, [paper.key]: { state: "done", id: String(event.id), marks: Number(event.totalMarks), possible: Number(event.totalPossible), percentage: Number(event.percentage), grade: String(event.grade), seconds: (Date.now() - startedAt) / 1000 } }))
+        }
+      })
+      if (!finished) throw new Error("The connection dropped before this paper finished")
     } catch (e) {
+      // One automatic retry covers busy-API hiccups; the teacher can retry after that.
+      if (attempt === 1 && !stopRef.current) {
+        update({ message: "Hit a snag, trying again shortly" })
+        await new Promise((r) => setTimeout(r, 5000))
+        return gradeOne(paper, 2)
+      }
       setResults((r) => ({ ...r, [paper.key]: { state: "error", error: e instanceof Error ? e.message : "Grading failed" } }))
     }
   }
@@ -247,6 +285,7 @@ function BatchGrading() {
   const gradeAll = async (only?: number[]) => {
     stopRef.current = false
     setPhase("grading")
+    setGradingStartedAt(Date.now())
     const queue = papers.filter((p) => (only ? only.includes(p.key) : results[p.key]?.state !== "done"))
     setResults((r) => ({ ...r, ...Object.fromEntries(queue.map((p) => [p.key, { state: "waiting" as const }])) }))
     let next = 0
@@ -260,7 +299,15 @@ function BatchGrading() {
   }
 
   const estimate = estimateGradingSeconds(papers.map((p) => p.pages.length), CONCURRENCY)
-  const remaining = estimateGradingSeconds(papers.filter((p) => results[p.key]?.state !== "done").map((p) => p.pages.length), CONCURRENCY)
+  // Once papers finish, time the rest from how long these papers actually took per page.
+  const secondsPerPage = measuredSecondsPerPage(papers.filter((p) => results[p.key]?.seconds).map((p) => ({ pages: p.pages.length, seconds: results[p.key].seconds! })))
+  const remaining = remainingSeconds(
+    papers
+      .filter((p) => results[p.key]?.state === "waiting" || results[p.key]?.state === "grading")
+      .map((p) => ({ pages: p.pages.length, elapsed: results[p.key].startedAt ? (now - results[p.key].startedAt!) / 1000 : 0 })),
+    CONCURRENCY,
+    secondsPerPage,
+  )
   const done = papers.filter((p) => results[p.key]?.state === "done")
   const failed = papers.filter((p) => results[p.key]?.state === "error")
   const running = papers.some((p) => ["waiting", "grading"].includes(results[p.key]?.state ?? ""))
@@ -366,7 +413,14 @@ function BatchGrading() {
               <div className="h-full bg-blue-600 transition-all" style={{ width: `${(done.length / Math.max(1, papers.length)) * 100}%` }} />
             </div>
           )}
-          {phase === "grading" && running && <p className="text-sm text-amber-800">Keep this tab open while papers are graded: {minutes(remaining)} left.</p>}
+          {phase === "grading" && running && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p className="font-medium text-slate-700">
+                {done.length} of {papers.length} done · {clock(gradingStartedAt ? (now - gradingStartedAt) / 1000 : 0)} so far · <span className="text-slate-900">{minutes(remaining)} left</span>
+              </p>
+              <p className="text-amber-800">Keep this tab open while it grades.</p>
+            </div>
+          )}
           {problems.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{problems.join(" ")}</p>}
 
           <ul className="space-y-3">
@@ -383,7 +437,7 @@ function BatchGrading() {
                       aria-label="Student name"
                       className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 font-semibold text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:outline-none disabled:bg-transparent"
                     />
-                    <PaperBadge status={r} />
+                    <PaperBadge status={r} now={now} />
                     {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="text-sm font-semibold text-blue-700 hover:underline">Report</Link>}
                     {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="text-sm font-semibold text-blue-700 hover:underline">Retry</button>}
                   </div>
@@ -533,14 +587,54 @@ function PageThumb({ page, number, startsPaper, editable, onToggleStart, onRemov
   )
 }
 
-function PaperBadge({ status }: { status?: PaperStatus }) {
+function PaperBadge({ status, now }: { status?: PaperStatus; now: number }) {
   if (!status) return null
   if (status.state === "waiting") return <span className="text-sm text-slate-400">Waiting</span>
-  if (status.state === "grading") return <span className="inline-flex items-center gap-1 text-sm text-blue-700"><Loader2 className="h-4 w-4 animate-spin" />Grading</span>
+  if (status.state === "grading") {
+    const marking = status.graded !== undefined && (status.graded > 0 || status.total)
+    const label = status.message
+      ?? (marking ? (status.total ? `Marking question ${Math.min(status.graded! + 1, status.total)} of ${status.total}` : `${status.graded} questions marked`) : "Grading")
+    const pct = status.total ? Math.round((Math.min(status.graded ?? 0, status.total) / status.total) * 100) : null
+    return (
+      <span className="inline-flex min-w-[12rem] flex-col gap-1">
+        <span className="inline-flex items-center gap-1.5 text-sm text-blue-700">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          <span className="truncate">{label}</span>
+          {status.startedAt && <span className="ml-auto shrink-0 tabular-nums text-xs text-slate-400">{clock((now - status.startedAt) / 1000)}</span>}
+        </span>
+        {pct !== null && (
+          <span className="h-1 overflow-hidden rounded-full bg-blue-100"><span className="block h-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} /></span>
+        )}
+      </span>
+    )
+  }
   if (status.state === "error") return <span className="inline-flex items-center gap-1 text-sm text-rose-700" title={status.error}><AlertCircle className="h-4 w-4" />{status.error?.slice(0, 60) ?? "Failed"}</span>
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-semibold text-emerald-800">
       <CheckCircle2 className="h-4 w-4" />{status.marks}/{status.possible} · {Math.round(status.percentage ?? 0)}% · {status.grade}
     </span>
   )
+}
+
+/** Reads a newline-delimited JSON stream, calling `onEvent` for each line. A throw in `onEvent` stops reading. */
+async function readNdjson(body: ReadableStream<Uint8Array>, onEvent: (event: Record<string, unknown>) => void) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (value) buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl).trim()
+        buffer = buffer.slice(nl + 1)
+        if (line) onEvent(JSON.parse(line))
+      }
+      if (done) break
+    }
+    if (buffer.trim()) onEvent(JSON.parse(buffer))
+  } finally {
+    reader.releaseLock()
+  }
 }

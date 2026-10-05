@@ -1,7 +1,8 @@
 "use client"
 
 // Class results for one batch (/grade-exam/batch): every student's score, a
-// class average, links to each report (where marks can be adjusted), CSV.
+// class average, links to each report (where marks can be adjusted), CSV, and
+// the class report (components/grading/class-report.tsx).
 
 import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -11,6 +12,8 @@ import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
 import { authFetch } from "@/lib/auth-fetch"
 import { resultsCsv } from "@/lib/grading/batch"
+import { ClassReport, type SavedInsights } from "@/components/grading/class-report"
+import type { GradedQuestion } from "@/lib/grading/parse"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
@@ -26,6 +29,7 @@ interface Row {
   class_name: string | null
   class_period: string | null
   created_at: string
+  grade_breakdown: GradedQuestion[] | null
 }
 
 export default function BatchResultsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,6 +43,7 @@ export default function BatchResultsPage({ params }: { params: Promise<{ id: str
 
 function BatchResults({ id }: { id: string }) {
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [saved, setSaved] = useState<SavedInsights | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<"name" | "score">("name")
 
@@ -47,7 +52,7 @@ function BatchResults({ id }: { id: string }) {
       const res = await authFetch(`/api/grade-batch/${id}`, { cache: "no-store" })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) setError(data.error || "Could not load these results")
-      else setRows(data.results)
+      else { setRows(data.results); setSaved(data.insights ?? null) }
     })()
   }, [id])
 
@@ -55,6 +60,8 @@ function BatchResults({ id }: { id: string }) {
     if (!rows) return []
     return [...rows].sort((a, b) => (sort === "name" ? a.student_name.localeCompare(b.student_name) : Number(b.percentage) - Number(a.percentage)))
   }, [rows, sort])
+
+  const reportPapers = useMemo(() => (rows ?? []).map((r) => ({ id: r.id, name: r.student_name, breakdown: r.grade_breakdown ?? [] })), [rows])
 
   const first = rows?.[0]
   const average = rows?.length ? rows.reduce((s, r) => s + Number(r.percentage), 0) / rows.length : 0
@@ -110,6 +117,7 @@ function BatchResults({ id }: { id: string }) {
               </table>
             </div>
             <p className="mt-3 text-xs text-slate-500">Open a report to read the feedback or change a mark.</p>
+            <ClassReport batchId={id} papers={reportPapers} saved={saved} />
           </>
         )}
       </main>

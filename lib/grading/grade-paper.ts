@@ -23,7 +23,7 @@ export interface GradedPaper {
   totalPossible: number
   percentage: number
   grade: string
-  usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | null
+  usage: { input_tokens: number; output_tokens: number; total_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | null
 }
 
 // Normalize question numbers for comparison, keeping section prefixes so
@@ -53,6 +53,14 @@ export function parseMarkSchemeSummary(content: string): { questions: Array<{ nu
   const totalMatch = summaryText.match(/Total:\s*(\d+)/i)
   const total = totalMatch ? parseInt(totalMatch[1]) : questions.reduce((s, q) => s + q.marks, 0)
   return { questions, total }
+}
+
+/** How far the streamed marking has got: questions marked so far, out of the summary's count once it's written. */
+export function markingProgress(content: string): { graded: number; total: number | null } {
+  const summary = /\[END SUMMARY\]/i.test(content) ? parseMarkSchemeSummary(content) : null
+  const total = summary?.questions.length || null
+  const graded = parseGradingOutput(content).breakdown.length
+  return { graded: total ? Math.min(graded, total) : graded, total }
 }
 
 function findMissingQuestions(expected: Array<{ num: string; marks: number }>, graded: GradedQuestion[]) {
@@ -133,7 +141,9 @@ export async function gradePaper(input: {
         })
         // The follow-up call is part of this paper's cost.
         if (usage && followUp.usage) {
-          usage = { ...usage, input_tokens: usage.input_tokens + (followUp.usage.input_tokens ?? 0), output_tokens: usage.output_tokens + (followUp.usage.output_tokens ?? 0) }
+          const input_tokens = usage.input_tokens + (followUp.usage.input_tokens ?? 0)
+          const output_tokens = usage.output_tokens + (followUp.usage.output_tokens ?? 0)
+          usage = { ...usage, input_tokens, output_tokens, total_tokens: input_tokens + output_tokens }
         }
         if (followUp.content) {
           const extra = '\n\n--- Additional Questions ---\n\n' + followUp.content

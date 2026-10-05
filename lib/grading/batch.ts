@@ -98,11 +98,31 @@ export function mostCommon(values: Array<string | null | undefined>): string | n
   return best?.value ?? null
 }
 
+const PAPER_BASE_SECONDS = 20
+const DEFAULT_SECONDS_PER_PAGE = 15
+
+const paperSeconds = (pages: number, perPage: number) => PAPER_BASE_SECONDS + perPage * Math.max(1, pages)
+
 /** A rough grading time: the first paper runs alone, then `concurrency` at a time, ~15 s per page. */
-export function estimateGradingSeconds(pagesPerPaper: number[], concurrency: number): number {
+export function estimateGradingSeconds(pagesPerPaper: number[], concurrency: number, secondsPerPage = DEFAULT_SECONDS_PER_PAGE): number {
   if (!pagesPerPaper.length) return 0
-  const paper = (pages: number) => 20 + 15 * Math.max(1, pages)
   const [first, ...rest] = pagesPerPaper
-  const restSeconds = rest.reduce((s, n) => s + paper(n), 0) / Math.max(1, concurrency)
-  return Math.round(paper(first) + restSeconds)
+  const restSeconds = rest.reduce((s, n) => s + paperSeconds(n, secondsPerPage), 0) / Math.max(1, concurrency)
+  return Math.round(paperSeconds(first, secondsPerPage) + restSeconds)
+}
+
+/** Seconds per page measured from finished papers (each paper also has a fixed ~20 s), or undefined before any finish. */
+export function measuredSecondsPerPage(finished: Array<{ pages: number; seconds: number }>): number | undefined {
+  if (!finished.length) return undefined
+  const rate = finished.reduce((s, f) => s + Math.max(0, f.seconds - PAPER_BASE_SECONDS) / Math.max(1, f.pages), 0) / finished.length
+  return Math.max(5, rate)
+}
+
+/** Time left mid-batch: papers in progress count what's left of them, waiting papers their full time, shared across the workers. */
+export function remainingSeconds(papers: Array<{ pages: number; elapsed?: number }>, concurrency: number, secondsPerPage = DEFAULT_SECONDS_PER_PAGE): number {
+  if (!papers.length) return 0
+  const work = papers.map((p) => Math.max(10, paperSeconds(p.pages, secondsPerPage) - (p.elapsed ?? 0)))
+  const inParallel = Math.max(1, Math.min(concurrency, papers.length))
+  // Never less than the longest single paper still to finish.
+  return Math.round(Math.max(Math.max(...work), work.reduce((s, w) => s + w, 0) / inParallel))
 }
