@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP Chemistry · Unit 2 Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1F3A2E;      /* course green */
+    --ink-2:#3A5548;
+    --gold:#B8924A;
+    --gold-soft:#F3E9D6;
+    --paper:#FFFFFF;
+    --mist:#F2F5F3;
+    --line:#D9E0DB;
+    --ok:#2F7D4F;
+    --bad:#B23B3B;
+    --mute:#6B7A72;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"DM Sans",system-ui,sans-serif;font-size:17px;line-height:1.5}
+  body{padding:0 20px 96px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1,h2{font-family:"Playfair Display",Georgia,serif;font-weight:600;margin:0}
+  h1{font-size:2.4rem;line-height:1.1;letter-spacing:-.01em}
+  h2{font-size:1.45rem;line-height:1.2}
+  p{margin:.4em 0}
+  header{padding:56px 0 28px;border-bottom:2px solid var(--ink)}
+  header .sub{color:var(--mute);margin-top:10px;max-width:58ch}
+  .gate{margin-top:26px;display:grid;grid-template-columns:1fr 1fr 210px 110px;gap:12px}
+  .gate label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+  input[type=text],select,input[type=number]{font:inherit;color:var(--ink);padding:10px 12px;border:1.5px solid var(--line);border-radius:6px;background:#fff;width:100%}
+  input:focus,select:focus,button:focus-visible,.pick:focus-visible,[data-lb]:focus-visible,[data-la]:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .btn{font:inherit;font-weight:600;background:var(--ink);color:#fff;border:0;border-radius:6px;padding:12px 20px;cursor:pointer}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+  .btn.small{font-size:.85rem;padding:6px 12px}
+  #start{margin-top:16px}
+  .hidden{display:none !important}
+  .done .pick,.done .stmt button,.done [data-lb],.done [data-la]{pointer-events:none}
+
+  section.topic{padding:36px 0 8px;border-bottom:1px solid var(--line)}
+  section.topic .num{font-family:"DM Mono",monospace;color:var(--gold);font-size:.95rem;margin-bottom:6px}
+  .q{margin:26px 0 8px;padding:20px;border:1.5px solid var(--line);border-radius:10px;position:relative}
+  .q .pts{position:absolute;right:14px;top:12px;font-family:"DM Mono",monospace;font-size:.8rem;color:var(--mute)}
+  .q .prompt{font-weight:500;margin:0 0 12px;padding-right:56px}
+  .q .prompt small{font-weight:400;color:var(--mute)}
+  .q.right{border-color:var(--ok)}
+  .q.wrong{border-color:var(--bad)}
+  .fb{margin-top:12px;padding:10px 12px;border-radius:6px;background:var(--mist);font-size:.95rem}
+  .fb.ok{background:#E9F4EC;color:var(--ok)}
+  .fb.no{background:#F9E9E9;color:var(--bad)}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}
+  .lbl{color:var(--mute);font-size:.9rem}
+  .row input.short{width:150px;flex:0 0 150px}
+  .row input.tiny{width:80px;flex:0 0 80px}
+  .row select{width:auto}
+  .unit{font-family:"DM Mono",monospace;color:var(--mute)}
+  .mono{font-family:"DM Mono",monospace}
+
+  /* data tables */
+  table.data{border-collapse:collapse;margin:6px 0 12px;font-size:.95rem}
+  table.data th,table.data td{border:1px solid var(--line);padding:6px 14px;text-align:center}
+  table.data th{background:var(--mist);font-weight:500}
+
+  /* multiple choice */
+  .mc{display:grid;gap:8px}
+  .mc label{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1.5px solid var(--line);border-radius:6px;cursor:pointer}
+  .mc label:has(input:checked){border-color:var(--ink);background:var(--mist)}
+  .mc input{margin-top:4px}
+
+  /* sort buttons */
+  .sortlist{display:grid;gap:8px}
+  .stmt{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;flex-wrap:wrap}
+  .stmt .txt{flex:1 1 200px}
+  .stmt .choice{display:flex;gap:6px;flex-wrap:wrap}
+  .stmt button{font:inherit;font-size:.85rem;padding:5px 9px;border-radius:5px;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+  .stmt button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .ranks{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .ranks select{width:auto}
+  .op{font-family:"DM Mono",monospace;font-size:1.3rem}
+
+  /* pick-a-picture cards */
+  .picks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pick{border:1.5px solid var(--line);border-radius:8px;padding:8px;cursor:pointer;background:#fff;position:relative}
+  .pick .tag{position:absolute;left:10px;top:6px;font-family:"DM Mono",monospace;font-size:.9rem;color:var(--mute)}
+  .pick.sel{border-color:var(--ink);background:var(--mist);box-shadow:inset 0 0 0 1px var(--ink)}
+  .picks.three{grid-template-columns:1fr 1fr 1fr}
+
+  /* graphs and drawings */
+  svg{max-width:100%;height:auto;display:block}
+  .axis{font-family:"DM Mono",monospace;font-size:11px;fill:var(--mute)}
+  .lewisbox{border:1.5px dashed var(--line);border-radius:8px;background:#FBFCFB;max-width:400px}
+  .lewis text.sym{font-family:"DM Sans",sans-serif;font-size:22px;font-weight:600;fill:var(--ink)}
+  .lewis text.tagn{font-family:"DM Mono",monospace;font-size:11px;fill:var(--gold);font-weight:500}
+  .lewis [data-lb],.lewis [data-la]{cursor:pointer}
+  .lewis [data-lb]:hover line.hit,.lewis [data-la]:hover circle.hit{fill:rgba(184,146,74,.15);stroke:rgba(184,146,74,.25)}
+
+  /* VSEPR rows */
+  .vrow{padding:12px 0;border-top:1px solid var(--line)}
+  .vrow:first-of-type{border-top:0;padding-top:0}
+  .vrow .f{font-weight:600;font-size:1.05rem}
+
+  footer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1.5px solid var(--line);padding:12px 20px}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  #status{color:var(--mute);font-size:.95rem}
+  .result{margin-top:34px;padding:24px;background:var(--ink);color:#fff;border-radius:10px}
+  .result h2{color:#fff}
+  .result .big{font-family:"Playfair Display",serif;font-size:3rem;line-height:1;margin:8px 0}
+  .result .note{color:#CFDBD4}
+  @media (max-width:560px){ h1{font-size:1.9rem} .gate{grid-template-columns:1fr} .picks,.picks.three{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:no-preference){ .q{transition:border-color .2s} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Unit 2 Review</h1>
+    <p class="sub">Compound structure and properties, 2.1 through 2.7, plus a few Unit 1 questions at the end. Every student gets different molecules and numbers, so work your own. Keep scratch paper out for Lewis diagrams. Calculator and periodic table allowed.</p>
+    <div class="gate" id="gate">
+      <div><label for="first">First name</label><input type="text" id="first" autocomplete="off" placeholder="First"></div>
+      <div><label for="last">Last name</label><input type="text" id="last" autocomplete="off" placeholder="Last"></div>
+      <div><label for="program">School</label><select id="program"><option value="">—</option><option value="HS">HS · High School</option><option value="AC">AC · Arts Conservatory</option></select></div>
+      <div><label for="period">Period</label><select id="period"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+    </div>
+    <button class="btn" id="start">Get my questions</button>
+  </header>
+
+  <main id="main" class="hidden"></main>
+  <div id="resultBox" class="result hidden"></div>
+</div>
+
+<footer id="foot" class="hidden"><div class="wrap"><span id="status">Answers are checked when you turn it in.</span><button class="btn" id="submit">Turn in</button></div></footer>
+
+<script>
+/* ---------- CONFIG ---------- */
+const API = '/api/apchem-unit2-review';
+const TEACHER_KEY = 'c2e627c312ddc2484811f32f220b5f3ecda922075b9b125b';   // ?key=... in the URL shows the answer key for that name. Change this.
+
+/* ---------- SEEDED RNG ---------- */
+function hashStr(s){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (h2>>>0)*4294967296+(h1>>>0);}
+function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+let R;const pick=arr=>arr[Math.floor(R()*arr.length)];const between=(lo,hi,step=1)=>{const n=Math.round((hi-lo)/step);const d=(String(step).split('.')[1]||'').length;return +(lo+step*Math.floor(R()*(n+1))).toFixed(d);};
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const take=(arr,n)=>shuffle(arr).slice(0,n);
+
+/* ---------- CHEM DATA ---------- */
+const EN={H:2.20,Li:0.98,Be:1.57,B:2.04,C:2.55,N:3.04,O:3.44,F:3.98,Na:0.93,Mg:1.31,Al:1.61,Si:1.90,P:2.19,S:2.58,Cl:3.16,K:0.82,Ca:1.00,Br:2.96,I:2.66};
+const VAL={H:1,B:3,C:4,N:5,O:6,F:7,P:5,S:6,Cl:7,Br:7,I:7};
+const Z={H:1,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,K:19,Ca:20,Sr:38,Ba:56,Br:35,I:53,Rb:37,Cs:55};
+const NAMES={Li:'lithium',Be:'beryllium',Na:'sodium',Mg:'magnesium',Al:'aluminum',K:'potassium',Ca:'calcium',Rb:'rubidium',Fe:'iron',Ti:'titanium'};
+const SUB='₀₁₂₃₄₅₆₇₈₉';
+const normF=s=>(s||'').replace(/[\s₀₁₂₃₄₅₆₇₈₉]/g,c=>{const i=SUB.indexOf(c);return i<0?'':String(i);});
+function ionicFormula(c,cq,a,aq){const g=(x,y)=>y?g(y,x%y):x;const d=g(cq,aq);const nc=aq/d,na=cq/d;return c+(nc>1?nc:'')+a+(na>1?na:'');}
+const subF=f=>f.replace(/\d/g,d=>SUB[+d]);
+
+/* Lewis structures: central atom + terminal atoms at L/R/U/D, bond orders, lone pairs (pairs, not electrons), overall charge */
+const LW=(c,t,b,lc,lt,q=0)=>({c,t:t.map(([el,pos])=>({el,pos})),bonds:b,lp:{c:lc,t:lt},q});
+function formalCharges(sp,st=sp){ // [central, ...terminals]
+  const c=VAL[sp.c]-2*st.lp.c-st.bonds.reduce((s,b)=>s+b,0);
+  return [c,...sp.t.map((t,i)=>VAL[t.el]-2*st.lp.t[i]-st.bonds[i])];
+}
+const fmtQ=q=>q===0?'0':q>0?'+'+q:'−'+(-q);
+const BUILD=[ // drawn with single bonds, students add multiple bonds and lone pairs
+  {f:'CO₂',s:LW('C',[['O','L'],['O','R']],[2,2],0,[2,2])},
+  {f:'CS₂',s:LW('C',[['S','L'],['S','R']],[2,2],0,[2,2])},
+  {f:'HCN',s:LW('C',[['H','L'],['N','R']],[1,3],0,[0,1])},
+  {f:'N₂',s:LW('N',[['N','R']],[3],1,[1])},
+  {f:'H₂O',s:LW('O',[['H','L'],['H','R']],[1,1],2,[0,0])},
+  {f:'OF₂',s:LW('O',[['F','L'],['F','R']],[1,1],2,[3,3])},
+  {f:'HOCl',s:LW('O',[['H','L'],['Cl','R']],[1,1],2,[0,3])},
+  {f:'NH₃',s:LW('N',[['H','L'],['H','R'],['H','D']],[1,1,1],1,[0,0,0])},
+  {f:'PCl₃',s:LW('P',[['Cl','L'],['Cl','R'],['Cl','D']],[1,1,1],1,[3,3,3])},
+  {f:'NF₃',s:LW('N',[['F','L'],['F','R'],['F','D']],[1,1,1],1,[3,3,3])},
+  {f:'CH₂O',s:LW('C',[['H','L'],['H','R'],['O','U']],[1,1,2],0,[0,0,2])},
+  {f:'BF₃',s:LW('B',[['F','L'],['F','R'],['F','D']],[1,1,1],0,[3,3,3])},
+  {f:'CCl₄',s:LW('C',[['Cl','L'],['Cl','R'],['Cl','U'],['Cl','D']],[1,1,1,1],0,[3,3,3,3])}
+];
+const FCP=[ // one drawn structure, students compute every formal charge
+  {f:'O₃',s:LW('O',[['O','L'],['O','R']],[2,1],1,[2,3])},
+  {f:'CO',s:LW('C',[['O','R']],[3],1,[1])},
+  {f:'NO₂⁻',s:LW('N',[['O','L'],['O','R']],[2,1],1,[2,3],-1)},
+  {f:'CO₃²⁻',s:LW('C',[['O','L'],['O','R'],['O','U']],[1,1,2],0,[3,3,2],-2)},
+  {f:'NO₃⁻',s:LW('N',[['O','L'],['O','R'],['O','U']],[1,1,2],0,[3,3,2],-1)},
+  {f:'SCN⁻',s:LW('C',[['S','L'],['N','R']],[2,2],0,[2,2],-1)},
+  {f:'N₂O',s:LW('N',[['N','L'],['O','R']],[3,1],0,[1,3])},
+  {f:'OCN⁻',s:LW('C',[['O','L'],['N','R']],[1,3],0,[3,1],-1)},
+  {f:'H₃O⁺',s:LW('O',[['H','L'],['H','R'],['H','D']],[1,1,1],1,[0,0,0],1)},
+  {f:'CO₂',s:LW('C',[['O','L'],['O','R']],[3,1],0,[1,3])}
+];
+const BEST=[ // three legal diagrams for one species; the first one is the best by formal charge
+  {f:'N₂O',forms:[['N≡N–O',LW('N',[['N','L'],['O','R']],[3,1],0,[1,3])],['N=N=O',LW('N',[['N','L'],['O','R']],[2,2],0,[2,2])],['N–N≡O',LW('N',[['N','L'],['O','R']],[1,3],0,[3,1])]]},
+  {f:'SCN⁻',forms:[['S=C=N',LW('C',[['S','L'],['N','R']],[2,2],0,[2,2],-1)],['S–C≡N',LW('C',[['S','L'],['N','R']],[1,3],0,[3,1],-1)],['S≡C–N',LW('C',[['S','L'],['N','R']],[3,1],0,[1,3],-1)]]},
+  {f:'OCN⁻',forms:[['O–C≡N',LW('C',[['O','L'],['N','R']],[1,3],0,[3,1],-1)],['O=C=N',LW('C',[['O','L'],['N','R']],[2,2],0,[2,2],-1)],['O≡C–N',LW('C',[['O','L'],['N','R']],[3,1],0,[1,3],-1)]]},
+  {f:'CO₂',forms:[['O=C=O',LW('C',[['O','L'],['O','R']],[2,2],0,[2,2])],['O≡C–O',LW('C',[['O','L'],['O','R']],[3,1],0,[1,3])],['O–C≡O',LW('C',[['O','L'],['O','R']],[1,3],0,[3,1])]]}
+];
+const VE=[['SO₄²⁻',32],['NO₃⁻',24],['CO₃²⁻',24],['NH₄⁺',8],['PO₄³⁻',32],['ClO₃⁻',26],['ClO₄⁻',32],['SO₂',18],['O₃',18],['HCN',10],['CH₂O',12],['PCl₃',26],['XeF₄',36],['SF₄',34],['I₃⁻',22],['CN⁻',10],['H₃O⁺',8],['ClF₃',28],['BF₃',24],['NO₂⁻',18],['NO₂⁺',16],['SCN⁻',16],['N₂O',16],['CH₃OH',14],['C₂H₄',12],['NH₂⁻',8]];
+const OCTET={fewer:['BF₃','BH₃','BeCl₂','AlCl₃','BCl₃'],more:['SF₆','PCl₅','XeF₄','I₃⁻','SF₄','ClF₃','XeF₂','BrF₅'],eight:['NH₃','CH₄','H₂O','CCl₄','NF₃','H₃O⁺','CO₂','HCN']};
+const RES=[['O₃',2,'1.5','O–O'],['NO₂⁻',2,'1.5','N–O'],['NO₃⁻',3,'1.33','N–O'],['CO₃²⁻',3,'1.33','C–O'],['HCOO⁻ (formate)',2,'1.5','C–O']];
+const ORDERS={'NO₂⁺':2,'NO₂⁻':1.5,'NO₃⁻':1.33,'O₃':1.5,'O₂':2,'CO₃²⁻':1.33,'CO₂':2,'CO':3};
+const PAIRS=[['NO₂⁺','NO₂⁻','N–O'],['NO₂⁻','NO₂⁺','N–O'],['O₃','O₂','O–O'],['O₂','O₃','O–O'],['CO₃²⁻','CO₂','C–O'],['CO₂','CO₃²⁻','C–O'],['NO₃⁻','NO₂⁻','N–O'],['CO','CO₂','C–O']];
+const BL_FAM=[ // bond-length families: [species, bond order]
+  {b:'C–O',sp:[['CH₃OH',1],['CO₃²⁻',1.33],['CO₂',2],['CO',3]]},
+  {b:'N–O',sp:[['NH₂OH',1],['NO₃⁻',1.33],['NO₂⁻',1.5],['NO₂⁺',2]]},
+  {b:'O–O',sp:[['H₂O₂',1],['O₃',1.5],['O₂',2]]},
+  {b:'C–C',sp:[['C₂H₆',1],['C₂H₄',2],['C₂H₂',3]]},
+  {b:'N–N',sp:[['N₂H₄',1],['N₂H₂',2],['N₂',3]]},
+  {b:'C–N',sp:[['CH₃NH₂',1],['CH₂NH',2],['HCN',3]]}
+];
+const VS_SMALL=[ // [formula, domains, shape, angle, hybridization]
+  ['CO₂',2,'linear','180','sp'],['HCN',2,'linear','180','sp'],
+  ['BF₃',3,'trigonal planar','120','sp2'],['CH₂O',3,'trigonal planar','120','sp2'],['NO₃⁻',3,'trigonal planar','120','sp2'],['CO₃²⁻',3,'trigonal planar','120','sp2'],
+  ['SO₂',3,'bent','lt120','sp2'],['O₃',3,'bent','lt120','sp2'],['NO₂⁻',3,'bent','lt120','sp2'],
+  ['CH₄',4,'tetrahedral','109.5','sp3'],['CCl₄',4,'tetrahedral','109.5','sp3'],['NH₄⁺',4,'tetrahedral','109.5','sp3'],
+  ['NH₃',4,'trigonal pyramidal','lt109','sp3'],['PCl₃',4,'trigonal pyramidal','lt109','sp3'],['NF₃',4,'trigonal pyramidal','lt109','sp3'],['H₃O⁺',4,'trigonal pyramidal','lt109','sp3'],
+  ['H₂O',4,'bent','lt109','sp3'],['OF₂',4,'bent','lt109','sp3']
+];
+const VS_BIG=[ // [formula, bonds, lone pairs on central atom, domains, shape]
+  ['PCl₅',5,0,5,'trigonal bipyramidal'],['SF₄',4,1,5,'seesaw'],['ClF₃',3,2,5,'T-shaped'],['XeF₂',2,3,5,'linear'],['I₃⁻',2,3,5,'linear'],
+  ['SF₆',6,0,6,'octahedral'],['BrF₅',5,1,6,'square pyramidal'],['XeF₄',4,2,6,'square planar']
+];
+const SHAPES=['linear','trigonal planar','bent','tetrahedral','trigonal pyramidal','trigonal bipyramidal','seesaw','T-shaped','octahedral','square pyramidal','square planar'];
+const ANGLES=[['180','180°'],['120','120°'],['lt120','a bit less than 120°'],['109.5','109.5°'],['lt109','a bit less than 109.5°'],['90','90°']];
+const HYBS=[['sp','sp'],['sp2','sp²'],['sp3','sp³']];
+const SIGPI=[ // [formula, sigma, pi, which atom, hybridization]
+  ['HCN',2,2,'the C atom','sp'],['CO₂',2,2,'the C atom','sp'],['C₂H₄',5,1,'either C atom','sp2'],['C₂H₂',3,2,'either C atom','sp'],
+  ['CH₂O',3,1,'the C atom','sp2'],['CH₃CHO',6,1,'the C atom bonded to O','sp2'],['CH₃CHO',6,1,'the CH₃ carbon','sp3'],
+  ['CH₃CN',5,2,'the C atom bonded to N','sp'],['CH₃CN',5,2,'the CH₃ carbon','sp3'],['N₂',1,2,'either N atom','sp'],
+  ['HCOOH',4,1,'the C atom','sp2'],['C₂H₆',7,0,'either C atom','sp3'],['CH₃OH',5,0,'the C atom','sp3']
+];
+const POLAR={nonpolar:['CO₂','BF₃','CCl₄','CH₄','SF₆','XeF₄','PCl₅','CS₂'],polar:['NF₃','H₂O','NH₃','SO₂','CH₂Cl₂','CHCl₃','PCl₃','SF₄','HCN','OF₂']};
+const CLASSIFY={ionic:['NaF','MgO','KBr','CaCl₂','Li₂O','Al₂O₃','MgCl₂','K₂S'],covalent:['Cl₂','CH₄','H₂O','CO₂','NH₃','HF','SO₂','PCl₃','O₂','CO'],metallic:['Fe','Cu','Al','Mg','brass (Cu with Zn)','bronze (Cu with Sn)','Na','Ag']};
+const SOLIDS={
+  ionic:['Hard, brittle crystals. Melts at 801 °C. Conducts only when melted or dissolved in water.','White solid that melts at 2852 °C and shatters when struck. Its water solution conducts.'],
+  network:['Extremely hard. Melts above 1700 °C. Does not conduct as a solid or as a liquid.','The hardest natural substance. Does not melt below 3500 °C and does not conduct.'],
+  metallic:['Shiny, bends without breaking, and conducts as a solid.','Can be drawn into thin wire. Melts at 1085 °C and conducts as a solid and as a liquid.'],
+  molecular:['Soft, waxy solid that melts at 80 °C. Does not conduct in any state.','Gas at room temperature. Its liquid does not conduct.']
+};
+const SOLID_LABEL={ionic:'Ionic',network:'Network covalent',metallic:'Metallic',molecular:'Molecular'};
+const POLAR_BONDS=[['C','H'],['N','H'],['O','H'],['F','H'],['Si','H'],['S','H'],['Cl','H'],['Br','H'],['I','H'],['C','O'],['C','N'],['C','F'],['C','Cl'],['Si','O'],['P','Cl'],['S','O'],['N','O'],['B','F'],['B','H']];
+const DELTA_BONDS=[['Si','H'],['B','H'],['P','Cl'],['N','Cl'],['C','H'],['H','I'],['S','H'],['H','O'],['B','Cl'],['Si','C'],['N','O'],['C','Br'],['P','F'],['H','Br']];
+const IONIC_1TO1={cat1:[['Li',1],['Na',1],['K',1]],an1:[['F',1],['Cl',1],['Br',1],['I',1]],cat2:[['Mg',2],['Ca',2],['Sr',2],['Ba',2]],an2:[['O',2],['S',2]]};
+const RADII={Li:76,Na:102,Cs:167,Mg:72,F:133,Cl:181,Br:196,I:220,O:140};
+const LATTICE_PICS=[['Li','Cl',1],['Li','Br',1],['Li','I',1],['Na','Br',1],['Mg','O',2],['Cs','F',1]];
+const MELT={Li:181,Na:98,K:63,Rb:39,Mg:650,Al:660,Be:1287,Ca:842};
+const MELT_SETS=[['Na','Mg','Al'],['Li','Na','K'],['Na','K','Rb'],['K','Na','Ca'],['Na','Li','Be']];
+const ALLOY={
+  Fe:{r:126,inter:[['C',77],['N',75],['H',37]],sub:[['Ni',124],['Cr',128],['Mn',127],['Mo',139],['Co',125]]},
+  Ti:{r:147,inter:[['C',77],['N',75],['O',73],['H',37]],sub:[['Al',143],['V',134]]}
+};
+const CONFIGS=[['[Ne] 3s¹',1],['[Ne] 3s²',2],['[Ne] 3s² 3p¹',3],['[He] 2s¹',1],['[He] 2s²',2],['[Ar] 4s¹',1],['[Ar] 4s²',2]];
+const PARTNERS=[['O',2],['Cl',1],['N',3],['S',2],['F',1],['Br',1]];
+const MOLS=[['CO₂',3],['H₂O',3],['CH₄',5],['NH₃',4],['C₂H₆',8],['SO₃',4],['N₂O₅',7],['C₃H₈',11]];
+
+/* ---------- NUMBER HELPERS ---------- */
+const sig=(x,n=3)=>Number(x.toPrecision(n));
+function num(ans){const v=parseFloat(String(ans??'').replace(/[−–]/g,'-').replace(/\s*[x×*]\s*10\^?\s*/i,'e').replace(/[^0-9.eE+-]/g,''));return v;}
+function near(ans,truth,tol=0.02){const v=num(ans);if(isNaN(v))return false;if(truth===0)return Math.abs(v)<1e-9;return Math.abs(v-truth)/Math.abs(truth)<=tol;}
+const within=(ans,truth,abs)=>{const v=num(ans);return !isNaN(v)&&Math.abs(v-truth)<=abs;};
+const exactInt=(ans,t)=>{const s=String(ans??'').trim().replace(/[−–]/g,'-');return /^[+-]?\d+$/.test(s)&&parseInt(s,10)===t;};
+const countMatch=(a,want)=>Array.isArray(a)?want.filter((w,i)=>a[i]===w).length:0;
+
+/* ---------- BUILD THE PAPER ---------- */
+let P={};
+function buildPaper(seed){
+  R=rng(seed); const p={};
+  // 2.1 classify bonding
+  p.cls=shuffle([...take(CLASSIFY.ionic,2).map(x=>[x,'ionic']),...take(CLASSIFY.covalent,2).map(x=>[x,'covalent']),...take(CLASSIFY.metallic,2).map(x=>[x,'metallic'])]);
+  // 2.1 electronegativity difference and partial charge
+  p.dB=shuffle(pick(DELTA_BONDS)); p.dEN=Math.abs(EN[p.dB[0]]-EN[p.dB[1]]); p.dNeg=EN[p.dB[0]]>EN[p.dB[1]]?p.dB[0]:p.dB[1];
+  let pb; do{pb=take(POLAR_BONDS,3);}while(!pb.every((x,i)=>pb.every((y,j)=>i===j||Math.abs(dEN(x)-dEN(y))>=0.15)));
+  p.pb=pb.map(b=>b.join('–')); p.pbAns=pb.slice().sort((a,b)=>dEN(a)-dEN(b)).map(b=>b.join('–'));
+  p.pbEls=[...new Set(pb.flat())].sort((a,b)=>EN[a]-EN[b]);
+  // 2.1 solid types
+  p.solids=shuffle(Object.keys(SOLIDS).map(k=>[pick(SOLIDS[k]),k]));
+  // 2.2 potential energy well
+  p.re=pick([75,100,125,150,175,200]); p.De=between(150,650,50);
+  // 2.2 bond length ranking
+  const fam=pick(BL_FAM); p.blBond=fam.b; const bl=take(fam.sp,3); p.bl=shuffle(bl).map(x=>x[0]); p.blAns=bl.slice().sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  p.blStrong=p.blAns[0];
+  // 2.2 lattice energy ranking (1:1 salts; ties in charge are always settled by a same-group size comparison)
+  const all=[...IONIC_1TO1.cat1.flatMap(c=>IONIC_1TO1.an1.map(a=>[c,a])),...IONIC_1TO1.cat2.flatMap(c=>IONIC_1TO1.an2.map(a=>[c,a]))];
+  let le; do{le=take(all,3);}while(!latticeOk(le));
+  p.le=le.map(([c,a])=>c[0]+a[0]); p.leAns=le.slice().sort(cmpLattice).map(([c,a])=>c[0]+a[0]);
+  // 2.3 lattice picture
+  const lp=pick(LATTICE_PICS); p.lpC=lp[0]; p.lpA=lp[1]; p.lpQ=lp[2];
+  p.lpOrder=shuffle(['ok','swap','stripe','pairs']);
+  // 2.3 conductivity
+  const salt=pick(['KBr','NaCl','CaCl₂','LiF']), metal=pick(['copper','aluminum','iron','silver']);
+  p.cond=shuffle([[`solid ${salt}`,'no'],[`molten (melted) ${salt}`,'yes'],[`${salt} dissolved in water`,'yes'],[`a solid ${metal} wire`,'yes'],['sugar (sucrose) dissolved in water','no']]);
+  // 2.4 alloys
+  p.host=pick(['Fe','Ti']); const H=ALLOY[p.host]; const i1=pick(H.inter), s1=pick(H.sub);
+  const rest=[...H.inter,...H.sub].filter(x=>x!==i1&&x!==s1); p.alloy=shuffle([i1,s1,pick(rest)]).map(([e,r])=>[e,r,H.inter.some(x=>x[0]===e)?'inter':'sub']);
+  // 2.4 metal melting points
+  const ms=pick(MELT_SETS); p.melt=shuffle(ms); p.meltAns=ms.slice().sort((a,b)=>MELT[a]-MELT[b]);
+  // 2.5 valence electrons, Lewis builder, octet exceptions
+  p.ve=take(VE,2);
+  p.build=pick(BUILD);
+  p.oct=shuffle([...take(OCTET.fewer,2).map(x=>[x,'fewer']),...take(OCTET.eight,2).map(x=>[x,'eight']),...take(OCTET.more,2).map(x=>[x,'more'])]);
+  // 2.6 formal charge, best structure, resonance, bond-length comparison
+  p.fc=pick(FCP); p.fcAns=formalCharges(p.fc.s);
+  p.best=pick(BEST); p.bestOrder=shuffle([0,1,2]);
+  p.res=pick(RES);
+  p.pair=pick(PAIRS);
+  // 2.7 VSEPR, sigma/pi, polarity
+  let s2; do{s2=take(VS_SMALL,2);}while(s2[0][2]===s2[1][2]);
+  p.vs=shuffle([...s2.map(r=>({f:r[0],d:r[1],shape:r[2],ang:r[3],hyb:r[4]})),(r=>({f:r[0],bonds:r[1],lone:r[2],d:r[3],shape:r[4],big:true}))(pick(VS_BIG))]);
+  p.sp=pick(SIGPI);
+  p.pol=shuffle([...take(POLAR.polar,2).map(x=>[x,'polar']),...take(POLAR.nonpolar,2).map(x=>[x,'nonpolar'])]);
+  // Unit 1
+  p.mol=pick(MOLS); p.moln=between(0.15,2.50,0.05); p.molAtoms=p.moln*p.mol[1]*6.022e23;
+  const cf=pick(CONFIGS), pt=pick(PARTNERS); p.cfg=cf; p.partner=pt; p.zF=ionicFormula('Z',cf[1],pt[0],pt[1]);
+  // multiple choice (shuffled per student)
+  p.mc=[
+    {id:'well',q:'On the potential energy curve for two bonded atoms, what is true at the very bottom of the well?',
+      ans:'The attractive and repulsive forces balance, so the potential energy is as low as it gets.',
+      dis:['The attraction between the two atoms is the strongest it can be.','The two nuclei are touching.','The two atoms have zero potential energy.']},
+    {id:'coul',q:'CaO has a much larger lattice energy than KCl. Which pair of reasons is correct?',
+      ans:'Ca²⁺ and O²⁻ carry bigger charges than K⁺ and Cl⁻, and they are smaller, so their centers sit closer together.',
+      dis:['CaO has a larger molar mass, and its ions are larger.','Ca is more electronegative than K, so CaO is more covalent.','A formula unit of CaO contains more ions than a formula unit of KCl.']},
+    {id:'fu',q:'Which statement about solid NaCl is correct?',
+      ans:'It is a repeating lattice of alternating Na⁺ and Cl⁻ ions, and the formula gives their 1 : 1 ratio.',
+      dis:['It is made of individual NaCl molecules.','Each Na⁺ ion is bonded to exactly one Cl⁻ ion.','The Na and Cl atoms share a pair of valence electrons.']},
+    {id:'brittle',q:'Why does an ionic crystal shatter when it is struck hard?',
+      ans:'A layer shifts so that like charges line up next to each other, and their repulsion splits the crystal.',
+      dis:['The blow knocks electrons out of the electron sea.','The covalent bonds inside each formula unit break.','Ionic bonds are weak, so a small force breaks them.']},
+    {id:'mg',q:'Magnesium melts at 650 °C, but sodium melts at 98 °C. Which explanation is best?',
+      ans:'Each Mg atom gives two electrons to the electron sea, and the smaller 2+ cations attract that sea more strongly.',
+      dis:['Mg atoms are larger than Na atoms.','Mg atoms form ionic bonds with each other.','Mg has fewer valence electrons than Na.']},
+    {id:'steel',q:'Steel (iron with a little carbon) is harder and less malleable than pure iron. Why?',
+      ans:'Small carbon atoms sit in the spaces between iron atoms and make it harder for layers of iron atoms to slide past each other.',
+      dis:['Carbon adds extra electrons to the electron sea.','Carbon atoms replace iron atoms because the two are a similar size.','Carbon forms ionic bonds with iron.']},
+    {id:'dative',q:'NH₃ reacts with BF₃ to form H₃N–BF₃, with the N atom bonded to the B atom. Which best describes the N–B bond?',
+      ans:'N shares its lone pair with B, which gives B a complete octet.',
+      dis:['B shares a lone pair with N.','An H atom moves from N to B.','B transfers an electron to N, forming an ionic bond.']},
+    {id:'hybrid',q:'The nitrate ion, NO₃⁻, has three resonance structures. Which best describes its N–O bonds?',
+      ans:'All three are identical, with a length between that of a single and a double bond.',
+      dis:['One N–O bond is shorter than the other two.','The ion switches rapidly among the three structures.','Two are double bonds and one is a single bond.']},
+    {id:'lp',q:'The H–N–H angle in NH₃ (107°) is smaller than the H–C–H angle in CH₄ (109.5°). Why?',
+      ans:'The lone pair on N is held by only one nucleus, so it spreads out more and pushes the bonding pairs closer together.',
+      dis:['N is more electronegative, so it pulls the H atoms toward each other.','NH₃ has fewer electron domains than CH₄.','N is sp² hybridized, while C is sp³.']}
+  ].map(m=>({...m,opts:shuffle([m.ans,...m.dis])}));
+  return p;
+}
+function dEN(b){return Math.abs(EN[b[0]]-EN[b[1]]);}
+const leScore=([c,a])=>c[1]*a[1];
+function dominates(x,y){return Z[x[0][0]]<=Z[y[0][0]]&&Z[x[1][0]]<=Z[y[1][0]];} // x has both ions no larger than y's
+function latticeOk(set){
+  for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){const x=set[i],y=set[j];
+    if(leScore(x)!==leScore(y))continue;
+    if(x[0][0]===y[0][0]&&x[1][0]===y[1][0])return false;
+    if(!dominates(x,y)&&!dominates(y,x))return false;}
+  return true;
+}
+function cmpLattice(x,y){const d=leScore(x)-leScore(y);if(d)return d;return dominates(x,y)?1:-1;} // smallest lattice energy first
+
+/* ---------- GRADING SPEC ---------- */
+// each item: {id, box, pts, grade(ans)->0..pts, key}
+function items(p){
+  const MC=id=>{const m=p.mc.find(x=>x.id===id);return {id:'mc_'+id,box:'mc_'+id,pts:1,key:m.ans,grade:a=>a===m.ans?1:0};};
+  const vsItems=p.vs.flatMap((v,i)=>{
+    const base=[{id:`q18_${i}d`,box:'q18',pts:1,key:`${v.f}: ${v.d} domains`,grade:a=>exactInt(a,v.d)?1:0},
+      {id:`q18_${i}s`,box:'q18',pts:1,key:`${v.f}: ${v.shape}`,grade:a=>a===v.shape?1:0}];
+    if(v.big)return base;
+    return base.concat([{id:`q18_${i}a`,box:'q18',pts:1,key:`${v.f}: ${ANGLES.find(x=>x[0]===v.ang)[1]}`,grade:a=>a===v.ang?1:0},
+      {id:`q18_${i}h`,box:'q18',pts:1,key:`${v.f}: ${HYBS.find(x=>x[0]===v.hyb)[1]}`,grade:a=>a===v.hyb?1:0}]);
+  });
+  const b=p.build.s;
+  return [
+    {id:'q1',box:'q1',pts:3,key:p.cls.map(([f,t])=>`${f}: ${t}`).join('; '),grade:a=>{const n=countMatch(a,p.cls.map(x=>x[1]));return n===6?3:n===5?2:n>=3?1:0;}},
+    {id:'q2a',box:'q2',pts:1,key:p.dEN.toFixed(2),grade:a=>within(a,p.dEN,0.011)?1:0},
+    {id:'q2b',box:'q2',pts:1,key:p.dNeg+' carries δ−',grade:a=>a===p.dNeg?1:0},
+    {id:'q2c',box:'q2',pts:2,key:p.pbAns.join(' < '),grade:a=>a&&a.join()===p.pbAns.join()?2:0},
+    {id:'q3',box:'q3',pts:2,key:p.solids.map(([d,k],i)=>`Solid ${'WXYZ'[i]}: ${SOLID_LABEL[k]}`).join('; '),grade:a=>{const n=countMatch(a,p.solids.map(x=>x[1]));return n===4?2:n>=2?1:0;}},
+    {id:'q4a',box:'q4',pts:2,key:p.re+' pm',grade:a=>within(a,p.re,8)?2:0},
+    {id:'q4b',box:'q4',pts:2,key:p.De+' kJ/mol',grade:a=>{const v=num(a);return !isNaN(v)&&Math.abs(Math.abs(v)-p.De)<=20?2:0;}},
+    {id:'q4c',box:'q4',pts:1,key:'deeper, with its minimum farther left (shorter and stronger)',grade:a=>a==='deepleft'?1:0},
+    MC('well'),
+    {id:'q5',box:'q5',pts:2,key:p.blAns.join(' < ')+` (shortest ${p.blBond} bond first)`,grade:a=>a&&a.join()===p.blAns.join()?2:0},
+    {id:'q6',box:'q6',pts:2,key:p.leAns.join(' < '),grade:a=>a&&a.join()===p.leAns.join()?2:0},
+    MC('coul'),
+    {id:'q7',box:'q7',pts:2,key:'the picture with alternating ions drawn at the right sizes',grade:a=>a==='ok'?2:0},
+    {id:'q8',box:'q8',pts:2,key:p.cond.map(([t,v])=>`${t}: ${v==='yes'?'conducts':'does not'}`).join('; '),grade:a=>{const n=countMatch(a,p.cond.map(x=>x[1]));return n===5?2:n>=3?1:0;}},
+    MC('fu'),MC('brittle'),
+    {id:'q9',box:'q9',pts:3,key:p.alloy.map(([e,r,t])=>`${e}: ${t==='inter'?'interstitial':'substitutional'}`).join('; '),grade:a=>countMatch(a,p.alloy.map(x=>x[2]))},
+    {id:'q10',box:'q10',pts:2,key:p.meltAns.join(' < '),grade:a=>a&&a.join()===p.meltAns.join()?2:0},
+    MC('mg'),MC('steel'),
+    {id:'q11a',box:'q11',pts:1,key:`${p.ve[0][0]}: ${p.ve[0][1]}`,grade:a=>exactInt(a,p.ve[0][1])?1:0},
+    {id:'q11b',box:'q11',pts:1,key:`${p.ve[1][0]}: ${p.ve[1][1]}`,grade:a=>exactInt(a,p.ve[1][1])?1:0},
+    {id:'q12',box:'q12',pts:3,key:lewisKey(b),grade:a=>{if(!a||!a.bonds)return 0;const bo=a.bonds.join()===b.bonds.join(),lo=a.lp&&a.lp.c===b.lp.c&&a.lp.t.join()===b.lp.t.join();return bo&&lo?3:(bo||lo)?1:0;}},
+    {id:'q13',box:'q13',pts:3,key:p.oct.map(([f,t])=>`${f}: ${t==='eight'?'exactly 8':t==='fewer'?'fewer than 8':'more than 8'}`).join('; '),grade:a=>{const n=countMatch(a,p.oct.map(x=>x[1]));return n===6?3:n===5?2:n>=3?1:0;}},
+    MC('dative'),
+    {id:'q14',box:'q14',pts:3,key:fcKey(p),grade:a=>{const order=fcOrder(p.fc.s);const n=order.filter((k,i)=>a&&exactInt(a[i],p.fcAns[k])).length;return n===order.length?3:n>=order.length-1&&n>0?2:n>0?1:0;}},
+    {id:'q15',box:'q15',pts:2,key:p.best.forms[0][0]+' (smallest formal charges, any negative one on the most electronegative atom)',grade:a=>a==='0'?2:0},
+    {id:'q16a',box:'q16',pts:1,key:String(p.res[1]),grade:a=>exactInt(a,p.res[1])?1:0},
+    {id:'q16b',box:'q16',pts:1,key:p.res[2],grade:a=>a===p.res[2]?1:0},
+    MC('hybrid'),
+    {id:'q17a',box:'q17',pts:1,key:`${p.pair[0]}: ${ORDERS[p.pair[0]]}`,grade:a=>a===String(ORDERS[p.pair[0]])?1:0},
+    {id:'q17b',box:'q17',pts:1,key:`${p.pair[1]}: ${ORDERS[p.pair[1]]}`,grade:a=>a===String(ORDERS[p.pair[1]])?1:0},
+    {id:'q17c',box:'q17',pts:1,key:ORDERS[p.pair[0]]>ORDERS[p.pair[1]]?'shorter':'longer',grade:a=>a===(ORDERS[p.pair[0]]>ORDERS[p.pair[1]]?'shorter':'longer')?1:0},
+    ...vsItems,
+    {id:'q19a',box:'q19',pts:1,key:p.sp[1]+' σ',grade:a=>exactInt(a,p.sp[1])?1:0},
+    {id:'q19b',box:'q19',pts:1,key:p.sp[2]+' π',grade:a=>exactInt(a,p.sp[2])?1:0},
+    {id:'q19c',box:'q19',pts:1,key:HYBS.find(x=>x[0]===p.sp[4])[1],grade:a=>a===p.sp[4]?1:0},
+    {id:'q20',box:'q20',pts:2,key:p.pol.map(([f,t])=>`${f}: ${t}`).join('; '),grade:a=>{const n=countMatch(a,p.pol.map(x=>x[1]));return n===4?2:n===3?1:0;}},
+    MC('lp'),
+    {id:'q21',box:'q21',pts:2,key:p.molAtoms.toExponential(2)+' atoms',grade:a=>near(a,p.molAtoms,0.025)?2:0},
+    {id:'q22',box:'q22',pts:2,key:p.zF,grade:a=>normF(a).toLowerCase()===p.zF.toLowerCase()?2:0}
+  ];
+}
+function lewisKey(s){
+  const t=s.t.map((x,i)=>`${x.el} ${['','single','double','triple'][s.bonds[i]]} bond, ${s.lp.t[i]} lone pair${s.lp.t[i]===1?'':'s'}`).join('; ');
+  return `${s.c} in the middle with ${s.lp.c} lone pair${s.lp.c===1?'':'s'}; ${t}`;
+}
+function fcOrder(sp){ // atoms in reading order (left to right, then top to bottom): indexes into [central, ...terminals]
+  const pos=[[0,0],...sp.t.map(t=>POS[t.pos])];
+  return pos.map((xy,i)=>[i,xy]).sort((a,b)=>a[1][0]-b[1][0]||a[1][1]-b[1][1]).map(x=>x[0]);
+}
+function atomEl(sp,k){return k===0?sp.c:sp.t[k-1].el;}
+function fcKey(p){const sp=p.fc.s;return fcOrder(sp).map((k,i)=>`atom ${i+1} (${atomEl(sp,k)}) ${fmtQ(p.fcAns[k])}`).join(', ');}
+
+/* ---------- DRAWINGS ---------- */
+const POS={L:[-95,0],R:[95,0],U:[0,-74],D:[0,74]};
+const SIDE={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]};
+const TERM_SIDES={L:['left','up','down'],R:['right','up','down'],U:['up','left','right'],D:['down','left','right']};
+const DIR={L:'left',R:'right',U:'up',D:'down'};
+const centralSides=sp=>['left','up','down','right'].filter(s=>!sp.t.some(t=>DIR[t.pos]===s));
+function lewisSVG(sp,st,o={}){
+  const W=320,H=230,cx=160,cy=115;
+  const atoms=[{el:sp.c,x:cx,y:cy,sides:centralSides(sp),lp:st.lp.c,key:'c'}].concat(sp.t.map((t,i)=>({el:t.el,x:cx+POS[t.pos][0],y:cy+POS[t.pos][1],sides:TERM_SIDES[t.pos],lp:st.lp.t[i],key:'t'+i})));
+  const ax=atoms.map(a=>a.x),ay=atoms.map(a=>a.y),m=o.live?48:44;
+  const vx0=Math.min(...ax)-m,vy0=Math.min(...ay)-m,vw=Math.max(...ax)-Math.min(...ax)+2*m+(sp.q?18:0),vh=Math.max(...ay)-Math.min(...ay)+2*m;
+  let s=`<svg viewBox="${vx0} ${vy0} ${vw} ${vh}" class="lewis" role="img" aria-label="Lewis diagram" style="max-height:${o.live?260:220}px;margin:auto">`;
+  sp.t.forEach((t,i)=>{const a=atoms[0],b=atoms[i+1];const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,px=-uy,py=ux;
+    const ga=a.el.length>1?22:17,gb=b.el.length>1?22:17;const x1=a.x+ux*ga,y1=a.y+uy*ga,x2=b.x-ux*gb,y2=b.y-uy*gb;
+    const offs={1:[0],2:[-4,4],3:[-7,0,7]}[st.bonds[i]]||[0];
+    let g=offs.map(d=>`<line x1="${x1+px*d}" y1="${y1+py*d}" x2="${x2+px*d}" y2="${y2+py*d}" stroke="#1F3A2E" stroke-width="2.2" stroke-linecap="round"/>`).join('');
+    if(o.live)g=`<g data-lb="${o.id}:${i}" tabindex="0" role="button" aria-label="bond to ${t.el}, ${['','single','double','triple'][st.bonds[i]]}"><line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="22" stroke-linecap="round"/>${g}</g>`;
+    s+=g;});
+  atoms.forEach((a,idx)=>{let g='';
+    a.sides.slice(0,a.lp).forEach(side=>{const [vx,vy]=SIDE[side];const off=vx?(a.el.length>1?21:16):17;const cxp=a.x+vx*off,cyp=a.y+vy*off;const qx=-vy,qy=vx;
+      g+=`<circle cx="${cxp+qx*4.5}" cy="${cyp+qy*4.5}" r="2.6" fill="#1F3A2E"/><circle cx="${cxp-qx*4.5}" cy="${cyp-qy*4.5}" r="2.6" fill="#1F3A2E"/>`;});
+    g+=`<text class="sym" x="${a.x}" y="${a.y}" text-anchor="middle" dominant-baseline="central">${a.el}</text>`;
+    if(o.labels){const n=o.labels[idx];g+=`<text class="tagn" x="${a.x+(a.el.length>1?17:12)}" y="${a.y-15}">${n}</text>`;}
+    if(o.live)g=`<g data-la="${o.id}:${a.key}" tabindex="0" role="button" aria-label="${a.el} atom, ${a.lp} lone pairs"><circle class="hit" cx="${a.x}" cy="${a.y}" r="20" fill="transparent" stroke="transparent"/>${g}</g>`;
+    s+=g;});
+  if(sp.q){const xs=atoms.map(a=>a.x),ys=atoms.map(a=>a.y);const x0=Math.min(...xs)-34,x1=Math.max(...xs)+34,y0=Math.min(...ys)-34,y1=Math.max(...ys)+34;
+    s+=`<path d="M${x0+8} ${y0}H${x0}V${y1}H${x0+8}M${x1-8} ${y0}H${x1}V${y1}H${x1-8}" fill="none" stroke="#1F3A2E" stroke-width="1.8"/><text class="sym" style="font-size:16px" x="${x1+4}" y="${y0+8}">${Math.abs(sp.q)>1?Math.abs(sp.q):''}${sp.q>0?'+':'−'}</text>`;}
+  return s+'</svg>';
+}
+function wellSVG(re,De){
+  const W=470,H=320,L=62,Rt=W-14,T=14,B=H-44,xmax=400,ymin=-700,ymax=300;
+  const X=r=>L+r/xmax*(Rt-L),Y=e=>T+(ymax-e)/(ymax-ymin)*(B-T);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="potential energy versus internuclear distance">`;
+  for(let r=0;r<=xmax;r+=25)s+=`<line x1="${X(r)}" y1="${T}" x2="${X(r)}" y2="${B}" stroke="${r%100?'#EEF2EF':'#DCE3DE'}"/>`;
+  for(let e=ymin;e<=ymax;e+=50)s+=`<line x1="${L}" y1="${Y(e)}" x2="${Rt}" y2="${Y(e)}" stroke="${e%100?'#EEF2EF':'#DCE3DE'}"/>`;
+  s+=`<line x1="${L}" y1="${Y(0)}" x2="${Rt}" y2="${Y(0)}" stroke="#1F3A2E" stroke-width="1.2"/><line x1="${L}" y1="${T}" x2="${L}" y2="${B}" stroke="#1F3A2E"/><line x1="${L}" y1="${B}" x2="${Rt}" y2="${B}" stroke="#1F3A2E"/>`;
+  for(let r=0;r<=xmax;r+=50)s+=`<text class="axis" x="${X(r)}" y="${B+15}" text-anchor="middle">${r}</text>`;
+  for(let e=ymin;e<=ymax;e+=100)s+=`<text class="axis" x="${L-6}" y="${Y(e)+4}" text-anchor="end">${e}</text>`;
+  const a=0.02;let d='';for(let r=1;r<=xmax;r+=1){const e=De*((1-Math.exp(-a*(r-re)))**2-1);if(e>ymax)continue;d+=(d?'L':'M')+X(r).toFixed(1)+' '+Y(e).toFixed(1);}
+  s+=`<path d="${d}" fill="none" stroke="#B8924A" stroke-width="2.6"/>`;
+  s+=`<text class="axis" x="${(L+Rt)/2}" y="${H-8}" text-anchor="middle">Internuclear distance (pm)</text><text class="axis" transform="translate(14,${(T+B)/2}) rotate(-90)" text-anchor="middle">Potential energy (kJ/mol)</text></svg>`;
+  return s;
+}
+function latticeSVG(kind,rc,ra,qc){
+  if(kind==='swap')[rc,ra]=[ra,rc];
+  const cols=6,rows=4,s=rc+ra+3,pad=Math.max(rc,ra)+4;const stripeX=2*Math.max(rc,ra)+3;
+  let out=[],w=0,h=0;
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    let x,y=pad+j*s,cat;
+    if(kind==='stripe'){x=pad+i*stripeX;cat=j%2===0;}
+    else if(kind==='pairs'){x=pad+i*s+Math.floor(i/2)*s*0.9+(j%2)*s*0.6;cat=i%2===0;y=pad+j*(2*Math.max(rc,ra)+14);}
+    else{x=pad+i*s;cat=(i+j)%2===0;}
+    out.push([x,y,cat]);w=Math.max(w,x);h=Math.max(h,y);}
+  const sign=c=>(qc>1?qc:'')+(c?'+':'−');
+  let g=out.map(([x,y,c])=>{const r=c?rc:ra;return `<circle cx="${x}" cy="${y}" r="${r}" fill="${c?'#F3E9D6':'#DDE7E1'}" stroke="${c?'#B8924A':'#3A5548'}" stroke-width="1.3"/><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" style="font:500 ${Math.max(9,Math.min(13,r*0.75))}px 'DM Mono',monospace;fill:#1F3A2E">${sign(c)}</text>`;}).join('');
+  const W=w+pad,H=h+pad;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="particle diagram">${g}</svg>`;
+}
+
+/* ---------- RENDER ---------- */
+const $=s=>document.querySelector(s);
+let A={};            // answers by id
+const LB={};         // Lewis builder state by id
+function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;}
+function q(id,pts,prompt,inner){return `<div class="q" data-id="${id}"><span class="pts">${pts} pt${pts>1?'s':''}</span><p class="prompt">${prompt}</p>${inner}</div>`;}
+function numIn(id,unit='',ph='',cls='short'){return `<input class="${cls}" type="text" inputmode="decimal" data-ans="${id}" placeholder="${ph}" autocomplete="off"> <span class="unit">${unit}</span>`;}
+function sel(id,opts){return `<select data-ans="${id}"><option value="">—</option>${opts.map(o=>Array.isArray(o)?`<option value="${o[0]}">${o[1]}</option>`:`<option>${o}</option>`).join('')}</select>`;}
+function mcBlock(m){return q('mc_'+m.id,1,m.q,`<div class="mc">${m.opts.map((o,i)=>`<label><input type="radio" name="mc_${m.id}" value="${i}">${o}</label>`).join('')}</div>`);}
+function sorter(id,rows,choices){return `<div class="sortlist">${rows.map((t,i)=>`<div class="stmt" data-sort="${id}" data-i="${i}"><span class="txt">${t}</span><span class="choice">${choices.map(([v,l])=>`<button type="button" data-v="${v}">${l}</button>`).join('')}</span></div>`).join('')}</div>`;}
+function ranker(id,opts,lo,hi){return `<div class="ranks"><span class="lbl">${lo}</span>${opts.map((_,i)=>`<select data-rank="${id}" data-i="${i}"><option value="">—</option>${opts.map(e=>`<option>${e}</option>`).join('')}</select>`).join('<span class="op">&lt;</span>')}<span class="lbl">${hi}</span></div>`;}
+const BO=[['1','1'],['1.33','1⅓'],['1.5','1½'],['2','2'],['2.5','2½'],['3','3']];
+
+function render(p){
+  const topic=(n,t,body)=>`<section class="topic"><div class="num">§ ${n}</div><h2>${t}</h2>${body}</section>`;
+  const b=p.build.s;
+  LB.q12={bonds:b.bonds.map(()=>1),lp:{c:0,t:b.t.map(()=>0)}};
+  const fcO=fcOrder(p.fc.s); const fcLabels=[]; fcO.forEach((k,i)=>fcLabels[k]=i+1);
+  const lr=RADII[p.lpC]/RADII[p.lpA]; const big=22; const rc=lr>=1?big:Math.max(10,big*lr), ra=lr>=1?Math.max(10,big/lr):big;
+  let h='';
+  h+=topic('2.1','Types of chemical bonds',
+    q('q1',3,`Classify the bonding in each substance.`,sorter('q1',p.cls.map(x=>`<b>${x[0]}</b>`),[['ionic','Ionic'],['covalent','Covalent'],['metallic','Metallic']]))+
+    q('q2',4,`Use the electronegativity values below.`,
+      `<table class="data"><tr><th>Element</th>${[...new Set([...p.dB,...p.pbEls])].sort((a,b)=>EN[a]-EN[b]).map(e=>`<td>${e}</td>`).join('')}</tr><tr><th>Electronegativity</th>${[...new Set([...p.dB,...p.pbEls])].sort((a,b)=>EN[a]-EN[b]).map(e=>`<td class="mono">${EN[e].toFixed(2)}</td>`).join('')}</tr></table>
+       <div class="row"><span class="lbl">For the <b>${p.dB.join('–')}</b> bond, ΔEN =</span>${numIn('q2a','','0.00','tiny')}</div>
+       <div class="row"><span class="lbl">Which atom in the ${p.dB.join('–')} bond carries the partial negative charge (δ−)?</span>${sel('q2b',p.dB)}</div>
+       <div class="row" style="margin-top:12px"><span class="lbl">Rank the bonds <b>${p.pb.join(', ')}</b> by polarity.</span></div>${ranker('q2c',p.pb,'least polar','most polar')}`)+
+    q('q3',2,`Match each solid to the type of bonding that best explains its properties.`,
+      p.solids.map(([d],i)=>`<div class="row"><span class="lbl" style="flex:1 1 300px"><b>Solid ${'WXYZ'[i]}.</b> ${d}</span>${sel('q3_'+i,Object.entries(SOLID_LABEL))}</div>`).join('')));
+  h+=topic('2.2','Intramolecular force and potential energy',
+    q('q4',5,`The graph shows the potential energy of two atoms as a function of the distance between their nuclei.`,
+      wellSVG(p.re,p.De)+
+      `<div class="row" style="margin-top:10px"><span class="lbl">Bond length:</span>${numIn('q4a','pm','','tiny')}</div>
+       <div class="row"><span class="lbl">Bond energy:</span>${numIn('q4b','kJ/mol','','tiny')}</div>
+       <div class="row"><span class="lbl">A bond between the same two elements with a <b>higher bond order</b> would have a well that is</span>${sel('q4c',[['deepleft','deeper, minimum farther left'],['deepright','deeper, minimum farther right'],['shallowleft','shallower, minimum farther left'],['shallowright','shallower, minimum farther right']])}</div>`)+
+    mcBlock(p.mc.find(m=>m.id==='well'))+
+    q('q5',2,`Rank the <b>${p.blBond}</b> bonds in <b>${p.bl.join(', ')}</b> by length. <small>Draw the Lewis diagrams on scratch paper and count the shared pairs. If a species has resonance, use the average.</small>`,
+      ranker('q5',p.bl,'shortest','longest'))+
+    q('q6',2,`Rank <b>${p.le.join(', ')}</b> by lattice energy. <small>Charges first. Only use size to break a tie.</small>`,
+      ranker('q6',p.le,'smallest','largest'))+
+    mcBlock(p.mc.find(m=>m.id==='coul')));
+  h+=topic('2.3','Structure of ionic solids',
+    q('q7',2,`In solid <b>${p.lpC}${p.lpA}</b>, the radius of ${p.lpC}${p.lpQ>1?'<sup>2+</sup>':'<sup>+</sup>'} is ${RADII[p.lpC]} pm and the radius of ${p.lpA}${p.lpQ>1?'<sup>2−</sup>':'<sup>−</sup>'} is ${RADII[p.lpA]} pm. Click the diagram that best represents a small part of the solid.`,
+      `<div class="picks">${p.lpOrder.map((k,i)=>`<div class="pick" data-pick="q7" data-v="${k}" tabindex="0" role="button"><span class="tag">${'ABCD'[i]}</span>${latticeSVG(k,rc,ra,p.lpQ)}</div>`).join('')}</div>`)+
+    q('q8',2,`Which of these conduct electricity?`,sorter('q8',p.cond.map(x=>x[0]),[['yes','Conducts'],['no','Does not']]))+
+    mcBlock(p.mc.find(m=>m.id==='fu'))+mcBlock(p.mc.find(m=>m.id==='brittle')));
+  h+=topic('2.4','Structure of metals and alloys',
+    q('q9',3,`Each element below is mixed into <b>${NAMES[p.host]} (${p.host})</b>. Decide what kind of alloy each one forms.`,
+      `<table class="data"><tr><th>Element</th><td>${p.host}</td>${p.alloy.map(x=>`<td>${x[0]}</td>`).join('')}</tr><tr><th>Atomic radius (pm)</th><td class="mono">${ALLOY[p.host].r}</td>${p.alloy.map(x=>`<td class="mono">${x[1]}</td>`).join('')}</tr></table>`+
+      sorter('q9',p.alloy.map(x=>`${p.host} with <b>${x[0]}</b>`),[['sub','Substitutional'],['inter','Interstitial']]))+
+    q('q10',2,`Rank <b>${p.melt.join(', ')}</b> by melting point. <small>Think about how many electrons each atom adds to the sea and how big the cations are.</small>`,
+      ranker('q10',p.melt,'lowest','highest'))+
+    mcBlock(p.mc.find(m=>m.id==='mg'))+mcBlock(p.mc.find(m=>m.id==='steel')));
+  h+=topic('2.5','Lewis diagrams',
+    q('q11',2,`How many valence electrons are shown in the Lewis diagram of each species?`,
+      p.ve.map((v,i)=>`<div class="row"><span class="lbl"><b>${v[0]}</b></span>${numIn('q11'+'ab'[i],'electrons','','tiny')}</div>`).join(''))+
+    q('q12',3,`Finish the Lewis diagram for <b>${p.build.f}</b>. The skeleton is drawn with single bonds. <small>Click a bond to make it double or triple. Click an atom to add lone pairs. Every atom should end with the right number of electrons.</small>`,
+      `<div class="lewisbox" data-lewis="q12">${lewisSVG(b,LB.q12,{live:true,id:'q12'})}</div><div class="row"><span class="lbl" id="q12-count"></span><button type="button" class="btn ghost small" id="q12-reset">Start over</button></div>`)+
+    q('q13',3,`How many valence electrons surround the central atom in the Lewis diagram of each species?`,
+      sorter('q13',p.oct.map(x=>`<b>${x[0]}</b>`),[['fewer','Fewer than 8'],['eight','Exactly 8'],['more','More than 8']]))+
+    mcBlock(p.mc.find(m=>m.id==='dative')));
+  h+=topic('2.6','Resonance and formal charge',
+    q('q14',3,`Here is one Lewis diagram for <b>${p.fc.f}</b>. Find the formal charge on every atom. <small>FC = valence electrons − lone pair electrons − bonds. Type numbers like +1, 0, −1.</small>`,
+      `<div class="lewisbox">${lewisSVG(p.fc.s,p.fc.s,{labels:fcLabels})}</div>`+
+      fcO.map((k,i)=>`<div class="row"><span class="lbl">Atom ${i+1} (${atomEl(p.fc.s,k)}):</span>${numIn('q14_'+i,'','','tiny')}</div>`).join(''))+
+    q('q15',2,`Three Lewis diagrams for <b>${p.best.f}</b> are shown. Based on formal charge, click the best one.`,
+      `<div class="picks three">${p.bestOrder.map((k,i)=>`<div class="pick" data-pick="q15" data-v="${k}" tabindex="0" role="button"><span class="tag">${'ABC'[i]}</span>${lewisSVG(p.best.forms[k][1],p.best.forms[k][1])}</div>`).join('')}</div>`)+
+    q('q16',2,`Think about the resonance structures of <b>${p.res[0]}</b>.`,
+      `<div class="row"><span class="lbl">How many equivalent resonance structures does it have?</span>${numIn('q16a','','','tiny')}</div>
+       <div class="row"><span class="lbl">The average ${p.res[3]} bond order is</span>${sel('q16b',BO)}</div>`)+
+    mcBlock(p.mc.find(m=>m.id==='hybrid'))+
+    q('q17',3,`Compare the ${p.pair[2]} bonds in <b>${p.pair[0]}</b> and <b>${p.pair[1]}</b>.`,
+      `<div class="row"><span class="lbl">${p.pair[2]} bond order in ${p.pair[0]}:</span>${sel('q17a',BO)}<span class="lbl">in ${p.pair[1]}:</span>${sel('q17b',BO)}</div>
+       <div class="row"><span class="lbl">So the ${p.pair[2]} bonds in ${p.pair[0]} are</span>${sel('q17c',[['shorter','shorter than'],['same','the same length as'],['longer','longer than']])}<span class="lbl">those in ${p.pair[1]}.</span></div>`));
+  h+=topic('2.7','VSEPR and bond hybridization',
+    q('q18',10,`Predict the structure of each species. <small>Draw the Lewis diagram first, then count electron domains around the central atom. A double or triple bond counts as one domain.</small>`,
+      p.vs.map((v,i)=>`<div class="vrow"><div class="f">${v.f}${v.big?` <small class="lbl">(central atom: ${v.bonds} bonds, ${v.lone} lone pair${v.lone===1?'':'s'})</small>`:''}</div>
+        <div class="row"><span class="lbl">Electron domains:</span>${numIn(`q18_${i}d`,'','','tiny')}<span class="lbl">Molecular shape:</span>${sel(`q18_${i}s`,SHAPES)}</div>
+        ${v.big?'':`<div class="row"><span class="lbl">Bond angle:</span>${sel(`q18_${i}a`,ANGLES)}<span class="lbl">Central atom hybridization:</span>${sel(`q18_${i}h`,HYBS)}</div>`}</div>`).join(''))+
+    q('q19',3,`Think about one molecule of <b>${p.sp[0]}</b>.`,
+      `<div class="row"><span class="lbl">σ bonds:</span>${numIn('q19a','','','tiny')}<span class="lbl">π bonds:</span>${numIn('q19b','','','tiny')}</div>
+       <div class="row"><span class="lbl">Hybridization of ${p.sp[3]}:</span>${sel('q19c',HYBS)}</div>`)+
+    q('q20',2,`Is each molecule polar or nonpolar? <small>Shape first, then ask whether the bond dipoles cancel.</small>`,
+      sorter('q20',p.pol.map(x=>`<b>${x[0]}</b>`),[['polar','Polar'],['nonpolar','Nonpolar']]))+
+    mcBlock(p.mc.find(m=>m.id==='lp')));
+  h+=topic('U1','Unit 1 review',
+    q('q21',2,`How many total atoms are in <b>${p.moln.toFixed(2)} mol</b> of <b>${p.mol[0]}</b>?`,`<div class="row">${numIn('q21','atoms','e.g. 1.23e23')}</div>`)+
+    q('q22',2,`Element Z has the ground-state electron configuration <b>${p.cfg[0]}</b>. What is the most likely formula of the compound Z forms with <b>${p.partner[0]}</b>? <small>Use Z as its symbol.</small>`,
+      `<div class="row"><input class="short" type="text" data-ans="q22" autocomplete="off" spellcheck="false" placeholder="e.g. ZCl2"></div>`));
+  $('#main').innerHTML=h;
+  wire();
+  updateCount();
+}
+
+/* ---------- INTERACTION ---------- */
+function renderLewis(id){const box=document.querySelector(`[data-lewis="${id}"]`);box.innerHTML=lewisSVG(P.build.s,LB[id],{live:true,id});updateCount();}
+function updateCount(){const st=LB.q12;if(!st)return;const n=2*(st.bonds.reduce((s,b)=>s+b,0)+st.lp.c+st.lp.t.reduce((s,x)=>s+x,0));const c=$('#q12-count');if(c)c.textContent=`Electrons drawn: ${n}`;}
+function maxLp(sp,key){return key==='c'?centralSides(sp).length:3;}
+function wire(){
+  document.querySelectorAll('.stmt button').forEach(b=>b.addEventListener('click',()=>{b.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}));
+  document.querySelectorAll('.pick').forEach(c=>{const f=()=>{document.querySelectorAll(`.pick[data-pick="${c.dataset.pick}"]`).forEach(x=>x.classList.remove('sel'));c.classList.add('sel');};
+    c.addEventListener('click',f);c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f();}});});
+  const box=document.querySelector('[data-lewis="q12"]');
+  const act=t=>{if(document.body.classList.contains('done'))return;const bEl=t.closest('[data-lb]'),aEl=t.closest('[data-la]');const st=LB.q12,sp=P.build.s;
+    if(bEl){const i=+bEl.dataset.lb.split(':')[1];st.bonds[i]=st.bonds[i]%3+1;}
+    else if(aEl){const k=aEl.dataset.la.split(':')[1];const m=maxLp(sp,k);if(k==='c')st.lp.c=(st.lp.c+1)%(m+1);else{const i=+k.slice(1);st.lp.t[i]=(st.lp.t[i]+1)%(m+1);}}
+    else return;
+    const focus=bEl?`[data-lb="${bEl.dataset.lb}"]`:`[data-la="${aEl.dataset.la}"]`;renderLewis('q12');const f=box.querySelector(focus);if(f&&document.activeElement!==document.body)f.focus();queueSave();};
+  box.addEventListener('click',e=>act(e.target));
+  box.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act(e.target);}});
+  $('#q12-reset').addEventListener('click',()=>{const sp=P.build.s;LB.q12={bonds:sp.bonds.map(()=>1),lp:{c:0,t:sp.t.map(()=>0)}};renderLewis('q12');});
+}
+
+function collect(){
+  document.querySelectorAll('[data-ans]').forEach(i=>A[i.dataset.ans]=i.value.trim());
+  const ids=attr=>[...new Set([...document.querySelectorAll(`[${attr}]`)].map(x=>x.getAttribute(attr)))];
+  ids('data-sort').forEach(id=>{A[id]=[...document.querySelectorAll(`.stmt[data-sort="${id}"]`)].map(r=>{const on=r.querySelector('button.on');return on?on.dataset.v:null;});});
+  ids('data-rank').forEach(id=>{A[id]=[...document.querySelectorAll(`select[data-rank="${id}"]`)].map(s=>s.value);});
+  ids('data-pick').forEach(id=>{const s=document.querySelector(`.pick[data-pick="${id}"].sel`);A[id]=s?s.dataset.v:'';});
+  A.q12=JSON.parse(JSON.stringify(LB.q12));
+  A.q3=P.solids.map((_,i)=>A['q3_'+i]);
+  A.q14=fcOrder(P.fc.s).map((_,i)=>A['q14_'+i]);
+  document.querySelectorAll('input[type=radio]:checked').forEach(r=>{const m=P.mc.find(x=>'mc_'+x.id===r.name);A[r.name]=m.opts[+r.value];});
+}
+
+/* ---------- SUBMIT ---------- */
+async function submit(){
+  collect(); const list=items(P); let score=0,max=0; const detail={};
+  for(const it of list){const got=it.grade(A[it.id]);score+=got;max+=it.pts;detail[it.id]={got,pts:it.pts};
+    const box=document.querySelector(`.q[data-id="${it.box}"]`);
+    if(box){ const fb=el(`<div class="fb ${got===it.pts?'ok':'no'}"><b>${it.id}:</b> ${got}/${it.pts}${got===it.pts?'':'. Answer: '+it.key}</div>`); box.appendChild(fb); }
+  }
+  document.querySelectorAll('.q').forEach(b=>{const fbs=[...b.querySelectorAll('.fb')];if(!fbs.length)return;b.classList.add(fbs.every(f=>f.classList.contains('ok'))?'right':'wrong');});
+  $('#submit').disabled=true; document.body.classList.add('done'); document.querySelectorAll('#main input,#main select,#main button').forEach(x=>{x.disabled=true;});
+  const pct=Math.round(score/max*100);
+  $('#resultBox').innerHTML=`<h2>Turned in</h2><div class="big">${score} / ${max}</div><p class="note">${pct}%. Scroll up. Every item now shows the answer for your questions. Anything red is what to study tonight.</p><p class="note" id="saveState">Saving…</p>`;
+  $('#resultBox').classList.remove('hidden');
+  const first=$('#first').value.trim().replace(/\s+/g,' '), last=$('#last').value.trim().replace(/\s+/g,' ');
+  const payload={student_name:first+' '+last,first_name:first,last_name:last,program:$('#program').value,period:$('#period').value,seed:P.seed,score,max_score:max,answers:{...A,detail}};
+  try{ const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(!r.ok)throw new Error(await r.text());
+    $('#saveState').textContent='Saved to Mr. Casanova\'s gradebook feed.'; }
+  catch(err){ $('#saveState').innerHTML=`Could not save automatically. Show this screen to Mr. Casanova, or screenshot it. <span style="opacity:.7">(${String(err).slice(0,80)})</span>`; }
+  $('#resultBox').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------- CROSS-COMPUTER PROGRESS (saved to the server) ---------- */
+function progressPayload(){ collect(); return JSON.stringify({seed:P.seed,program:$('#program').value,period:$('#period').value,student_name:$('#first').value.trim().replace(/\s+/g,' ')+' '+$('#last').value.trim().replace(/\s+/g,' '),answers:A}); }
+let saveTimer=null;
+function queueSave(){ if($('#submit').disabled)return; clearTimeout(saveTimer); saveTimer=setTimeout(saveProgress,1500); }
+async function saveProgress(){ if($('#submit').disabled)return;
+  try{ const r=await fetch(API+'/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:progressPayload()});
+    if(r.ok)$('#status').textContent='Progress saved. You can close this and finish on any computer.'; }catch(e){}
+}
+async function loadProgress(){
+  try{ const r=await fetch(`${API}/progress?seed=${P.seed}&program=${encodeURIComponent($('#program').value)}`); if(!r.ok)return;
+    const d=await r.json(); if(d&&d.answers&&Object.keys(d.answers).length){ restore(d.answers); $('#status').textContent='Welcome back. Your saved answers were restored.'; } }catch(e){}
+}
+function restore(S){
+  document.querySelectorAll('[data-ans]').forEach(i=>{ const v=S[i.dataset.ans]; if(typeof v==='string')i.value=v; });
+  document.querySelectorAll('.stmt[data-sort]').forEach(r=>{ const arr=S[r.dataset.sort]; const v=Array.isArray(arr)?arr[+r.dataset.i]:null; if(!v)return; const b=r.querySelector(`button[data-v="${v}"]`); if(b)b.classList.add('on'); });
+  document.querySelectorAll('select[data-rank]').forEach(s=>{ const arr=S[s.dataset.rank]; const v=Array.isArray(arr)?arr[+s.dataset.i]:''; if(v)s.value=v; });
+  document.querySelectorAll('.pick[data-pick]').forEach(c=>{ if(S[c.dataset.pick]===c.dataset.v)c.classList.add('sel'); });
+  const st=S.q12, sp=P.build.s;
+  if(st&&Array.isArray(st.bonds)&&st.bonds.length===sp.t.length&&st.lp&&Array.isArray(st.lp.t)&&st.lp.t.length===sp.t.length){ LB.q12=st; renderLewis('q12'); }
+  P.mc.forEach(m=>{ const v=S['mc_'+m.id]; if(!v)return; const i=m.opts.indexOf(v); if(i<0)return; const r=document.querySelector(`input[name="mc_${m.id}"][value="${i}"]`); if(r)r.checked=true; });
+}
+
+/* ---------- REMEMBER WHO THEY ARE ---------- */
+const ID_KEY='apchem_u2_identity';
+function saveIdentity(){ try{ localStorage.setItem(ID_KEY,JSON.stringify({first:$('#first').value,last:$('#last').value,program:$('#program').value,period:$('#period').value})); }catch(e){} }
+function loadIdentity(){ try{ const d=JSON.parse(localStorage.getItem(ID_KEY)||localStorage.getItem('apchem_u1_identity')); if(!d)return; if(d.first)$('#first').value=d.first; if(d.last)$('#last').value=d.last; if(d.program)$('#program').value=d.program; if(d.period)$('#period').value=d.period; }catch(e){} }
+loadIdentity();
+['first','last','program','period'].forEach(id=>{ const f=document.getElementById(id); f.addEventListener('input',saveIdentity); f.addEventListener('change',saveIdentity); });
+
+/* ---------- START ---------- */
+$('#start').addEventListener('click',()=>{
+  const first=$('#first').value.trim().replace(/\s+/g,' '); const last=$('#last').value.trim().replace(/\s+/g,' ');
+  const name=first+' '+last; const per=$('#period').value; const prog=$('#program').value;
+  if(!first||!last){alert('Enter your first and last name.');return;} if(!prog){alert('Pick HS or AC.');return;} if(!per){alert('Pick your period.');return;}
+  const seed=hashStr(name.toLowerCase()+'|'+per+'|u2')>>>0; P=buildPaper(seed); P.seed=seed;
+  $('#first').disabled=true;$('#last').disabled=true;$('#period').disabled=true;$('#program').disabled=true;$('#start').classList.add('hidden');
+  render(P); $('#main').classList.remove('hidden'); $('#foot').classList.remove('hidden');
+  loadProgress();
+  $('#main').addEventListener('input',queueSave);
+  $('#main').addEventListener('change',queueSave);
+  $('#main').addEventListener('click',queueSave);
+  const key=new URLSearchParams(location.search).get('key');
+  if(key===TEACHER_KEY){ const list=items(P); const kb=el(`<div class="q" style="border-color:var(--gold)"><p class="prompt">Answer key for ${name}, ${prog} period ${per} (seed ${seed})</p>${list.map(i=>`<div class="lbl"><b>${i.id}</b> (${i.pts}): ${i.key}</div>`).join('')}</div>`); $('#main').prepend(kb); }
+});
+$('#submit').addEventListener('click',()=>{ collect(); const blanks=Object.entries(A).filter(([k,v])=>v===''||v===null).length; if(blanks&&!confirm(`You left ${blanks} answer${blanks>1?'s':''} blank. Turn in anyway?`))return; submit(); });
+window.addEventListener('beforeunload',e=>{ if(!$('#main').classList.contains('hidden')&&!$('#submit').disabled){e.preventDefault();e.returnValue='';} });
+window.addEventListener('pagehide',()=>{ if(!$('#main').classList.contains('hidden')&&!$('#submit').disabled){ try{ navigator.sendBeacon(API+'/progress',new Blob([progressPayload()],{type:'application/json'})); }catch(e){} } });
+</script>
+</body>
+</html>
