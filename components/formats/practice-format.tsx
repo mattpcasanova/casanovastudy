@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -84,7 +84,14 @@ export function PracticeSession({
 }) {
   const inline = variant === 'inline'
   const [subset, setSubset] = useState<string[] | null>(null)
-  const activities = useMemo(() => (subset ? all.filter((a) => subset.includes(a.id)) : all), [all, subset])
+  // Activities the student put off ("Come back to it") move to the end of the run.
+  const [later, setLater] = useState<string[]>([])
+  const activities = useMemo(() => {
+    const base = subset ? all.filter((a) => subset.includes(a.id)) : all
+    if (later.length === 0) return base
+    const putOff = later.map((id) => base.find((a) => a.id === id)).filter((a): a is PracticeActivity => !!a)
+    return [...base.filter((a) => !later.includes(a.id)), ...putOff]
+  }, [all, subset, later])
   const [index, setIndex] = useState(0)
   const [results, setResults] = useState<Record<string, Outcome>>({})
   const [checked, setChecked] = useState(false)
@@ -130,8 +137,16 @@ export function PracticeSession({
     advance()
   }
 
+  // Send the current activity to the end; the next one slides into its place.
+  const comeBackLater = () => {
+    if (!current) return
+    setLater((l) => [...l.filter((id) => id !== current.id), current.id])
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
   const restart = (ids: string[] | null) => {
     setSubset(ids)
+    setLater([])
     logged.current = new Set()
     setResults({})
     setIndex(0)
@@ -238,9 +253,17 @@ export function PracticeSession({
       </div>
       <div className={cn('flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60', inline ? 'px-5 py-2.5 sm:px-6' : 'px-5 py-3 sm:px-7')}>
         {!checked ? (
-          <button type="button" onClick={skip} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
-            <SkipForward className="h-4 w-4" /> Skip
-          </button>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* Only worth offering while something comes after it. */}
+            {index < activities.length - 1 && (
+              <button type="button" onClick={comeBackLater} title="Move this to the end and come back to it" className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-900">
+                <Flag className="h-4 w-4" /> Come back to it
+              </button>
+            )}
+            <button type="button" onClick={skip} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
+              <SkipForward className="h-4 w-4" /> Skip
+            </button>
+          </div>
         ) : <span />}
         {checked && (
           <Button onClick={advance} size={inline ? 'sm' : 'default'} className="bg-orange-500 text-white hover:bg-orange-600">
@@ -295,6 +318,7 @@ export function PracticeSession({
           <div className="flex flex-wrap items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-white"><Icon className="h-4 w-4" /></span>
             <span className={cn(eyebrow, 'text-orange-700')}>{meta.label}</span>
+            {later.includes(current.id) && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><Flag className="h-3 w-3" /> Back to this one</span>}
             {current.topic && <span className="ml-auto max-w-[55%] truncate rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{current.topic}</span>}
           </div>
         </div>

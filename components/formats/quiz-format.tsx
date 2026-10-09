@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles, Flag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill, type GuidePrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
@@ -57,6 +57,14 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
   const [scoring, setScoring] = useState<Record<string, boolean>>({})
   const [finished, setFinished] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Questions the student flagged to come back to (stuck, or wants another look).
+  const [marked, setMarked] = useState<Set<string>>(new Set())
+  const toggleMark = (id: string) => setMarked((m) => {
+    const next = new Set(m)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
 
   const current = questions[Math.min(index, questions.length - 1)]
 
@@ -133,6 +141,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     setAnswers({})
     setChecked({})
     setSaScores({})
+    setMarked(new Set())
     setIndex(0)
     setFinished(false)
   }
@@ -143,7 +152,11 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return
     if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1))
     else if (e.key === 'ArrowRight') setIndex((i) => Math.min(questions.length - 1, i + 1))
-  }, [finished, questions.length])
+    else if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const q = questions[Math.min(index, questions.length - 1)]
+      if (q) toggleMark(q.id)
+    }
+  }, [finished, questions, index])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
@@ -167,12 +180,16 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
   }
 
   if (finished) {
-    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} />
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} />
   }
 
   const answeredCount = questions.filter((q) => status(q) !== 'open').length
   const revealed = mode === 'practice' && !!checked[current.id]
   const isLast = index === questions.length - 1
+  const isMarked = marked.has(current.id)
+  // Marked questions in quiz order, for the "go back" chips.
+  const markedList = questions.map((q, i) => ({ q, i })).filter(({ q }) => marked.has(q.id))
+  const nextMarked = markedList.find(({ i }) => i > index) ?? markedList.find(({ i }) => i !== index)
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
@@ -191,6 +208,17 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
           <p className="text-sm text-slate-600">
             <span className="font-semibold text-slate-900">{answeredCount}</span> of {questions.length} answered
             {subset && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">Retrying missed</span>}
+            {markedList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => nextMarked && setIndex(nextMarked.i)}
+                disabled={!nextMarked}
+                title={nextMarked ? `Go to question ${nextMarked.i + 1}` : undefined}
+                className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200 transition enabled:hover:bg-amber-100"
+              >
+                <Flag className="h-3 w-3 fill-amber-400 text-amber-600" /> {markedList.length} marked
+              </button>
+            )}
           </p>
           <div className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
             {([['practice', Zap, 'Practice'], ['test', ClipboardList, 'Test']] as const).map(([m, Icon, label]) => (
@@ -206,7 +234,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
             ))}
           </div>
         </div>
-        <Navigator questions={questions} index={index} status={status} onJump={setIndex} />
+        <Navigator questions={questions} index={index} status={status} marked={marked} onJump={setIndex} />
       </div>
 
       {/* Question */}
@@ -215,7 +243,22 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
           <span className={cn(eyebrow, 'text-purple-700')}>Question {index + 1}</span>
           <span className="text-slate-300">·</span>
           <span className="text-xs font-medium text-slate-500">{TYPE_LABEL[current.type]}</span>
-          {current.section && <span className="ml-auto max-w-[60%] truncate rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{current.section}</span>}
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            {current.section && <span className="min-w-0 max-w-[14rem] truncate rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 sm:max-w-xs">{current.section}</span>}
+            <button
+              type="button"
+              onClick={() => toggleMark(current.id)}
+              aria-pressed={isMarked}
+              title={isMarked ? 'Remove the mark (M)' : 'Mark this question to come back to (M)'}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition',
+                isMarked ? 'bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-300' : 'text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:text-slate-800'
+              )}
+            >
+              <Flag className={cn('h-3.5 w-3.5', isMarked && 'fill-amber-400 text-amber-600')} />
+              {isMarked ? 'Marked' : 'Mark for later'}
+            </button>
+          </div>
         </div>
         <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
           <QuestionStem text={current.question} />
@@ -301,6 +344,19 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
         )}
       </div>
 
+      {/* Before finishing: a nudge back to anything marked */}
+      {isLast && markedList.some(({ i }) => i !== index) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200 print:hidden">
+          <Flag className="h-4 w-4 shrink-0 fill-amber-400 text-amber-600" />
+          <span>You marked {markedList.length === 1 ? 'a question' : `${markedList.length} questions`} to come back to:</span>
+          {markedList.filter(({ i }) => i !== index).map(({ q, i }) => (
+            <button key={q.id} type="button" onClick={() => setIndex(i)} className="rounded-md bg-white px-2 py-0.5 font-semibold tabular-nums text-amber-800 ring-1 ring-inset ring-amber-300 hover:bg-amber-100">
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="flex items-center justify-between gap-4 print:hidden">
         <Button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} variant="ghost" className="text-slate-600">
@@ -378,7 +434,7 @@ const STATUS_DOT = {
   open: 'bg-slate-100 text-slate-500 hover:bg-slate-200',
 } as const
 
-function Navigator({ questions, index, status, onJump }: { questions: Question[]; index: number; status: (q: Question) => keyof typeof STATUS_DOT; onJump: (i: number) => void }) {
+function Navigator({ questions, index, status, marked, onJump }: { questions: Question[]; index: number; status: (q: Question) => keyof typeof STATUS_DOT; marked: Set<string>; onJump: (i: number) => void }) {
   // Group consecutive questions by section so the navigator mirrors the quiz's topics.
   const groups: Array<{ section: string; items: Array<{ q: Question; i: number }> }> = []
   questions.forEach((q, i) => {
@@ -400,15 +456,18 @@ function Navigator({ questions, index, status, onJump }: { questions: Question[]
                 key={q.id}
                 type="button"
                 onClick={() => onJump(i)}
-                aria-label={`Question ${i + 1}`}
+                aria-label={`Question ${i + 1}${marked.has(q.id) ? ', marked' : ''}`}
                 aria-current={i === index}
                 className={cn(
-                  'h-9 w-9 rounded-lg text-xs font-semibold tabular-nums transition sm:h-8 sm:w-8',
+                  'relative h-9 w-9 rounded-lg text-xs font-semibold tabular-nums transition sm:h-8 sm:w-8',
                   STATUS_DOT[status(q)],
                   i === index && 'ring-2 ring-purple-500 ring-offset-2'
                 )}
               >
                 {i + 1}
+                {marked.has(q.id) && (
+                  <Flag aria-hidden className="absolute -right-1 -top-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-600 drop-shadow-sm" />
+                )}
               </button>
             ))}
           </div>
@@ -520,12 +579,13 @@ function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScor
   )
 }
 
-function QuizResults({ questions, answers, saScores, status, onRestart, isRetry, guide }: {
+function QuizResults({ questions, answers, saScores, status, marked, onRestart, isRetry, guide }: {
   guide: { title: string; subject: string; gradeLevel?: string }
   questions: Question[]
   answers: Record<string, string>
   saScores: Record<string, ShortAnswerScore>
   status: (q: Question) => 'correct' | 'wrong' | 'answered' | 'open'
+  marked: Set<string>
   onRestart: (ids: string[] | null) => void
   isRetry: boolean
 }) {
@@ -585,6 +645,11 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
                   <Sparkles className="mr-2 h-4 w-4" /> New quiz on what I missed
                 </Button>
               )}
+              {marked.size > 0 && (
+                <Button onClick={() => onRestart(questions.filter((q) => marked.has(q.id)).map((q) => q.id))} variant="outline" className="border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900">
+                  <Flag className="mr-2 h-4 w-4" /> Retry {marked.size} marked
+                </Button>
+              )}
               <Button onClick={() => onRestart(null)} variant="outline">Start over</Button>
             </div>
           </div>
@@ -624,6 +689,9 @@ function QuizResults({ questions, answers, saScores, status, onRestart, isRetry,
                     {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
                   </span>
                   <div className="min-w-0 flex-1 text-sm">
+                    {marked.has(q.id) && (
+                      <p className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><Flag className="h-3 w-3 fill-amber-400 text-amber-600" /> You marked this one</p>
+                    )}
                     <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <QuestionStem text={q.question} listClassName="text-sm" /></p>
                     {q.figure && !ok && <div className="max-w-sm"><GraphFence text={q.figure} compact /></div>}
                     {q.type !== 'sa' && (
