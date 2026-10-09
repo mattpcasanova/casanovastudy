@@ -15,6 +15,11 @@ import { consentBlockResponse } from '@/lib/consent'
 
 const MAX_TURNS = 12
 const MAX_CHARS = 6000
+// Photos of the student's work ("Check my work"): JPEGs prepared in the
+// browser (~1568px long edge), at most the 2 most recent kept per request.
+const MAX_IMAGE_CHARS = 2_500_000
+const MAX_IMAGES = 2
+const JPEG_DATA_URL = /^data:image\/jpeg;base64,(\/9j\/[A-Za-z0-9+/=]+)$/
 
 export async function POST(request: NextRequest) {
   const user = await getRequestUser(request)
@@ -22,13 +27,24 @@ export async function POST(request: NextRequest) {
   const consentBlock = await consentBlockResponse(user.id) // under-13s need a parent's OK first
   if (consentBlock) return consentBlock
 
-  let body: { studyGuideId?: string; turns?: ExplainTurn[] }
+  let body: { studyGuideId?: string; turns?: Array<{ role?: string; content?: unknown; image?: unknown }> }
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
 
-  const turns = (Array.isArray(body.turns) ? body.turns : [])
+  const turns: ExplainTurn[] = (Array.isArray(body.turns) ? body.turns : [])
     .filter((t) => (t.role === 'user' || t.role === 'assistant') && typeof t.content === 'string' && t.content.trim())
     .slice(-MAX_TURNS)
-    .map((t) => ({ role: t.role, content: t.content.slice(0, MAX_CHARS) }))
+    .map((t) => {
+      const turn: ExplainTurn = { role: t.role as ExplainTurn['role'], content: (t.content as string).slice(0, MAX_CHARS) }
+      const img = t.role === 'user' && typeof t.image === 'string' && t.image.length <= MAX_IMAGE_CHARS ? t.image.match(JPEG_DATA_URL)?.[1] : undefined
+      if (img) turn.image = img
+      return turn
+    })
+  // Only the latest photos go to the model; older ones are referred to in words.
+  let kept = 0
+  for (let i = turns.length - 1; i >= 0; i--) {
+    if (!turns[i].image) continue
+    if (++kept > MAX_IMAGES) { delete turns[i].image; turns[i].content += '\n(I attached a photo here earlier.)' }
+  }
   if (!turns.length || turns[0].role !== 'user' || turns[turns.length - 1].role !== 'user') {
     return NextResponse.json({ error: 'Nothing to explain' }, { status: 400 })
   }

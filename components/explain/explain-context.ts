@@ -7,7 +7,8 @@
 import { createContext, useContext } from 'react'
 
 /** What to ask: `label` is shown in the thread, `prompt` is sent to the AI. */
-export interface ExplainRequest { label: string; prompt: string }
+/** `image`: an optional photo (JPEG data URL) sent with the prompt, e.g. the student's working. */
+export interface ExplainRequest { label: string; prompt: string; image?: string }
 export interface ExplainApi { ask: (req: ExplainRequest) => void }
 
 export const ExplainContext = createContext<ExplainApi | null>(null)

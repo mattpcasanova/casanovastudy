@@ -26,7 +26,7 @@ function previewMarkdown(raw: string, format: string): string {
     md = md
       .replace(/^\s*(?:\*\*)?(MC|TF|SA)_QUESTION:(?:\*\*)?\s*/gm, "\n**Question.** ")
       .replace(/^\s*([A-F])\)\s+/gm, "- **$1.** ")
-      .replace(/^\s*(Correct Answer|Answer|Sample Answer|Explanation):.*$/gim, "")
+      .replace(/^\s*(Correct Answer|Answer|Sample Answer|Explanation|Hint):.*$/gim, "")
   } else if (format === "plan") {
     md = md
       .replace(/^\s*(?:\*\*)?UNIT:(?:\*\*)?\s*(.*)$/gim, "\n### $1")
@@ -35,7 +35,7 @@ function previewMarkdown(raw: string, format: string): string {
     md = md
       .replace(/^\s*(?:\*\*)?(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION):(?:\*\*)?\s*/gm, (_m, kind: string) => `\n**${{ MATCH: "Match", FILL: "Fill in", ORDER: "Order", SORT: "Sort", MC_QUESTION: "Question", TF_QUESTION: "True or false" }[kind.toUpperCase()] ?? kind}.** `)
       .replace(/\{\{([^{}|]+)[^{}]*\}\}/g, "_____")
-      .replace(/^\s*(Correct Answer|Answer|Explanation):.*$/gim, "")
+      .replace(/^\s*(Correct Answer|Answer|Explanation|Hint):.*$/gim, "")
   } else if (format === "timeline") {
     md = md
       .replace(/^\s*(?:\*\*)?EVENT:(?:\*\*)?\s*(.*)$/gim, (_m, v: string) => `\n**${v.replace(/\s*\|\s*/, " · ")}**`)
@@ -46,7 +46,7 @@ function previewMarkdown(raw: string, format: string): string {
       .replace(/^\s*(?:\*\*)?LESSON:(?:\*\*)?\s*(.*)$/gim, "*$1*")
       .replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*([123])\s*\|\s*(\w+).*$/gim, (_m, lvl: string, type: string) => `\n**${type.toLowerCase() === "explain" ? "In your own words" : ["Warm-up", "Core", "Challenge"][Number(lvl) - 1]} question.** `)
       .replace(/^\s*([A-F])\)\s+/gm, "- **$1.** ")
-      .replace(/^\s*(?:\*\*)?(ANSWER|IF\s+[A-F]|EXPLANATION):.*$/gim, "")
+      .replace(/^\s*(?:\*\*)?(ANSWER|IF\s+[A-F]|HINT|EXPLANATION):.*$/gim, "")
   } else if (format === "flashcards") {
     md = md.replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*/gm, "\n**Q:** ").replace(/\n\s*(?:\*\*)?A:(?:\*\*)?\s*/g, "  \n**A:** ") // hard break → answer on its own line
   }

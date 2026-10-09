@@ -9,7 +9,8 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import { loadProgress, saveProgress } from '@/lib/progress'
 import { buildSession, gradeItem, summarize, MASTERED_BOX, type ItemState, type LearnState } from '@/lib/learn/scheduler'
-import { ActivityBody, activityMeta } from '@/components/formats/practice-format'
+import { ActivityBody, activityAnswer, activityMeta, activityQuestion } from '@/components/formats/practice-format'
+import { CheckWorkButton } from '@/components/explain/tutor-help'
 import { InlineMarkdown, StudyMarkdown } from '@/components/formats/study-markdown'
 import { ExplanationText } from '@/components/formats/explanation-text'
 import { QuestionStem } from '@/components/formats/question-stem'
@@ -337,6 +338,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
               )}
               <div className="flex flex-wrap gap-2">
                 <ExplainButton build={() => activityAsk(current.activity)}>{lastCorrect ? 'Explain more' : 'Why?'}</ExplainButton>
+                {!lastCorrect && (current.activity.kind === 'choice' || current.activity.kind === 'fill') && <CheckWorkButton question={activityQuestion(current.activity)} correctAnswer={activityAnswer(current.activity)} />}
                 {(current.activity.kind === 'choice' || current.activity.kind === 'fill') && <DesmosHelpButton build={() => desmosActivityAsk(current.activity)} />}
               </div>
             </div>

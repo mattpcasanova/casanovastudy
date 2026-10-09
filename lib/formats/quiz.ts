@@ -13,6 +13,8 @@ interface BaseQuestion {
   question: string
   section: string
   explanation?: string
+  /** One-line nudge toward the method (never the answer), shown before answering. */
+  hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
   figure?: string
 }
@@ -78,6 +80,10 @@ export function parseQuizContent(content: string): Question[] {
   const questionText = (line: string, tag: string) =>
     strip(line.replace(new RegExp(`\\*{0,2}${tag}_QUESTION:\\*{0,2}`), ''))
   const isQuestion = (l: string) => /(MC|TF|SA)_QUESTION:/.test(l)
+  const hintOf = (l: string) => {
+    const m = l.match(/^\*{0,2}hint\s*:\*{0,2}\s*(.+)$/i)
+    return m ? strip(m[1]) : null
+  }
   const explanationOf = (l: string) => {
     const m = l.match(/^\*{0,2}(?:explanation|why)\s*:\*{0,2}\s*(.+)$/i)
     return m ? strip(m[1]) : null
@@ -108,13 +114,16 @@ export function parseQuizContent(content: string): Question[] {
       const stem: string[] = [] // lines before the options: I./II./III. statements, data, a short passage
       let correctAnswer = ''
       let explanation: string | undefined
+      let hint: string | undefined
       for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
         if (FIG.test(l)) continue
         const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
         const exp = explanationOf(l)
-        if (exp) explanation = exp
+        const h = hintOf(l)
+        if (h) hint = h
+        else if (exp) explanation = exp
         else if (opt && !/answer/i.test(l.slice(0, 12))) options.push(strip(opt[2]))
         else if (!options.length && !/answer\s*:/i.test(l)) stem.push(strip(l))
         else if (/answer\s*:/i.test(l)) {
@@ -126,7 +135,7 @@ export function parseQuizContent(content: string): Question[] {
         }
       }
       if (options.length > 0) {
-        questions.push({ type: 'mc', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), options, correctAnswer: correctAnswer || options[0], section, explanation, ...(figure ? { figure } : {}) })
+        questions.push({ type: 'mc', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), options, correctAnswer: correctAnswer || options[0], section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
       }
     } else if (line.includes('TF_QUESTION:')) {
       const text = questionText(line, 'TF')
@@ -134,37 +143,43 @@ export function parseQuizContent(content: string): Question[] {
       const figure = figureFor(i, Math.min(i + 6, lines.length))
       let correctAnswer = true
       let explanation: string | undefined
+      let hint: string | undefined
       for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
         if (FIG.test(l)) continue
         const exp = explanationOf(l)
-        if (exp) explanation = exp
+        const h = hintOf(l)
+        if (h) hint = h
+        else if (exp) explanation = exp
         else if (/answer\s*:/i.test(l)) correctAnswer = /true/i.test(l.split(/answer\s*:/i)[1] ?? '')
       }
-      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation, ...(figure ? { figure } : {}) })
+      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
     } else if (line.includes('SA_QUESTION:')) {
       const text = questionText(line, 'SA')
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 10, lines.length))
       let sampleAnswer = ''
       let explanation: string | undefined
+      let hint: string | undefined
       for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
         if (FIG.test(l)) continue
         const exp = explanationOf(l)
         if (exp) { explanation = exp; continue }
+        const h = hintOf(l)
+        if (h) { hint = h; continue }
         if (/^\*{0,2}(?:sample |model )?answer\s*:/i.test(l)) {
           sampleAnswer = strip(l.replace(/^\*{0,2}(?:sample |model )?answer\s*:\*{0,2}\s*/i, ''))
           for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
             const next = lines[k]
-            if (isQuestion(next) || FIG.test(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next)) break
+            if (isQuestion(next) || FIG.test(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next) || hintOf(next)) break
             sampleAnswer += ' ' + strip(next)
           }
         }
       }
-      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation, ...(figure ? { figure } : {}) })
+      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
     }
   }
 

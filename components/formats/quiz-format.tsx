@@ -13,6 +13,7 @@ import { stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
 import { InlineMarkdown } from './study-markdown'
 import { ExplanationText } from './explanation-text'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
+import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
@@ -53,6 +54,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [checked, setChecked] = useState<Record<string, boolean>>({}) // practice-mode reveals
+  const [hinted, setHinted] = useState<Record<string, boolean>>({}) // opened the hint before answering
   const [saScores, setSaScores] = useState<Record<string, ShortAnswerScore>>({})
   const [scoring, setScoring] = useState<Record<string, boolean>>({})
   const [finished, setFinished] = useState(false)
@@ -140,6 +142,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     logged.current = new Set()
     setAnswers({})
     setChecked({})
+    setHinted({})
     setSaScores({})
     setMarked(new Set())
     setIndex(0)
@@ -328,8 +331,17 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
           </div>
         )}
 
+        {mode === 'practice' && !revealed && (
+          <HintLadder
+            hint={current.hint}
+            question={{ prompt: current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
+            onUse={() => setHinted((h) => ({ ...h, [current.id]: true }))}
+          />
+        )}
+
         {revealed && current.type !== 'sa' && (
           <Feedback
+            hinted={!!hinted[current.id]}
             correct={isObjectiveCorrect(current, answers[current.id])}
             explanation={current.explanation}
             correctLabel={correctLabel(current)}
@@ -337,6 +349,13 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
             extra={
               <div className="flex flex-wrap gap-2">
                 <ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>
+                {!isObjectiveCorrect(current, answers[current.id]) && (
+                  <CheckWorkButton
+                    question={{ prompt: current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
+                    correctAnswer={correctLabel(current)}
+                    given={pickedLabel(current, answers[current.id])}
+                  />
+                )}
                 <DesmosHelpButton build={() => desmosQuizAsk(current)} />
               </div>
             }
@@ -534,12 +553,12 @@ export function AnswerTag({ yours, correct }: { yours: boolean; correct: boolean
   )
 }
 
-function Feedback({ correct, explanation, correctLabel, pickedLabel, extra }: { correct: boolean; explanation?: string; correctLabel: string; pickedLabel?: string; extra?: ReactNode }) {
+function Feedback({ correct, explanation, correctLabel, pickedLabel, extra, hinted }: { correct: boolean; explanation?: string; correctLabel: string; pickedLabel?: string; extra?: ReactNode; hinted?: boolean }) {
   return (
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       <p className={cn('flex items-start gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
         {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0" />}
-        {correct ? 'Correct!' : (
+        {correct ? (hinted ? 'Correct, with a hint.' : 'Correct!') : (
           <span>
             Not quite.{pickedLabel && <> You picked <InlineMarkdown text={pickedLabel} />.</>} The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span>
           </span>

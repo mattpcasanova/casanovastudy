@@ -267,3 +267,20 @@ Correct Answer: B`)
     if (a.kind === 'choice') expect(a.options).toEqual(['I only', 'I and II'])
   })
 })
+
+describe('hints', () => {
+  it('reads Hint lines on activities', () => {
+    const acts = parsePractice(`## Cells
+FILL: The {{mitochondria}} makes ATP.
+Hint: Think "powerhouse".
+Explanation: Mitochondria run cellular respiration.
+
+MC_QUESTION: Which organelle has its own DNA?
+A) Ribosome
+B) Mitochondrion
+Correct Answer: B
+Hint: It came from an ancient bacterium.`)
+    expect(acts.map((a) => a.hint)).toEqual(['Think "powerhouse".', 'It came from an ancient bacterium.'])
+    expect(acts[0].explanation).toBe('Mitochondria run cellular respiration.')
+  })
+})

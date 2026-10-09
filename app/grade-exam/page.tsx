@@ -506,7 +506,6 @@ export default function GradeExamPage() {
         title={isTeacher ? "Grade exams" : "Check your work"}
         accent={isTeacher ? "in minutes, not hours" : "and see what to fix"}
         subtitle={pageSubtitle}
-        chips={isTeacher ? ["Handwriting", "Phone photos", "Scanned PDFs", "Any mark scheme", "Editable feedback", "PDF reports"] : ["Handwriting", "Phone photos", "Scanned PDFs", "Clear feedback"]}
       />
 
       <div className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">

@@ -25,6 +25,8 @@ interface Base {
   topic: string
   prompt: string
   explanation?: string
+  /** One-line nudge toward the method (never the answer), shown before answering. */
+  hint?: string
   code?: CodeSnippet
   /** Body of a ```graph fence, drawn above the activity. */
   figure?: string
@@ -104,7 +106,10 @@ export function parsePractice(content: string): PracticeActivity[] {
     const kind = m[1].toUpperCase()
     const head = clean(m[2])
     const { body, code, figure, next } = bodyFrom(i)
-    const { rest: restAll, explanation } = takeExplanation(body.filter(Boolean))
+    const hintIdx = body.findIndex((l) => /^\*{0,2}hint\s*:/i.test(l))
+    const hint = hintIdx >= 0 ? clean(body[hintIdx].replace(/^\*{0,2}hint\s*:\*{0,2}\s*/i, '')) || undefined : undefined
+    const { rest: restAll, explanation } = takeExplanation(body.filter((l, k) => l && k !== hintIdx))
+    const before = out.length
     const id = `p-${out.length}`
     i = next
     // Attach the snippet to whatever activity gets built below.
@@ -183,6 +188,7 @@ export function parsePractice(content: string): PracticeActivity[] {
         out.push({ kind: 'bug', id, topic, prompt: head || 'Find the bug', code, bugLines, fix: fix || undefined, explanation })
       }
     }
+    if (hint && out.length > before) out[out.length - 1].hint = hint
   }
 
   // One topic for the whole set adds nothing.
@@ -349,7 +355,7 @@ export function normalizePracticeActivities(raw: unknown, opts: { strict?: boole
     used.add(id)
     const code = toCode(o.code ?? o.snippet, o.language ?? o.lang)
     const figure = str(o.figure ?? o.graph).trim()
-    const base = { id, topic: str(o.topic), prompt: str(o.prompt ?? o.instruction ?? o.question), explanation: str(o.explanation) || undefined, ...(code ? { code } : {}), ...(figure ? { figure } : {}) }
+    const base = { id, topic: str(o.topic), prompt: str(o.prompt ?? o.instruction ?? o.question), explanation: str(o.explanation) || undefined, ...(str(o.hint) ? { hint: str(o.hint) } : {}), ...(code ? { code } : {}), ...(figure ? { figure } : {}) }
     let act: PracticeActivity | null = null
 
     if (kind === 'match') {

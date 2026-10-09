@@ -118,3 +118,29 @@ Explanation: All three strengthen coulombic attraction.`)
     if (qs[0].type === 'mc') expect(qs[0].correctAnswer).toBe('I, II, and III')
   })
 })
+
+describe('hints', () => {
+  it('reads Hint lines without mixing them into the stem or options', () => {
+    const qs = parseQuizContent(`## Slope
+MC_QUESTION: What is the slope of y = 3x + 2?
+A) 2
+B) 3
+C) 5
+D) 1/3
+Correct Answer: B
+Hint: In y = mx + b, which letter is the slope?
+Explanation: The coefficient of x is the slope.
+
+TF_QUESTION: A horizontal line has slope 0.
+Answer: True
+Hint: How much does y change as x moves?
+Explanation: y never changes.
+
+SA_QUESTION: What does the y-intercept mean?
+Sample Answer: Where the line crosses the y-axis.
+Hint: Set x = 0.`)
+    expect(qs.map((q) => q.hint)).toEqual(['In y = mx + b, which letter is the slope?', 'How much does y change as x moves?', 'Set x = 0.'])
+    expect(qs[0]).toMatchObject({ question: 'What is the slope of y = 3x + 2?', options: ['2', '3', '5', '1/3'], correctAnswer: '3' })
+    expect(qs[2]).toMatchObject({ sampleAnswer: 'Where the line crosses the y-axis.' })
+  })
+})

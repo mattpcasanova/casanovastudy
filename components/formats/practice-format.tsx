@@ -16,6 +16,7 @@ import { QuestionStem } from './question-stem'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
+import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
@@ -246,6 +247,7 @@ export function PracticeSession({
             )}
             <div className="flex flex-wrap gap-2">
               <ExplainButton build={() => activityAsk(current)}>{outcome.correct ? 'Explain more' : 'Why?'}</ExplainButton>
+              {!outcome.correct && (current.kind === 'choice' || current.kind === 'fill') && <CheckWorkButton question={activityQuestion(current)} correctAnswer={activityAnswer(current)} />}
               {(current.kind === 'choice' || current.kind === 'fill') && <DesmosHelpButton build={() => desmosActivityAsk(current)} />}
             </div>
           </div>
@@ -340,6 +342,19 @@ export function activityMeta(a: PracticeActivity): { label: string; icon: typeof
  * PracticeSession and Learn mode. `onDone(correct, note?)` fires once when the
  * activity is answered; remount (via `key`) to reset it.
  */
+/** A question-like activity as plain text for hints and "Check my work". */
+export function activityQuestion(a: PracticeActivity): { prompt: string; options?: string[]; figure?: string } {
+  const prompt = a.kind === 'fill' ? a.parts.map((p) => (typeof p === 'string' ? p : '___')).join('') : a.prompt
+  return { prompt, options: a.kind === 'choice' && !isTrueFalse(a) ? a.options : undefined, figure: a.figure }
+}
+
+/** The right answer of a choice/fill activity, for "Check my work". */
+export function activityAnswer(a: PracticeActivity): string | undefined {
+  if (a.kind === 'choice') return a.options[a.correct]
+  if (a.kind === 'fill') return a.parts.filter((p): p is { answers: string[] } => typeof p !== 'string').map((p) => p.answers[0]).join(', ')
+  return undefined
+}
+
 export function ActivityBody({ activity, checked, onDone, onContinue, compact = false, autoFocus = true }: {
   activity: PracticeActivity
   checked: boolean
@@ -363,6 +378,9 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
       {activity.kind === 'sort' && <SortBoard activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'choice' && <Choice activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'bug' && <BugHunt activity={activity} onDone={onDone} checked={checked} />}
+      {!checked && (activity.kind === 'choice' || activity.kind === 'fill') && (
+        <HintLadder key={activity.id} hint={activity.hint} question={activityQuestion(activity)} />
+      )}
     </>
   )
 }

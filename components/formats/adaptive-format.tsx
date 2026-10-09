@@ -17,6 +17,7 @@ import { QuestionStem } from "./question-stem"
 import { GraphFence } from "./graph-figure"
 import { ExplanationText } from "./explanation-text"
 import { ExplainButton } from "@/components/explain/explain-provider"
+import { CheckWorkButton, HintLadder } from "@/components/explain/tutor-help"
 import { useRecordResult } from "@/components/study-results-context"
 import { usePlan } from "@/components/plan/plan-provider"
 import { isPlanBlock, type PlanBlock } from "@/lib/plan-rules"
@@ -91,7 +92,9 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
   const [started, setStarted] = useState(false)
   // The question on screen stays put while its feedback shows, even though answers changed.
   const [current, setCurrent] = useState<{ question: AdaptiveQuestion; review: boolean } | null>(null)
-  const [result, setResult] = useState<{ correct: boolean; given: string; score?: number; feedback?: string } | null>(null)
+  const [result, setResult] = useState<{ correct: boolean; given: string; score?: number; feedback?: string; hinted?: boolean } | null>(null)
+  // The student opened the hint (or first step) on the question on screen.
+  const [hinted, setHinted] = useState(false)
   const [refilling, setRefilling] = useState<string | null>(null)
   const [refillsOff, setRefillsOff] = useState(!isOwner)
   const refillFailures = useRef(0)
@@ -166,6 +169,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     if (!started || current || step?.kind !== "question") return
     setCurrent({ question: step.question, review: step.review })
     setResult(null)
+    setHinted(false)
   }, [started, current, step])
 
   const progress = useMemo(() => {
@@ -182,15 +186,15 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     if (!current || !answers) return
     const q = current.question
     const correct = extra ? extra.correct : isAnswerCorrect(q, given)
-    setResult({ correct, given, score: extra?.score, feedback: extra?.feedback })
+    setResult({ correct, given, score: extra?.score, feedback: extra?.feedback, hinted })
     const firstTime = !answers.some((a) => a.q === q.id)
-    updateAnswers([...answers, { q: q.id, correct, given, ...(extra?.score !== undefined ? { score: extra.score } : {}), at: Date.now() }])
+    updateAnswers([...answers, { q: q.id, correct, given, ...(extra?.score !== undefined ? { score: extra.score } : {}), ...(hinted ? { hinted: true } : {}), at: Date.now() }])
     // Log first answers (not second tries); an explain answer only when the AI actually scored it.
     if (firstTime && (q.type !== "explain" || extra?.score !== undefined)) {
       const concept = guide.concepts.find((c) => c.id === q.conceptId)
       recordResult({ source: "adaptive", itemId: `a:${q.id}`, itemKind: q.type, correct, topic: concept?.name, ...(extra?.score !== undefined ? { score: extra.score } : {}) })
     }
-  }, [current, answers, guide, recordResult])
+  }, [current, answers, guide, recordResult, hinted])
 
   const advance = () => { setCurrent(null); setResult(null) }
 
@@ -267,6 +271,9 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                 {q.type === "num" && <NumberAnswer key={q.id} result={result} onSubmit={submit} />}
                 {q.type === "explain" && <ExplainAnswer key={q.id} q={q} guideId={studyGuideId} result={result} onChecked={submit} onBlocked={openPremium} />}
               </div>
+              {!result && q.type !== "explain" && (
+                <HintLadder key={q.id} hint={q.hint} question={{ prompt: q.prompt, options: q.type === "mc" ? q.options : undefined, figure: q.figure }} onUse={() => setHinted(true)} />
+              )}
 
               {result && (
                 <div className={cn("mt-6 animate-fade-up rounded-xl p-4",
@@ -283,7 +290,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                     <>
                       <p className={cn("flex items-center gap-2 font-semibold", result.correct ? "text-emerald-800" : "text-rose-800")}>
                         {result.correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                        {result.correct ? "Correct!" : q.type === "num" ? <span>Not quite. The answer is <InlineMarkdown text={q.answers[0]} />.</span> : "Not quite."}
+                        {result.correct ? (result.hinted ? "Correct, with a hint." : "Correct!") : q.type === "num" ? <span>Not quite. The answer is <InlineMarkdown text={q.answers[0]} />.</span> : "Not quite."}
                       </p>
                       {!result.correct && q.type === "mc" && q.feedback[Number(result.given)] && (
                         <p className="mt-2 text-sm leading-relaxed text-slate-700"><InlineMarkdown text={q.feedback[Number(result.given)]} /></p>
@@ -296,7 +303,17 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                       )}
                     </>
                   )}
-                  <ExplainButton build={() => explainAsk(q, result.given)}>{result.correct ? "Explain more" : "Why?"}</ExplainButton>
+                  <div className="flex flex-wrap gap-2">
+                    <ExplainButton build={() => explainAsk(q, result.given)}>{result.correct ? "Explain more" : "Why?"}</ExplainButton>
+                    {!result.correct && q.type !== "explain" && (
+                      <CheckWorkButton
+                        question={{ prompt: q.prompt, options: q.type === "mc" ? q.options : undefined, figure: q.figure }}
+                        correctAnswer={correctLabel(q)}
+                        given={answerLabel(q, result.given)}
+                      />
+                    )}
+                  </div>
+                  {result.correct && result.hinted && <p className="mt-2 text-xs text-slate-500">Answers with a hint don&apos;t count toward mastery, so you&apos;ll see more like this one.</p>}
                 </div>
               )}
 

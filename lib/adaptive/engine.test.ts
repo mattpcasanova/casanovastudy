@@ -86,6 +86,17 @@ describe('nextStep', () => {
   })
 })
 
+describe('hints', () => {
+  it("hinted right answers don't raise difficulty or count toward mastery", () => {
+    const g = guide({ k1: [2, 2, 2, 2, 2, 2] })
+    const hinted = (q: string): AdaptiveAnswer => ({ q, correct: true, hinted: true })
+    const p = conceptProgress(g, [hinted('a1'), hinted('a2'), hinted('a3')])[0]
+    expect(p).toMatchObject({ status: 'in_progress', level: 2, correct: 3, answered: 3 })
+    const p2 = conceptProgress(g, [hinted('a1'), ans('a2', true), ans('a3', true), ans('a4', true)])[0]
+    expect(p2.status).toBe('mastered')
+  })
+})
+
 describe('refills', () => {
   it('asks for more questions when a concept runs low', () => {
     const g = guide({ k1: [2, 2, 2, 2], k2: Array(8).fill(2) })

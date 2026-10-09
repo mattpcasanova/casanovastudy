@@ -489,7 +489,6 @@ function Shell({ children }: { children: React.ReactNode }) {
         title="Grade a whole class"
         accent="in one go"
         subtitle="Drop in the stack. We sort it into students, you check it, then every paper is graded against your mark scheme."
-        chips={["Phone photos", "Scanned PDFs", "Names on page 1 only", "Class results", "CSV export"]}
       />
       <main className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">{children}</main>
     </div>

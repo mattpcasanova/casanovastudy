@@ -12,6 +12,7 @@
 //   A) … B) … C) … D) …
 //   ANSWER: <letter | True/False | number(s) | model answer>
 //   IF A: <why A is tempting and wrong>
+//   HINT: <a nudge toward the method, never the answer>
 //   EXPLANATION: <the key step>
 //
 // Refills (app/api/adaptive/[id]/refill) append "REFILL: k<n>" followed by
@@ -45,6 +46,8 @@ export interface AdaptiveQuestion {
   /** mc: feedback for choosing each wrong option, by option index. */
   feedback: Record<number, string>
   explanation?: string
+  /** One-line nudge toward the method (never the answer), shown on request before answering. */
+  hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
   figure?: string
 }
@@ -62,7 +65,7 @@ const strip = (s: string) => s.replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
 
 /** "**ANSWER:** B" / "Answer: B" → ["ANSWER", "B"]. Keys are upper-cased. */
 function field(line: string): [string, string] | null {
-  const m = line.match(/^\*{0,2}(CONCEPT|LESSON|Q|ANSWER|EXPLANATION|IF\s+[A-F]|REFILL)\s*:\*{0,2}\s*(.*)$/i)
+  const m = line.match(/^\*{0,2}(CONCEPT|LESSON|Q|ANSWER|EXPLANATION|HINT|IF\s+[A-F]|REFILL)\s*:\*{0,2}\s*(.*)$/i)
   return m ? [m[1].toUpperCase().replace(/\s+/g, ' '), m[2].trim()] : null
 }
 
@@ -86,6 +89,7 @@ interface Draft {
   answer: string
   feedback: Record<number, string>
   explanation?: string
+  hint?: string
   figure?: string
   /** Inside the explain model answer / explanation, continuation lines join the last field. */
   last: 'stem' | 'answer' | 'explanation' | 'other'
@@ -94,7 +98,7 @@ interface Draft {
 function finish(d: Draft, id: string): AdaptiveQuestion | null {
   const prompt = d.stem.join('\n').trim()
   if (!prompt || !d.answer) return null
-  const base = { id, conceptId: d.conceptId, level: d.level, type: d.type, prompt, feedback: {}, explanation: d.explanation || undefined, ...(d.figure ? { figure: d.figure } : {}) }
+  const base = { id, conceptId: d.conceptId, level: d.level, type: d.type, prompt, feedback: {}, explanation: d.explanation || undefined, ...(d.hint ? { hint: d.hint } : {}), ...(d.figure ? { figure: d.figure } : {}) }
   if (d.type === 'mc') {
     if (d.options.length < 2) return null
     const letter = d.answer.match(/^\(?([A-F])\b/i)?.[1]
@@ -194,6 +198,7 @@ export function parseAdaptive(content: string): AdaptiveGuide {
       const d: Draft = draft
       if (key === 'ANSWER') { d.answer = value; d.last = 'answer' }
       else if (key === 'EXPLANATION') { d.explanation = value; d.last = 'explanation' }
+      else if (key === 'HINT') { d.hint = value; d.last = 'other' }
       else if (key.startsWith('IF ')) { d.feedback[key.charCodeAt(3) - 65] = value; d.last = 'other' }
       continue
     }
@@ -275,6 +280,7 @@ export function serializeQuestion(q: Omit<AdaptiveQuestion, 'id' | 'conceptId'>)
   } else {
     out.push(`ANSWER: ${q.answers.join(' | ')}`)
   }
+  if (q.hint) out.push(`HINT: ${q.hint}`)
   if (q.explanation) out.push(`EXPLANATION: ${q.explanation}`)
   return out.join('\n')
 }

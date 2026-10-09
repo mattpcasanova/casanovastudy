@@ -659,11 +659,6 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-50 sm:text-xl">
             Type a topic, paste your notes, or upload your materials to get a study guide built for your class, exam, interview, or just for learning.
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
-            {["Outlines", "Flashcards", "Quizzes", "Summaries", "Interactive practice", "Study plans", "Cheat sheets", "Timelines"].map((l) => (
-              <span key={l} className="rounded-full bg-white/15 px-3.5 py-1.5 ring-1 ring-inset ring-white/25 backdrop-blur-sm">{l}</span>
-            ))}
-          </div>
         </div>
       </section>
 

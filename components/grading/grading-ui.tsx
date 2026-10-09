@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import { fontDisplay } from "@/lib/formats/design"
 import { uploadKind } from "@/lib/uploads/kinds"
 
-export function GradingHero({ title, accent, subtitle, chips, children }: { title: string; accent?: string; subtitle: string; chips?: string[]; children?: ReactNode }) {
+export function GradingHero({ title, accent, subtitle, children }: { title: string; accent?: string; subtitle: string; children?: ReactNode }) {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 pb-44 pt-16 text-white sm:pt-20">
       <div className="pointer-events-none absolute inset-0">
@@ -47,13 +47,6 @@ export function GradingHero({ title, accent, subtitle, chips, children }: { titl
           {accent && <span className="block text-yellow-300">{accent}</span>}
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-50 sm:text-xl">{subtitle}</p>
-        {chips && (
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5 text-sm font-medium">
-            {chips.map((l) => (
-              <span key={l} className="rounded-full bg-white/15 px-3.5 py-1.5 ring-1 ring-inset ring-white/25 backdrop-blur-sm">{l}</span>
-            ))}
-          </div>
-        )}
         {children}
       </div>
     </section>

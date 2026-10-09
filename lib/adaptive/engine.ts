@@ -39,6 +39,8 @@ export interface AdaptiveAnswer {
   given?: string
   /** explain only: the AI's 0-100 score. */
   score?: number
+  /** The student opened the hint first. Still counts as right, but doesn't push difficulty up. */
+  hinted?: boolean
   /** Epoch ms. */
   at?: number
 }
@@ -72,13 +74,16 @@ export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[])
     const mine = answers.filter((a) => byId.get(a.q)?.conceptId === c.id)
     const graded = mine.filter((a) => gradeable(byId.get(a.q)!))
     const results = graded.map((a) => a.correct)
-    const recent = results.slice(-ADAPTIVE_RULES.window)
+    // Mastery is judged without answers that were right only with a hint.
+    const unaided = graded.filter((a) => !(a.correct && a.hinted)).map((a) => a.correct)
+    const recent = unaided.slice(-ADAPTIVE_RULES.window)
     let level: AdaptiveLevel = 2
     let streak = 0
     let missStreak = 0
-    for (const ok of results) {
-      if (ok) {
+    for (const a of graded) {
+      if (a.correct) {
         missStreak = 0
+        if (a.hinted) continue // right with help: hold the level
         if (++streak >= 2) { level = Math.min(3, level + 1) as AdaptiveLevel; streak = 0 }
       } else {
         streak = 0
@@ -88,10 +93,12 @@ export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[])
     }
     const answeredIds = new Set(mine.map((a) => a.q))
     const remaining = guide.questions.filter((q) => q.conceptId === c.id && gradeable(q) && !answeredIds.has(q.id)).length
-    const status = evaluateConceptStatus(
-      { answered_count: results.length, recent_results: recent },
+    const judged = evaluateConceptStatus(
+      { answered_count: unaided.length, recent_results: recent },
       { mastery_threshold: ADAPTIVE_RULES.threshold, min_questions: ADAPTIVE_RULES.minAnswered, max_questions_per_concept: ADAPTIVE_RULES.maxPerConcept },
     )
+    // The question cap counts every answer, hinted or not.
+    const status = judged === 'in_progress' && results.length >= ADAPTIVE_RULES.maxPerConcept ? 'max_reached' : judged
     return {
       id: c.id,
       name: c.name,

@@ -492,7 +492,8 @@ export function guideCost(inputTokens: number, outputTokens: number): number {
   return (inputTokens * GUIDE_PRICE.input + outputTokens * GUIDE_PRICE.output) / 1_000_000
 }
 
-export interface ExplainTurn { role: 'user' | 'assistant'; content: string }
+/** `image`: base64 JPEG (no data: prefix) the student attached, e.g. a photo of their working. */
+export interface ExplainTurn { role: 'user' | 'assistant'; content: string; image?: string }
 
 // The "Explain" side panel: a short tutor reply about something in a guide.
 export const EXPLAIN_RULES = `Rules:
@@ -504,6 +505,8 @@ export const EXPLAIN_RULES = `Rules:
 - For a figure (graph, chart, diagram or model): say what it shows, how to read it (axes, labels, symbols, colors), and the one or two things to take away. Describe what the student sees; never mention the spec or code behind it.
 - "Solve it in Desmos" (the graphing calculator on the digital SAT and many AP exams): give 3-6 numbered steps saying exactly what to type, what to click or read (click an intersection or x-intercept to see its coordinates, read a table, a regression y_1\\sim mx_1+b for data, a slider for an unknown constant), and how that gives the answer. Put everything to type in ONE \`\`\`desmos block, one expression per line, in Desmos LaTeX (y=x^2-2x-3, y=\\frac{1}{2}x+3, \\sqrt{x}, y_1\\sim mx_1+b); data goes on a line "table: (x, y) (x, y)"; add "window: xmin, xmax, ymin, ymax" when the default view would hide the answer. Name the one Desmos move that saves the most time. If Desmos isn't the fastest route, say so in one line and show how it can still check the answer.
 - For a quiz question: explain why the correct answer is right; if the student picked a different option, say what made it tempting and why it's wrong.
+- "Show me the first step" (they haven't answered yet): give ONLY the first step, worked out, in 1-3 sentences, then stop with a short nudge like "Try the next step from here." Never give the final answer, never say or hint which option is correct, and never rule options out.
+- A photo of the student's own work: read it carefully, including handwriting. Find the FIRST step where it goes wrong, quote or describe what they wrote there, say what's off and how to fix that one step, then stop so they can redo it. Don't rework the whole problem unless they ask. If every step is right, say so and point to where the slip happened instead (copying a number, picking the option, rounding). If part of the photo can't be read, say which part rather than guessing.
 - Never use em dashes. If they ask about something unrelated to studying, briefly steer back to the guide.`
 
 /**
@@ -880,10 +883,12 @@ B) <option>
 C) <option>
 D) <option>
 Correct Answer: <letter>
+Hint: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 Explanation: <1-2 short sentences, at most about 35 words: the key step that gets the answer, plus the trap behind the most tempting wrong option if it fits. Never go through every option; the student can ask for more>
 
 TF_QUESTION: <statement>
 Answer: True|False
+Hint: <a nudge, at most about 15 words, that doesn't give away true or false>
 Explanation: <one short sentence, at most about 25 words>
 
 SA_QUESTION: <question>
@@ -908,6 +913,7 @@ C) <option>
 D) <option>
 ANSWER: <letter>
 IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it and how to fix it, addressed to the student ("You ...")>
+HINT: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
 Q: 2 | num
@@ -932,7 +938,8 @@ Rules:
 - Question types: mostly mc; use num whenever the answer is a single number (math, science calculations); at most one tf per concept. Never put a numeric answer only in mc options when num works.
 - Distractors are the answers students really get from common mistakes, and every IF line names that mistake. Options similar in length; vary the position of the correct letter.
 - Each question is self-contained (no "as above"); statements a question refers to ("I. ...", "II. ...") go on their own lines under the question, and a \`\`\`graph figure block may sit directly under the question (see FIGURES, if present).
-- Plain-text prefixes exactly as shown (CONCEPT:, LESSON:, Q:, ANSWER:, IF A:, EXPLANATION:), never bolded, one per line, a blank line between questions. Output ONLY the title, the description and the concept blocks; no ## headings, intro paragraphs, callouts, tables, notes or "Keep Going" section.`,
+- Every mc, num and tf question gets a HINT line (explain questions don't).
+- Plain-text prefixes exactly as shown (CONCEPT:, LESSON:, Q:, ANSWER:, IF A:, HINT:, EXPLANATION:), never bolded, one per line, a blank line between questions. Output ONLY the title, the description and the concept blocks; no ## headings, intro paragraphs, callouts, tables, notes or "Keep Going" section.`,
       practice: `FORMAT: INTERACTIVE PRACTICE. A set of hands-on activities students click through (matching, fill-in-the-blank, ordering, sorting, and questions).
 Use exactly this skeleton:
 # <Guide title>
@@ -978,13 +985,14 @@ Fix: <the corrected version of that line>
 
 Any activity may include ONE fenced code block (with the language name) right after its marker line; it is shown above the activity. A \`\`\`graph figure block works the same way (see FIGURES, if present). Use it for "what does this print?", "what is the time complexity?", or "which line completes this function?" questions (MC_QUESTION with a snippet), or to give context for a FILL.
 
-Any activity may be followed by one line:
+Any activity may be followed by these lines:
+Hint: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 Explanation: <one short sentence explaining the answer, at most about 30 words>
 Rules:
 - For programming topics (or an interview goal involving coding), make AT LEAST HALF of all activities code-based; count them before you finish: predict the output (MC with a snippet), find the bug, pick the time/space complexity (MC with a snippet), choose the missing line (MC or FILL with a snippet). Keep snippets short (≤12 lines) and runnable-looking; default to Python unless another language is requested. Never put option lines or answers inside the code fence.
 - FIND_BUG snippets must contain EXACTLY ONE bug on ONE line; every other line must be correct, so that applying the Fix line makes the whole snippet correct. Double-check the fixed code works.
 - 3-5 topic sections, 14-20 activities total. Mix the types: every topic should use at least three different activity types; roughly equal numbers of MATCH, FILL, ORDER/SORT and questions overall. Use ORDER only for real sequences and SORT only for real categories.
-- Give an Explanation for every FILL, ORDER, MC and TF activity.
+- Give an Explanation for every FILL, ORDER, MC and TF activity, and a Hint for every FILL, MC and TF activity.
 - Put nothing else in the guide; no objectives, intro paragraphs, callouts (> lines), tips, tables, notes or "Keep Going" section. Explanations go on the Explanation: line of an activity.`,
     }
     return instructions[format] || instructions.summary
@@ -2217,6 +2225,7 @@ C) <option>
 D) <option>
 ANSWER: <letter>
 IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it, addressed to the student>
+HINT: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
 For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False. Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
@@ -2259,7 +2268,9 @@ Output only the questions.`
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system,
-      messages: params.turns,
+      messages: params.turns.map((t) => (t.image
+        ? { role: t.role, content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.image } }, { type: 'text', text: t.content }] }
+        : { role: t.role, content: t.content })),
     } as any)
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') yield chunk.delta.text

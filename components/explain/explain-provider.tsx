@@ -12,7 +12,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowUp, Calculator, Loader2, RotateCcw, MessageCircleQuestion, X } from 'lucide-react'
+import { ArrowUp, Calculator, Camera, Loader2, RotateCcw, MessageCircleQuestion, X } from 'lucide-react'
+import { PHOTO_ACCEPT, photoToDataUrl } from './tutor-help'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -28,7 +29,7 @@ import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from
 
 export { useExplain, type ExplainRequest }
 
-interface Turn { role: 'user' | 'assistant'; content: string; label?: string }
+interface Turn { role: 'user' | 'assistant'; content: string; label?: string; image?: string }
 
 const FOLLOW_UPS: ExplainRequest[] = [
   { label: 'Simpler', prompt: 'Explain that more simply.' },
@@ -115,14 +116,14 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
     dismissTip()
     setError(null)
     if (!user || busy) return
-    const history: Turn[] = [...turnsRef.current, { role: 'user', content: req.prompt, label: req.label }]
+    const history: Turn[] = [...turnsRef.current, { role: 'user', content: req.prompt, label: req.label, ...(req.image ? { image: req.image } : {}) }]
     setTurns([...history, { role: 'assistant', content: '' }])
     setBusy(true)
     try {
       const res = await authFetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studyGuideId: guideId, turns: history.map(({ role, content }) => ({ role, content })) }),
+        body: JSON.stringify({ studyGuideId: guideId, turns: history.map(({ role, content, image }) => ({ role, content, ...(image ? { image } : {}) })) }),
       })
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}))
@@ -269,14 +270,31 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
   onPremium: () => void
 }) {
   const [draft, setDraft] = useState('')
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const photoRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const attach = async (file: File | undefined) => {
+    if (!file) return
+    setPhotoBusy(true)
+    setPhotoError(null)
+    try { setPhoto(await photoToDataUrl(file)) } catch { setPhotoError("That photo couldn't be opened. Try a JPG or PNG.") }
+    finally { setPhotoBusy(false); if (photoRef.current) photoRef.current.value = '' }
+  }
   // Phones: with the calculator sheet open, take the space above it instead of sliding underneath.
   const calcSheetVh = useDesmosSheet()
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }) }, [turns])
   const submit = () => {
     const q = draft.trim()
-    if (!q || busy) return
+    if ((!q && !photo) || busy) return
     setDraft('')
+    if (photo) {
+      const text = q || 'Here is a photo of my work. Where did I go wrong?'
+      setPhoto(null)
+      onSend({ label: q || 'Check my work', prompt: text, image: photo })
+      return
+    }
     onSend({ label: q, prompt: q })
   }
   const last = turns[turns.length - 1]
@@ -317,11 +335,15 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
           <div className="space-y-3 text-sm text-slate-600">
             <p><span className="font-semibold text-slate-900">Highlight any text</span> in your guide, then tap <span className="font-semibold text-slate-900">Explain</span>.</p>
             <p>Every graph and model has its own <span className="font-semibold text-slate-900">Explain</span> button in its corner.</p>
-            <p>Or ask a question about this guide below.</p>
+            <p>Or ask a question about this guide below. Tap the camera to send a photo of your work and see where it went wrong.</p>
           </div>
         ) : (
           turns.map((t, i) => (t.role === 'user' ? (
             <div key={i} className="ml-8 rounded-2xl rounded-br-md bg-blue-50 px-3.5 py-2.5 text-sm text-blue-950 ring-1 ring-inset ring-blue-100">
+              {t.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={t.image} alt="Your photo" className="mb-2 max-h-40 rounded-lg object-contain ring-1 ring-blue-100" />
+              )}
               {t.label ?? t.content}
             </div>
           ) : (
@@ -359,20 +381,40 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
       {signedIn && (
         <form
           onSubmit={(e) => { e.preventDefault(); submit() }}
-          className="flex items-end gap-2 border-t border-slate-200 p-3"
+          className="border-t border-slate-200 p-3"
         >
+          {(photo || photoBusy || photoError) && (
+            <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+              {photoBusy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Getting your photo ready…</>
+                : photoError ? <span className="text-rose-600">{photoError}</span>
+                  : photo && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo} alt="Photo to send" className="h-12 w-12 rounded-md object-cover ring-1 ring-slate-200" />
+                      <span>Photo attached. Ask about it, or just send.</span>
+                      <button type="button" onClick={() => setPhoto(null)} className="ml-auto rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Remove photo"><X className="h-3.5 w-3.5" /></button>
+                    </>
+                  )}
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+          <input ref={photoRef} type="file" accept={PHOTO_ACCEPT} className="hidden" onChange={(e) => void attach(e.target.files?.[0])} />
+          <button type="button" onClick={() => photoRef.current?.click()} disabled={busy || photoBusy} title="Add a photo of your work" aria-label="Add a photo of your work" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-40">
+            <Camera className="h-4 w-4" />
+          </button>
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
             rows={1}
             maxLength={1500}
-            placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about this guide…'}
+            placeholder={photo ? 'What should I check? (optional)' : turns.length ? 'Ask a follow-up…' : 'Ask about this guide…'}
             className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
-          <button type="submit" disabled={!draft.trim() || busy} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-40" aria-label="Send">
+          <button type="submit" disabled={(!draft.trim() && !photo) || busy} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-40" aria-label="Send">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
           </button>
+          </div>
         </form>
       )}
     </aside>

@@ -17,6 +17,7 @@ D) 21
 ANSWER: B
 IF A: You added 3 instead of subtracting it.
 IF C: Check the sign: 7 - 3 is positive.
+HINT: What undoes adding 3?
 EXPLANATION: Subtract 3 from both sides.
 
 Q: 2 | num
@@ -66,6 +67,7 @@ describe('parseAdaptive', () => {
     ])
     const [mc, num, tf, fig, explain] = g.questions
     expect(mc.correct).toBe(1)
+    expect(mc.hint).toBe('What undoes adding 3?')
     expect(mc.feedback).toEqual({ 0: 'You added 3 instead of subtracting it.', 2: 'Check the sign: 7 - 3 is positive.' })
     expect(num.answers).toEqual(['3.5', '7/2'])
     expect(tf.correct).toBe(0)
