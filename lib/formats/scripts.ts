@@ -79,9 +79,55 @@ export function splitScripts(s: string): ScriptPart[] {
   return out
 }
 
+// ── Combining accents (x̄, p̂) ────────────────────────────────────────────────
+// Stats text often writes x-bar and p-hat with Unicode combining marks
+// (x + U+0304, p + U+0302). Most UI fonts place the mark badly (the bar lands
+// over the next character), so they're rendered as KaTeX math instead.
+
+const ACCENTS: Record<string, string> = {
+  '\u0304': 'bar', '\u0305': 'bar', '\u0302': 'hat', '\u0303': 'tilde', '\u0307': 'dot', '\u20D7': 'vec',
+}
+const GREEK: Record<string, string> = {
+  α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', θ: 'theta', λ: 'lambda', μ: 'mu', π: 'pi', ρ: 'rho', σ: 'sigma', τ: 'tau', φ: 'phi', ω: 'omega',
+}
+export const ACCENT_CHARS = /[\u0302-\u0305\u0307\u20D7]/
+
+export type AccentPart = string | { tex: string }
+
+/** "x̄ = 5 and p̂" → [{tex:"\\bar{x}"}, " = 5 and ", {tex:"\\hat{p}"}]. Other text is untouched. */
+export function splitAccents(s: string): AccentPart[] {
+  if (!ACCENT_CHARS.test(s)) return [s]
+  const out: AccentPart[] = []
+  let buf = ''
+  // Only marks written as separate combining characters; precomposed letters (ñ, ê) stay text.
+  for (const ch of s) {
+    const accent = ACCENTS[ch]
+    const base = buf.slice(-1)
+    if (accent && base && /[A-Za-z\u0391-\u03C9]/.test(base)) {
+      if (buf.length > 1) out.push(buf.slice(0, -1))
+      buf = ''
+      out.push({ tex: `\\${accent}{${GREEK[base] ? `\\${GREEK[base]}` : base}}` })
+      continue
+    }
+    buf += ch
+  }
+  if (buf) out.push(buf)
+  return out
+}
+
 // ── remark plugin ───────────────────────────────────────────────────────────
 
 interface MdNode { type: string; value?: string; children?: MdNode[]; data?: Record<string, unknown> }
+
+/** The same node shape remark-math produces, so rehype-katex renders it. */
+function mathNode(tex: string): MdNode {
+  return { type: 'inlineMath', value: tex, data: { hName: 'code', hProperties: { className: ['language-math', 'math-inline'] }, hChildren: [{ type: 'text', value: tex }] } }
+}
+
+function textNodes(value: string): MdNode[] {
+  if (!value.includes('^') && !value.includes('_')) return [{ type: 'text', value }]
+  return toNodes(splitScripts(value))
+}
 
 function toNodes(parts: ScriptPart[]): MdNode[] {
   return parts.map((p) => (typeof p === 'string'
@@ -93,7 +139,9 @@ function walk(node: MdNode) {
   if (!node.children) return
   const next: MdNode[] = []
   for (const child of node.children) {
-    if (child.type === 'text' && child.value && (child.value.includes('^') || child.value.includes('_'))) {
+    if (child.type === 'text' && child.value && ACCENT_CHARS.test(child.value)) {
+      for (const part of splitAccents(child.value)) next.push(...(typeof part === 'string' ? textNodes(part) : [mathNode(part.tex)]))
+    } else if (child.type === 'text' && child.value && (child.value.includes('^') || child.value.includes('_'))) {
       const parts = splitScripts(child.value)
       if (parts.length === 1 && typeof parts[0] === 'string') next.push(child)
       else next.push(...toNodes(parts))
@@ -105,7 +153,7 @@ function walk(node: MdNode) {
   node.children = next
 }
 
-/** remark plugin: renders caret exponents / letter subscripts in text as <sup>/<sub>. */
+/** remark plugin: caret exponents / letter subscripts in text → <sup>/<sub>; x̄ / p̂ → KaTeX. */
 export function remarkScripts() {
   return (tree: MdNode) => walk(tree)
 }

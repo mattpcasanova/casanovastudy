@@ -101,6 +101,7 @@ export default function StudyGuideFilterBar({
                 <SelectItem value="plan">Study plan</SelectItem>
                 <SelectItem value="cheatsheet">Cheat sheet</SelectItem>
                 <SelectItem value="timeline">Timeline</SelectItem>
+                <SelectItem value="adaptive">Adaptive practice</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>

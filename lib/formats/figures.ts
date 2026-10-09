@@ -88,7 +88,7 @@ export function wantsChemModels({ subject, text }: FigureContext): boolean {
 }
 
 /** Formats that can show figures at all (flashcards, plans and timelines can't). */
-export const FIGURE_FORMATS = new Set(['outline', 'summary', 'cheatsheet', 'custom', 'quiz', 'practice'])
+export const FIGURE_FORMATS = new Set(['outline', 'summary', 'cheatsheet', 'custom', 'quiz', 'practice', 'adaptive'])
 export const CHEM_MODEL_FORMATS = FIGURE_FORMATS
 
 // Genetics: Punnett squares and pedigrees.
@@ -169,6 +169,7 @@ export function figureBudget(tier: FigureTier, format: string): string {
     },
   }
   table.summary = table.outline
+  table.adaptive = table.practice
   table.custom = table.outline
   const byTier = table[format]
   return byTier ? byTier[tier] : ''

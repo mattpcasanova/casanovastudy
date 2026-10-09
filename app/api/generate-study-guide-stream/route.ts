@@ -9,6 +9,7 @@ import { hasPremiumFeatures, meterGuide, planBlockResponse, releaseUsage } from 
 import { consentBlockResponse } from '@/lib/consent'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
+import { parseAdaptive } from '@/lib/adaptive/format'
 
 function sseError(message: string, status: number) {
   return new Response('data: ' + JSON.stringify({ type: 'error', message }) + '\n\n', { status, headers: { 'Content-Type': 'text/event-stream' } })
@@ -144,6 +145,12 @@ export async function POST(request: NextRequest) {
           }
           fullContent += next.value
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'content', chunk: next.value }) + '\n\n'))
+        }
+
+        // Adaptive practice is only playable with enough well-formed questions; otherwise
+        // fail here (the catch gives the session back) rather than save a broken one.
+        if (body.format === 'adaptive' && parseAdaptive(fullContent).questions.length < 8) {
+          throw new Error("Your practice questions didn't come out right. Please try again.")
         }
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Saving to database...' }) + '\n\n'))

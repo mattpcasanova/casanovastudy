@@ -7,7 +7,7 @@
 
 import { supabase } from '@/lib/supabase'
 
-export type ResultSource = 'quiz' | 'practice' | 'learn' | 'custom'
+export type ResultSource = 'quiz' | 'practice' | 'learn' | 'custom' | 'adaptive'
 
 export interface StudyResult {
   source: ResultSource

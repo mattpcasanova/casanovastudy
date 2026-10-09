@@ -152,9 +152,12 @@ export default function Home() {
       <main className="min-h-screen bg-slate-50">
         <NavigationHeader />
 
-        {!isGenerating ? (
+        {/* The form stays mounted (just hidden) while generating, so if it fails the
+            student is back on their filled-in form, banner and all. */}
+        <div hidden={isGenerating}>
           <UploadPageRedesigned onGenerateStudyGuide={handleGenerateStudyGuide} isGenerating={isGenerating} />
-        ) : (
+        </div>
+        {isGenerating && (
           <StudyGuideGenerating
             title={pending.title}
             format={pending.format}

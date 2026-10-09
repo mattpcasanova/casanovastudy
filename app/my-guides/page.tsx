@@ -42,6 +42,7 @@ import {
   Sparkles,
   Map as MapIcon,
   History,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -62,6 +63,7 @@ const FORMAT_CARD = {
   plan: { label: 'Study plan', icon: MapIcon, cover: 'from-teal-100 via-teal-50 to-white', text: 'text-teal-700', watermark: 'text-teal-200/80' },
   cheatsheet: { label: 'Cheat sheet', icon: FileText, cover: 'from-slate-200 via-slate-100 to-white', text: 'text-slate-700', watermark: 'text-slate-300/80' },
   timeline: { label: 'Timeline', icon: History, cover: 'from-fuchsia-100 via-fuchsia-50 to-white', text: 'text-fuchsia-700', watermark: 'text-fuchsia-200/80' },
+  adaptive: { label: 'Adaptive', icon: Target, cover: 'from-sky-100 via-sky-50 to-white', text: 'text-sky-700', watermark: 'text-sky-200/80' },
   custom: { label: 'Custom', icon: Sparkles, cover: 'from-cyan-100 via-sky-50 to-white', text: 'text-cyan-700', watermark: 'text-cyan-200/80' },
 } as const
 

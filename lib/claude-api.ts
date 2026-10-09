@@ -107,7 +107,7 @@ const STUDY_GUIDE_STYLE_RULES = `STYLE RULES (the guide is rendered by an app; f
   protest -> repeal
   \`\`\`
   (boxes and arrows the app lays out: use it when ideas branch, merge or loop, e.g. causes and effects, feedback loops, food webs, concept maps, state machines. "node: id | label" declares a box; "a -> b | label" is an arrow, "a <-> b" goes both ways, "a -- b" is a plain link. 3-12 boxes with short labels (under 6 words). Add "layout: right" for left to right or "layout: cycle" for a loop. Use steps for a straight sequence and tree for a hierarchy; one or two diagrams per guide where relationships matter, in any subject.)
-- Math: prefer plain Unicode for simple expressions (x², √x, π, ≤, ≠, H₂O, Δ). For real formulas use LaTeX inside double dollar signs: $$\\bar{x} = \\frac{\\sum x_i}{n}$$ (inline); never single dollar signs, and write money as "$5" normally.
+- Math: prefer plain Unicode for simple expressions (x², √x, π, ≤, ≠, H₂O, Δ). For real formulas use LaTeX inside double dollar signs: $$\\bar{x} = \\frac{\\sum x_i}{n}$$ (inline); never single dollar signs, and write money as "$5" normally. Statistics symbols with marks over a letter (x-bar, p-hat, mu-hat) are always LaTeX, $$\\bar{x}$$ and $$\\hat{p}$$, never Unicode combining characters (x̄, p̂), which display badly.
   Never use calculator notation in text (x^2, e^(2x), x_1, a/b for fractions of expressions, sqrt(...)). A power Unicode can show is fine as Unicode (x², x³, x⁻¹, 10⁶); anything else goes in LaTeX: $$e^{2x}$$, $$x^{n-1}$$, $$a_{n+1}$$, $$\\frac{2y - x^2}{y^2 - 2x}$$, $$\\sqrt{x^2 + 1}$$, $$\\frac{dy}{dx}$$, $$\\int_0^1 x\\,dx$$, $$\\lim_{x \\to 0}$$. This applies everywhere, including quiz questions, answer options, flashcards and explanations (inline $$...$$ works on a single line).
   Chemical formulas inside LaTeX go in \\mathrm{} so they aren't italicized: $$6\\mathrm{CO_2} + 6\\mathrm{H_2O} \\rightarrow \\mathrm{C_6H_{12}O_6} + 6\\mathrm{O_2}$$. In running text just use Unicode (CO₂).
 - Code (programming subjects only) goes in fenced blocks with the language name.`
@@ -325,6 +325,16 @@ function lengthInstructions(format: string, length: GuideLength | undefined): st
 const ITEM_FORMATS = new Set(['quiz', 'practice'])
 
 function difficultyInstructions(format: string, difficulty: GuideDifficulty | undefined): string {
+  // Adaptive practice: set from the finish screen of a previous session (lib/adaptive/next.ts).
+  if (format === 'adaptive') {
+    if (difficulty === 'hard') {
+      return `DIFFICULTY: LEVEL UP (the learner just mastered these concepts and wants harder practice). Shift every level up: level 1 = a typical test question, level 2 = a hard one, level 3 = the hardest questions the learner's goal asks (multi-step, combining ideas, unfamiliar setups, tempting wrong answers). No recall questions and no true/false. The LESSON lines cover the subtle points and traps, not the basics.`
+    }
+    if (difficulty === 'easier') {
+      return `DIFFICULTY: FOUNDATIONS (the learner struggled with these concepts). Build up in small steps: level 1 = one idea, one step, with the numbers kept simple; level 2 = two steps; level 3 = a typical test question. Write LESSON lines as a clear first explanation with a tiny example, and make IF feedback name the exact step that went wrong.`
+    }
+    return ''
+  }
   if (!DIFFICULTY_FORMATS.includes(format)) return ''
   const d = difficulty ?? 'standard'
   if (d === 'standard') {
@@ -427,7 +437,7 @@ const GUIDE_PRICE = { input: 4, output: 20 } // $ per million tokens
 // item formats kept the same length and every math answer checked was right,
 // for about half the cost and time; teaching formats (outline, summary) came
 // out ~25% shorter, so they keep `medium`.
-const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline'])
+const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatsheet', 'timeline', 'adaptive'])
 
 /**
  * A grading upload as the right Claude block, judged by its bytes (names and
@@ -464,7 +474,8 @@ function guideRequest(content: Anthropic.MessageParam['content'], format?: strin
   // Hard guides never do: hard multi-step questions need the thinking to come
   // out hard and keyed correctly.
   const low = (format && LOW_EFFORT_FORMATS.has(format)) || length === 'short'
-  const effort = process.env.GUIDE_EFFORT || (low && difficulty !== 'hard' ? 'low' : 'medium')
+  // (Adaptive practice stays at low effort even when hard: its sessions are short and the cost cap matters more.)
+  const effort = process.env.GUIDE_EFFORT || (low && (difficulty !== 'hard' || format === 'adaptive') ? 'low' : 'medium')
   return {
     model: GUIDE_MODEL,
     max_tokens: 32000,
@@ -881,6 +892,47 @@ Rules:
 - 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer.
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.
 - Each question, option and answer stays on its own single line. Put nothing between questions except blank lines; no callouts, tables or notes. The exceptions: statements a question refers to ("I. ...", "II. ...") go on their own lines under the question line, and a \`\`\`graph figure block may sit directly under a question line (see FIGURES, if present). Output ONLY the title, the one-line description, the ## headings and the items; no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
+      adaptive: `FORMAT: ADAPTIVE PRACTICE. A bank of questions the app serves one at a time, adapting to the student: it moves between concepts, raises or lowers difficulty after each answer, shows the concept's LESSON when the student misses twice in a row, and keeps going until each concept is mastered. Every piece of feedback is read right after the student answers, so it must make sense on its own.
+Use exactly this skeleton:
+# <Guide title>
+*<one-line description>*
+
+CONCEPT: <concept name, 2-6 words>
+LESSON: <2-4 sentences: the core idea, how to do it, and the most common mistake. Written as a quick reteach for a student who just missed two questions on it>
+
+Q: 1 | mc
+<question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+ANSWER: <letter>
+IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it and how to fix it, addressed to the student ("You ...")>
+EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
+
+Q: 2 | num
+<question with a single numeric answer; say the form wanted (e.g. "Round to the nearest tenth", "as a fraction or decimal")>
+ANSWER: <the number; list equivalent forms with |, e.g. 3.5 | 7/2>
+EXPLANATION: <the key step>
+
+Q: 2 | tf
+<statement>
+ANSWER: True|False
+EXPLANATION: <one short sentence>
+
+Q: 3 | explain
+<an "explain in your own words" question: why something works, what would change if..., or compare two ideas>
+ANSWER: <a complete model answer, 2-3 sentences, with the points a good answer must make>
+
+CONCEPT: <next concept>
+...
+Rules:
+- 4-6 concepts: the distinct skills or ideas the learner must master, in teaching order. Each concept gets 4 questions the app grades (levels 1, 2, 2, 3) plus exactly one explain question (level 3). The app writes more later for students who need them, so don't add extras.
+- Levels: 1 = recall or a one-step application; 2 = the typical test question; 3 = multi-step, combines ideas, or an unfamiliar setup. Match the learner's goal and level: a level 3 SAT question is a hard SAT question, not trivia.
+- Question types: mostly mc; use num whenever the answer is a single number (math, science calculations); at most one tf per concept. Never put a numeric answer only in mc options when num works.
+- Distractors are the answers students really get from common mistakes, and every IF line names that mistake. Options similar in length; vary the position of the correct letter.
+- Each question is self-contained (no "as above"); statements a question refers to ("I. ...", "II. ...") go on their own lines under the question, and a \`\`\`graph figure block may sit directly under the question (see FIGURES, if present).
+- Plain-text prefixes exactly as shown (CONCEPT:, LESSON:, Q:, ANSWER:, IF A:, EXPLANATION:), never bolded, one per line, a blank line between questions. Output ONLY the title, the description and the concept blocks; no ## headings, intro paragraphs, callouts, tables, notes or "Keep Going" section.`,
       practice: `FORMAT: INTERACTIVE PRACTICE. A set of hands-on activities students click through (matching, fill-in-the-blank, ordering, sorting, and questions).
 Use exactly this skeleton:
 # <Guide title>
@@ -2123,6 +2175,71 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
   }
 
   /**
+   * More questions for one concept of an adaptive practice session, aimed at
+   * the student's current level and the mistakes they just made. Sonnet 5.5 at
+   * low effort (~$0.02-0.04 per batch): it has the concept's lesson and every
+   * existing question on it, so it matches their style without the original
+   * materials. Returns the raw Q blocks (parsed and validated by the route).
+   */
+  async generateAdaptiveRefill(params: {
+    guideTitle: string
+    subject?: string
+    gradeLevel?: string
+    concept: { name: string; lesson: string }
+    existing: string[]
+    missed: Array<{ question: string; given: string; correct: string }>
+    level: 1 | 2 | 3
+    count: number
+  }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number; cost: number } }> {
+    const levelWords = { 1: 'level 1 (recall or one step)', 2: 'level 2 (the typical test question)', 3: 'level 3 (multi-step, combines ideas, or an unfamiliar setup)' }[params.level]
+    const prompt = `You are writing more practice questions for a student in an adaptive practice session.
+
+GUIDE: ${params.guideTitle}
+SUBJECT: ${params.subject && params.subject !== 'general' ? params.subject : 'infer from the guide'}
+LEARNER LEVEL: ${describeLevel(params.gradeLevel)}
+CONCEPT: ${params.concept.name}
+LESSON (what this concept covers): ${params.concept.lesson || '(none)'}
+
+QUESTIONS THE STUDENT HAS ALREADY SEEN ON THIS CONCEPT (match their style and scope; never repeat or lightly reword them):
+${params.existing.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+${params.missed.length ? `
+MISTAKES THE STUDENT JUST MADE (aim the new questions at these misunderstandings, from fresh angles):
+${params.missed.map((m) => `- Question: ${m.question}\n  They answered: ${m.given}\n  Correct: ${m.correct}`).join('\n')}
+` : ''}
+Write ${params.count} new questions on this concept only, mostly at ${levelWords}${params.level > 1 ? ', with one a level lower' : ', with one at level 2'}.
+Use exactly this format, a blank line between questions:
+
+Q: <1|2|3> | <mc|num|tf>
+<question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+ANSWER: <letter>
+IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it, addressed to the student>
+EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
+
+For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False. Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
+Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else, including x-bar and p-hat ($$\\bar{x}$$, $$\\hat{p}$$; never x̄ or p̂). Never calculator notation like x^2. Never use em dashes.
+Output only the questions.`
+
+    const response = await this.anthropic.beta.messages.stream({
+      model: 'claude-sonnet-5-5',
+      max_tokens: 8000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      messages: [{ role: 'user', content: prompt }],
+    } as any).finalMessage()
+    const block = response.content.find((b) => b.type === 'text')
+    if (!block || block.type !== 'text') throw new Error('No questions came back')
+    const cost = (response.usage.input_tokens * 2 + response.usage.output_tokens * 10) / 1_000_000
+    console.log('Adaptive refill usage:', { input: response.usage.input_tokens, output: response.usage.output_tokens, cost: `$${cost.toFixed(4)}` })
+    return { text: block.text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens, cost } }
+  }
+
+  /**
    * Grade a single short answer against a sample answer. Used in the mastery
    * quiz answer loop (hot path; runs on Haiku for speed/cost) and by the
    * study-guide quiz self-check (/api/score-short-answer).
@@ -2312,7 +2429,7 @@ Grade the student's answer:
 - 50-79: partially correct
 - 0-49: incorrect
 
-Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. Give 1-2 sentences of constructive feedback addressed to the student.
+Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. Give 1-2 sentences of constructive feedback addressed to the student. Never use em dashes.
 
 Respond with ONLY a JSON object, no other text:
 {"score": <integer 0-100>, "feedback": "<1-2 sentences>"}`

@@ -137,7 +137,7 @@ export interface ClaudeApiResponse {
   }
 }
 
-export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan' | 'cheatsheet' | 'timeline'
+export type StudyGuideFormat = 'outline' | 'flashcards' | 'quiz' | 'summary' | 'practice' | 'plan' | 'cheatsheet' | 'timeline' | 'adaptive'
 export type GradeLevel = '9th' | '10th' | '11th' | '12th' | 'college'
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced'
 export type FileType = 'pdf' | 'pptx' | 'docx' | 'txt'

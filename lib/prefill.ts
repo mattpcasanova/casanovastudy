@@ -4,7 +4,7 @@
 // missed"). Stored in sessionStorage — not the URL — and consumed once.
 
 export interface GuidePrefill {
-  source: 'missed-quiz' | 'weak-spots'
+  source: 'missed-quiz' | 'weak-spots' | 'adaptive-next'
   sourceTitle: string
   studyRequest: string
   studyGuideName: string
@@ -12,6 +12,8 @@ export interface GuidePrefill {
   subject?: string
   gradeLevel?: string
   detail: string // one line shown in the arrival banner, e.g. "6 questions you missed"
+  /** Adaptive next sessions: 'hard' = level up, 'easier' = foundations. */
+  difficultyLevel?: 'easier' | 'standard' | 'hard'
 }
 
 const KEY = 'cs:prefill'

@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft, FileText, History } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -27,6 +27,7 @@ import PracticeFormat from '@/components/formats/practice-format'
 import PlanFormat from '@/components/formats/plan-format'
 import CheatSheetFormat from '@/components/formats/cheatsheet-format'
 import TimelineFormat from '@/components/formats/timeline-format'
+import AdaptiveFormat from '@/components/formats/adaptive-format'
 import { supabase } from '@/lib/supabase'
 import { authFetch } from '@/lib/auth-fetch'
 import { CLASSES_ENABLED } from '@/lib/features'
@@ -55,6 +56,7 @@ const FORMAT_META = {
   plan: { accent: formatAccent.plan, icon: MapIcon, label: 'Study plan' },
   cheatsheet: { accent: formatAccent.cheatsheet, icon: FileText, label: 'Cheat sheet' },
   timeline: { accent: formatAccent.timeline, icon: History, label: 'Timeline' },
+  adaptive: { accent: formatAccent.adaptive, icon: Target, label: 'Adaptive practice' },
   custom: { accent: formatAccent.outline, icon: Sparkles, label: 'Custom' },
 } as const
 
@@ -232,6 +234,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         return <CheatSheetFormat content={studyGuide.content} />
       case 'timeline':
         return <TimelineFormat content={studyGuide.content} />
+      case 'adaptive':
+        return <AdaptiveFormat content={studyGuide.content} studyGuideId={studyGuide.id} title={studyGuide.title} subject={studyGuide.subject} gradeLevel={studyGuide.grade_level} isOwner={isOwner} />
       case 'custom':
         if (studyGuide.custom_content) {
           return <CustomFormat content={studyGuide.custom_content} studyGuideId={studyGuide.id} />

@@ -95,13 +95,22 @@ const DIFFICULTY_OPTIONS: { value: GuideDifficulty; label: string; hint: string;
   { value: "standard", label: "Standard", hint: "Typical test", examHint: "Like the real test" },
   { value: "hard", label: "Hard", hint: "Challenge me", examHint: "Its toughest" },
 ]
+// Adaptive practice adjusts as you go; this only sets where it starts.
+const ADAPTIVE_START: Record<GuideDifficulty, { label: string; hint: string; desc: string }> = {
+  easier: { label: "Foundations", hint: "Build up", desc: "Starts simple and builds up step by step." },
+  standard: { label: "Standard", hint: "Typical test", desc: "Starts at a typical test level, then adapts to you." },
+  hard: { label: "Level up", hint: "Challenge me", desc: "Harder, test-level questions from the start." },
+}
 
 interface UploadPageProps {
   onGenerateStudyGuide: (data: StudyGuideData) => void
   isGenerating: boolean
 }
 
-type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice" | "plan" | "cheatsheet" | "timeline"
+type FormatValue = "outline" | "flashcards" | "quiz" | "summary" | "practice" | "plan" | "cheatsheet" | "timeline" | "adaptive"
+
+const ADAPTIVE_LABEL = "Adaptive practice"
+const formatLabel = (f: FormatValue | "") => (f === "adaptive" ? ADAPTIVE_LABEL : FORMATS.find((x) => x.value === f)?.label)
 
 // Class strings are literal so Tailwind's scanner keeps them.
 const FORMATS: Array<{
@@ -112,7 +121,6 @@ const FORMATS: Array<{
   selected: string
   iconIdle: string
   iconOn: string
-  badge?: string
   preview: React.ReactNode
 }> = [
   {
@@ -195,7 +203,6 @@ const FORMATS: Array<{
     selected: "border-orange-500 ring-4 ring-orange-500/15 bg-orange-50/50",
     iconIdle: "bg-orange-100 text-orange-700",
     iconOn: "bg-orange-500 text-white",
-    badge: "New",
     preview: (
       <div className="grid grid-cols-2 gap-1.5">
         {[0, 1].map((r) => (
@@ -216,7 +223,6 @@ const FORMATS: Array<{
     selected: "border-teal-500 ring-4 ring-teal-500/15 bg-teal-50/50",
     iconIdle: "bg-teal-100 text-teal-700",
     iconOn: "bg-teal-600 text-white",
-    badge: "New",
     preview: (
       <div className="relative space-y-1.5 pl-3">
         <span className="absolute bottom-1 left-[3px] top-1 w-0.5 rounded bg-teal-200" />
@@ -237,7 +243,6 @@ const FORMATS: Array<{
     selected: "border-slate-600 ring-4 ring-slate-500/15 bg-slate-50",
     iconIdle: "bg-slate-200 text-slate-700",
     iconOn: "bg-slate-800 text-white",
-    badge: "New",
     preview: (
       <div className="grid grid-cols-3 gap-1">
         {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -257,7 +262,6 @@ const FORMATS: Array<{
     selected: "border-fuchsia-500 ring-4 ring-fuchsia-500/15 bg-fuchsia-50/50",
     iconIdle: "bg-fuchsia-100 text-fuchsia-700",
     iconOn: "bg-fuchsia-600 text-white",
-    badge: "New",
     preview: (
       <div className="relative flex h-9 items-center">
         <span className="absolute inset-x-1 top-1/2 h-0.5 -translate-y-1/2 rounded bg-fuchsia-200" />
@@ -331,6 +335,11 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const { plan, isPremium, openPremium } = usePlan()
   const freeGuides = plan && !isPremium ? plan.usage.guide : null
   const freeGuidesLeft = freeGuides ? Math.max(0, freeGuides.limit - freeGuides.used) : null
+  // Adaptive practice has its own free allowance (1 a week), separate from guides.
+  const freeAdaptive = plan && !isPremium ? plan.usage.adaptive : null
+  // Arrivals that recommend a guide (prefill, study plan unit) build it right
+  // away. The filled-in form and banner stay as the fallback if it fails.
+  const [autoStart, setAutoStart] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -348,7 +357,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     setFormat(p.format as FormatValue)
     if (p.subject && p.subject !== "general") setSubject(p.subject)
     if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
-    setArrival({ kind: p.source === "weak-spots" ? "weak" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+    if (p.difficultyLevel) setDifficulty(p.difficultyLevel)
+    setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+    setAutoStart(true)
   }, [])
 
   // Bring the banner into view once something arrives.
@@ -392,6 +403,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         setFormat(unit.format)
         if (data.subject) setSubject(data.subject)
         if (data.grade_level) setGradeLevel(data.grade_level)
+        setAutoStart(true)
       })
     return () => { cancelled = true }
   }, [])
@@ -550,7 +562,11 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       const usesDifficulty = !format || DIFFICULTY_FORMATS.includes(format)
       const reason = premiumOnlyReason({ format, length, difficulty: usesDifficulty ? difficulty : undefined })
       if (reason) return openPremium({ error: reason, code: "premium_only" })
-      if (freeGuides && freeGuides.used >= freeGuides.limit) {
+      if (format === "adaptive") {
+        if (freeAdaptive && freeAdaptive.used >= freeAdaptive.limit) {
+          return openPremium({ error: "You've used this week's free adaptive practice session.", code: "limit_reached", kind: "adaptive", resetsAt: freeAdaptive.resetsAt ?? undefined })
+        }
+      } else if (freeGuides && freeGuides.used >= freeGuides.limit) {
         return openPremium({ error: `You've used your ${freeGuides.limit} free guides for this week.`, code: "limit_reached", kind: "guide", resetsAt: freeGuides.resetsAt ?? undefined })
       }
     }
@@ -572,10 +588,17 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
-      length,
-      difficultyLevel: !format || DIFFICULTY_FORMATS.includes(format) ? difficulty : undefined,
+      length: format === "adaptive" ? "medium" : length,
+      difficultyLevel: !format || format === "adaptive" || DIFFICULTY_FORMATS.includes(format) ? difficulty : undefined,
     })
   }
+
+  // Runs after the render that applied the arrival's state, so handleSubmit sees it.
+  useEffect(() => {
+    if (!autoStart) return
+    setAutoStart(false)
+    if (!isGenerating) handleSubmit()
+  }, [autoStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sourceSummary = files.length > 0
     ? `${files.length} file${files.length === 1 ? "" : "s"}${studyRequest.trim() ? " + your notes" : ""}`
@@ -669,7 +692,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               ref={arrivalRef}
               arrival={arrival}
               firstName={user?.first_name}
-              formatLabel={FORMATS.find((f) => f.value === format)?.label}
+              formatLabel={formatLabel(format)}
               planLinked={!!planLink}
               onUnlinkPlan={() => setPlanLink(null)}
               onCreate={handleSubmit}
@@ -826,6 +849,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         {/* 2 — Format */}
         <section className="mt-14">
           <StepHeading n={2} title="Pick a format" />
+          <AdaptiveCard
+            on={format === "adaptive"}
+            disabled={isGenerating}
+            badge={plan && !isPremium ? (freeAdaptive && freeAdaptive.used < freeAdaptive.limit ? "1 free a week" : "premium") : null}
+            onPick={() => {
+              setFormat("adaptive")
+              if (errors.format) setErrors((p) => ({ ...p, format: "" }))
+            }}
+          />
+          <p className="mb-4 mt-6 text-sm font-semibold text-slate-500">Or make a study guide</p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {FORMATS.map((f) => {
               const on = format === f.value
@@ -851,8 +884,6 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                     </span>
                   ) : plan && !isPremium && !isFreeFormat(f.value) ? (
                     <PremiumBadge className="absolute right-3 top-3" />
-                  ) : f.badge ? (
-                    <span className="absolute right-3 top-3 rounded-full bg-orange-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">{f.badge}</span>
                   ) : null}
                   <span className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-xl transition-colors", on ? f.iconOn : f.iconIdle)}>
                     <Icon className="h-5 w-5" />
@@ -947,6 +978,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               </div>
             </div>
 
+            {format !== "adaptive" && (
             <div className="mt-5 flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm">
                 <span className="block font-semibold text-slate-800">Length</span>
@@ -979,13 +1011,14 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 })}
               </div>
             </div>
+            )}
 
-            {(!format || DIFFICULTY_FORMATS.includes(format)) && (
-              <div className="mt-3 flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
+            {(!format || format === "adaptive" || DIFFICULTY_FORMATS.includes(format)) && (
+              <div className={cn("flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200 sm:flex-row sm:items-center sm:justify-between", format === "adaptive" ? "mt-5" : "mt-3")}>
                 <span className="text-sm">
-                  <span className="block font-semibold text-slate-800">Difficulty</span>
+                  <span className="block font-semibold text-slate-800">{format === "adaptive" ? "Starting point" : "Difficulty"}</span>
                   <span className="text-slate-500">
-                    {difficulty === "easier"
+                    {format === "adaptive" ? ADAPTIVE_START[difficulty].desc : difficulty === "easier"
                       ? "Core ideas, one or two steps at a time."
                       : difficulty === "hard"
                         ? "Multi-step questions with tempting wrong answers."
@@ -1008,9 +1041,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                           on ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         )}
                       >
-                        <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "hard" && <PremiumMark className="h-3.5 w-3.5" />}</span>
+                        <span className="inline-flex items-center gap-1 font-semibold">{format === "adaptive" ? ADAPTIVE_START[o.value].label : o.label}{plan && !isPremium && format !== "adaptive" && o.value === "hard" && <PremiumMark className="h-3.5 w-3.5" />}</span>
                         <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
-                          {goal === "exam" ? o.examHint : o.hint}
+                          {format === "adaptive" ? ADAPTIVE_START[o.value].hint : goal === "exam" ? o.examHint : o.hint}
                         </span>
                       </button>
                     )
@@ -1092,10 +1125,18 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             {isGenerating ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating…</>
             ) : (
-              <><Sparkles className="mr-2 h-5 w-5" /> Generate study guide</>
+              <><Sparkles className="mr-2 h-5 w-5" /> {format === "adaptive" ? "Start adaptive practice" : "Generate study guide"}</>
             )}
           </Button>
-          {freeGuides && (
+          {format === "adaptive" && freeAdaptive ? (
+            <p className={cn("text-sm font-medium", freeAdaptive.used < freeAdaptive.limit ? "text-slate-600" : "text-amber-700")}>
+              {freeAdaptive.used < freeAdaptive.limit
+                ? "Your free adaptive practice session for this week"
+                : `You've used this week's free adaptive session. Next one unlocks ${formatReset(freeAdaptive.resetsAt) ?? "soon"}.`}
+              {" "}
+              <button type="button" onClick={() => openPremium()} className="font-semibold text-blue-700 hover:underline">Premium</button>
+            </p>
+          ) : freeGuides && (
             <p className={cn("text-sm font-medium", freeGuidesLeft ? "text-slate-600" : "text-amber-700")}>
               {freeGuidesLeft
                 ? `${freeGuidesLeft} of ${PLAN_LIMITS.free.guide.limit} free guides left this week`
@@ -1106,7 +1147,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           )}
           <p className="text-sm text-slate-500">
             {isFormValid && sourceSummary
-              ? `${FORMATS.find((f) => f.value === format)?.label} from ${sourceSummary} · ${difficulty === "hard" && DIFFICULTY_FORMATS.includes(format) ? "hard questions take about 2 minutes" : "usually ready in under a minute"}`
+              ? `${formatLabel(format)} from ${sourceSummary} · ${format === "adaptive" ? "ready in about a minute, then it adapts as you go" : difficulty === "hard" && DIFFICULTY_FORMATS.includes(format) ? "hard questions take about 2 minutes" : "usually ready in under a minute"}`
               : "Takes about a minute. Your guide is saved to My Guides."}
           </p>
         </div>
@@ -1176,6 +1217,7 @@ type Arrival =
   | { kind: "plan"; sourceTitle: string; detail: string }
   | { kind: "missed"; sourceTitle: string; detail: string }
   | { kind: "weak"; sourceTitle: string; detail: string }
+  | { kind: "next"; sourceTitle: string; detail: string }
   | { kind: "welcome" }
 
 const ARRIVAL_STYLE = {
@@ -1183,6 +1225,7 @@ const ARRIVAL_STYLE = {
   missed: { ring: "ring-purple-200", bg: "from-purple-50 to-white", iconBg: "bg-purple-600", eyebrow: "text-purple-700", button: "bg-purple-600 hover:bg-purple-700", Icon: RotateCcw },
   welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Sparkles },
   weak: { ring: "ring-amber-200", bg: "from-amber-50 to-white", iconBg: "bg-amber-500", eyebrow: "text-amber-700", button: "bg-amber-500 hover:bg-amber-600", Icon: Target },
+  next: { ring: "ring-sky-200", bg: "from-sky-50 to-white", iconBg: "bg-sky-600", eyebrow: "text-sky-700", button: "bg-sky-600 hover:bg-sky-700", Icon: Target },
 } as const
 
 const ArrivalBanner = forwardRef<HTMLDivElement, {
@@ -1214,6 +1257,10 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
         {planLinked ? " The new guide will link back to your plan." : null}
       </>
     )
+  } else if (arrival.kind === "next") {
+    eyebrow = "Your next practice session"
+    title = <>Adaptive practice: {arrival.detail}</>
+    body = <>Built from your results on <strong>{arrival.sourceTitle}</strong>. Create it now, or change anything below first.</>
   } else if (arrival.kind === "weak") {
     eyebrow = "Your weak spots"
     title = <>A new quiz on {arrival.detail}</>
@@ -1262,3 +1309,56 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
     </div>
   )
 })
+
+/** The big "Adaptive practice" option above the format grid. */
+function AdaptiveCard({ on, disabled, badge, onPick }: { on: boolean; disabled: boolean; badge: "1 free a week" | "premium" | null; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onPick}
+      aria-pressed={on}
+      className={cn(
+        "group relative grid w-full gap-5 overflow-hidden rounded-2xl border-2 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] md:items-center",
+        on ? "border-sky-500 bg-sky-50/40 ring-4 ring-sky-500/15" : "border-slate-200 hover:border-sky-300"
+      )}
+    >
+      {on ? (
+        <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white">
+          <Check className="h-3.5 w-3.5" />
+        </span>
+      ) : badge === "premium" ? (
+        <PremiumBadge className="absolute right-3 top-3" />
+      ) : badge ? (
+        <span className="absolute right-3 top-3 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-800">{badge}</span>
+      ) : null}
+      <span>
+        <span className="flex items-center gap-3">
+          <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", on ? "bg-sky-600 text-white" : "bg-sky-100 text-sky-700")}>
+            <Target className="h-6 w-6" />
+          </span>
+          <span className="text-xl font-semibold text-slate-900">{ADAPTIVE_LABEL}</span>
+        </span>
+        <span className="mt-3 block max-w-xl leading-relaxed text-slate-600">
+          Like studying with a tutor. Answer a few questions and it adapts: get one right and the next is harder, miss one and you get a quick review and an easier one. Keep going until you&apos;ve mastered every concept.
+        </span>
+      </span>
+      <span aria-hidden className="block space-y-2.5 rounded-xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-100">
+        {[["Concept 1", 100, "bg-emerald-500"], ["Concept 2", 65, "bg-sky-500"], ["Concept 3", 30, "bg-sky-500"]].map(([label, pct, color]) => (
+          <span key={label as string} className="block">
+            <span className="flex items-center justify-between text-[0.7rem] font-medium text-slate-500">
+              <span>{label}</span>
+              {pct === 100 && <Check className="h-3 w-3 text-emerald-600" />}
+            </span>
+            <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <span className={cn("block h-full rounded-full", color as string)} style={{ width: `${pct}%` }} />
+            </span>
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5 pt-1 text-[0.7rem] font-semibold text-emerald-700">
+          <Check className="h-3.5 w-3.5" /> Correct! Next one is harder.
+        </span>
+      </span>
+    </button>
+  )
+}

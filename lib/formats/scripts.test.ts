@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitScripts, type ScriptPart } from './scripts'
+import { splitAccents, splitScripts, type ScriptPart } from './scripts'
 
 // Compact rendering for assertions: sup → ^[..], sub → _[..]
 const show = (parts: ScriptPart[]): string =>
@@ -37,5 +37,18 @@ describe('splitScripts', () => {
     expect(s('x^()')).toBe('x^()')
     expect(s('snake _case')).toBe('snake _case')
     expect(s('plain text')).toBe('plain text')
+  })
+})
+
+describe('splitAccents', () => {
+  it('turns combining bars and hats into KaTeX', () => {
+    expect(splitAccents('the sampling distribution of x\u0304 for samples')).toEqual(['the sampling distribution of ', { tex: '\\bar{x}' }, ' for samples'])
+    expect(splitAccents('p\u0302 = 0.4')).toEqual([{ tex: '\\hat{p}' }, ' = 0.4'])
+    expect(splitAccents('\u03bc\u0304')).toEqual([{ tex: '\\bar{\\mu}' }])
+  })
+
+  it('leaves precomposed letters and plain text alone', () => {
+    expect(splitAccents('mañana, crème')).toEqual(['mañana, crème'])
+    expect(splitAccents('no accents')).toEqual(['no accents'])
   })
 })

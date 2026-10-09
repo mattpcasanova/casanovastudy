@@ -32,6 +32,7 @@ export const FREE_FEATURES: PlanFeature[] = [
   { text: `${free.guide.limit} new study guides a week` },
   { text: capitalize(list(FREE_FORMATS.map((f) => FORMAT_NAMES[f] ?? f))) },
   { text: `${free.explain.limit} AI tutor explanations a day` },
+  { text: `${free.adaptive.limit} adaptive practice session a week` },
   { text: 'Learn mode, Progress page and weak-spot tracking' },
   { text: 'Practice, study plans, cheat sheets and timelines', missing: true },
   { text: 'Hard questions and long guides', missing: true },
@@ -41,6 +42,7 @@ export const FREE_FEATURES: PlanFeature[] = [
 export const PREMIUM_FEATURES: PlanFeature[] = [
   { text: `Up to ${premium.guide.limit} study guides a month` },
   { text: 'Every format: practice, study plans, cheat sheets and timelines, plus the custom builder\'s AI assistant' },
+  { text: `Adaptive practice that adjusts to you, up to ${premium.adaptive.limit} sessions a month` },
   { text: 'Hard difficulty and long guides for test prep' },
   { text: `Up to ${premium.explain.limit} AI tutor explanations a day` },
   { text: 'New guides and the tutor lean on your weak spots' },

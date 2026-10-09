@@ -14,6 +14,13 @@ import { PLAN_LIMITS, limitMessage, premiumOnlyReason, type MeteredKind, type Pl
 
 const EXPLAIN_SAFETY = { limit: 150, days: 1 }
 
+// Adaptive practice AI steps, capped per user per day on every plan (and while
+// plans are off). Each session also stops at ADAPTIVE_RULES.maxRefills refills.
+export const ADAPTIVE_SAFETY = {
+  adaptive_refill: { limit: 20, days: 1 }, // ~$0.02-0.04 each on Sonnet 5.5
+  adaptive_check: { limit: 100, days: 1 }, // ~$0.001 each on Haiku
+} as const
+
 export interface PlanState {
   tier: PlanTier
   premiumUntil: string | null
@@ -37,7 +44,7 @@ interface Consumed {
 }
 
 /** Records one action if the user is under the limit (atomic in the database). */
-async function consume(userId: string, kind: MeteredKind, rule: { limit: number; days: number }): Promise<Consumed> {
+async function consume(userId: string, kind: MeteredKind | keyof typeof ADAPTIVE_SAFETY, rule: { limit: number; days: number }): Promise<Consumed> {
   const { data, error } = await createAdminClient().rpc('try_consume_usage', {
     p_user: userId, p_kind: kind, p_window: `${rule.days} days`, p_limit: rule.limit,
   })
@@ -47,7 +54,7 @@ async function consume(userId: string, kind: MeteredKind, rule: { limit: number;
 }
 
 /** Counted but not capped. */
-async function record(userId: string, kind: 'guide' | 'grading'): Promise<number | null> {
+async function record(userId: string, kind: 'guide' | 'grading' | 'adaptive'): Promise<number | null> {
   const { data } = await createAdminClient().from('usage_events').insert({ user_id: userId, kind }).select('id').single()
   return data?.id ?? null
 }
@@ -76,8 +83,14 @@ export interface Metered {
  * `customAi` = the custom builder's AI assistant (Premium only).
  */
 export async function meterGuide(userId: string, opts: { format?: string; length?: string; difficulty?: string; customAi?: boolean }): Promise<Metered> {
-  if (!PLANS_ENABLED) return { block: null, eventId: await record(userId, 'guide') }
+  const adaptive = opts.format === 'adaptive'
+  if (!PLANS_ENABLED) return { block: null, eventId: await record(userId, adaptive ? 'adaptive' : 'guide') }
   const { tier } = await getPlan(userId)
+  // Adaptive practice sessions have their own allowance (free: 1 a week).
+  if (adaptive) {
+    const c = await consume(userId, 'adaptive', PLAN_LIMITS[tier].adaptive)
+    return c.allowed ? { block: null, eventId: c.eventId } : { block: limitBlock('adaptive', tier, c), eventId: null }
+  }
   if (tier === 'free') {
     if (opts.customAi) {
       return { block: { error: 'The AI assistant in the custom builder is part of Premium. You can still build guides by hand.', code: 'premium_only', kind: 'custom_ai' }, eventId: null }
@@ -115,6 +128,19 @@ export async function hasPremiumFeatures(userId: string): Promise<boolean> {
   return !PLANS_ENABLED || (await getPlan(userId)).tier === 'premium'
 }
 
+/** One adaptive-practice AI step (a refill or an answer check). Always capped, plans on or off. */
+export async function meterAdaptiveStep(userId: string, kind: keyof typeof ADAPTIVE_SAFETY): Promise<Metered> {
+  const c = await consume(userId, kind, ADAPTIVE_SAFETY[kind])
+  if (c.allowed) return { block: null, eventId: c.eventId }
+  return { eventId: null, block: {
+    error: kind === 'adaptive_refill'
+      ? "You've reached today's limit for new practice questions. Your session keeps going with review questions, and new ones unlock tomorrow."
+      : "You've reached today's limit for checked written answers. Try again tomorrow.",
+    code: 'limit_reached',
+    resetsAt: c.resetsAt ?? undefined,
+  } }
+}
+
 /** Whether this user may grade (Premium only when plans are on). Records nothing. */
 export async function gradingBlock(userId: string): Promise<PlanBlock | null> {
   if (PLANS_ENABLED && (await getPlan(userId)).tier === 'free') {
@@ -134,7 +160,7 @@ export async function checkGrading(userId: string): Promise<PlanBlock | null> {
 export async function usageSummary(userId: string, tier: PlanTier) {
   const supabase = createAdminClient()
   const out = {} as Record<MeteredKind, { used: number; limit: number; resetsAt: string | null }>
-  for (const kind of ['guide', 'explain'] as const) {
+  for (const kind of ['guide', 'explain', 'adaptive'] as const) {
     const { limit, days } = PLAN_LIMITS[tier][kind]
     const since = new Date(Date.now() - days * 86_400_000).toISOString()
     const { data } = await supabase

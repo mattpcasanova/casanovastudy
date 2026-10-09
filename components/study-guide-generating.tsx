@@ -40,6 +40,13 @@ function previewMarkdown(raw: string, format: string): string {
     md = md
       .replace(/^\s*(?:\*\*)?EVENT:(?:\*\*)?\s*(.*)$/gim, (_m, v: string) => `\n**${v.replace(/\s*\|\s*/, " · ")}**`)
       .replace(/^\s*(?:\*\*)?(WHAT|WHY|DETAIL|SIGNIFICANCE):(?:\*\*)?\s*/gim, "")
+  } else if (format === "adaptive") {
+    md = md
+      .replace(/^\s*(?:\*\*)?CONCEPT:(?:\*\*)?\s*(.*)$/gim, "\n## $1")
+      .replace(/^\s*(?:\*\*)?LESSON:(?:\*\*)?\s*(.*)$/gim, "*$1*")
+      .replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*([123])\s*\|\s*(\w+).*$/gim, (_m, lvl: string, type: string) => `\n**${type.toLowerCase() === "explain" ? "In your own words" : ["Warm-up", "Core", "Challenge"][Number(lvl) - 1]} question.** `)
+      .replace(/^\s*([A-F])\)\s+/gm, "- **$1.** ")
+      .replace(/^\s*(?:\*\*)?(ANSWER|IF\s+[A-F]|EXPLANATION):.*$/gim, "")
   } else if (format === "flashcards") {
     md = md.replace(/^\s*(?:\*\*)?Q:(?:\*\*)?\s*/gm, "\n**Q:** ").replace(/\n\s*(?:\*\*)?A:(?:\*\*)?\s*/g, "  \n**A:** ") // hard break → answer on its own line
   }

@@ -123,7 +123,7 @@ export const eyebrow = "text-[0.7rem] font-semibold uppercase tracking-[0.14em]"
 // distinct-but-related family. Colors are chosen to avoid the tier palette
 // (rose/amber/emerald) and the quiz/flashcard state colors. Class strings are
 // full literals so Tailwind's scanner keeps them.
-export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practice" | "plan" | "cheatsheet" | "timeline"
+export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practice" | "plan" | "cheatsheet" | "timeline" | "adaptive"
 
 export interface FormatAccent {
   text: string // eyebrows, progress %, small accents
@@ -236,5 +236,17 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
     bannerFrom: "from-fuchsia-500",
     bannerTo: "to-fuchsia-700",
     bannerSub: "text-fuchsia-50",
+  },
+  adaptive: {
+    text: "text-sky-700",
+    edge: "border-l-sky-500",
+    solid: "bg-sky-600",
+    hover: "hover:bg-sky-700",
+    ring: "ring-sky-500",
+    soft: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200",
+    iconBadge: "bg-white/15 text-white",
+    bannerFrom: "from-sky-500",
+    bannerTo: "to-blue-700",
+    bannerSub: "text-sky-50",
   },
 }

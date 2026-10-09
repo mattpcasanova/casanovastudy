@@ -268,7 +268,7 @@ const inlineComponents: Components = {
 /** Inline markdown for short strings (card questions, quiz options, titles). */
 export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }): ReactNode {
   // Fast path for plain strings.
-  if (!/[*_`$\[^]/.test(text)) return <>{text}</>
+  if (!/[*_`$\[^\u0302-\u0305\u0307\u20D7]/.test(text)) return <>{text}</> // combining accents (x̄) go through remarkScripts too
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}

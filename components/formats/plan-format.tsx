@@ -96,7 +96,7 @@ function formatMinutes(total: number): string {
 interface ChildGuide { id: string; title: string; plan_unit: string | null; created_at: string }
 
 // A plan is the roadmap; each unit becomes its own guide via the homepage
-// (/?plan=<id>&unit=<key> prefills the generator), linked back through
+// (/?plan=<id>&unit=<key> fills in the generator and starts building), linked back through
 // study_guides.parent_guide_id. "Studied" is a per-browser checkmark.
 export default function PlanFormat({ content, studyGuideId, title, subject, gradeLevel, isOwner }: PlanFormatProps) {
   const plan = useMemo(() => parsePlan(content), [content])
