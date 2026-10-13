@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isPlausibleBirthDate } from '@/lib/consent-rules'
 import {
-  AuthShell, AuthHeading, ColegiaButton, Divider, Field, FormError, PasswordField, PrimaryButton,
+  AuthShell, AuthHeading, Field, FormError, PasswordField, PrimaryButton,
   friendlyAuthError,
 } from '@/components/auth/auth-ui'
 
@@ -88,9 +88,6 @@ export default function SignUpPage() {
             )
           })}
         </div>
-
-        <Divider label="or" />
-        <ColegiaButton label="Sign up with Colegia (school account)" />
 
         <p className="mt-8 text-center text-sm text-slate-600">
           Already have an account?{' '}

@@ -7,7 +7,7 @@ import { ArrowLeft, MailCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import {
-  AuthShell, AuthHeading, ColegiaButton, Divider, Field, FormError, PasswordField, PrimaryButton,
+  AuthShell, AuthHeading, Field, FormError, PasswordField, PrimaryButton,
   friendlyAuthError, safeNext,
 } from '@/components/auth/auth-ui'
 
@@ -110,9 +110,6 @@ export default function SignInPage() {
   return (
     <AuthShell>
       <AuthHeading title="Welcome back" subtitle="Sign in to pick up where you left off." />
-
-      <ColegiaButton disabled={isLoading} />
-      <Divider label="or sign in with email" />
 
       {error && <FormError>
         {error}

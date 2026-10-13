@@ -67,6 +67,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
 4. Session stored in **cookies** (browser client is `@supabase/ssr` `createBrowserClient`), not localStorage
 
 ### Clever SSO (Colegia)
+**Hidden 2026-10-13**: the Colegia button was removed from sign-in and sign-up (`ColegiaButton` in `components/auth/auth-ui.tsx` and the callback route still exist; re-add the button to bring it back).
 1. User clicks "Log in with Colegia" → Redirects to Clever OAuth
 2. If district_id configured → Uses instant-login (bypasses school search)
 3. User authenticates with Clever → Redirects to `/auth/clever/callback`
