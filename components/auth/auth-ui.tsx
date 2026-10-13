@@ -34,8 +34,9 @@ export function AuthShell({ children, panel = true }: { children: ReactNode; pan
 function Logo() {
   return (
     <Link href="/" className="inline-flex items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-white lg:focus-visible:ring-blue-500">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900/80 lg:bg-slate-900">
-        <Image src="/images/casanova-study-icon.png" alt="" width={64} height={64} className="h-7 w-auto mix-blend-screen [filter:brightness(1.5)_saturate(1.2)]" />
+      {/* White tile on the phone's blue header; bare icon on the white desktop column */}
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm lg:h-10 lg:w-10 lg:bg-transparent lg:shadow-none">
+        <Image src="/images/casanova-study-icon.png" alt="" width={80} height={80} className="h-7 w-auto lg:h-10" />
       </span>
       <span className="text-lg font-bold tracking-tight text-white lg:text-slate-900">Casanova Study</span>
     </Link>
