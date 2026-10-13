@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase"
 import { flushResults } from "@/lib/results"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { displaySubject } from "@/lib/study-options"
-import { buildProfile, topicKey, weakSpotsRequest, PROFILE_RULES, type AnswerRow, type TopicStat } from "@/lib/learner/profile"
+import { buildProfile, topicKey, weakSpotGroups, weakSpotsRequest, PROFILE_RULES, type AnswerRow, type TopicStat } from "@/lib/learner/profile"
 import { missedQuestionsFromGuide, type MissedQuestion } from "@/lib/learner/missed"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -77,6 +77,9 @@ function Progress() {
   const thisWeek = profile ? profile.last14.slice(-7).reduce((a, b) => a + b, 0) : 0
 
   const [preparing, setPreparing] = useState<string | null>(null)
+  const weakGroups = useMemo(() => (profile ? weakSpotGroups(profile.weak) : []), [profile])
+  // Subject name for quiz titles; topics with no subject are "Other" (no label in titles).
+  const groupLabel = (s: string | null) => (s ? displaySubject(s) || s : "")
 
   /** The questions this student recently got wrong in these topics, read back out of their guides. */
   const missedFor = async (topics: TopicStat[]): Promise<Record<string, MissedQuestion[]>> => {
@@ -102,12 +105,12 @@ function Progress() {
     return out
   }
 
-  const quizMe = async (topics: TopicStat[], id: string) => {
+  const quizMe = async (topics: TopicStat[], id: string, label?: string) => {
     setPreparing(id)
     let missed: Record<string, MissedQuestion[]> = {}
     try { missed = await missedFor(topics) } catch { /* the topic names alone still work */ }
     setPreparing(null)
-    const r = weakSpotsRequest(topics, titles, missed)
+    const r = weakSpotsRequest(topics, titles, missed, label)
     router.push(openHomeWithPrefill({
       source: "weak-spots",
       sourceTitle: "your Progress page",
@@ -188,13 +191,28 @@ function Progress() {
                   <h2 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>Weak spots{subjectLabel ? ` in ${subjectLabel}` : ""}</h2>
                   <p className="text-sm text-slate-500">Topics under {pct(PROFILE_RULES.weakBelow)} on your recent answers (at least {PROFILE_RULES.minAnswers} answered, or {PROFILE_RULES.allWrongMinAnswers} wrong in a row).</p>
                 </div>
-                {profile.weak.length > 0 && (
-                  <Button onClick={() => void quizMe(profile.weak, "all")} disabled={!!preparing} className="h-11 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 font-semibold text-white shadow-md hover:brightness-110">
+                {weakGroups.length === 1 && (
+                  <Button onClick={() => void quizMe(weakGroups[0].topics, "all", groupLabel(weakGroups[0].subject))} disabled={!!preparing} className="h-11 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 font-semibold text-white shadow-md hover:brightness-110">
                     {preparing === "all" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Quiz me on my {subjectLabel ? `${subjectLabel} ` : ""}weak spots {preparing !== "all" && <ArrowRight className="ml-2 h-4 w-4" />}
+                    Quiz me on my {groupLabel(weakGroups[0].subject) ? `${groupLabel(weakGroups[0].subject)} ` : ""}weak spots {preparing !== "all" && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>
                 )}
               </div>
+              {/* Weak spots across several subjects: one quiz per subject, never a mixed one. */}
+              {weakGroups.length > 1 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-slate-500">Quiz me on:</span>
+                  {weakGroups.slice(0, 4).map((g) => {
+                    const id = `group:${g.subject ?? OTHER}`
+                    return (
+                      <Button key={id} onClick={() => void quizMe(g.topics, id, groupLabel(g.subject))} disabled={!!preparing} className="h-10 rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-4 font-semibold text-white shadow-md hover:brightness-110">
+                        {preparing === id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {groupLabel(g.subject) || "Other"} <span className="ml-1.5 text-xs font-normal text-white/80">{g.topics.length}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
               {profile.weak.length === 0 ? (
                 <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">No weak spots right now. Nice work. Keep answering questions and this will update.</p>
               ) : (

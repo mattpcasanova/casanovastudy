@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildProfile, learnerHistoryNote, weakSpotsRequest, type AnswerRow } from './profile'
+import { buildProfile, learnerHistoryNote, weakSpotGroups, weakSpotsRequest, type AnswerRow, type TopicStat } from './profile'
 import { missedQuestionsFromGuide } from './missed'
 import { lastMissed } from './guide-history'
 
@@ -118,5 +118,24 @@ describe('lastMissed', () => {
     ], 'q:')
     expect(h.missedIds.sort()).toEqual(['q-1', 'q-2'])
     expect(h.topics).toEqual(['Algebra', 'Geometry'])
+  })
+})
+
+describe('weakSpotGroups', () => {
+  const t = (subject: string | null, topic: string, recentAccuracy: number): TopicStat =>
+    ({ key: `${subject}|${topic}`, subject, topic, answered: 4, correct: 1, recentAccuracy, recentAnswered: 4, lastAt: '2026-10-01', guideIds: [] })
+
+  it('splits weak topics by subject, most in need first', () => {
+    const groups = weakSpotGroups([t('chemistry', 'Moles', 0.4), t('history', 'WWI causes', 0.2), t('chemistry', 'Limiting reactants', 0.5), t(null, 'Misc', 0.3)])
+    expect(groups.map((g) => [g.subject, g.topics.map((x) => x.topic)])).toEqual([
+      ['chemistry', ['Moles', 'Limiting reactants']],
+      ['history', ['WWI causes']],
+      [null, ['Misc']],
+    ])
+  })
+
+  it('names a one-subject quiz after the subject', () => {
+    const r = weakSpotsRequest([t('chemistry', 'Moles', 0.4), t('chemistry', 'Limiting reactants', 0.5)], {}, {}, 'Chemistry')
+    expect(r).toMatchObject({ studyGuideName: 'My Chemistry Weak Spots Quiz', subject: 'chemistry', detail: '2 Chemistry topics you\'re weakest on' })
   })
 })

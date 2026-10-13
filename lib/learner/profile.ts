@@ -132,6 +132,8 @@ export function weakSpotsRequest(
   weak: TopicStat[],
   guideTitles: Record<string, string> = {},
   missedByTopic: Record<string, Array<{ question: string; answer: string }>> = {},
+  /** Display name of the subject, when every topic is from one (e.g. "Chemistry"). */
+  subjectLabel?: string,
 ): { studyRequest: string; studyGuideName: string; detail: string; subject?: string } {
   const picks = weak.slice(0, 5)
   const BUDGET = 6800 // the request limit is 8,000 characters
@@ -161,10 +163,24 @@ export function weakSpotsRequest(
       ...lines,
       anyMissed ? 'Write fresh questions that test the same skills as the ones I missed, from different angles (don\'t copy them word for word).' : '',
     ].filter(Boolean).join('\n').slice(0, 7900),
-    studyGuideName: picks.length === 1 ? `${picks[0].topic}: Weak Spot Quiz` : 'My Weak Spots Quiz',
-    detail: picks.length === 1 ? picks[0].topic : `${picks.length} topics you're weakest on`,
+    studyGuideName: picks.length === 1 ? `${picks[0].topic}: Weak Spot Quiz` : subjectLabel ? `My ${subjectLabel} Weak Spots Quiz` : 'My Weak Spots Quiz',
+    detail: picks.length === 1 ? picks[0].topic : `${picks.length} ${subjectLabel ? `${subjectLabel} ` : ''}topics you're weakest on`,
     subject: subjects.length === 1 ? subjects[0]! : undefined,
   }
+}
+
+/**
+ * Weak topics split by subject, so a weak-spot quiz never mixes classes
+ * (chemistry + calculus + history in one quiz is incoherent). Topics without a
+ * subject form their own group (key null). Ordered most-in-need first: more
+ * weak topics, then lower recent accuracy.
+ */
+export function weakSpotGroups(weak: TopicStat[]): Array<{ subject: string | null; topics: TopicStat[] }> {
+  const groups = new Map<string | null, TopicStat[]>()
+  for (const t of weak) groups.set(t.subject, [...(groups.get(t.subject) ?? []), t])
+  const avg = (ts: TopicStat[]) => ts.reduce((n, t) => n + t.recentAccuracy, 0) / ts.length
+  return [...groups].map(([subject, topics]) => ({ subject, topics }))
+    .sort((a, b) => b.topics.length - a.topics.length || avg(a.topics) - avg(b.topics))
 }
 
 const STOP = new Set(['the', 'and', 'for', 'with', 'from', 'unit', 'quiz', 'test', 'guide', 'practice', 'study', 'about', 'what', 'how', 'into', 'your', 'their', 'this', 'that'])
