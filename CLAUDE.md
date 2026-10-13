@@ -66,6 +66,13 @@ answers, min 3 answered; cap 15/concept then partial credit).
 3. User confirms → Can sign in
 4. Session stored in **cookies** (browser client is `@supabase/ssr` `createBrowserClient`), not localStorage
 
+### Google sign-in (2026-10-13)
+1. "Continue with Google" (sign-in) / "Sign up with Google" (sign-up, after the student/teacher step) → `signInWithGoogle({ next, role })` in `lib/auth.tsx` → Supabase OAuth (`prompt: select_account`)
+2. Google returns to `/auth/callback?next=&role=` (client page): session from the PKCE code, then existing profile → `next`; no profile → insert one from Google's `given_name`/`family_name` with the role from sign-up, or ask with `RolePicker` (sign-in page path), then `/?welcome=1`
+3. Students have no birth date yet, so `AuthGate` sends them to `/consent` (same COPPA rules; Google is NOT school consent)
+4. Same email as an existing password account: Supabase links the identities, so the old profile is used
+- Setup: Google Cloud OAuth client (redirect URI `https://<project>.supabase.co/auth/v1/callback`), Google enabled in Supabase Auth → Providers, and `/auth/callback` covered by Supabase's Redirect URLs (prod + `http://localhost:3000/**`)
+
 ### Clever SSO (Colegia)
 **Hidden 2026-10-13**: the Colegia button was removed from sign-in and sign-up (`ColegiaButton` in `components/auth/auth-ui.tsx` and the callback route still exist; re-add the button to bring it back).
 1. User clicks "Log in with Colegia" → Redirects to Clever OAuth

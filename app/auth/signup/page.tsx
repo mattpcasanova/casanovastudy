@@ -3,25 +3,18 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, GraduationCap, Presentation } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isPlausibleBirthDate } from '@/lib/consent-rules'
 import {
-  AuthShell, AuthHeading, Field, FormError, PasswordField, PrimaryButton,
-  friendlyAuthError,
+  AuthShell, AuthHeading, Divider, Field, FormError, GoogleButton, PasswordField, PrimaryButton, RolePicker,
+  ROLES, friendlyAuthError, type Role,
 } from '@/components/auth/auth-ui'
-
-type Role = 'student' | 'teacher'
-
-const ROLES: Array<{ value: Role; title: string; desc: string; icon: typeof GraduationCap }> = [
-  { value: 'student', title: 'I’m a student', desc: 'Make study guides, flashcards and practice for your classes and exams.', icon: GraduationCap },
-  { value: 'teacher', title: 'I’m a teacher', desc: 'Create guides for your students and grade exams with AI help.', icon: Presentation },
-]
 
 export default function SignUpPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
 
   const [role, setRole] = useState<Role | null>(null)
   const [firstName, setFirstName] = useState('')
@@ -60,34 +53,23 @@ export default function SignUpPage() {
     }
   }
 
+  const handleGoogle = async () => {
+    if (!role) return
+    setError('')
+    setIsLoading(true)
+    try {
+      await signInWithGoogle({ role })
+    } catch (err) {
+      setError(friendlyAuthError(err, 'We couldn’t open Google sign-in. Please try again.'))
+      setIsLoading(false)
+    }
+  }
+
   if (!role) {
     return (
       <AuthShell>
         <AuthHeading title="Create your account" subtitle="Free to use. First, tell us who you are." />
-        <div className="space-y-3" role="radiogroup" aria-label="Account type">
-          {ROLES.map((r) => {
-            const Icon = r.icon
-            return (
-              <button
-                key={r.value}
-                type="button"
-                role="radio"
-                aria-checked={false}
-                onClick={() => setRole(r.value)}
-                className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20"
-              >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
-                  <Icon className="h-6 w-6" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-slate-900">{r.title}</span>
-                  <span className="mt-0.5 block text-sm leading-snug text-slate-500">{r.desc}</span>
-                </span>
-                <ArrowRight className="h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-              </button>
-            )
-          })}
-        </div>
+        <RolePicker onPick={setRole} />
 
         <p className="mt-8 text-center text-sm text-slate-600">
           Already have an account?{' '}
@@ -120,6 +102,9 @@ export default function SignUpPage() {
       />
 
       <FormError>{error}</FormError>
+
+      <GoogleButton label="Sign up with Google" disabled={isLoading} onClick={() => void handleGoogle()} />
+      <Divider label="or use your email" />
 
       <form onSubmit={handleSignUp} className="space-y-5">
         <div className="grid grid-cols-2 gap-3">

@@ -7,13 +7,13 @@ import { ArrowLeft, MailCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import {
-  AuthShell, AuthHeading, Field, FormError, PasswordField, PrimaryButton,
+  AuthShell, AuthHeading, Divider, Field, FormError, GoogleButton, PasswordField, PrimaryButton,
   friendlyAuthError, safeNext,
 } from '@/components/auth/auth-ui'
 
 export default function SignInPage() {
   const router = useRouter()
-  const { user, signIn, resetPassword } = useAuth()
+  const { user, signIn, resetPassword, signInWithGoogle } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,6 +45,17 @@ export default function SignInPage() {
       const msg = (err as { message?: string })?.message?.toLowerCase() ?? ''
       setUnconfirmed(msg.includes('email not confirmed'))
       setError(friendlyAuthError(err, 'We couldn’t sign you in. Please try again.'))
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogle = async () => {
+    setError('')
+    setIsLoading(true)
+    try {
+      await signInWithGoogle({ next: next.current })
+    } catch (err) {
+      setError(friendlyAuthError(err, 'We couldn’t open Google sign-in. Please try again.'))
       setIsLoading(false)
     }
   }
@@ -110,6 +121,9 @@ export default function SignInPage() {
   return (
     <AuthShell>
       <AuthHeading title="Welcome back" subtitle="Sign in to pick up where you left off." />
+
+      <GoogleButton disabled={isLoading} onClick={() => void handleGoogle()} />
+      <Divider label="or sign in with email" />
 
       {error && <FormError>
         {error}

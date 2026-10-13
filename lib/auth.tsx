@@ -27,6 +27,10 @@ interface AuthContextType {
   ) => Promise<{ needsConfirmation: boolean }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
+  /** Leaves the site for Google; comes back to /auth/callback. */
+  signInWithGoogle: (opts?: { next?: string; role?: 'student' | 'teacher' }) => Promise<void>
+  /** Reload the signed-in user's profile (e.g. right after creating it). */
+  refreshProfile: () => Promise<User | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -393,6 +397,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { needsConfirmation: true }
   }
 
+  const signInWithGoogle = async (opts: { next?: string; role?: 'student' | 'teacher' } = {}) => {
+    const params = new URLSearchParams()
+    if (opts.next && opts.next !== '/') params.set('next', opts.next)
+    if (opts.role) params.set('role', opts.role)
+    const query = params.toString()
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback${query ? `?${query}` : ''}`,
+        queryParams: { prompt: 'select_account' }, // shared devices often have several Google accounts
+      },
+    })
+    if (error) throw error
+  }
+
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return null
+    // The startup fetch may still be running; wait for it rather than being skipped.
+    for (let i = 0; i < 50 && isFetchingProfileRef.current; i++) await new Promise(r => setTimeout(r, 100))
+    const userProfile = await fetchUserProfile(session.user)
+    if (userProfile) setUser(userProfile)
+    return userProfile
+  }
+
   const signOut = async () => {
     isSigningOutRef.current = true
     setUser(null) // Clear user immediately to prevent stale state
@@ -406,7 +435,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword, signInWithGoogle, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

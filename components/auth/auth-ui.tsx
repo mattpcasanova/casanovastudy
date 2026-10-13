@@ -3,7 +3,7 @@
 import { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { AlertCircle, Check, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, Eye, EyeOff, GraduationCap, Loader2, Presentation } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay } from '@/lib/formats/design'
@@ -272,6 +272,64 @@ export function ColegiaButton({ disabled, label = 'Continue with Colegia' }: { d
       <Image src="/images/colegia-logo.png" alt="" width={236} height={100} className="h-6 w-auto" />
       {label}
     </button>
+  )
+}
+
+export function GoogleButton({ disabled, onClick, label = 'Continue with Google' }: { disabled?: boolean; onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white px-4 text-[0.95rem] font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 disabled:opacity-60"
+    >
+      <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden>
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+      </svg>
+      {label}
+    </button>
+  )
+}
+
+// ── Student / teacher choice (sign-up, and first Google sign-in) ────────────
+
+export type Role = 'student' | 'teacher'
+
+export const ROLES: Array<{ value: Role; title: string; desc: string; icon: typeof GraduationCap }> = [
+  { value: 'student', title: 'I’m a student', desc: 'Make study guides, flashcards and practice for your classes and exams.', icon: GraduationCap },
+  { value: 'teacher', title: 'I’m a teacher', desc: 'Create guides for your students and grade exams with AI help.', icon: Presentation },
+]
+
+export function RolePicker({ onPick, disabled }: { onPick: (role: Role) => void; disabled?: boolean }) {
+  return (
+    <div className="space-y-3" role="radiogroup" aria-label="Account type">
+      {ROLES.map((r) => {
+        const Icon = r.icon
+        return (
+          <button
+            key={r.value}
+            type="button"
+            role="radio"
+            aria-checked={false}
+            disabled={disabled}
+            onClick={() => onPick(r.value)}
+            className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-60"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
+              <Icon className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900">{r.title}</span>
+              <span className="mt-0.5 block text-sm leading-snug text-slate-500">{r.desc}</span>
+            </span>
+            <ArrowRight className="h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
