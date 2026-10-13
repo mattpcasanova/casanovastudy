@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { syncRosterWithEnrollments } from '@/lib/classes/server'
 
 // POST - Student joins a class by enrollment code.
 // If a previous (class, student) row exists with status='removed', reactivate it.
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
         console.error('Error reactivating enrollment:', reactivateError)
         return NextResponse.json({ error: 'Failed to rejoin class' }, { status: 500 })
       }
+      await syncRosterWithEnrollments(supabase, cls.id).catch((e) => console.error('Roster link failed:', e))
       return NextResponse.json({ class: { id: cls.id, name: cls.name, period: cls.period, subject: cls.subject }, rejoined: true })
     }
 
@@ -87,6 +89,8 @@ export async function POST(request: NextRequest) {
       console.error('Error inserting enrollment:', insertError)
       return NextResponse.json({ error: 'Failed to join class' }, { status: 500 })
     }
+    // Link the student to their name on the teacher's roster (or add them).
+    await syncRosterWithEnrollments(supabase, cls.id).catch((e) => console.error('Roster link failed:', e))
 
     return NextResponse.json({
       class: { id: cls.id, name: cls.name, period: cls.period, subject: cls.subject },

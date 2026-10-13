@@ -237,3 +237,28 @@ export function reviewReminderEmail(e: ReviewReminderEmail): { subject: string; 
     ].join('\n'),
   }
 }
+
+// ── Scan arrived ────────────────────────────────────────────────────────────
+// Sent when a copier's scan-to-email lands in a teacher's scanner inbox
+// (/api/inbound/scan).
+
+export function scanArrivedEmail(e: { firstName: string | null; files: string[]; skipped: string[]; link: string; siteUrl: string }): { subject: string; html: string; text: string } {
+  const count = `${e.files.length} file${e.files.length === 1 ? '' : 's'}`
+  const body = [
+    heading('Your scan is ready to grade'),
+    paragraph(`${e.firstName ? `Hi ${escapeHtml(e.firstName)}, w` : 'W'}e got ${count} from your scanner: ${e.files.map(escapeHtml).join(', ')}.`),
+    e.skipped.length ? paragraph(`Skipped: ${e.skipped.map(escapeHtml).join(', ')}.`, { muted: true, small: true }) : '',
+    button(e.link, 'Sort and grade them'),
+    linkFallback(e.link),
+  ].filter(Boolean).join('\n')
+  return {
+    subject: `Scan received: ${count} ready to grade`,
+    html: emailLayout({
+      preheader: `${count} from your scanner are waiting in batch grading.`,
+      body,
+      footer: 'You got this because a scan was sent to your Casanova Study scanner inbox address. You can make a new address on the batch grading page if someone else is using it.',
+      siteUrl: e.siteUrl,
+    }),
+    text: [`We got ${count} from your scanner: ${e.files.join(', ')}.`, e.skipped.length ? `Skipped: ${e.skipped.join(', ')}.` : '', '', `Sort and grade them: ${e.link}`, '', 'Casanova Study'].filter((l) => l !== undefined).join('\n'),
+  }
+}

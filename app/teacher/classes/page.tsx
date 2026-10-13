@@ -1,18 +1,25 @@
 "use client"
 
+// My classes (light version, 2026-10-13): one card per class with its roster
+// size. A class is a roster of names for grading plus a join code; it lives in
+// the teacher Grading menu, not the homepage. The old assignments/gradebook
+// pages stay hidden behind CLASSES_ENABLED.
+
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { ChevronRight, FileUp, Loader2, Plus, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
-import ClassesSectionNav from "@/components/classes-section-nav"
-import { Card, CardContent } from "@/components/ui/card"
+import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/lib/auth"
-import { useToast } from "@/hooks/use-toast"
-import { Plus, Users, ChevronRight, Archive, Loader2, ClipboardList } from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
+import { ImportClassesDialog } from "@/components/classes/import-classes-dialog"
+import { GoogleClassroomDialog, connectGoogleClassroom } from "@/components/classes/google-classroom-dialog"
+import { authFetch } from "@/lib/auth-fetch"
+import { useAuth } from "@/lib/auth"
+import { displaySerif } from "@/lib/formats/fonts"
+import { fontDisplay } from "@/lib/formats/design"
+import { cn } from "@/lib/utils"
 
 interface ClassRecord {
   id: string
@@ -20,172 +27,117 @@ interface ClassRecord {
   period: string | null
   subject: string | null
   enrollment_code: string
-  is_archived: boolean
-  created_at: string
+  roster_count: number
   student_count: number
-  pending_review_count?: number
 }
 
 export default function TeacherClassesPage() {
-  const { user, loading: authLoading } = useAuth()
+  return (
+    <AuthGate>
+      <Classes />
+    </AuthGate>
+  )
+}
+
+function Classes() {
+  const { user } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
-  const [classes, setClasses] = useState<ClassRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showArchived, setShowArchived] = useState(false)
+  const [classes, setClasses] = useState<ClassRecord[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [notice, setNotice] = useState("")
+  const [googleReady, setGoogleReady] = useState(false)
+  const [googleOpen, setGoogleOpen] = useState(false)
 
-  const isTeacher = user?.user_type === "teacher"
-
-  const fetchClasses = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/classes?includeArchived=${showArchived ? "true" : "false"}`)
-      const json = await res.json()
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to load classes", variant: "destructive" })
-        return
-      }
-      setClasses(json.classes ?? [])
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setLoading(false)
-    }
-  }, [showArchived, toast])
-
+  // Google Classroom import shows only when it's set up; ?google= is the OAuth return.
   useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      router.push("/auth/signin")
-      return
-    }
-    if (!isTeacher) {
-      router.push("/")
-      return
-    }
-    fetchClasses()
-  }, [authLoading, user, isTeacher, router, fetchClasses])
+    void (async () => {
+      const res = await authFetch("/api/google/classroom")
+      if (res.ok) setGoogleReady((await res.json()).configured)
+    })()
+    const result = new URLSearchParams(window.location.search).get("google")
+    if (!result) return
+    window.history.replaceState(null, "", "/teacher/classes")
+    if (result === "connected") setGoogleOpen(true)
+    else if (result === "denied") setNotice("Google Classroom wasn't connected. You can try again any time.")
+    else if (result === "scopes") setNotice("Google Classroom needs permission to read your class rosters. Try again and leave every box ticked.")
+    else setNotice("Something went wrong connecting Google Classroom. Try again.")
+  }, [])
 
-  const onCreated = (cls: { id: string }) => {
-    router.push(`/teacher/classes/${cls.id}`)
-  }
+  const load = useCallback(async () => {
+    const res = await fetch("/api/classes")
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) setError(data.error || "Could not load your classes")
+    else setClasses(data.classes ?? [])
+  }, [])
 
-  if (authLoading || !user || !isTeacher) {
-    return (
-      <div className="min-h-screen bg-background">
-        <NavigationHeader />
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-40" />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
+  useEffect(() => { void load() }, [load])
+
+  if (user && user.user_type !== "teacher") {
+    return <Shell><p className="rounded-xl bg-amber-50 p-6 text-amber-900">Classes are for teacher accounts.</p></Shell>
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <NavigationHeader />
-      <div className="container mx-auto px-4 py-8">
-        <ClassesSectionNav />
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div>
-            <h1 className="text-3xl font-bold">My Classes</h1>
-            <p className="text-muted-foreground text-sm">Create classes and share the enrollment code with your students.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowArchived((s) => !s)}
-            >
-              <Archive className="h-4 w-4 mr-2" />
-              {showArchived ? "Hide archived" : "Show archived"}
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create class
-            </Button>
+    <Shell>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>My classes</h1>
+          <p className="mt-1 max-w-xl text-slate-600">A class is your list of names. Grading matches each paper to a name on it, and students can join with the class code to see the reports you release.</p>
+        </div>
+        <div className="flex gap-2">
+          {googleReady && <Button variant="outline" onClick={async () => { const err = await connectGoogleClassroom(); if (err) setNotice(err) }}>Import from Google Classroom</Button>}
+          <Button variant="outline" onClick={() => setImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
+          <Button onClick={() => setCreateOpen(true)} className="bg-blue-600 hover:bg-blue-700"><Plus className="mr-2 h-4 w-4" />New class</Button>
+        </div>
+      </div>
+      {notice && <p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm text-slate-800" aria-live="polite">{notice}</p>}
+
+      {error ? (
+        <p className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>
+      ) : !classes ? (
+        <p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
+      ) : classes.length === 0 ? (
+        <div className="mt-8 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <Users className="mx-auto h-10 w-10 text-slate-400" />
+          <p className="mt-3 font-semibold text-slate-900">No classes yet</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">Import all your classes at once from a gradebook CSV, or make one and paste the names. You can also save the names from a graded class set on its results page.</p>
+          <div className="mt-5 flex justify-center gap-2">
+            <Button onClick={() => setImportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />New class</Button>
           </div>
         </div>
-
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-40" />
-            ))}
-          </div>
-        ) : classes.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <p className="text-muted-foreground mb-4">You don't have any classes yet.</p>
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create your first class
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {classes.map((cls) => (
-              <Link key={cls.id} href={`/teacher/classes/${cls.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="min-w-0 flex-1">
-                        <h2 className="font-semibold text-lg truncate">{cls.name}</h2>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {cls.period && <span>Period {cls.period}</span>}
-                          {cls.period && cls.subject && <span>·</span>}
-                          {cls.subject && <span>{cls.subject}</span>}
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="font-mono tracking-wider">
-                          {cls.enrollment_code}
-                        </Badge>
-                        {cls.is_archived && (
-                          <Badge variant="outline" className="text-muted-foreground">Archived</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          {cls.student_count}
-                        </span>
-                      </div>
-                    </div>
-                    {(cls.pending_review_count ?? 0) > 0 && (
-                      <div className="mt-2">
-                        <Badge variant="default" className="flex items-center gap-1 w-fit bg-amber-500 hover:bg-amber-600">
-                          <ClipboardList className="h-3 w-3" />
-                          {cls.pending_review_count} to review
-                        </Badge>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+      ) : (
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+          {classes.map((c) => (
+            <li key={c.id}>
+              <Link href={`/teacher/classes/${c.id}`} className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Users className="h-6 w-6" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-slate-900">{c.name}</span>
+                  <span className="block text-sm text-slate-600">
+                    {[c.period && `Period ${c.period}`, `${c.roster_count} name${c.roster_count === 1 ? "" : "s"}`, c.student_count ? `${c.student_count} joined` : null].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-blue-600" />
               </Link>
-            ))}
-          </div>
-        )}
-      </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <ClassFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        mode="create"
-        onSaved={onCreated}
-      />
+      <GoogleClassroomDialog open={googleOpen} onOpenChange={setGoogleOpen} onImported={(summary) => { setNotice(summary); void load() }} />
+      <ImportClassesDialog open={importOpen} onOpenChange={setImportOpen} onImported={(summary) => { setNotice(summary); void load() }} />
+      <ClassFormDialog open={createOpen} onOpenChange={setCreateOpen} mode="create" onSaved={(cls) => router.push(`/teacher/classes/${cls.id}`)} />
+    </Shell>
+  )
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
+      <NavigationHeader />
+      <main className="container mx-auto max-w-4xl px-4 py-10">{children}</main>
     </div>
   )
 }

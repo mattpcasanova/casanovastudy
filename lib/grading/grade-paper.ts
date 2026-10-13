@@ -7,6 +7,8 @@
 
 import { ClaudeService, type GradingModelOptions } from '@/lib/claude-api'
 import { parseGradingOutput, type GradedQuestion } from '@/lib/grading/parse'
+import { gradeFor, type GradeScale } from '@/lib/grading/scale'
+import type { MarkingStyle } from '@/lib/grading/marking-style'
 
 export type { GradedQuestion }
 
@@ -91,14 +93,6 @@ function filterToMarkSchemeQuestions(graded: GradedQuestion[], expected: Array<{
   })
 }
 
-export function letterGrade(percentage: number): string {
-  if (percentage >= 90) return 'A'
-  if (percentage >= 80) return 'B'
-  if (percentage >= 70) return 'C'
-  if (percentage >= 60) return 'D'
-  return 'F'
-}
-
 export async function gradePaper(input: {
   markScheme: PaperFile[]
   student: PaperFile[]
@@ -108,6 +102,10 @@ export async function gradePaper(input: {
   onProgress?: (message: string) => void
   /** Model/effort override (scripts/eval-grading.ts); production uses the defaults. */
   grading?: GradingModelOptions
+  /** The teacher's grade scale (US letters when omitted). */
+  scale?: GradeScale | null
+  /** Optional exam-board marking (M1/A1 codes, levels, AOs). */
+  markingStyle?: MarkingStyle
 }): Promise<GradedPaper> {
   const claude = new ClaudeService(input.grading)
   const gen = claude.gradeExamWithImagesStream({
@@ -116,6 +114,7 @@ export async function gradePaper(input: {
     markSchemeFiles: input.markScheme,
     studentExamFiles: input.student,
     additionalComments: input.additionalComments || undefined,
+    markingStyle: input.markingStyle,
   })
 
   // Iterate manually: for-await drops the generator's return value (the usage).
@@ -128,7 +127,7 @@ export async function gradePaper(input: {
     input.onChunk?.(next.value)
   }
 
-  let { breakdown, totalMarks, totalPossible, grade } = parseGradingOutput(content)
+  let { breakdown, totalMarks, totalPossible } = parseGradingOutput(content)
 
   const summary = parseMarkSchemeSummary(content)
   if (summary) {
@@ -152,6 +151,7 @@ export async function gradePaper(input: {
           studentExamFiles: input.student,
           missingQuestions: missing.map(q => `${q.num} (${q.marks} mark${q.marks === 1 ? '' : 's'})`),
           additionalComments: input.additionalComments || undefined,
+          markingStyle: input.markingStyle,
         })
         // The follow-up call is part of this paper's cost.
         if (usage && followUp.usage) {
@@ -173,7 +173,6 @@ export async function gradePaper(input: {
           }
           totalMarks = breakdown.reduce((sum, q) => sum + q.marksAwarded, 0)
           totalPossible = breakdown.reduce((sum, q) => sum + q.marksPossible, 0)
-          grade = letterGrade(totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0)
         }
       } catch (e) {
         console.error('Follow-up grading failed:', e) // keep what we have
@@ -184,5 +183,6 @@ export async function gradePaper(input: {
   }
 
   const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
+  const grade = gradeFor(input.scale, totalMarks, totalPossible)
   return { content, breakdown, totalMarks, totalPossible, percentage, grade, usage }
 }

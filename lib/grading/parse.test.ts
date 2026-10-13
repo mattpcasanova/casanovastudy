@@ -77,3 +77,18 @@ Remember to multiply by 100 to get a percentage.
     expect(r).toMatchObject({ totalMarks: 3, totalPossible: 5 })
   })
 })
+
+describe('exam-board tag lines', () => {
+  it('reads optional codes, level and AO marks without adding them to the feedback', () => {
+    const r = parseGradingOutput(`**Question 1a**, Mark: 3/4 - Correct method, slip in the final value.
+Codes: M1 A1 M1 A0
+**Question 2**, Mark: 7/12 - Clear analysis but limited evaluation.
+**Level:** 3 | AO: AO1 3, AO2 2, AO3 2
+**Question 3**, Mark: 1/1 - Fine.
+Codes: n/a`)
+    expect(r.breakdown[0]).toMatchObject({ markCodes: 'M1 A1 M1 A0', explanation: 'Correct method, slip in the final value.' })
+    expect(r.breakdown[1]).toMatchObject({ level: '3', ao: { AO1: 3, AO2: 2, AO3: 2 } })
+    expect(r.breakdown[1].explanation).toBe('Clear analysis but limited evaluation.')
+    expect(r.breakdown[2].markCodes).toBeUndefined()
+  })
+})

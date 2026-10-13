@@ -358,7 +358,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (p.subject && p.subject !== "general") setSubject(p.subject)
     if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
     if (p.difficultyLevel) setDifficulty(p.difficultyLevel)
-    setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+    setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : p.source === "class-area" ? "class" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
     setAutoStart(true)
   }, [])
 
@@ -1213,6 +1213,7 @@ type Arrival =
   | { kind: "missed"; sourceTitle: string; detail: string }
   | { kind: "weak"; sourceTitle: string; detail: string }
   | { kind: "next"; sourceTitle: string; detail: string }
+  | { kind: "class"; sourceTitle: string; detail: string }
   | { kind: "welcome" }
 
 const ARRIVAL_STYLE = {
@@ -1221,6 +1222,7 @@ const ARRIVAL_STYLE = {
   welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Sparkles },
   weak: { ring: "ring-amber-200", bg: "from-amber-50 to-white", iconBg: "bg-amber-500", eyebrow: "text-amber-700", button: "bg-amber-500 hover:bg-amber-600", Icon: Target },
   next: { ring: "ring-sky-200", bg: "from-sky-50 to-white", iconBg: "bg-sky-600", eyebrow: "text-sky-700", button: "bg-sky-600 hover:bg-sky-700", Icon: Target },
+  class: { ring: "ring-indigo-200", bg: "from-indigo-50 to-white", iconBg: "bg-indigo-600", eyebrow: "text-indigo-700", button: "bg-indigo-600 hover:bg-indigo-700", Icon: Target },
 } as const
 
 const ArrivalBanner = forwardRef<HTMLDivElement, {
@@ -1256,6 +1258,10 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
     eyebrow = "Your next practice session"
     title = <>Adaptive practice: {arrival.detail}</>
     body = <>Built from your results on <strong>{arrival.sourceTitle}</strong>. Create it now, or change anything below first.</>
+  } else if (arrival.kind === "class") {
+    eyebrow = "From your class results"
+    title = <>Practice on {arrival.detail}</>
+    body = <>Built from the questions <strong>{arrival.sourceTitle}</strong> lost the most marks on. Share the finished guide&apos;s link with the class.</>
   } else if (arrival.kind === "weak") {
     eyebrow = "Your weak spots"
     title = <>A new quiz on {arrival.detail}</>

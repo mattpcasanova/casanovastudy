@@ -21,7 +21,13 @@ export async function POST(request: NextRequest) {
   if (block) return planBlockResponse(block)
 
   let pages: unknown
-  try { pages = (await request.json()).pages } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
+  let roster: string[] = []
+  try {
+    const body = await request.json()
+    pages = body.pages
+    // Names from the teacher's class roster help read messy handwriting.
+    if (Array.isArray(body.roster)) roster = body.roster.filter((n: unknown): n is string => typeof n === 'string' && !!n.trim()).slice(0, 200).map((n: string) => n.trim().slice(0, 80))
+  } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
   let images
   try {
     images = await fetchUploadedImageBuffers(pages, MAX_PAGES)
@@ -36,7 +42,7 @@ export async function POST(request: NextRequest) {
     while (next < images.length) {
       const i = next++
       try {
-        const read = await claude.readPageHeader({ mediaType: images[i].mediaType, data: images[i].buffer.toString('base64') })
+        const read = await claude.readPageHeader({ mediaType: images[i].mediaType, data: images[i].buffer.toString('base64') }, roster)
         // "Sean Miller P2" -> name + period, in case the model left the period in.
         const split = read.name ? splitNameAndPeriod(read.name) : null
         headers[i] = { ...read, name: split?.name ?? null, period: read.period ?? split?.period ?? null }

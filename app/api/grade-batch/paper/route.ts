@@ -5,6 +5,9 @@ import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { gradePaper, markingProgress, type PaperFile } from '@/lib/grading/grade-paper'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 import { createAdminClient } from '@/lib/supabase-server'
+import { gradingChoices, settingsFromRow } from '@/lib/grading/report-settings'
+import { matchRoster, parseName } from '@/lib/grading/names'
+import { loadRoster, ownedClass } from '@/lib/classes/server'
 
 // Batch grading, step 2: grade one student's paper (pages already uploaded to
 // Cloudinary) against the batch's mark scheme, save it with the batch id, and
@@ -40,6 +43,24 @@ export async function POST(request: NextRequest) {
   const block = await checkGrading(user.id)
   if (block) return planBlockResponse(block)
 
+  const { data: settingsRow } = await createAdminClient().from('teacher_report_settings').select('*').eq('user_id', user.id).maybeSingle()
+  const { scale, markingStyle } = gradingChoices(settingsFromRow(settingsRow), body.gradeScale, body.markingStyle)
+  const nameParts = parseName(studentName)
+
+  // A class picked for this stack: the paper is linked to its roster name
+  // (the one the teacher confirmed, else the closest confident match).
+  let classLink: Record<string, unknown> = {}
+  if (typeof body.classId === 'string' && body.classId) {
+    const cls = await ownedClass(createAdminClient(), user.id, body.classId)
+    if (cls) {
+      const roster = await loadRoster(createAdminClient(), cls.id)
+      const chosen = roster.find((r) => r.id === body.rosterId)
+      const m = chosen ? null : matchRoster(studentName, roster)
+      const row = chosen ?? (m?.confidence === 'sure' ? roster.find((r) => r.id === m.rosterId) : undefined)
+      classLink = { class_id: cls.id, roster_id: row?.id ?? null, student_user_id: row?.studentUserId ?? null }
+    }
+  }
+
   // Stream newline-delimited JSON so the class page can show each paper's
   // progress: {type:'status'|'progress'|'done'|'error', ...}.
   const encoder = new TextEncoder()
@@ -65,6 +86,8 @@ export async function POST(request: NextRequest) {
           markScheme: [...textFiles(markSchemeBody.texts), ...toFiles(markImages)],
           student,
           additionalComments: str(body.additionalComments, 4000) ?? undefined,
+          scale,
+          markingStyle,
           onChunk: (text) => {
             content += text
             const now = Date.now()
@@ -84,6 +107,12 @@ export async function POST(request: NextRequest) {
             user_id: user.id,
             batch_id: batchId,
             student_name: studentName,
+            student_first_name: nameParts.firstName || null,
+            student_last_name: nameParts.lastName || null,
+            grade_scale: scale,
+            marking_style: markingStyle,
+            ...classLink,
+            released: false,
             student_exam_filename: (Array.isArray(body.pages) ? body.pages.length : 0) + ' page(s)',
             total_marks: graded.totalMarks,
             total_possible_marks: graded.totalPossible,
@@ -100,6 +129,11 @@ export async function POST(request: NextRequest) {
           .select('id')
           .single()
         if (saveError) throw new Error(`Could not save: ${saveError.message}`)
+        // A student marked absent/missing who now has a paper: it came in late.
+        if (classLink.roster_id) {
+          await createAdminClient().from('batch_student_status').update({ status: 'late', updated_at: new Date().toISOString() })
+            .eq('batch_id', batchId).eq('roster_id', classLink.roster_id as string).eq('user_id', user.id).in('status', ['absent', 'missing'])
+        }
 
         send({
           type: 'done',

@@ -24,6 +24,10 @@
     },
     "app/api/cron/review-reminders/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/inbound/scan/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
     }
   },
   "headers": [
@@ -49,6 +53,10 @@
     {
       "path": "/api/cron/review-reminders",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/scan-inbox-cleanup",
+      "schedule": "30 7 * * *"
     }
   ]
 }

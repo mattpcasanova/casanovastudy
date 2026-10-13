@@ -90,3 +90,19 @@ describe('measuredSecondsPerPage + remainingSeconds', () => {
     expect(remainingSeconds([{ pages: 9, elapsed: 55 }, { pages: 1 }], 5)).toBe(20)
   })
 })
+
+describe('splitPoints with misreads', () => {
+  it('keeps a slightly misread repeat of the name on the same paper', () => {
+    const headers = [p('Sean Miller'), p('Sean Millr'), p('Ava Kim'), p('Ava Kirn')]
+    expect(groupPages(splitPoints(headers), headers).map((g) => g.pages)).toEqual([[0, 1], [2, 3]])
+  })
+})
+
+describe('resultsCsv with statuses', () => {
+  it('adds Student ID and Status columns only when used', () => {
+    expect(resultsCsv([
+      { name: 'Sean Miller', marks: 8, possible: 10, percentage: 80, grade: 'B', studentNumber: '1001' },
+      { name: 'Ava Kim', marks: null, possible: null, percentage: null, grade: '', status: 'Absent' },
+    ])).toBe('"Student ID","Student","Marks","Out of","Percent","Grade","Status"\n"1001","Sean Miller","8","10","80.0","B",""\n"","Ava Kim","","","","","Absent"')
+  })
+})

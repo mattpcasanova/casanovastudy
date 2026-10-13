@@ -1,742 +1,305 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import StudyGuideFilterBar, { applyGuideFilters, type SortOption } from "@/components/study-guide-filter-bar"
+// One class (light version, 2026-10-13): the roster of names grading matches
+// against, the join code, this class's graded sets, and its top weak spots.
+// Deliberately nothing else (no assignments, calendar or gradebook).
+
+import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Check, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
-import { Card, CardContent } from "@/components/ui/card"
+import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { useAuth } from "@/lib/auth"
-import { useToast } from "@/hooks/use-toast"
-import {
-  ArrowLeft,
-  Copy,
-  RefreshCw,
-  Pencil,
-  Archive,
-  ArchiveRestore,
-  Trash2,
-  Loader2,
-  UserMinus,
-  Plus,
-  ClipboardList,
-  ChevronRight,
-  BookOpen,
-  AlignLeft,
-  Layers,
-  ListChecks,
-  Brain,
-  X,
-} from "lucide-react"
 import ClassFormDialog from "@/components/teacher-classes/class-form-dialog"
-import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
-import ClassGradebook from "@/components/teacher-classes/class-gradebook"
-import ClassColorPicker from "@/components/class-color-picker"
-import { isClassColorToken, type ClassColorToken } from "@/lib/class-colors"
+import { authFetch } from "@/lib/auth-fetch"
+import { displaySerif } from "@/lib/formats/fonts"
+import { fontDisplay } from "@/lib/formats/design"
+import { cn } from "@/lib/utils"
+import type { RosterRow } from "@/lib/classes/server"
+import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
+import type { ClassArea } from "@/lib/classes/areas"
+import { ClassAreas } from "@/components/classes/class-areas"
+import { StampTestDialog } from "@/components/classes/stamp-test-dialog"
 
-interface ClassRecord {
-  id: string
-  teacher_id: string
-  name: string
-  period: string | null
-  subject: string | null
-  color: string | null
-  enrollment_code: string
-  is_archived: boolean
-  created_at: string
-  updated_at: string
+interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string }
+interface BatchSummary { id: string; title: string | null; createdAt: string; papers: number; average: number; released: boolean }
+
+export default function ClassPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  return (
+    <AuthGate>
+      <ClassView id={id} />
+    </AuthGate>
+  )
 }
 
-interface Enrollment {
-  id: string
-  student_id: string
-  status: "active" | "removed"
-  joined_at: string
-  student: {
-    id: string
-    email: string
-    first_name: string | null
-    last_name: string | null
-  } | null
-}
-
-interface AssignedGuide {
-  assignmentId: string
-  assignedAt: string
-  id: string
-  title: string
-  subject: string
-  format: string
-  grade_level: string
-  created_at: string
-}
-
-interface AssignmentSummary {
-  id: string
-  title: string
-  description: string | null
-  due_at: string | null
-  total_possible_marks: number | null
-  is_published: boolean
-  has_mark_scheme: boolean
-  submission_stats: { total: number; pending: number; graded: number }
-}
-
-function formatDueDate(iso: string | null): string {
-  if (!iso) return "No due date"
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-}
-
-function studentDisplay(e: Enrollment): string {
-  if (!e.student) return "Unknown student"
-  const { first_name, last_name, email } = e.student
-  if (first_name || last_name) return `${first_name ?? ""} ${last_name ?? ""}`.trim()
-  return email
-}
-
-export default function TeacherClassDetailPage() {
-  const params = useParams<{ id: string }>()
-  const classId = params?.id
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const activeTab: "overview" | "gradebook" = searchParams?.get("tab") === "gradebook" ? "gradebook" : "overview"
-  const { user, loading: authLoading } = useAuth()
-  const { toast } = useToast()
-
-  const [cls, setCls] = useState<ClassRecord | null>(null)
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([])
-  const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
-  const [studyGuides, setStudyGuides] = useState<AssignedGuide[]>([])
-  const [unassigningId, setUnassigningId] = useState<string | null>(null)
-  const [guideSearch, setGuideSearch] = useState("")
-  const [guideSubject, setGuideSubject] = useState("all")
-  const [guideFormat, setGuideFormat] = useState("all")
-  const [guideSort, setGuideSort] = useState<SortOption>("date-desc")
-  const [loading, setLoading] = useState(true)
+function ClassView({ id }: { id: string }) {
+  const [cls, setCls] = useState<ClassInfo | null>(null)
+  const [roster, setRoster] = useState<RosterRow[] | null>(null)
+  const [batches, setBatches] = useState<BatchSummary[]>([])
+  const [weakSpots, setWeakSpots] = useState<ClassWeakSpot[]>([])
+  const [linkedStudents, setLinkedStudents] = useState(0)
+  const [areas, setAreas] = useState<ClassArea[]>([])
+  const [setsWithoutReport, setSetsWithoutReport] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [paste, setPaste] = useState("")
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState("")
   const [editOpen, setEditOpen] = useState(false)
-  const [regenOpen, setRegenOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [createAssignmentOpen, setCreateAssignmentOpen] = useState(false)
-  const [working, setWorking] = useState(false)
-  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [stampOpen, setStampOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
 
-  const isTeacher = user?.user_type === "teacher"
-  const filteredGuides = useMemo(
-    () => applyGuideFilters(studyGuides, {
-      search: guideSearch,
-      subject: guideSubject,
-      format: guideFormat,
-      sort: guideSort,
-    }),
-    [studyGuides, guideSearch, guideSubject, guideFormat, guideSort]
-  )
-  const availableGuideSubjects = useMemo(
-    () => Array.from(new Set(studyGuides.map(g => g.subject))).sort(),
-    [studyGuides]
-  )
-  const joinUrl = useMemo(() => {
-    if (!cls) return ""
-    if (typeof window === "undefined") return ""
-    return `${window.location.origin}/classes/join?code=${cls.enrollment_code}`
-  }, [cls])
-  const qrSrc = useMemo(() => {
-    if (!joinUrl) return ""
-    return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(joinUrl)}&size=240x240&margin=12`
-  }, [joinUrl])
+  const load = useCallback(async () => {
+    const [rosterRes, summaryRes] = await Promise.all([
+      authFetch(`/api/classes/${id}/roster`, { cache: "no-store" }),
+      authFetch(`/api/classes/${id}/summary`, { cache: "no-store" }),
+    ])
+    const rosterData = await rosterRes.json().catch(() => ({}))
+    if (!rosterRes.ok) { setError(rosterData.error || "Could not load this class"); return }
+    setCls(rosterData.class)
+    setRoster(rosterData.roster)
+    if (rosterData.roster.length === 0) setPasteOpen(true)
+    const summary = await summaryRes.json().catch(() => ({}))
+    if (summaryRes.ok) {
+      setBatches(summary.batches ?? [])
+      setWeakSpots(summary.weakSpots ?? [])
+      setLinkedStudents(summary.linkedStudents ?? 0)
+      setAreas(summary.areas ?? [])
+      setSetsWithoutReport(summary.setsWithoutReport ?? 0)
+    }
+  }, [id])
 
-  const fetchAll = useCallback(async () => {
-    if (!classId) return
-    setLoading(true)
+  useEffect(() => { void load() }, [load])
+
+  const addNames = async () => {
+    if (!paste.trim()) return
+    setBusy(true)
     try {
-      const [classRes, rosterRes, assignmentsRes, guidesRes] = await Promise.all([
-        fetch(`/api/classes/${classId}`),
-        fetch(`/api/classes/${classId}/enrollments`),
-        fetch(`/api/classes/${classId}/assignments`),
-        fetch(`/api/classes/${classId}/study-guides`),
-      ])
-      const classJson = await classRes.json()
-      const rosterJson = await rosterRes.json()
-      const assignmentsJson = await assignmentsRes.json()
-
-      if (!classRes.ok) {
-        toast({ title: classJson.error ?? "Failed to load class", variant: "destructive" })
-        if (classRes.status === 403 || classRes.status === 404) {
-          router.push("/teacher/classes")
-        }
-        return
-      }
-      setCls(classJson.class)
-
-      if (rosterRes.ok) {
-        setEnrollments(rosterJson.enrollments ?? [])
-      } else {
-        toast({ title: rosterJson.error ?? "Failed to load roster", variant: "destructive" })
-      }
-
-      if (assignmentsRes.ok) {
-        setAssignments(assignmentsJson.assignments ?? [])
-      }
-
-      if (guidesRes.ok) {
-        const j = await guidesRes.json()
-        setStudyGuides(j.guides ?? [])
-      }
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
+      const res = await authFetch(`/api/classes/${id}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: paste }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Could not add those names")
+      setRoster(data.roster)
+      setPaste("")
+      setPasteOpen(false)
+      setNotice(`Added ${data.added} name${data.added === 1 ? "" : "s"}${data.skipped ? `, ${data.skipped} already on the list` : ""}.`)
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Could not add those names")
     } finally {
-      setLoading(false)
-    }
-  }, [classId, router, toast])
-
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      router.push("/auth/signin")
-      return
-    }
-    if (!isTeacher) {
-      router.push("/")
-      return
-    }
-    fetchAll()
-  }, [authLoading, user, isTeacher, router, fetchAll])
-
-  const copyCode = async () => {
-    if (!cls) return
-    try {
-      await navigator.clipboard.writeText(cls.enrollment_code)
-      toast({ title: "Code copied" })
-    } catch {
-      toast({ title: "Could not copy", variant: "destructive" })
+      setBusy(false)
     }
   }
 
-  const copyJoinLink = async () => {
-    if (!joinUrl) return
-    try {
-      await navigator.clipboard.writeText(joinUrl)
-      toast({ title: "Join link copied" })
-    } catch {
-      toast({ title: "Could not copy", variant: "destructive" })
-    }
+  const patchRow = async (row: RosterRow, body: Record<string, unknown>) => {
+    const res = await authFetch(`/api/classes/${id}/roster/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { setNotice(data.error || "Could not save"); return false }
+    return true
   }
 
-  const regenerate = async () => {
-    if (!cls) return
-    setWorking(true)
-    try {
-      const res = await fetch(`/api/classes/${cls.id}/regenerate-code`, { method: "POST" })
-      const json = await res.json()
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to regenerate code", variant: "destructive" })
-        return
-      }
-      setCls({ ...cls, enrollment_code: json.class.enrollment_code })
-      toast({ title: "New code generated" })
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setWorking(false)
-      setRegenOpen(false)
-    }
+  const removeRow = async (row: RosterRow) => {
+    setRoster((r) => r?.filter((x) => x.id !== row.id) ?? null)
+    await authFetch(`/api/classes/${id}/roster/${row.id}`, { method: "DELETE" })
   }
 
-  const toggleArchive = async () => {
-    if (!cls) return
-    setWorking(true)
-    try {
-      const res = await fetch(`/api/classes/${cls.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_archived: !cls.is_archived }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to update class", variant: "destructive" })
-        return
-      }
-      setCls({ ...cls, is_archived: json.class.is_archived })
-      toast({ title: json.class.is_archived ? "Class archived" : "Class restored" })
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setWorking(false)
-    }
+  const joinUrl = cls && typeof window !== "undefined" ? `${window.location.origin}/classes/join?code=${cls.enrollment_code}` : ""
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(joinUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
-  const deleteClass = async () => {
-    if (!cls) return
-    setWorking(true)
-    try {
-      const res = await fetch(`/api/classes/${cls.id}`, { method: "DELETE" })
-      const json = await res.json()
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to delete class", variant: "destructive" })
-        return
-      }
-      toast({ title: "Class deleted" })
-      router.push("/teacher/classes")
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setWorking(false)
-      setDeleteOpen(false)
-    }
+  const newCode = async () => {
+    const res = await fetch(`/api/classes/${id}/regenerate-code`, { method: "POST" })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && data.class?.enrollment_code) setCls((c) => (c ? { ...c, enrollment_code: data.class.enrollment_code } : c))
+    else if (res.ok && data.enrollment_code) setCls((c) => (c ? { ...c, enrollment_code: data.enrollment_code } : c))
+    else setNotice(data.error || "Could not make a new code")
   }
 
-  const unassignGuide = async (guideId: string) => {
-    if (!cls) return
-    setUnassigningId(guideId)
-    try {
-      const res = await fetch(`/api/study-guides/${guideId}/assign?class_id=${cls.id}`, { method: "DELETE" })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to unassign", variant: "destructive" })
-        return
-      }
-      setStudyGuides(current => current.filter(g => g.id !== guideId))
-      toast({ title: "Study guide unassigned" })
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setUnassigningId(null)
-    }
-  }
-
-  const removeStudent = async (enrollment: Enrollment) => {
-    if (!cls) return
-    setRemovingId(enrollment.id)
-    try {
-      const res = await fetch(`/api/classes/${cls.id}/enrollments/${enrollment.student_id}`, {
-        method: "DELETE",
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        toast({ title: json.error ?? "Failed to remove student", variant: "destructive" })
-        return
-      }
-      setEnrollments((current) => current.filter((e) => e.id !== enrollment.id))
-      toast({ title: "Student removed" })
-    } catch (err) {
-      console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
-    } finally {
-      setRemovingId(null)
-    }
-  }
-
-  if (authLoading || !user || !isTeacher) {
-    return (
-      <div className="min-h-screen bg-background">
-        <NavigationHeader />
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-64 mb-6" />
-          <Skeleton className="h-64" />
-        </div>
-      </div>
-    )
-  }
-
-  if (loading || !cls) {
-    return (
-      <div className="min-h-screen bg-background">
-        <NavigationHeader />
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-6 w-32 mb-4" />
-          <Skeleton className="h-10 w-72 mb-6" />
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-64 md:col-span-1" />
-            <Skeleton className="h-64 md:col-span-2" />
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (error) return <Shell><p className="rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p></Shell>
+  if (!cls || !roster) return <Shell><p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p></Shell>
 
   return (
-    <div className="min-h-screen bg-background">
-      <NavigationHeader />
-      <div className="container mx-auto px-4 py-8">
-        <Link href="/teacher/classes" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          All classes
-        </Link>
-
-        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              {cls.name}
-              {cls.is_archived && <Badge variant="outline">Archived</Badge>}
-            </h1>
-            <div className="text-muted-foreground text-sm mt-1">
-              {cls.period && <span>Period {cls.period}</span>}
-              {cls.period && cls.subject && <span> · </span>}
-              {cls.subject && <span>{cls.subject}</span>}
-              {!cls.period && !cls.subject && <span>No period or subject set</span>}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <ClassColorPicker
-              size="sm"
-              value={isClassColorToken(cls.color) ? (cls.color as ClassColorToken) : null}
-              onChange={async (next) => {
-                try {
-                  const res = await fetch(`/api/classes/${cls.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ color: next }),
-                  })
-                  const json = await res.json()
-                  if (!res.ok) {
-                    toast({ title: json.error ?? "Failed to set color", variant: "destructive" })
-                    return
-                  }
-                  setCls(prev => (prev ? { ...prev, color: next } : prev))
-                } catch (err) {
-                  console.error(err)
-                  toast({ title: "Network error", variant: "destructive" })
-                }
-              }}
-            />
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} disabled={working}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={toggleArchive} disabled={working}>
-              {cls.is_archived ? (
-                <>
-                  <ArchiveRestore className="h-4 w-4 mr-2" />
-                  Restore
-                </>
-              ) : (
-                <>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Archive
-                </>
-              )}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} disabled={working} className="text-red-600 hover:text-red-700">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          </div>
+    <Shell>
+      <Link href="/teacher/classes" className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"><ArrowLeft className="h-4 w-4" />My classes</Link>
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{cls.name}</h1>
+          <p className="text-slate-600">{[cls.period && `Period ${cls.period}`, cls.subject, `${roster.length} name${roster.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
         </div>
-
-        <div className="border-b mb-6 flex items-center gap-1">
-          <TabButton
-            label="Overview"
-            active={activeTab === "overview"}
-            onClick={() => router.replace(`/teacher/classes/${classId}`, { scroll: false })}
-          />
-          <TabButton
-            label="Gradebook"
-            active={activeTab === "gradebook"}
-            onClick={() => router.replace(`/teacher/classes/${classId}?tab=gradebook`, { scroll: false })}
-          />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
+          <Button variant="outline" onClick={() => setStampOpen(true)} disabled={!roster.length} title={roster.length ? undefined : "Add names first"}><QrCode className="mr-2 h-4 w-4" />Print stamped copies</Button>
+          <Button asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>
         </div>
-
-        {activeTab === "gradebook" ? (
-          <ClassGradebook classId={cls.id} className={cls.name} />
-        ) : (
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Enrollment code + QR */}
-          <Card className="md:col-span-1">
-            <CardContent className="p-6 flex flex-col items-center text-center">
-              <p className="text-sm text-muted-foreground mb-1">Enrollment code</p>
-              <p className="font-mono text-3xl tracking-[0.3em] font-bold mb-3">{cls.enrollment_code}</p>
-              <div className="flex gap-2 mb-4">
-                <Button size="sm" variant="outline" onClick={copyCode}>
-                  <Copy className="h-4 w-4 mr-1" />
-                  Copy code
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setRegenOpen(true)} disabled={working}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Regenerate
-                </Button>
-              </div>
-              {qrSrc && (
-                <img
-                  src={qrSrc}
-                  alt={`QR code for joining ${cls.name}`}
-                  width={240}
-                  height={240}
-                  className="rounded-lg border"
-                />
-              )}
-              <Button size="sm" variant="link" className="mt-2" onClick={copyJoinLink}>
-                Copy join link
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Assignments */}
-          <Card className="md:col-span-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-lg flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Assignments
-                </h2>
-                <Button size="sm" onClick={() => setCreateAssignmentOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Create
-                </Button>
-              </div>
-              {assignments.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                  No assignments yet. Click "Create" to post one.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {assignments.map(a => (
-                    <div key={a.id}>
-                      <Link href={`/teacher/assignments/${a.id}`} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg border transition-colors">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{a.title}</p>
-                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-0.5">
-                            <span>Due: {formatDueDate(a.due_at)}</span>
-                            <span>·</span>
-                            <span>{a.submission_stats.total} submitted</span>
-                            {a.submission_stats.pending > 0 && (
-                              <Badge variant="secondary" className="text-xs">{a.submission_stats.pending} to review</Badge>
-                            )}
-                            {!a.has_mark_scheme && (
-                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">No mark scheme</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Study Guides */}
-          <Card className="md:col-span-3">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-lg flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Study Guides
-                </h2>
-                <Badge variant="secondary">{studyGuides.length}</Badge>
-              </div>
-              {studyGuides.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  No study guides assigned. Open a guide from{" "}
-                  <Link href="/my-guides" className="underline">My Guides</Link>{" "}
-                  and click <span className="font-medium">Assign to Class</span> to share it here.
-                </p>
-              ) : (
-                <>
-                  {studyGuides.length > 3 && (
-                    <StudyGuideFilterBar
-                      searchQuery={guideSearch}
-                      onSearchChange={setGuideSearch}
-                      subjectFilter={guideSubject}
-                      onSubjectChange={setGuideSubject}
-                      formatFilter={guideFormat}
-                      onFormatChange={setGuideFormat}
-                      sortBy={guideSort}
-                      onSortChange={setGuideSort}
-                      availableSubjects={availableGuideSubjects}
-                    />
-                  )}
-                  {filteredGuides.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">
-                      No guides match your filters.
-                    </p>
-                  ) : (
-                <div className="space-y-2">
-                  {filteredGuides.map(guide => {
-                    const formatIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-                      outline: AlignLeft,
-                      flashcards: Layers,
-                      quiz: ListChecks,
-                      summary: Brain,
-                      custom: BookOpen,
-                    }
-                    const FormatIcon = formatIconMap[guide.format] ?? BookOpen
-                    const isUnassigning = unassigningId === guide.id
-                    return (
-                      <div
-                        key={guide.assignmentId}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <Link href={`/study-guide/${guide.id}`} className="flex items-center gap-3 min-w-0 flex-1">
-                          <FormatIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{guide.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {guide.subject} · Grade {guide.grade_level} · {guide.format}
-                            </p>
-                          </div>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => unassignGuide(guide.id)}
-                          disabled={isUnassigning}
-                          className="text-red-600 hover:text-red-700 ml-2"
-                        >
-                          {isUnassigning ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <X className="h-4 w-4 mr-1" />
-                              Unassign
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Roster */}
-          <Card className="md:col-span-3">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-lg">Roster</h2>
-                <Badge variant="secondary">{enrollments.length} active</Badge>
-              </div>
-
-              {enrollments.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  No students yet. Share the enrollment code or QR with your class.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {enrollments.map((e) => (
-                    <li key={e.id} className="flex items-center justify-between py-3">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{studentDisplay(e)}</p>
-                        {e.student?.email && (
-                          <p className="text-sm text-muted-foreground truncate">{e.student.email}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeStudent(e)}
-                        disabled={removingId === e.id}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        {removingId === e.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <UserMinus className="h-4 w-4 mr-1" />
-                            Remove
-                          </>
-                        )}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        )}
       </div>
 
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Roster */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-slate-900">Roster</h2>
+            {!pasteOpen && <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
+          </div>
+
+          {pasteOpen && (
+            <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+              <p className="mb-2 text-sm text-slate-700">Paste your class list, one student per line, or choose a CSV from your gradebook. &quot;Last, First&quot;, student IDs and columns copied from a spreadsheet all work.</p>
+              <textarea
+                value={paste}
+                onChange={(e) => setPaste(e.target.value)}
+                rows={8}
+                placeholder={"Sean Miller\nLee, Mary Ann\nAva Kim"}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                aria-label="Class list"
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <label className="inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Choose a CSV
+                  <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPaste(await f.text()) }} />
+                </label>
+                <Button onClick={addNames} disabled={busy || !paste.trim()} className="bg-blue-600 hover:bg-blue-700"><ClipboardPaste className="mr-2 h-4 w-4" />{busy ? "Adding…" : "Add to roster"}</Button>
+                {roster.length > 0 && <Button variant="ghost" onClick={() => setPasteOpen(false)}>Cancel</Button>}
+              </div>
+            </div>
+          )}
+
+          {notice && <p className="mb-3 text-sm text-slate-600" aria-live="polite">{notice}</p>}
+
+          {roster.length === 0 ? (
+            <p className="text-sm text-slate-500">No names yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {roster.map((row) => (
+                <RosterItem
+                  key={row.id}
+                  row={row}
+                  onRename={async (firstName, lastName) => {
+                    if (await patchRow(row, { firstName, lastName })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, firstName, lastName } : x)) ?? null)
+                  }}
+                  onUnlink={async () => {
+                    if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null } : x)) ?? null)
+                  }}
+                  onRemove={() => void removeRow(row)}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <div className="space-y-6">
+          {/* Join code */}
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-900">Join code</h2>
+            <p className="mt-1 text-xs text-slate-500">Optional. Students who join are linked to their name, so you can release reports to them and see their weak spots.</p>
+            <p className="my-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">{cls.enrollment_code}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1" onClick={copyLink}>{copied ? <><Check className="mr-1.5 h-4 w-4" />Copied</> : <><Copy className="mr-1.5 h-4 w-4" />Copy link</>}</Button>
+              <Button variant="ghost" size="sm" onClick={newCode} title="Make a new code (the old one stops working)"><RefreshCw className="h-4 w-4" /></Button>
+            </div>
+          </section>
+
+          {/* Weak spots */}
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-900">Top weak spots</h2>
+            {linkedStudents === 0 ? (
+              <p className="mt-1 text-sm text-slate-500">Shows once students join with the code and study on Casanova Study.</p>
+            ) : weakSpots.length === 0 ? (
+              <p className="mt-1 text-sm text-slate-500">No weak spots yet across {linkedStudents} linked student{linkedStudents === 1 ? "" : "s"}.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {weakSpots.map((s) => (
+                  <li key={s.key} className="text-sm">
+                    <span className="font-medium text-slate-900">{s.topic}</span>
+                    <span className="block text-xs text-slate-500">{s.students} student{s.students === 1 ? "" : "s"} · {Math.round(s.accuracy * 100)}% right lately</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {batches.length > 0 && <ClassAreas areas={areas} className={cls.name} setsWithoutReport={setsWithoutReport} />}
+
+      {/* Graded work */}
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="font-semibold text-slate-900">Graded class sets</h2>
+        {batches.length === 0 ? (
+          <p className="mt-1 text-sm text-slate-500">Nothing graded for this class yet. Pick this class when you grade a stack.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-slate-100">
+            {batches.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
+                <Link href={`/grade-exam/batch/${b.id}`} className="font-medium text-blue-700 hover:underline">{b.title || "Untitled"}</Link>
+                <span className="text-slate-500">{new Date(b.createdAt).toLocaleDateString()} · {b.papers} paper{b.papers === 1 ? "" : "s"} · average {b.average.toFixed(1)}%</span>
+                {b.released && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Released</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <StampTestDialog open={stampOpen} onOpenChange={setStampOpen} defaultClassId={cls.id} />
       <ClassFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
         mode="edit"
         classId={cls.id}
         initialValues={{ name: cls.name, period: cls.period, subject: cls.subject }}
-        onSaved={(updated) => setCls({ ...cls, ...updated })}
+        onSaved={(c) => setCls((prev) => (prev ? { ...prev, name: c.name, period: c.period, subject: c.subject } : prev))}
       />
-
-      <CreateAssignmentDialog
-        open={createAssignmentOpen}
-        onOpenChange={setCreateAssignmentOpen}
-        mode="create"
-        defaultClassId={cls.id}
-        onSaved={(a) => {
-          router.push(`/teacher/assignments/${a.id}`)
-        }}
-      />
-
-      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Regenerate enrollment code?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The current code will stop working immediately. Anyone with the old code (or QR) won't be able to join. Existing enrollments are unaffected.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={regenerate} disabled={working}>
-              {working && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Regenerate
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this class?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the class and all student enrollments. Grade reports tied to this class are not deleted but will no longer be linked. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={deleteClass} disabled={working} className="bg-red-600 hover:bg-red-700">
-              {working && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Delete class
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </Shell>
   )
 }
 
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function RosterItem({ row, onRename, onUnlink, onRemove }: { row: RosterRow; onRename: (first: string, last: string) => void; onUnlink: () => void; onRemove: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [first, setFirst] = useState(row.firstName)
+  const [last, setLast] = useState(row.lastName)
+  const [confirm, setConfirm] = useState(false)
+
+  if (editing) {
+    return (
+      <li className="flex flex-wrap items-center gap-2 py-2">
+        <input value={first} onChange={(e) => setFirst(e.target.value)} className="w-36 rounded-md border px-2 py-1 text-sm" aria-label="First name" autoFocus />
+        <input value={last} onChange={(e) => setLast(e.target.value)} className="w-40 rounded-md border px-2 py-1 text-sm" aria-label="Last name" />
+        <Button size="sm" onClick={() => { onRename(first.trim(), last.trim()); setEditing(false) }}>Save</Button>
+        <Button size="sm" variant="ghost" onClick={() => { setFirst(row.firstName); setLast(row.lastName); setEditing(false) }}>Cancel</Button>
+      </li>
+    )
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-        active
-          ? "border-foreground text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      {label}
-    </button>
+    <li className="group flex items-center gap-2 py-2">
+      <span className="flex-1 text-sm text-slate-900">
+        {row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}
+        {row.studentNumber && <span className="ml-2 text-xs text-slate-400">#{row.studentNumber}</span>}
+      </span>
+      {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><Link2 className="h-3 w-3" />Joined</span>}
+      {confirm ? (
+        <span className="flex items-center gap-1 text-xs">
+          <button type="button" onClick={onRemove} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove</button>
+          <button type="button" onClick={() => setConfirm(false)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Keep</button>
+        </span>
+      ) : (
+        <span className="flex items-center opacity-60 group-hover:opacity-100">
+          <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label={`Rename ${row.firstName}`}><Pencil className="h-3.5 w-3.5" /></button>
+          {row.linked && <button type="button" onClick={onUnlink} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Unlink account" title="Unlink this student's account"><Unlink className="h-3.5 w-3.5" /></button>}
+          <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>
+        </span>
+      )}
+    </li>
+  )
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
+      <NavigationHeader />
+      <main className="container mx-auto max-w-5xl px-4 py-10">{children}</main>
+    </div>
   )
 }

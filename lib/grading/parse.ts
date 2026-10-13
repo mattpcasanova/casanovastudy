@@ -8,11 +8,17 @@
 // feedback that merely mentions "percentage" or "total" is no longer cut off
 // (the old single regex stopped at those words anywhere in the text).
 
+import { DEFAULT_SCALE, gradeFor } from './scale'
+
 export interface GradedQuestion {
   questionNumber: string // bare label: "1", "2a", "3(b)(i)", "Section C 2a"
   marksAwarded: number
   marksPossible: number
   explanation: string
+  /** Optional exam-board marking (AICE etc.), from a "Codes: … | Level: … | AO: …" line. */
+  markCodes?: string
+  level?: string
+  ao?: Record<string, number>
 }
 
 // "**Question 1a**, Mark: 2/2 - text", "Question 1a: Mark 2/2", "2b, Mark: 1/3 — text",
@@ -21,6 +27,32 @@ const ENTRY = /^\s*(?:[-*•]\s+)?(?:\*\*)?\s*(?:question\s+|q\.?\s*)?(.{1,50}?)
 
 // Closing sections that end the last question's feedback (must start the line).
 const SECTION_END = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(?:total(?:\s+marks)?|percentage|overall\s+grade|grade|final\s+grade|overall\s+feedback|general\s+feedback|feedback|summary|strengths|areas\s+(?:for|to)\s+improve\w*|next\s+steps|\[mark scheme summary\]|\[end summary\])\b/i
+
+// Optional tag line under a question: "Codes: M1 A1 B0 | Level: 3 | AO: AO1 2, AO2 1"
+const TAGS = /^\s*(?:[-*•]\s+)?(?:\*\*)?\s*(?:mark\s+)?(?:codes?|level|aos?|assessment\s+objectives?)\s*(?:\*\*)?\s*:/i
+
+export function applyTags(q: GradedQuestion, line: string): void {
+  for (const part of line.replace(/\*\*/g, '').split('|')) {
+    const m = part.match(/^\s*(?:[-*•]\s+)?([a-z ]+?)\s*:\s*(.*)$/i)
+    if (!m) continue
+    const key = m[1].toLowerCase().trim()
+    const value = m[2].trim()
+    if (!value || /^(n\/?a|none|-)$/i.test(value)) continue
+    if (/codes?$/.test(key)) {
+      const codes = value.match(/\b[A-Z]{1,2}\d+\b/g)
+      if (codes) q.markCodes = codes.join(' ').slice(0, 120)
+    } else if (key === 'level') {
+      q.level = value.replace(/^level\s*/i, '').slice(0, 20)
+    } else if (/^(aos?|assessment objectives?)$/.test(key)) {
+      const ao: Record<string, number> = {}
+      for (const [, name, n] of value.matchAll(/\b(AO\s*\d+)\s*[:=]?\s*(\d+(?:\.\d+)?)/gi)) {
+        const k = name.replace(/\s+/g, '').toUpperCase()
+        ao[k] = (ao[k] ?? 0) + parseFloat(n)
+      }
+      if (Object.keys(ao).length) q.ao = ao
+    }
+  }
+}
 
 function cleanLabel(raw: string): string | null {
   const label = raw.replace(/\*\*/g, '').replace(/^(?:question|q\.?)\s*/i, '').replace(/[\s,:\-–—]+$/, '').trim()
@@ -75,6 +107,7 @@ export function parseGradingOutput(content: string): {
       }
       continue
     }
+    if (current && TAGS.test(line)) { applyTags(current, line); continue }
     if (SECTION_END.test(line)) { finish(); continue }
     if (current && line.trim()) current.explanation += ' ' + line.trim()
   }
@@ -84,7 +117,6 @@ export function parseGradingOutput(content: string): {
   // and letter grade can disagree or use non-US scales).
   const totalMarks = breakdown.reduce((s, q) => s + q.marksAwarded, 0)
   const totalPossible = breakdown.reduce((s, q) => s + q.marksPossible, 0)
-  const pct = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0
-  const grade = pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F'
+  const grade = gradeFor(DEFAULT_SCALE, totalMarks, totalPossible)
   return { breakdown, totalMarks, totalPossible, grade }
 }

@@ -5,6 +5,8 @@
 // student" on any page, so the groups are always derived from split points.
 // Pure and unit-tested; page headers come from /api/grade-batch/split (Haiku).
 
+import { sameStudent, type RosterName } from './names'
+
 export interface PageHeader {
   /** Student name written at the top, if any. */
   name: string | null
@@ -16,6 +18,19 @@ export interface PageHeader {
   course?: string | null
   /** Class period written near the name ("2", "3B"). */
   period?: string | null
+  /** A name-stamped copy's QR code (lib/stamped/), resolved to its student. */
+  stamp?: PageStamp
+}
+
+export interface PageStamp {
+  code: string
+  page: number
+  /** Pages in the test. */
+  total: number
+  rosterId: string | null
+  classId: string | null
+  className: string | null
+  classPeriod: string | null
 }
 
 export interface PaperGroup {
@@ -24,16 +39,18 @@ export interface PaperGroup {
   pages: number[]
 }
 
-const sameName = (a: string, b: string) => a.trim().toLowerCase().replace(/\s+/g, ' ') === b.trim().toLowerCase().replace(/\s+/g, ' ')
-
-/** Where new papers start: a new name, or a first-looking page with no name. */
-export function splitPoints(headers: PageHeader[]): boolean[] {
+/**
+ * Where new papers start: a new name, or a first-looking page with no name.
+ * A slightly different read of the same name ("Sean Millr") is the same
+ * student; with a class roster, two reads matching different students split.
+ */
+export function splitPoints(headers: PageHeader[], roster?: RosterName[]): boolean[] {
   let current: string | null = null
   return headers.map((h, i) => {
     if (i === 0) { current = h.name; return true }
     if (h.name) {
       // A name repeated on every page of the same paper doesn't start a new one.
-      if (current && sameName(h.name, current)) return false
+      if (current && sameStudent(h.name, current, roster)) return false
       current = h.name
       return true
     }
@@ -63,11 +80,29 @@ export function naturalCompare(a: string, b: string): number {
 }
 
 /** Class results as CSV (Excel-safe quoting). */
-export function resultsCsv(rows: Array<{ name: string; marks: number; possible: number; percentage: number; grade: string }>): string {
-  const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
-  return [['Student', 'Marks', 'Out of', 'Percent', 'Grade'], ...rows.map((r) => [r.name, r.marks, r.possible, r.percentage.toFixed(1), r.grade])]
-    .map((row) => row.map(q).join(','))
-    .join('\n')
+export interface CsvRow {
+  name: string
+  marks: number | null
+  possible: number | null
+  percentage: number | null
+  grade: string
+  /** Absent / Missing / Exempt / Late, for roster students with no graded paper (or a late one). */
+  status?: string
+  studentNumber?: string | null
+}
+
+/** Class results as CSV. Student ID and Status columns appear only when some row has them. */
+export function resultsCsv(rows: CsvRow[]): string {
+  const q = (v: string | number | null) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const withId = rows.some((r) => r.studentNumber)
+  const withStatus = rows.some((r) => r.status)
+  const head = [...(withId ? ['Student ID'] : []), 'Student', 'Marks', 'Out of', 'Percent', 'Grade', ...(withStatus ? ['Status'] : [])]
+  const body = rows.map((r) => [
+    ...(withId ? [r.studentNumber ?? ''] : []),
+    r.name, r.marks, r.possible, r.percentage == null ? '' : r.percentage.toFixed(1), r.grade,
+    ...(withStatus ? [r.status ?? ''] : []),
+  ])
+  return [head, ...body].map((row) => row.map(q).join(',')).join('\n')
 }
 
 // "Period 2", "Per. 3", "Pd 4", "P2", "(P3)", "2nd period", "Period: 5B" at the end of a name.

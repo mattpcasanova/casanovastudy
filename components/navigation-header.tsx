@@ -60,7 +60,7 @@ export default function NavigationHeader() {
   const isCalendarActive = pathname?.startsWith('/calendar')
   const isQuizzesActive = pathname?.startsWith('/teacher/quizzes')
   const isQuestionBankActive = pathname?.startsWith('/teacher/question-bank')
-  const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report')
+  const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report') || pathname?.startsWith('/teacher/classes')
   const isTeacher = user?.user_type === 'teacher'
 
   return (
@@ -150,6 +150,12 @@ export default function NavigationHeader() {
                       <Link href="/graded-exams" className="flex items-center cursor-pointer">
                         <ClipboardList className="h-4 w-4 mr-2" />
                         My Reports
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/teacher/classes" className="flex items-center cursor-pointer">
+                        <Users className="h-4 w-4 mr-2" />
+                        My Classes
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -437,6 +443,15 @@ export default function NavigationHeader() {
                 >
                   <ClipboardList className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Reports</span>
+                </Link>
+                <Link
+                  href="/teacher/classes"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname?.startsWith('/teacher/classes') ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">My Classes</span>
                 </Link>
               </>
             )}

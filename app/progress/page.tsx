@@ -136,6 +136,11 @@ function Progress() {
             <span className="block text-yellow-300">and what to study next</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-blue-50">Built from every quiz, practice and Learn question you answer. The more you study, the sharper it gets.</p>
+          {user?.user_type === "student" && (
+            <p className="mt-4 text-sm text-blue-100">
+              Have a class code from your teacher? <Link href="/classes/join" className="font-semibold text-white underline underline-offset-2 hover:text-yellow-200">Join a class</Link>
+            </p>
+          )}
         </div>
       </section>
 

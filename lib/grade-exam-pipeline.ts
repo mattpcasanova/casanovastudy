@@ -6,6 +6,7 @@
  * call; both paths call the same function directly.
  */
 
+import { DEFAULT_SCALE, gradeFor } from '@/lib/grading/scale'
 import { FileProcessor } from './file-processing'
 import { ClaudeService } from './claude-api'
 import { PDFShiftPDFGenerator } from './pdfshift-pdf-generator'
@@ -184,11 +185,7 @@ export async function runGradingPipeline(input: GradingPipelineInput): Promise<G
   const pdfUrl = `/api/pdf/${gradingId}.pdf`
 
   const percentage = totalPossibleMarks > 0 ? (totalMarks / totalPossibleMarks) * 100 : 0
-  let grade = 'F'
-  if (percentage >= 90) grade = 'A'
-  else if (percentage >= 80) grade = 'B'
-  else if (percentage >= 70) grade = 'C'
-  else if (percentage >= 60) grade = 'D'
+  const grade = gradeFor(DEFAULT_SCALE, totalMarks, totalPossibleMarks)
 
   const studentName = primaryStudentFile.name.replace(/\.(pdf|docx|pptx|txt)$/i, '').replace(/_/g, ' ')
 
@@ -448,7 +445,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-s
     <div class="grade-box">${grade}</div>
     <div class="score-info">
       <div class="score-points">${totalMarks} / ${totalPossibleMarks} marks</div>
-      <div class="score-percent">${percentage}% • AICE Business Exam</div>
+      <div class="score-percent">${percentage}%</div>
     </div>
   </div>
 </div>

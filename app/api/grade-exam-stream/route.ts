@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { gradePaper } from '@/lib/grading/grade-paper'
+import { gradingChoices, settingsFromRow } from '@/lib/grading/report-settings'
+import { loadRoster, ownedClass } from '@/lib/classes/server'
+import { matchRoster } from '@/lib/grading/names'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
 export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
@@ -131,10 +134,15 @@ export async function POST(request: NextRequest) {
         }
 
         // Shared engine (lib/grading/grade-paper.ts): marks, completeness check, follow-up, totals.
+        const { data: settingsRow } = await supabase.from('teacher_report_settings').select('*').eq('user_id', userId).maybeSingle()
+        const jsonField = (key: string) => { try { return JSON.parse(String(formData.get(key) ?? 'null')) } catch { return null } }
+        const { scale, markingStyle } = gradingChoices(settingsFromRow(settingsRow), jsonField('gradeScale'), jsonField('markingStyle'))
         const graded = await gradePaper({
           markScheme: markSchemeBuffers,
           student: studentExamBuffers,
           additionalComments: additionalComments || undefined,
+          scale,
+          markingStyle,
           onChunk: (chunk) => controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'content', chunk }) + '\n\n')),
           onProgress: (message) => controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message }) + '\n\n')),
         })
@@ -160,6 +168,22 @@ export async function POST(request: NextRequest) {
             .trim()
         }
 
+        // A class picked on the page: link the report to the roster name (picked, or a confident match).
+        // Roster-linked reports start unreleased; the teacher shares them from the report page.
+        let classLink: Record<string, unknown> = {}
+        const classIdField = formData.get('classId')
+        if (isTeacher && typeof classIdField === 'string' && classIdField) {
+          const cls = await ownedClass(supabase, userId!, classIdField)
+          if (cls) {
+            const roster = await loadRoster(supabase, cls.id)
+            const picked = roster.find((r) => r.id === formData.get('rosterId'))
+            const m = picked ? null : matchRoster(studentName, roster)
+            const row = picked ?? (m?.confidence === 'sure' ? roster.find((r) => r.id === m.rosterId) : undefined)
+            classLink = { class_id: cls.id, roster_id: row?.id ?? null }
+            if (!studentUserId && row?.studentUserId) classLink = { ...classLink, student_user_id: row.studentUserId, released: false }
+          }
+        }
+
         // Save to database
         const { data: savedGrading, error: saveError } = await supabase
           .from('grading_results')
@@ -176,12 +200,15 @@ export async function POST(request: NextRequest) {
             total_possible_marks: totalPossible,
             percentage: percentage,
             grade: grade,
+            grade_scale: scale,
+            marking_style: markingStyle,
             content: fullContent,
             grade_breakdown: breakdown,
             additional_comments: additionalComments || null,
             class_name: className || null,
             class_period: classPeriod || null,
             exam_title: examTitle || null,
+            ...classLink,
             token_usage: usage ? { ...usage, model: GRADING_MODEL, pages: studentExamFiles.length + markSchemeFiles.length } : null
           })
           .select()

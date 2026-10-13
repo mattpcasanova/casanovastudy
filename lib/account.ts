@@ -17,6 +17,10 @@ export async function deleteAccount(userId: string): Promise<void> {
     const { error } = await step
     if (error) throw new Error(`Could not delete ${what}: ${error.message}`)
   }
+  // Scanner inbox files (student work) live in storage, which the user delete doesn't cascade to.
+  const { data: scans } = await supabase.from('scan_inbox_items').select('files').eq('user_id', userId)
+  const paths = (scans ?? []).flatMap((r) => (r.files as Array<{ path: string }>).map((f) => f.path))
+  for (let i = 0; i < paths.length; i += 100) await supabase.storage.from('scan-inbox').remove(paths.slice(i, i + 100))
   const { error } = await supabase.auth.admin.deleteUser(userId)
   if (error) throw new Error(`Could not delete the account: ${error.message}`)
 }

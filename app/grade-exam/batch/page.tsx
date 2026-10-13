@@ -11,6 +11,14 @@
 // every paper is marked against it. Keep the tab open while it grades.
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { ScaleEditor } from "@/components/grading/report/scale-editor"
+import { ScanInboxPanel } from "@/components/grading/scan-inbox-panel"
+import { placeStampedPages } from "@/lib/stamped/place"
+import { missingPages } from "@/lib/stamped/codes"
+import { DEFAULT_SCALE, SCALE_PRESETS, type GradeScale } from "@/lib/grading/scale"
+import { usesMarkingStyle, type MarkingStyle } from "@/lib/grading/marking-style"
+import { fullName, matchRoster, type RosterName } from "@/lib/grading/names"
+import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
 import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2 } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
@@ -77,6 +85,19 @@ function BatchGrading() {
   const [className, setClassName] = useState("")
   const [classPeriod, setClassPeriod] = useState("")
   const [notes, setNotes] = useState("")
+  const [gradeScale, setGradeScale] = useState<GradeScale | null>(null)
+  const [markingStyle, setMarkingStyle] = useState<MarkingStyle>({})
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  // Start from the teacher's saved defaults (report settings).
+  useEffect(() => {
+    void (async () => {
+      const res = await authFetch("/api/grading/report-settings")
+      if (!res.ok) return
+      const { settings } = await res.json()
+      setGradeScale(settings.defaultScale ?? null)
+      setMarkingStyle(settings.markingStyle ?? {})
+    })()
+  }, [])
   const [markFiles, setMarkFiles] = useState<File[]>([])
   const [paperFiles, setPaperFiles] = useState<File[]>([])
   const [sortByName, setSortByName] = useState(true)
@@ -93,7 +114,9 @@ function BatchGrading() {
   const [headers, setHeaders] = useState<PageHeader[]>([])
   const [starts, setStarts] = useState<boolean[]>([])
   const [removed, setRemoved] = useState<Set<number>>(new Set())
-  const [names, setNames] = useState<Record<number, string>>({}) // keyed by a paper's first page index
+  // Typed names, keyed by the page they were typed on (a paper uses the first one
+  // among its pages), so re-splitting doesn't lose them.
+  const [names, setNames] = useState<Record<number, string>>({})
   const [results, setResults] = useState<Record<number, PaperStatus>>({})
   const [gradingStartedAt, setGradingStartedAt] = useState<number | null>(null)
   // A one-second clock while grading, for elapsed time and time left.
@@ -110,9 +133,103 @@ function BatchGrading() {
   const thumbsRef = useRef<string[]>([])
   useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
 
+  // Optional class: its roster helps read names and links each paper to a student.
+  const [classes, setClasses] = useState<Array<{ id: string; name: string; period: string | null }>>([])
+  const [classId, setClassId] = useState("")
+  const [roster, setRoster] = useState<RosterRow[]>([])
+  const [rosterNotice, setRosterNotice] = useState("")
+  const [addingTo, setAddingTo] = useState<string | null>(null)
+  const [inboxItem, setInboxItem] = useState<string | null>(null)
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/classes")
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setClasses(data.classes ?? [])
+    })()
+    const query = new URLSearchParams(window.location.search)
+    setInboxItem(query.get("inbox"))
+    const fromUrl = query.get("class")
+    if (fromUrl) setClassId(fromUrl)
+    // ?batch=<id>: add late papers to an existing class set (same title, class and scale).
+    const existing = query.get("batch")
+    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
+      void (async () => {
+        const res = await authFetch(`/api/grade-batch/${existing}`, { cache: "no-store" })
+        const data = await res.json().catch(() => ({}))
+        const first = data.results?.[0]
+        if (!res.ok || !first) return
+        batchId.current = existing
+        setAddingTo(first.exam_title || "this class set")
+        if (first.exam_title) setExamTitle(first.exam_title)
+        if (first.class_name) setClassName(first.class_name)
+        if (first.class_period) setClassPeriod(first.class_period)
+        if (first.grade_scale) setGradeScale(first.grade_scale)
+      })()
+    }
+  }, [])
+  const loadRoster = async (id: string) => {
+    if (!id) { setRoster([]); return }
+    const res = await authFetch(`/api/classes/${id}/roster`, { cache: "no-store" })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return
+    setRoster(data.roster ?? [])
+    if (data.class?.name) setClassName(data.class.name)
+    if (data.class?.period) setClassPeriod(data.class.period)
+  }
+  useEffect(() => { void loadRoster(classId) }, [classId])
+  const rosterNames: RosterName[] = useMemo(() => roster.map((r) => ({ id: r.id, firstName: r.firstName, lastName: r.lastName })), [roster])
+
   const papers = useMemo(() => {
-    return groupPages(starts, headers, removed).map((g) => ({ ...g, key: g.pages[0], name: names[g.pages[0]] ?? g.name }))
-  }, [starts, headers, removed, names])
+    return groupPages(starts, headers, removed).map((g) => {
+      const name = g.pages.map((i) => names[i]).find((n) => n !== undefined) ?? g.name
+      // A stamped copy knows its student, unless the teacher renamed it.
+      const stamp = headers[g.pages[0]]?.stamp
+      const renamed = g.pages.some((i) => names[i] !== undefined)
+      const match: ReturnType<typeof matchRoster> = stamp?.rosterId && !renamed ? { rosterId: stamp.rosterId, score: 1, confidence: "sure" } : matchRoster(name, rosterNames)
+      const missing = stamp ? missingPages(g.pages.map((i) => headers[i]?.stamp?.page ?? 0), stamp.total) : []
+      return { ...g, key: g.pages[0], name, match, stamp, missing }
+    })
+  }, [starts, headers, removed, names, rosterNames])
+
+  // Stamped copies from several classes: one class set (and results page) per class.
+  const paperClasses = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const p of papers) if (p.stamp?.classId) seen.set(p.stamp.classId, [p.stamp.className, p.stamp.classPeriod && `P${p.stamp.classPeriod}`].filter(Boolean).join(" "))
+    return seen
+  }, [papers])
+  const classBatches = useRef(new Map<string, string>())
+  const batchFor = (paperClassId: string | null | undefined) => {
+    if (paperClasses.size <= 1 || !paperClassId) return batchId.current
+    let b = classBatches.current.get(paperClassId)
+    if (!b) {
+      b = classBatches.current.size === 0 ? batchId.current : crypto.randomUUID()
+      classBatches.current.set(paperClassId, b)
+    }
+    return b
+  }
+
+  // Roster checks: two papers for one student, and students with no paper.
+  const rosterCheck = useMemo(() => {
+    const seen = new Map<string, number>()
+    const duplicates = new Set<number>()
+    papers.forEach((p) => {
+      if (p.match.confidence !== "sure" || !p.match.rosterId) return
+      const prev = seen.get(p.match.rosterId)
+      if (prev !== undefined) { duplicates.add(prev); duplicates.add(p.key) } else seen.set(p.match.rosterId, p.key)
+    })
+    const missing = roster.filter((r) => !seen.has(r.id))
+    const unknown = papers.filter((p) => p.match.confidence === "none" && !/^Student \d+$/.test(p.name))
+    return { duplicates, missing, unknown }
+  }, [papers, roster])
+
+  const addUnknownToRoster = async () => {
+    if (!classId || !rosterCheck.unknown.length) return
+    const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: rosterCheck.unknown.map((p) => p.name).join("\n") }) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { setRosterNotice(data.error || "Could not add those names"); return }
+    setRoster(data.roster ?? [])
+    setRosterNotice(`Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+  }
 
   if (user && user.user_type !== "teacher") {
     return <Shell><p className="rounded-xl bg-amber-50 p-6 text-amber-900">Batch grading is for teacher accounts.</p></Shell>
@@ -149,30 +266,41 @@ function BatchGrading() {
       }
       if (!imagePages.length && !textPapers.length) throw new Error("None of the papers could be read. " + issues.join(" "))
 
-      const uploaded = await uploadAll(imagePages.map((p) => ({ blob: p.blob, name: p.label })), "grading-pages", (n, total) => setStatus(`Uploading page ${n} of ${total}...`))
-      const thumbs = imagePages.map((p) => URL.createObjectURL(p.blob))
+      // Name-stamped copies (QR on every page): read the codes here, put each
+      // copy's pages together in order, and skip the AI name read for them.
+      const stamped = await placeStampedPages(imagePages.map((p) => p.blob), (d) => setStatus(`Looking for name stamps (${d} of ${imagePages.length} pages)...`))
+      if (stamped.duplicates) issues.push(`${stamped.duplicates} page${stamped.duplicates === 1 ? " was" : "s were"} scanned twice and left out.`)
+      const orderedImages = stamped.order.map((i) => imagePages[i])
+
+      const uploaded = await uploadAll(orderedImages.map((p) => ({ blob: p.blob, name: p.label })), "grading-pages", (n, total) => setStatus(`Uploading page ${n} of ${total}...`))
+      const thumbs = orderedImages.map((p) => URL.createObjectURL(p.blob))
       thumbsRef.current.push(...thumbs)
 
-      let imageHeaders: PageHeader[] = []
-      if (uploaded.length) {
-        setStatus(`Finding where each student's paper starts (${uploaded.length} pages)...`)
+      const imageHeaders: Array<PageHeader | undefined> = stamped.headers.slice()
+      const unread = uploaded.filter((_, i) => !stamped.headers[i])
+      if (unread.length) {
+        setStatus(`Finding where each student's paper starts (${unread.length} pages)...`)
         const res = await authFetch("/api/grade-batch/split", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pages: uploaded }),
+          body: JSON.stringify({ pages: unread, roster: rosterNames.map(fullName) }),
         })
         const data = await res.json().catch(() => ({}))
         if (isPlanBlock(data)) { openPremium(data); setPhase("setup"); return }
         if (!res.ok) throw new Error(data.error || "Could not read the pages")
-        imageHeaders = data.headers
+        let k = 0
+        for (let i = 0; i < uploaded.length; i++) if (!imageHeaders[i]) imageHeaders[i] = data.headers[k++]
       }
+      // A stack of one class's stamped copies picks that class.
+      const stampClasses = [...new Set(imageHeaders.map((h) => h?.stamp?.classId).filter(Boolean))] as string[]
+      if (stampClasses.length === 1 && !classId) setClassId(stampClasses[0])
 
       const allPages: Page[] = [
         ...uploaded.map((u, i) => ({ label: u.name, url: u.url, thumb: thumbs[i] })),
         ...textPapers,
       ]
       const allHeaders: PageHeader[] = [
-        ...imageHeaders,
+        ...imageHeaders.map((h) => h ?? { name: null, firstPage: false }),
         ...textPapers.map((t) => ({ name: t.label.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), firstPage: true })),
       ]
       // Fill the exam details from the papers (only the boxes the teacher left empty).
@@ -183,13 +311,20 @@ function BatchGrading() {
       if (found.period && !classPeriod.trim()) setClassPeriod(found.period)
       setAutoFilled(Boolean((found.title && !examTitle.trim()) || (found.course && !className.trim()) || (found.period && !classPeriod.trim())))
 
-      const startPoints = splitPoints(allHeaders)
+      const startPoints = splitPoints(allHeaders, rosterNames)
+      // Stamped pages: a new copy code starts a paper, the same code never does;
+      // the first unstamped page after them starts one too.
+      allHeaders.forEach((h, i) => {
+        if (h.stamp) startPoints[i] = i === 0 || allHeaders[i - 1]?.stamp?.code !== h.stamp.code
+        else if (i > 0 && allHeaders[i - 1]?.stamp) startPoints[i] = true
+      })
       setMarkScheme(scheme)
       setPages(allPages)
       setHeaders(allHeaders)
       setStarts(startPoints)
       setRemoved(new Set())
       setNames({})
+      setRosterNotice("")
       setResults({})
       setProblems(issues)
       setPhase("review")
@@ -246,10 +381,16 @@ function BatchGrading() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          batchId: batchId.current,
+          batchId: batchFor(paper.stamp?.classId),
           studentName: paper.name,
-          examTitle, className, classPeriod,
+          examTitle,
+          className: paperClasses.size > 1 && paper.stamp?.className ? paper.stamp.className : className,
+          classPeriod: paperClasses.size > 1 && paper.stamp ? paper.stamp.classPeriod ?? "" : classPeriod,
           additionalComments: notes,
+          gradeScale,
+          markingStyle,
+          classId: paper.stamp?.classId || classId || undefined,
+          rosterId: paper.match.confidence === "sure" ? paper.match.rosterId : undefined,
           markScheme: schemeForGrading,
           pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
@@ -329,8 +470,20 @@ function BatchGrading() {
       {(phase === "setup" || phase === "preparing") && (
         <div className="space-y-8">
           <GradingModeSwitch mode="class" />
+          {addingTo && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Adding late papers to <span className="font-semibold">{addingTo}</span>. They&apos;ll join the same class results. Use the same mark scheme.</p>}
 
           <Section n={1} title="Student papers" hint="The whole stack: phone photos in any order of students, scanned PDFs, or one file per student. Names only need to be on the first page.">
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+              <label htmlFor="batch-class" className="font-medium text-slate-700">Class</label>
+              <select id="batch-class" value={classId} onChange={(e) => setClassId(e.target.value)} disabled={phase === "preparing"} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                <option value="">None (type names as you go)</option>
+                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.period ? ` (P${c.period})` : ""}</option>)}
+              </select>
+              {classId
+                ? <span className="text-slate-500">{roster.length} name{roster.length === 1 ? "" : "s"} on the roster; papers are matched to them.</span>
+                : <Link href="/teacher/classes" className="text-blue-700 hover:underline">{classes.length ? "Manage classes" : "Add a class list"}</Link>}
+            </div>
+            <ScanInboxPanel onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} openItemId={inboxItem} disabled={phase === "preparing"} />
             <DropZone files={paperFiles} onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} onRemove={(i) => setPaperFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} big />
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={sortByName} onChange={(e) => setSortByName(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
@@ -378,7 +531,10 @@ function BatchGrading() {
               {phase === "grading" && running && <Button variant="outline" onClick={() => { stopRef.current = true }}>Pause after current papers</Button>}
               {phase === "grading" && !running && failed.length > 0 && <Button variant="outline" onClick={() => void gradeAll(failed.map((p) => p.key))}><RotateCcw className="mr-2 h-4 w-4" />Retry {failed.length} failed</Button>}
               {done.length > 0 && <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>}
-              {done.length > 0 && !running && <Button asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch/${batchId.current}`}>Class results</Link></Button>}
+              {done.length > 0 && !running && paperClasses.size <= 1 && <Button asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch/${batchId.current}`}>Class results</Link></Button>}
+              {done.length > 0 && !running && paperClasses.size > 1 && [...paperClasses.entries()].map(([cid, label]) => (
+                <Button key={cid} asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch/${batchFor(cid)}`}>{label || "Class"} results</Link></Button>
+              ))}
             </div>
           </div>
 
@@ -392,6 +548,31 @@ function BatchGrading() {
               <TextInput label="Class" value={className} onChange={setClassName} placeholder="AP Chemistry" disabled={phase === "grading"} />
               <TextInput label="Period" value={classPeriod} onChange={setClassPeriod} placeholder="3" disabled={phase === "grading"} />
             </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <span>
+                Grading: <span className="font-medium text-slate-800">{SCALE_PRESETS[(gradeScale ?? DEFAULT_SCALE).preset].label}</span>
+                {usesMarkingStyle(markingStyle) && <> · {[markingStyle.codes && "mark types", markingStyle.levels && "levels", markingStyle.ao && "AOs"].filter(Boolean).join(", ")}</>}
+              </span>
+              {phase === "review" && <button type="button" onClick={() => setOptionsOpen((o) => !o)} className="font-semibold text-blue-700 hover:underline">{optionsOpen ? "Done" : "Change"}</button>}
+            </div>
+            {optionsOpen && phase === "review" && (
+              <div className="mt-3 grid gap-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Grade scale</p>
+                  <ScaleEditor value={gradeScale} onChange={setGradeScale} compact />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Exam-board marking (optional)</p>
+                  {([["codes", "Mark types (M1, A1, B1)"], ["levels", "Levels of response"], ["ao", "Assessment objectives (AO1, AO2...)"]] as const).map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 py-1 text-sm text-slate-700">
+                      <input type="checkbox" checked={!!markingStyle[key]} onChange={(e) => setMarkingStyle((m) => ({ ...m, [key]: e.target.checked }))} className="h-4 w-4 rounded border-slate-300" />
+                      {label}
+                    </label>
+                  ))}
+                  <p className="mt-1 text-xs text-slate-500">For AICE, A Level and similar. The grader records these on every question where they apply.</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {!hasScheme && answerKey.status !== "none" && (
@@ -424,6 +605,25 @@ function BatchGrading() {
           )}
           {problems.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{problems.join(" ")}</p>}
 
+          {classId && roster.length > 0 && (rosterCheck.missing.length > 0 || rosterCheck.duplicates.size > 0 || rosterCheck.unknown.length > 0) && (
+            <div className="space-y-1.5 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-inset ring-slate-200">
+              {rosterCheck.duplicates.size > 0 && <p className="text-amber-800">Two or more papers have the same student. Check the highlighted names.</p>}
+              {rosterCheck.missing.length > 0 && (
+                <p className="text-slate-700">
+                  <span className="font-medium">No paper for {rosterCheck.missing.length}:</span> {rosterCheck.missing.map((r) => fullName(r)).join(", ")}
+                </p>
+              )}
+              {rosterCheck.unknown.length > 0 && (
+                <p className="text-slate-700">
+                  {rosterCheck.unknown.length} name{rosterCheck.unknown.length === 1 ? " isn't" : "s aren't"} on the roster.{" "}
+                  <button type="button" onClick={() => void addUnknownToRoster()} className="font-semibold text-blue-700 hover:underline">Add {rosterCheck.unknown.length === 1 ? "it" : "them"} to the class</button>
+                </p>
+              )}
+              {rosterNotice && <p className="text-slate-600">{rosterNotice}</p>}
+            </div>
+          )}
+          <datalist id="roster-names">{roster.map((r) => <option key={r.id} value={fullName(r)} />)}</datalist>
+
           <ul className="space-y-3">
             {papers.map((paper, n) => {
               const r = results[paper.key]
@@ -436,8 +636,13 @@ function BatchGrading() {
                       onChange={(e) => setNames((m) => ({ ...m, [paper.key]: e.target.value }))}
                       disabled={phase === "grading"}
                       aria-label="Student name"
-                      className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 font-semibold text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:outline-none disabled:bg-transparent"
+                      list={roster.length ? "roster-names" : undefined}
+                      className={cn("min-w-0 flex-1 rounded-lg border px-2 py-1 font-semibold text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:outline-none disabled:bg-transparent", rosterCheck.duplicates.has(paper.key) ? "border-amber-400 bg-amber-50" : "border-transparent")}
                     />
+                    {paper.stamp
+                      ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Read from the name stamp">Stamped{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>
+                      : roster.length > 0 && <RosterChip match={paper.match} roster={roster} onAccept={(name) => setNames((m) => ({ ...m, [paper.key]: name }))} disabled={phase === "grading"} />}
+                    {paper.missing.length > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
                     <PaperBadge status={r} now={now} />
                     {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="text-sm font-semibold text-blue-700 hover:underline">Report</Link>}
                     {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="text-sm font-semibold text-blue-700 hover:underline">Retry</button>}
@@ -479,6 +684,23 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
   }
   await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker))
   return out
+}
+
+/** How a paper's name lines up with the class roster. */
+function RosterChip({ match, roster, onAccept, disabled }: { match: ReturnType<typeof matchRoster>; roster: RosterRow[]; onAccept: (name: string) => void; disabled?: boolean }) {
+  const row = roster.find((r) => r.id === match.rosterId)
+  if (match.confidence === "sure" && row) {
+    const name = fullName(row)
+    return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title={`Matched to ${name} on the roster`}>On roster</span>
+  }
+  if (match.confidence === "check" && row) {
+    return (
+      <button type="button" disabled={disabled} onClick={() => onAccept(fullName(row))} className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200 hover:bg-amber-100">
+        {fullName(row)}?
+      </button>
+    )
+  }
+  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Not on roster</span>
 }
 
 function Shell({ children }: { children: React.ReactNode }) {

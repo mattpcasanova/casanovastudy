@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/auth"
+import { signInPath } from "@/lib/sign-in-path"
+import { CLASSES_ENABLED } from "@/lib/features"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, School } from "lucide-react"
 
@@ -34,9 +36,7 @@ function JoinClassInner() {
   useEffect(() => {
     if (authLoading) return
     if (!user) {
-      const fromQuery = searchParams?.get("code") ?? ""
-      const returnTo = `/classes/join${fromQuery ? `?code=${encodeURIComponent(fromQuery)}` : ""}`
-      router.push(`/auth/signin?returnTo=${encodeURIComponent(returnTo)}`)
+      router.push(signInPath())
       return
     }
     if (user.user_type !== "student") {
@@ -66,7 +66,7 @@ function JoinClassInner() {
         return
       }
       toast({ title: json.rejoined ? `Rejoined ${json.class.name}` : `Joined ${json.class.name}` })
-      router.push("/my-classes")
+      router.push(CLASSES_ENABLED ? "/my-classes" : "/progress")
     } catch (err) {
       console.error(err)
       toast({ title: "Network error", variant: "destructive" })
@@ -132,7 +132,7 @@ export default function JoinClassPage() {
     <div className="min-h-screen bg-background">
       <NavigationHeader />
       <div className="container mx-auto px-4 pt-8">
-        <ClassesSectionNav />
+        {CLASSES_ENABLED && <ClassesSectionNav />}
       </div>
       <Suspense fallback={
         <div className="container mx-auto px-4 py-8 max-w-md">

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     const classIds = classes.map(c => c.id)
-    const [enrollmentRowsRes, linksRes] = await Promise.all([
+    const [enrollmentRowsRes, linksRes, rosterRes] = await Promise.all([
       supabase
         .from('class_enrollments')
         .select('class_id')
@@ -51,7 +51,13 @@ export async function GET(request: NextRequest) {
         .from('assignment_class_links')
         .select('assignment_id, class_id')
         .in('class_id', classIds),
+      supabase
+        .from('class_roster')
+        .select('class_id')
+        .in('class_id', classIds),
     ])
+    const rosterCounts = new Map<string, number>()
+    for (const row of rosterRes.data ?? []) rosterCounts.set(row.class_id, (rosterCounts.get(row.class_id) ?? 0) + 1)
 
     const counts = new Map<string, number>()
     for (const row of enrollmentRowsRes.data ?? []) {
@@ -86,6 +92,7 @@ export async function GET(request: NextRequest) {
     const result = classes.map(c => ({
       ...c,
       student_count: counts.get(c.id) ?? 0,
+      roster_count: rosterCounts.get(c.id) ?? 0,
       pending_review_count: pendingByClass.get(c.id) ?? 0,
     }))
 

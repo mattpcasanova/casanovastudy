@@ -20,6 +20,8 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { matchRoster, parseName } from "@/lib/grading/names"
+import type { RosterRow } from "@/lib/classes/server"
 
 interface GradingResult {
   id?: string
@@ -73,6 +75,31 @@ export default function GradeExamPage() {
 
   // Conditional text based on user type
   const isTeacher = user?.user_type === 'teacher'
+
+  // Optional class: picking a roster name fills the name and links the report to that student.
+  const [classes, setClasses] = useState<Array<{ id: string; name: string; period: string | null }>>([])
+  const [classId, setClassId] = useState("")
+  const [roster, setRoster] = useState<RosterRow[]>([])
+  const [rosterId, setRosterId] = useState("")
+  useEffect(() => {
+    if (!isTeacher) return
+    void (async () => {
+      const res = await fetch("/api/classes")
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setClasses(data.classes ?? [])
+    })()
+  }, [isTeacher])
+  useEffect(() => {
+    if (!classId) { setRoster([]); return }
+    void (async () => {
+      const res = await authFetch(`/api/classes/${classId}/roster`, { cache: "no-store" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) return
+      setRoster(data.roster ?? [])
+      if (data.class?.name) setClassName(data.class.name)
+      if (data.class?.period) setClassPeriod(data.class.period)
+    })()
+  }, [classId])
   const pageSubtitle = isTeacher
     ? 'Upload student exams to receive detailed grading with marks and feedback'
     : 'Upload your practice work to get helpful feedback and improve your understanding'
@@ -105,9 +132,18 @@ export default function GradeExamPage() {
       if (!res.ok) return
       const read: { name: string | null; title: string | null; course: string | null; period: string | null } = await res.json()
       const keep = (value: string | null) => (prev: string) => (prev.trim() || !value ? prev : value)
-      const [first, ...rest] = (read.name ?? "").split(/\s+/).filter(Boolean)
-      setStudentFirstName(keep(first ?? null))
-      setStudentLastName(keep(rest.join(" ") || null))
+      const parsed = parseName(read.name ?? "")
+      // On the class roster: use the roster's spelling and link the paper.
+      const match = matchRoster(read.name, roster)
+      const row = match.confidence === "sure" ? roster.find((r) => r.id === match.rosterId) : undefined
+      if (row && !studentFirstName.trim() && !studentLastName.trim()) {
+        setStudentFirstName(row.firstName)
+        setStudentLastName(row.lastName)
+        setRosterId(row.id)
+      } else {
+        setStudentFirstName(keep(parsed.firstName || null))
+        setStudentLastName(keep(parsed.lastName || null))
+      }
       setExamTitle(keep(read.title))
       setClassName(keep(read.course))
       setClassPeriod(keep(read.period))
@@ -354,6 +390,8 @@ export default function GradeExamPage() {
       if (classPeriod.trim()) formData.append("classPeriod", classPeriod.trim())
       if (examTitle.trim()) formData.append("examTitle", examTitle.trim())
       if (selectedStudentUserId) formData.append("studentUserId", selectedStudentUserId)
+      if (classId) formData.append("classId", classId)
+      if (classId && rosterId) formData.append("rosterId", rosterId)
 
       if (isTeacher) {
         const response = await fetch("/api/grade-exam-stream", {
@@ -585,6 +623,29 @@ export default function GradeExamPage() {
                       <span><span className="font-semibold text-slate-800">Report details</span> help you find and organize reports later.</span>
                       {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><Sparkles className="h-3 w-3" />Filled in from the paper, check them</span>}
                     </p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <Label htmlFor="grade-class" className="text-sm font-medium text-slate-700">Class</Label>
+                      <select id="grade-class" value={classId} onChange={(e) => { setClassId(e.target.value); setRosterId("") }} disabled={isGrading} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                        <option value="">None</option>
+                        {classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.period ? ` (P${c.period})` : ""}</option>)}
+                      </select>
+                      {classId && roster.length > 0 && (
+                        <select
+                          value={rosterId}
+                          onChange={(e) => {
+                            const row = roster.find((r) => r.id === e.target.value)
+                            setRosterId(e.target.value)
+                            if (row) { setStudentFirstName(row.firstName); setStudentLastName(row.lastName) }
+                          }}
+                          disabled={isGrading}
+                          aria-label="Student on the roster"
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5"
+                        >
+                          <option value="">Pick a student…</option>
+                          {roster.map((r) => <option key={r.id} value={r.id}>{r.lastName ? `${r.lastName}, ${r.firstName}` : r.firstName}</option>)}
+                        </select>
+                      )}
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="studentFirstName" className="text-sm font-medium text-slate-700">Student first name</Label>

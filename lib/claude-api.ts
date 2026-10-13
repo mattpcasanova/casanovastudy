@@ -5,6 +5,7 @@ import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/cu
 import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
 import { sniffImageType } from '@/lib/uploads/server-images'
 import { looksLikeHeic } from '@/lib/uploads/kinds'
+import { markingStyleInstructions, type MarkingStyle } from '@/lib/grading/marking-style'
 
 export interface PageHeaderRead {
   name: string | null
@@ -1167,7 +1168,6 @@ CRITICAL REQUIREMENTS:
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
 **Percentage: Z%**
-**Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
 
 Brief feedback on strengths and areas for improvement.
 
@@ -1212,8 +1212,9 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     studentExamFile?: { buffer: Buffer; name: string; type: string }
     studentExamFiles?: Array<{ buffer: Buffer; name: string; type: string }>
     additionalComments?: string
+    markingStyle?: MarkingStyle
   }): AsyncGenerator<string, { content: string; usage: any }, undefined> {
-    const { markSchemeFile, markSchemeFiles, studentExamFile, studentExamFiles, additionalComments } = params
+    const { markSchemeFile, markSchemeFiles, studentExamFile, studentExamFiles, additionalComments, markingStyle } = params
 
     // Combine all mark scheme files
     const allMarkSchemeFiles = markSchemeFiles && markSchemeFiles.length > 0
@@ -1301,6 +1302,8 @@ Examples of correct format:
 **Question 2(a)(i)**, Mark: 1/2 - Partial credit.
 **Question Section C 2a**, Mark: 6/8 - (use this format when sections have duplicate numbers)
 
+${markingStyleInstructions(markingStyle)}
+
 ILLEGIBLE HANDWRITING:
 - If you cannot read or understand a student's handwriting for a question, award 0 marks
 - Use explanation: "Answer could not be read/understood due to illegible handwriting"
@@ -1322,7 +1325,6 @@ CRITICAL REQUIREMENTS:
 At the end, provide:
 **Total: X/Y** (where Y is the EXACT total marks possible from the mark scheme)
 **Percentage: Z%**
-**Grade: [Letter]** (use American scale: A=90%+, B=80-89%, C=70-79%, D=60-69%, F=below 60%)
 
 Brief feedback on strengths and areas for improvement.
 
@@ -1408,8 +1410,9 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     studentExamFiles: Array<{ buffer: Buffer; name: string; type: string }>
     missingQuestions: string[]  // Format: ["3b(6)", "6a(3)"]
     additionalComments?: string
+    markingStyle?: MarkingStyle
   }): Promise<{ content: string; usage: any }> {
-    const { markSchemeFiles, studentExamFiles, missingQuestions, additionalComments } = params
+    const { markSchemeFiles, studentExamFiles, missingQuestions, additionalComments, markingStyle } = params
 
     const content: any[] = []
 
@@ -1433,7 +1436,9 @@ CRITICAL RULES:
 - Use the exact question numbers from the list
 - If the student didn't attempt a question, award 0 marks with explanation "Question not attempted"
 - If handwriting is illegible, award 0 marks with explanation "Answer could not be read due to illegible handwriting"
-- Provide specific feedback on what was correct and what was missing`
+- Provide specific feedback on what was correct and what was missing
+
+${markingStyleInstructions(markingStyle)}`
 
     if (hasTeacherInstructions) {
       instructionText += `\n\n**Teacher's Instructions (apply these when grading):**\n${additionalComments}`
@@ -2306,7 +2311,10 @@ Output only the questions.`
    * (lib/grading/batch.ts); both graders use the title, course and period to
    * fill in the report details. Haiku, ~$0.002 per page.
    */
-  async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }): Promise<PageHeaderRead> {
+  async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }, roster: string[] = []): Promise<PageHeaderRead> {
+    const rosterNote = roster.length
+      ? `\nStudents in this class: ${roster.slice(0, 200).join('; ')}.\nIf the written name clearly fits one of these students (even if messy or only a first name and initial), return that student's name exactly as listed. Otherwise copy what is written. Never pick a student when no name is written.`
+      : ''
     const response = await this.anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 200,
@@ -2315,7 +2323,7 @@ Output only the questions.`
         content: [
           { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
           { type: 'text', text: `This is one page from a stack of student exam papers. Look mostly at the top of the page.
-1. name: the student's name written there (in a name field or at the top), copied exactly but WITHOUT any class period ("Sean Miller P2" -> "Sean Miller"). null if there is none or it is unreadable. Never a teacher name, school name or exam title.
+1. name: the student's name written there (in a name field or at the top), copied exactly but WITHOUT any class period ("Sean Miller P2" -> "Sean Miller"). null if there is none or it is unreadable. Never a teacher name, school name or exam title.${rosterNote}
 2. firstPage: does this look like the FIRST page of a paper (a name or date field, an exam title, or "Question 1" near the top)?
 3. title: the exam or quiz title printed at the top (e.g. "Unit 3 Test: Stoichiometry"), without the course name. null if none.
 4. course: the class or course name if printed (e.g. "AP Chemistry"); if not printed, the school subject the questions are clearly about (e.g. "Chemistry"). null if unclear.
@@ -2392,8 +2400,12 @@ Total: <N> marks (marks printed on the paper | marks estimated)
    * Returns the raw reply; parseClassInsights reads it. Sonnet 5, thinking off
    * (a summary, not marking), ~10-20 s and a few cents.
    */
-  async classInsights(classData: string, meta: { examTitle?: string | null; className?: string | null }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+  async classInsights(classData: string, meta: { examTitle?: string | null; className?: string | null; knownAreas?: string[] }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
     const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
+    // Topics add up across a class's tests ("areas"), so reuse the names it already has.
+    const areasNote = meta.knownAreas?.length
+      ? `\n  This class's earlier tests used these topic names: ${meta.knownAreas.map((a) => `"${a}"`).join(', ')}. When a question fits one of them, use that name exactly; only make a new topic when none fits.`
+      : ''
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-5',
       max_tokens: 4000,
@@ -2406,7 +2418,7 @@ ${classData}
 
 Write a short class report for the teacher as JSON:
 - "summary": 2-3 sentences on how the class did overall and where the main gaps are.
-- "topics": group EVERY question into 2-8 topics named the way a teacher would (e.g. "Mole conversions", "Plate boundaries"). Use the question labels exactly as given; each question in exactly one topic. Work out what each question tests from the feedback. If papers used different labels for the same question, put all of those labels in the same topic.
+- "topics": group EVERY question into 2-8 topics named the way a teacher would (e.g. "Mole conversions", "Plate boundaries"). Use the question labels exactly as given; each question in exactly one topic. Work out what each question tests from the feedback. If papers used different labels for the same question, put all of those labels in the same topic.${areasNote}
 - "struggles": the 3-5 questions the class found hardest (low averages, many zeros). "question" is ONE label copied exactly from the list. For each, say concretely what students commonly got wrong, based on the feedback (e.g. "Most students skipped converting grams to moles before using the ratio.").
 - "reteach": 2-4 short, specific suggestions for what to go over again in class.
 Never name or number individual students. No em dashes. Reply with JSON only:

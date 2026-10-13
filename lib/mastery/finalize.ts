@@ -1,3 +1,4 @@
+import { DEFAULT_SCALE, gradeFor } from '@/lib/grading/scale'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { computeFinalScore, isAttemptComplete, type ConceptRollup } from '@/lib/mastery/engine'
 import type { AttemptRow, MasteryContext } from '@/lib/mastery/rounds'
@@ -71,9 +72,7 @@ export async function finalizeAttempt(
     }),
   ]
 
-  // Grade letter mirrors the percentage bands used elsewhere in the app
-  const pct = score.percentage
-  const grade = pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F'
+  const grade = gradeFor(DEFAULT_SCALE, score.percentage, 100)
 
   const [profileRes, classRes] = await Promise.all([
     supabase

@@ -1,740 +1,285 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, Check, Download, Edit2, FileCheck, Loader2, Printer, SlidersHorizontal, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Download, FileCheck, CheckCircle, Edit2, ArrowLeft, Loader2, Printer, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { useToast } from "@/hooks/use-toast"
+import { Switch } from "@/components/ui/switch"
 import NavigationHeader from "@/components/navigation-header"
+import { ReportDocument, reportTotals, type ReportDraft } from "@/components/grading/report/report-document"
+import { ReportOptions } from "@/components/grading/report/report-options"
 import { useAuth } from "@/lib/auth"
+import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
+import { parseName } from "@/lib/grading/names"
+import type { GradedQuestion } from "@/lib/grading/parse"
+import type { MarkingStyle } from "@/lib/grading/marking-style"
+import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/report-settings"
+import type { GradeScale } from "@/lib/grading/scale"
 
 interface GradingResult {
   id: string
   studentName: string
-  answerSheetFilename: string | null
-  studentExamFilename: string
-  totalMarks: number
-  totalPossibleMarks: number
-  percentage: number
-  grade: string
-  content: string
-  gradeBreakdown: Array<{
-    questionNumber: string
-    marksAwarded: number
-    marksPossible: number
-    explanation: string
-  }>
-  additionalComments: string | null
+  studentFirstName: string | null
+  studentLastName: string | null
+  examTitle: string | null
+  className: string | null
+  classPeriod: string | null
+  batchId: string | null
+  gradeBreakdown: GradedQuestion[]
+  gradeScale: GradeScale | null
+  markingStyle: MarkingStyle
+  teacherComment: string | null
   pdfUrl: string | null
   createdAt: string
-  updatedAt: string
   isOwner: boolean
+  linkedStudent: boolean
+  released: boolean
+  reportSettings: ReportSettings
+}
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
+function draftFrom(r: GradingResult): ReportDraft {
+  const parsed = r.studentFirstName || r.studentLastName
+    ? { firstName: r.studentFirstName ?? '', lastName: r.studentLastName ?? '' }
+    : parseName(r.studentName === 'Student' ? '' : r.studentName ?? '')
+  return {
+    ...parsed,
+    examTitle: r.examTitle ?? '',
+    className: r.className ?? '',
+    classPeriod: r.classPeriod ?? '',
+    comment: r.teacherComment ?? '',
+    breakdown: r.gradeBreakdown ?? [],
+    scale: r.gradeScale,
+    markingStyle: r.markingStyle ?? {},
+  }
+}
+
+/** Debounced autosave: calls `save` 700 ms after `value` stops changing (skips the first value). */
+function useAutosave<T>(value: T | null, save: (v: T) => Promise<void>, enabled: boolean) {
+  const first = useRef(true)
+  const saveRef = useRef(save)
+  saveRef.current = save
+  useEffect(() => {
+    if (!enabled || value === null) return
+    if (first.current) { first.current = false; return }
+    const t = setTimeout(() => { void saveRef.current(value) }, 700)
+    return () => clearTimeout(t)
+  }, [value, enabled])
 }
 
 export default function GradeReportPage() {
   const params = useParams()
   const router = useRouter()
-  const { user } = useAuth()
-  const { toast } = useToast()
+  const { user, loading: authLoading } = useAuth()
   const id = params.id as string
 
-  const [gradingResult, setGradingResult] = useState<GradingResult | null>(null)
+  const [result, setResult] = useState<GradingResult | null>(null)
+  const [draft, setDraft] = useState<ReportDraft | null>(null)
+  const [settings, setSettings] = useState<ReportSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Editing state
-  const [editedBreakdown, setEditedBreakdown] = useState<GradingResult['gradeBreakdown'] | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-
-  // Add question form state
-  const [isAddingQuestion, setIsAddingQuestion] = useState(false)
-  const [newQuestion, setNewQuestion] = useState({
-    questionNumber: '',
-    marksPossible: 1,
-    marksAwarded: 0,
-    explanation: ''
-  })
-
-  // Delete confirmation state
-  const [deleteQuestionIndex, setDeleteQuestionIndex] = useState<number | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [showOptions, setShowOptions] = useState(false)
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [saveError, setSaveError] = useState('')
 
   const isTeacher = user?.user_type === 'teacher'
-  const canEdit = isTeacher && gradingResult?.isOwner
+  const canEdit = !!(isTeacher && result?.isOwner)
 
   useEffect(() => {
-    const fetchGradingResult = async () => {
+    if (!id || authLoading) return
+    let cancelled = false
+    ;(async () => {
       try {
-        const url = user?.id
-          ? `/api/grade-exam/${id}?userId=${user.id}`
-          : `/api/grade-exam/${id}`
-
-        const response = await fetch(url)
-        const data = await response.json()
-
-        if (!data.success) {
-          setError(data.error || 'Failed to load grading result')
-          return
-        }
-
-        setGradingResult(data.data)
-        setEditedBreakdown(data.data.gradeBreakdown)
-      } catch (err) {
-        console.error('Error fetching grading result:', err)
-        setError('Failed to load grading result')
+        const res = await authFetch(`/api/grade-exam/${id}`)
+        const data = await res.json()
+        if (cancelled) return
+        if (!data.success) { setError(data.error || 'Failed to load grading result'); return }
+        setError(null)
+        setResult(data.data)
+        setDraft(draftFrom(data.data))
+        setSettings(data.data.reportSettings ?? DEFAULT_REPORT_SETTINGS)
+      } catch {
+        if (!cancelled) setError('Failed to load grading result')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
-    }
+    })()
+    return () => { cancelled = true }
+  }, [id, user?.id, authLoading])
 
-    if (id) {
-      fetchGradingResult()
-    }
-  }, [id, user?.id])
-
-  const handleSaveQuestion = async (index: number) => {
-    if (!gradingResult?.id || !editedBreakdown) return
-
-    setIsSaving(true)
+  const saveDraft = useCallback(async (d: ReportDraft) => {
+    setSaveState('saving')
     try {
-      const response = await fetch(`/api/grade-exam/${gradingResult.id}`, {
+      const res = await authFetch(`/api/grade-exam/${id}`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeBreakdown: editedBreakdown, userId: user?.id })
+        body: JSON.stringify({
+          gradeBreakdown: d.breakdown,
+          studentFirstName: d.firstName,
+          studentLastName: d.lastName,
+          examTitle: d.examTitle,
+          className: d.className,
+          classPeriod: d.classPeriod,
+          teacherComment: d.comment,
+          gradeScale: d.scale,
+          markingStyle: d.markingStyle,
+        }),
       })
-
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to save edits')
-      }
-
-      setGradingResult(prev => prev ? {
-        ...prev,
-        totalMarks: result.data.totalMarks,
-        totalPossibleMarks: result.data.totalPossibleMarks,
-        percentage: result.data.percentage,
-        grade: result.data.grade,
-        gradeBreakdown: result.data.gradeBreakdown
-      } : null)
-      // Sync editedBreakdown to saved state
-      setEditedBreakdown(result.data.gradeBreakdown)
-
-      toast({
-        title: "Saved",
-        description: `Question ${editedBreakdown[index].questionNumber} updated`
-      })
-    } catch (error) {
-      toast({
-        title: "Failed to save",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive"
-      })
-    } finally {
-      setIsSaving(false)
+      const data = await res.json().catch(() => ({}))
+      setSaveError(data.error ?? '')
+      setSaveState(res.ok && data.success ? 'saved' : 'error')
+    } catch {
+      setSaveError('')
+      setSaveState('error')
     }
-  }
+  }, [id])
 
-  const handleAddQuestion = () => {
-    if (!editedBreakdown || !newQuestion.questionNumber.trim()) return
-
-    // Validate
-    if (newQuestion.marksAwarded > newQuestion.marksPossible) {
-      toast({
-        title: "Invalid marks",
-        description: "Marks awarded cannot exceed marks possible",
-        variant: "destructive"
+  const saveSettings = useCallback(async (s: ReportSettings) => {
+    setSaveState('saving')
+    try {
+      const res = await authFetch('/api/grading/report-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(s),
       })
-      return
+      setSaveState(res.ok ? 'saved' : 'error')
+    } catch {
+      setSaveState('error')
     }
+  }, [])
 
-    const newBreakdown = [...editedBreakdown, {
-      questionNumber: newQuestion.questionNumber.trim(),
-      marksPossible: newQuestion.marksPossible,
-      marksAwarded: newQuestion.marksAwarded,
-      explanation: newQuestion.explanation.trim() || 'No feedback provided'
-    }]
+  useAutosave(draft, saveDraft, canEdit)
+  useAutosave(settings, saveSettings, canEdit)
 
-    setEditedBreakdown(newBreakdown)
-    setNewQuestion({
-      questionNumber: '',
-      marksPossible: 1,
-      marksAwarded: 0,
-      explanation: ''
-    })
-    setIsAddingQuestion(false)
-
-    toast({
-      title: "Question added",
-      description: `Question ${newQuestion.questionNumber} added. Don't forget to save your changes.`
-    })
+  const setReleased = async (released: boolean) => {
+    setResult((r) => (r ? { ...r, released } : r))
+    setSaveState('saving')
+    const res = await authFetch(`/api/grade-exam/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ released }) })
+    setSaveState(res.ok ? 'saved' : 'error')
   }
 
-  const handleRemoveQuestion = (index: number) => {
-    if (!editedBreakdown) return
-
-    const questionNum = editedBreakdown[index].questionNumber
-    const newBreakdown = editedBreakdown.filter((_, i) => i !== index)
-    setEditedBreakdown(newBreakdown)
-    setDeleteQuestionIndex(null)
-
-    toast({
-      title: "Question removed",
-      description: `Question ${questionNum} removed. Don't forget to save your changes.`
-    })
-  }
-
-  const handleDownload = () => {
-    if (gradingResult?.pdfUrl) {
-      window.open(gradingResult.pdfUrl, '_blank')
-    }
-  }
+  const patchDraft = (patch: Partial<ReportDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d))
+  const patchSettings = (patch: Partial<ReportSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s))
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen bg-slate-50">
         <NavigationHeader />
-        <div className="container mx-auto px-4 py-16">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading grading report...</p>
-          </div>
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading grading report...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !gradingResult) {
+  if (error || !result || !draft || !settings) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen bg-slate-50">
         <NavigationHeader />
-        <div className="container mx-auto px-4 py-16">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="pt-6 text-center">
-              <p className="text-destructive mb-4">{error || 'Report not found'}</p>
-              <Button onClick={() => router.push('/grade-exam')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Grade Exam
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <p className="mb-4 text-destructive">{error || 'Report not found'}</p>
+          <Button onClick={() => router.push('/grade-exam')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to grading
+          </Button>
         </div>
       </div>
     )
   }
+
+  const studentName = `${draft.firstName} ${draft.lastName}`.trim() || 'Student'
+  const date = new Date(result.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const { possible } = reportTotals(draft)
 
   return (
-    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
-      <NavigationHeader />
+    <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50 print:bg-white")}>
+      <div className="print:hidden"><NavigationHeader /></div>
 
-      {/* Title Banner (same look as the grading and guide pages) */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 pb-24 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 pb-24 text-white print:hidden">
         <div className="pointer-events-none absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }} />
-        <div className="container relative mx-auto px-4 pt-12">
-          <div className="text-center">
-            <h1 className={cn(fontDisplay, "mb-2 text-4xl font-semibold tracking-tight sm:text-5xl")}>
-              Grading report
-            </h1>
-            <p className="text-sm text-blue-50/85">
-              {gradingResult.studentName} - {new Date(gradingResult.createdAt).toLocaleDateString()}
-            </p>
-          </div>
+        <div className="container relative mx-auto px-4 pt-12 text-center">
+          <h1 className={cn(fontDisplay, "mb-2 text-4xl font-semibold tracking-tight sm:text-5xl")}>Grading report</h1>
+          <p className="text-sm text-blue-50/85">{studentName} - {date}</p>
         </div>
       </div>
 
-      <div className="container relative mx-auto -mt-16 px-4 pb-16">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <Card className="rounded-3xl border-slate-200 shadow-2xl shadow-blue-900/10">
-            <CardHeader className="pb-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className={cn(fontDisplay, "flex items-center gap-3 text-2xl font-semibold")}>
-                  <CheckCircle className="h-6 w-6 text-green-500" />
-                  Grading Complete
-                </CardTitle>
-                {canEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (!isEditing) {
-                        // Entering edit mode - reset to current saved state
-                        setEditedBreakdown(gradingResult.gradeBreakdown)
-                      }
-                      setIsEditing(!isEditing)
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                    {isEditing ? "View Mode" : "Edit Mode"}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Score Summary */}
-              <div className="grid grid-cols-3 gap-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 p-5 ring-1 ring-inset ring-emerald-200">
-                <div className="text-center">
-                  <p className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>{gradingResult.totalMarks}/{gradingResult.totalPossibleMarks}</p>
-                  <p className="text-sm text-muted-foreground">Total Marks</p>
-                </div>
-                <div className="text-center">
-                  <p className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>{gradingResult.percentage.toFixed(1)}%</p>
-                  <p className="text-sm text-muted-foreground">Percentage</p>
-                </div>
-                <div className="text-center">
-                  <p className={cn(fontDisplay, "text-3xl font-semibold text-blue-700")}>{gradingResult.grade}</p>
-                  <p className="text-sm text-muted-foreground">Grade</p>
-                </div>
-              </div>
-
-              {/* Grade Breakdown */}
-              <div>
-                <h3 className={cn(fontDisplay, "mb-4 text-xl font-semibold text-slate-900")}>Question breakdown</h3>
-                <div className="space-y-3">
-                  {(isEditing && editedBreakdown ? editedBreakdown : gradingResult.gradeBreakdown).map((item, index) => (
-                    <div
-                      key={index}
-                      className={`border rounded-lg p-4 ${isEditing ? 'border-2 border-primary/30 bg-blue-50/50' : 'bg-muted/30'}`}
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <span className="font-semibold">
-                          {/^(Question|Section|Q\d)/i.test(item.questionNumber) ? item.questionNumber : `Question ${item.questionNumber}`}
-                        </span>
-                        {isEditing && editedBreakdown ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newBreakdown = [...editedBreakdown]
-                                if (newBreakdown[index].marksAwarded > 0) {
-                                  newBreakdown[index].marksAwarded -= 1
-                                  setEditedBreakdown(newBreakdown)
-                                }
-                              }}
-                              className="p-1.5 rounded hover:bg-gray-100 border border-gray-200 transition-colors"
-                              title="Decrease mark"
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </button>
-                            <input
-                              type="number"
-                              min={0}
-                              max={item.marksPossible}
-                              value={item.marksAwarded}
-                              onChange={(e) => {
-                                const newBreakdown = [...editedBreakdown]
-                                const newValue = Math.min(
-                                  Math.max(0, parseInt(e.target.value) || 0),
-                                  item.marksPossible
-                                )
-                                newBreakdown[index].marksAwarded = newValue
-                                setEditedBreakdown(newBreakdown)
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSaveQuestion(index)
-                                }
-                              }}
-                              className="w-14 px-1 py-1 text-center border rounded text-sm font-medium"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newBreakdown = [...editedBreakdown]
-                                if (newBreakdown[index].marksAwarded < item.marksPossible) {
-                                  newBreakdown[index].marksAwarded += 1
-                                  setEditedBreakdown(newBreakdown)
-                                }
-                              }}
-                              className="p-1.5 rounded hover:bg-gray-100 border border-gray-200 transition-colors"
-                              title="Increase mark"
-                            >
-                              <ChevronUp className="h-4 w-4" />
-                            </button>
-                            <span className="text-sm text-muted-foreground ml-1">/ {item.marksPossible}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSaveQuestion(index)}
-                              disabled={isSaving}
-                              className="ml-2"
-                            >
-                              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setDeleteQuestionIndex(index)}
-                              disabled={isSaving}
-                              className="ml-1 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              title="Remove question"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 whitespace-nowrap ${
-                            item.marksAwarded === item.marksPossible
-                              ? 'bg-green-100 text-green-700'
-                              : item.marksAwarded >= item.marksPossible * 0.7
-                              ? 'bg-blue-100 text-blue-700'
-                              : item.marksAwarded >= item.marksPossible * 0.5
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            {item.marksAwarded}/{item.marksPossible} marks
-                          </span>
-                        )}
-                      </div>
-                      {isEditing && editedBreakdown ? (
-                        <div className="mt-3">
-                          <Label className="text-sm text-muted-foreground mb-2 block">Feedback:</Label>
-                          <Textarea
-                            value={item.explanation}
-                            onChange={(e) => {
-                              const newBreakdown = [...editedBreakdown]
-                              newBreakdown[index].explanation = e.target.value
-                              setEditedBreakdown(newBreakdown)
-                            }}
-                            rows={3}
-                            className="w-full resize-none"
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.explanation}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Add Question Form */}
-                {isEditing && editedBreakdown && (
-                  <div className="mt-4">
-                    {isAddingQuestion ? (
-                      <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 bg-blue-50/30">
-                        <h4 className="font-medium mb-3">Add New Question</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                          <div>
-                            <Label htmlFor="newQuestionNumber" className="text-sm">Question Number</Label>
-                            <Input
-                              id="newQuestionNumber"
-                              value={newQuestion.questionNumber}
-                              onChange={(e) => setNewQuestion(prev => ({ ...prev, questionNumber: e.target.value }))}
-                              placeholder="e.g., 5a or Section B 3"
-                              className="mt-1"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <Label htmlFor="newMarksPossible" className="text-sm">Marks Possible</Label>
-                              <Input
-                                id="newMarksPossible"
-                                type="number"
-                                min={1}
-                                value={newQuestion.marksPossible}
-                                onChange={(e) => setNewQuestion(prev => ({ ...prev, marksPossible: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                className="mt-1"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="newMarksAwarded" className="text-sm">Marks Awarded</Label>
-                              <Input
-                                id="newMarksAwarded"
-                                type="number"
-                                min={0}
-                                max={newQuestion.marksPossible}
-                                value={newQuestion.marksAwarded}
-                                onChange={(e) => setNewQuestion(prev => ({ ...prev, marksAwarded: Math.min(Math.max(0, parseInt(e.target.value) || 0), prev.marksPossible) }))}
-                                className="mt-1"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mb-3">
-                          <Label htmlFor="newExplanation" className="text-sm">Feedback</Label>
-                          <Textarea
-                            id="newExplanation"
-                            value={newQuestion.explanation}
-                            onChange={(e) => setNewQuestion(prev => ({ ...prev, explanation: e.target.value }))}
-                            placeholder="Explain why marks were awarded/deducted..."
-                            rows={2}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={handleAddQuestion}
-                            disabled={!newQuestion.questionNumber.trim()}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Question
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setIsAddingQuestion(false)
-                              setNewQuestion({
-                                questionNumber: '',
-                                marksPossible: 1,
-                                marksAwarded: 0,
-                                explanation: ''
-                              })
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="w-full border-dashed"
-                        onClick={() => setIsAddingQuestion(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Question
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Bottom save button when in edit mode */}
-                {isEditing && editedBreakdown && (
-                  <div className="flex gap-3 pt-4 border-t mt-4">
-                    <Button
-                      onClick={async () => {
-                        if (!gradingResult?.id || !editedBreakdown) return
-                        setIsSaving(true)
-                        try {
-                          const response = await fetch(`/api/grade-exam/${gradingResult.id}`, {
-                            method: 'PATCH',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ gradeBreakdown: editedBreakdown, userId: user?.id })
-                          })
-                          const result = await response.json()
-                          if (!result.success) {
-                            throw new Error(result.error || 'Failed to save edits')
-                          }
-                          setGradingResult(prev => prev ? {
-                            ...prev,
-                            totalMarks: result.data.totalMarks,
-                            totalPossibleMarks: result.data.totalPossibleMarks,
-                            percentage: result.data.percentage,
-                            grade: result.data.grade,
-                            gradeBreakdown: result.data.gradeBreakdown
-                          } : null)
-                          // Sync editedBreakdown to saved state
-                          setEditedBreakdown(result.data.gradeBreakdown)
-                          toast({
-                            title: "All changes saved",
-                            description: `Total score: ${result.data.totalMarks}/${result.data.totalPossibleMarks} (${result.data.percentage.toFixed(1)}%)`
-                          })
-                          setIsEditing(false)
-                        } catch (error) {
-                          toast({
-                            title: "Failed to save",
-                            description: error instanceof Error ? error.message : "An error occurred",
-                            variant: "destructive"
-                          })
-                        } finally {
-                          setIsSaving(false)
-                        }
-                      }}
-                      className="flex-1"
-                      disabled={isSaving}
-                    >
-                      {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                      {isSaving ? "Saving..." : "Save All Changes"}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setEditedBreakdown(gradingResult.gradeBreakdown)
-                        setIsEditing(false)
-                      }}
-                      variant="outline"
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-3 pt-4 border-t">
-                {/* Print Report Button */}
-                <Button
-                  onClick={() => {
-                    // Create a printable version
-                    const printWindow = window.open('', '_blank')
-                    if (!printWindow) {
-                      toast({
-                        title: "Unable to print",
-                        description: "Please allow pop-ups for this site",
-                        variant: "destructive"
-                      })
-                      return
-                    }
-
-                    printWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                      <head>
-                        <title>Grade Report - ${gradingResult.studentName}</title>
-                        <style>
-                          * { margin: 0; padding: 0; box-sizing: border-box; }
-                          body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 30px 40px; color: #1f2937; line-height: 1.5; max-width: 100%; }
-                          .container { width: 100%; max-width: 900px; margin: 0 auto; }
-                          .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
-                          .header h1 { font-size: 28px; color: #111827; margin-bottom: 8px; }
-                          .header p { color: #6b7280; font-size: 14px; }
-                          .summary { display: flex; justify-content: space-around; margin: 30px 0; padding: 24px; background: #f9fafb; border-radius: 8px; }
-                          .summary-item { text-align: center; flex: 1; }
-                          .summary-item .value { font-size: 32px; font-weight: bold; color: #3b82f6; }
-                          .summary-item .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
-                          .section-title { font-size: 18px; font-weight: 600; margin: 28px 0 16px; color: #374151; }
-                          .question { padding: 18px 20px; margin-bottom: 14px; border: 1px solid #e5e7eb; border-radius: 8px; page-break-inside: avoid; }
-                          .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
-                          .question-num { font-weight: 600; font-size: 15px; }
-                          .question-marks { font-size: 14px; padding: 5px 14px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
-                          .marks-full { background: #dcfce7; color: #166534; }
-                          .marks-good { background: #dbeafe; color: #1e40af; }
-                          .marks-ok { background: #fef3c7; color: #92400e; }
-                          .marks-low { background: #fee2e2; color: #991b1b; }
-                          .explanation { font-size: 14px; color: #4b5563; line-height: 1.6; }
-                          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af; }
-                          @media print {
-                            body { padding: 15px 20px; }
-                            .container { max-width: 100%; }
-                            .question { break-inside: avoid; }
-                          }
-                          @page { margin: 0.5in; size: letter; }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="container">
-                          <div class="header">
-                            <h1>Exam Grading Report</h1>
-                            <p>${gradingResult.studentName} • ${new Date(gradingResult.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                          </div>
-
-                          <div class="summary">
-                            <div class="summary-item">
-                              <div class="value">${gradingResult.totalMarks}/${gradingResult.totalPossibleMarks}</div>
-                              <div class="label">Total Marks</div>
-                            </div>
-                            <div class="summary-item">
-                              <div class="value">${gradingResult.percentage.toFixed(1)}%</div>
-                              <div class="label">Percentage</div>
-                            </div>
-                            <div class="summary-item">
-                              <div class="value">${gradingResult.grade}</div>
-                              <div class="label">Grade</div>
-                            </div>
-                          </div>
-
-                          <div class="section-title">Question Breakdown</div>
-                          ${gradingResult.gradeBreakdown.map(item => {
-                            const pct = item.marksPossible > 0 ? (item.marksAwarded / item.marksPossible) * 100 : 0
-                            const marksClass = pct === 100 ? 'marks-full' : pct >= 70 ? 'marks-good' : pct >= 50 ? 'marks-ok' : 'marks-low'
-                            // Don't add "Question" prefix if the number already contains it or starts with Section
-                            const qNum = item.questionNumber
-                            const displayNum = /^(Question|Section|Q\\d)/i.test(qNum) ? qNum : 'Question ' + qNum
-                            return '<div class="question">' +
-                              '<div class="question-header">' +
-                              '<span class="question-num">' + displayNum + '</span>' +
-                              '<span class="question-marks ' + marksClass + '">' + item.marksAwarded + '/' + item.marksPossible + ' marks</span>' +
-                              '</div>' +
-                              '<p class="explanation">' + item.explanation + '</p>' +
-                              '</div>'
-                          }).join('')}
-
-                          <div class="footer">
-                            Generated by Casanova Study • ${new Date().toLocaleDateString()}
-                          </div>
-                        </div>
-                      </body>
-                      </html>
-                    `)
-                    printWindow.document.close()
-                    printWindow.print()
-                  }}
-                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-primary/90 hover:to-secondary/90"
-                  size="lg"
-                >
-                  <Printer className="h-5 w-5 mr-2" />
-                  Print Report
+      <div className="container relative mx-auto -mt-16 px-4 pb-16 print:mt-0 print:p-0">
+        <div className={cn("mx-auto grid gap-6", showOptions && canEdit ? "max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-4xl")}>
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg shadow-blue-900/10 ring-1 ring-slate-200 print:hidden">
+              {result.batchId && (
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/grade-exam/batch/${result.batchId}`}><Users className="mr-1.5 h-4 w-4" /> Class results</Link>
                 </Button>
-                {gradingResult.pdfUrl && (
-                  <Button onClick={handleDownload} className="w-full" variant="outline" size="lg">
-                    <Download className="h-5 w-5 mr-2" />
-                    Download Graded PDF
-                  </Button>
-                )}
-                {isTeacher && (
-                  <Button
-                    onClick={() => router.push('/grade-exam')}
-                    variant="outline"
-                    className="w-full"
-                    size="lg"
-                  >
-                    <FileCheck className="h-5 w-5 mr-2" />
-                    Grade Another Exam
-                  </Button>
-                )}
+              )}
+              {canEdit && (
+                <Button variant={editing ? "default" : "outline"} size="sm" onClick={() => setEditing((e) => !e)}>
+                  {editing ? <><Check className="mr-1.5 h-4 w-4" /> Done editing</> : <><Edit2 className="mr-1.5 h-4 w-4" /> Edit</>}
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant={showOptions ? "secondary" : "outline"} size="sm" onClick={() => setShowOptions((o) => !o)}>
+                  <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Customize
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-1.5 h-4 w-4" /> Print
+              </Button>
+              {result.pdfUrl && (
+                <Button variant="outline" size="sm" onClick={() => window.open(result.pdfUrl!, '_blank')}>
+                  <Download className="mr-1.5 h-4 w-4" /> Graded PDF
+                </Button>
+              )}
+              {canEdit && result.linkedStudent && (
+                <label className="flex items-center gap-2 rounded-lg px-2 text-sm text-slate-700">
+                  <Switch checked={result.released} onCheckedChange={(v) => void setReleased(v)} />
+                  Visible to student
+                </label>
+              )}
+              {canEdit && (
+                <span className={cn("ml-auto pr-2 text-xs", saveState === 'error' ? "text-red-600" : "text-slate-500")} aria-live="polite">
+                  {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'All changes saved' : saveState === 'error' ? `Not saved: ${saveError || 'check your connection.'}` : ''}
+                </span>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-blue-900/10 sm:p-8 print:rounded-none print:border-0 print:p-0 print:shadow-none">
+              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} />
+            </div>
+
+            {isTeacher && (
+              <div className="print:hidden">
+                <Button onClick={() => router.push('/grade-exam')} variant="outline" className="w-full" size="lg">
+                  <FileCheck className="mr-2 h-5 w-5" /> Grade another paper
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+
+          {showOptions && canEdit && (
+            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-blue-900/5 print:hidden lg:sticky lg:top-4">
+              <h3 className={cn(fontDisplay, "mb-4 text-lg font-semibold text-slate-900")}>Customize report</h3>
+              <ReportOptions
+                settings={settings}
+                onSettings={patchSettings}
+                scale={draft.scale}
+                onScale={(scale) => patchDraft({ scale })}
+                onScaleDefault={() => draft.scale && patchSettings({ defaultScale: draft.scale })}
+                markingStyle={draft.markingStyle}
+                onMarkingStyle={(markingStyle) => patchDraft({ markingStyle })}
+                possible={possible}
+              />
+            </aside>
+          )}
         </div>
       </div>
-
-      {/* Delete Question Confirmation Dialog */}
-      <AlertDialog open={deleteQuestionIndex !== null} onOpenChange={(open) => !open && setDeleteQuestionIndex(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Question?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteQuestionIndex !== null && editedBreakdown && (
-                <>
-                  Are you sure you want to remove <strong>Question {editedBreakdown[deleteQuestionIndex]?.questionNumber}</strong>?
-                  This will remove {editedBreakdown[deleteQuestionIndex]?.marksPossible} marks from the total possible marks.
-                  <br /><br />
-                  This change won&apos;t be saved until you click &quot;Save All Changes&quot;.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteQuestionIndex !== null && handleRemoveQuestion(deleteQuestionIndex)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Remove Question
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
