@@ -142,7 +142,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - Attachments go to the private `scan-inbox` storage bucket plus `scan_inbox_items`, and the teacher gets an email.
     - The batch grader's `ScanInboxPanel` (polls every 15 s, `?inbox=<id>` auto-adds) downloads through signed URLs straight from storage. Files are too big for Vercel's 4.5 MB response limit, so never proxy them.
     - Scans are deleted after 30 days (`/api/cron/scan-inbox-cleanup`) and on account deletion.
-    - Needs `INBOUND_EMAIL_DOMAIN`, `RESEND_INBOUND_SECRET` and Resend receiving set up; the panel hides without them.
+    - Needs `INBOUND_EMAIL_DOMAIN` (`naroblo.resend.app`), `RESEND_INBOUND_SECRET` and `RESEND_RECEIVING_API_KEY` (full access; the sending key is send-only and gets `restricted_api_key`). Webhook: Resend → Webhooks → `https://www.casanovastudy.com/api/inbound/scan` (`www`: the apex redirects). Env changes need a redeploy. Gmail turns attachments over 25 MB into Drive links; the inbox says so instead of showing nothing.
   - **Areas**: class reports for sets in a class reuse the class's earlier topic names (`knownAreas` in `ClaudeService.classInsights`).
     - `classAreas` (`lib/classes/areas.ts`, unit-tested) adds marks by area across sets, per student, with a trend. It's shown on the class page by `ClassAreas` (areas / by-student grid).
     - "Make practice" goes to homepage prefill source `class-area` (banner kind `class`).
@@ -230,6 +230,7 @@ GMAIL_APP_PASSWORD=              # legacy fallback (currently rejected by Google
 # Scanner inbox (Resend inbound; panel hidden without these)
 INBOUND_EMAIL_DOMAIN=            # e.g. <id>.resend.app or scan.casanovastudy.com
 RESEND_INBOUND_SECRET=           # signing secret of the email.received webhook
+RESEND_RECEIVING_API_KEY=        # full-access Resend key (RESEND_API_KEY is send-only and can't read received mail)
 
 # Google Classroom roster import (button hidden without these)
 GOOGLE_CLIENT_ID=

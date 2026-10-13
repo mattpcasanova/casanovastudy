@@ -244,15 +244,18 @@ export function reviewReminderEmail(e: ReviewReminderEmail): { subject: string; 
 
 export function scanArrivedEmail(e: { firstName: string | null; files: string[]; skipped: string[]; link: string; siteUrl: string }): { subject: string; html: string; text: string } {
   const count = `${e.files.length} file${e.files.length === 1 ? '' : 's'}`
+  const none = e.files.length === 0
   const body = [
-    heading('Your scan is ready to grade'),
-    paragraph(`${e.firstName ? `Hi ${escapeHtml(e.firstName)}, w` : 'W'}e got ${count} from your scanner: ${e.files.map(escapeHtml).join(', ')}.`),
+    heading(none ? 'Your email arrived, but with no files we can use' : 'Your scan is ready to grade'),
+    paragraph(none
+      ? `${e.firstName ? `Hi ${escapeHtml(e.firstName)}, w` : 'W'}e got your email but couldn't use anything in it.`
+      : `${e.firstName ? `Hi ${escapeHtml(e.firstName)}, w` : 'W'}e got ${count} from your scanner: ${e.files.map(escapeHtml).join(', ')}.`),
     e.skipped.length ? paragraph(`Skipped: ${e.skipped.map(escapeHtml).join(', ')}.`, { muted: true, small: true }) : '',
-    button(e.link, 'Sort and grade them'),
+    none ? '' : button(e.link, 'Sort and grade them'),
     linkFallback(e.link),
   ].filter(Boolean).join('\n')
   return {
-    subject: `Scan received: ${count} ready to grade`,
+    subject: none ? 'Scan received, but no files could be used' : `Scan received: ${count} ready to grade`,
     html: emailLayout({
       preheader: `${count} from your scanner are waiting in batch grading.`,
       body,

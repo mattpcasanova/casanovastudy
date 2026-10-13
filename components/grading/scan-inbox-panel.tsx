@@ -130,11 +130,14 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
               <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
                 <Inbox className="h-4 w-4 shrink-0 text-slate-400" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-slate-900">{item.files.map((f) => f.name).join(", ") || "No usable files"}</span>
+                  <span className="block truncate font-medium text-slate-900">{item.files.map((f) => f.name).join(", ") || item.subject || "No usable files"}</span>
                   <span className="block text-xs text-slate-500">
                     {when(item.receivedAt)} · {item.files.length} file{item.files.length === 1 ? "" : "s"}, {mb(size)}{item.usedAt && !isAdded ? " · used before" : ""}
-                    {item.skipped.length > 0 && ` · skipped ${item.skipped.map((s) => s.name).join(", ")}`}
+                    {item.skipped.length > 0 && item.files.length > 0 && ` · skipped ${item.skipped.map((s) => s.name).join(", ")}`}
                   </span>
+                  {item.files.length === 0 && item.skipped.length > 0 && (
+                    <span className="mt-0.5 block text-xs text-amber-800">{item.skipped.map((s) => s.reason).join(" ")}</span>
+                  )}
                 </span>
                 {item.files.length > 0 && (
                   <button

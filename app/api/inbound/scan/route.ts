@@ -8,7 +8,8 @@ import { scanArrivedEmail } from '@/lib/email/templates'
 // teacher's copier emails a scan to grade-<token>@INBOUND_EMAIL_DOMAIN; we
 // save the PDF/photo attachments to the private scan-inbox bucket and email
 // the teacher a link. Needs RESEND_INBOUND_SECRET (the webhook's signing
-// secret), INBOUND_EMAIL_DOMAIN and RESEND_API_KEY. Always answers 200 for mail
+// secret), INBOUND_EMAIL_DOMAIN and RESEND_RECEIVING_API_KEY (a full-access
+// key: Resend's send-only keys can't read received mail). Always answers 200 for mail
 // we won't take, so Resend doesn't retry it.
 
 export const maxDuration = 300
@@ -25,7 +26,8 @@ const ok = (note: string) => NextResponse.json({ ok: true, note })
 export async function POST(request: NextRequest) {
   const secret = process.env.RESEND_INBOUND_SECRET
   const domain = process.env.INBOUND_EMAIL_DOMAIN
-  const apiKey = process.env.RESEND_API_KEY
+  // Reading received mail needs a full-access Resend key; RESEND_API_KEY is send-only.
+  const apiKey = process.env.RESEND_RECEIVING_API_KEY || process.env.RESEND_API_KEY
   if (!secret || !domain || !apiKey) return NextResponse.json({ error: 'Scanner inbox is not set up' }, { status: 503 })
 
   const raw = await request.text()
@@ -77,6 +79,12 @@ export async function POST(request: NextRequest) {
     files.push({ name, path, size: buffer.byteLength, contentType })
   }
 
+  // Gmail turns attachments over 25 MB into Google Drive links: say so instead of showing nothing.
+  if (!files.length) {
+    const linkNote = await driveLinkNote(emailId, apiKey)
+    if (linkNote) skipped.push({ name: 'Google Drive links', reason: linkNote })
+  }
+
   const { data: item, error: insertError } = await supabase
     .from('scan_inbox_items')
     .insert({ user_id: inbox.user_id, email_id: emailId, from_address: (from ?? '').slice(0, 200), subject: (subject ?? '').slice(0, 200), files, skipped })
@@ -92,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: profile } = await supabase.from('user_profiles').select('email, first_name').eq('id', inbox.user_id).single()
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://casanovastudy.com'
-    if (profile?.email && files.length) {
+    if (profile?.email && (files.length || skipped.length)) {
       const mail = scanArrivedEmail({ firstName: profile.first_name, files: files.map((f) => f.name), skipped: skipped.map((s) => `${s.name} (${s.reason})`), link: `${siteUrl}/grade-exam/batch?inbox=${item.id}`, siteUrl })
       await sendEmail({ to: profile.email, ...mail })
     }
@@ -101,4 +109,19 @@ export async function POST(request: NextRequest) {
   }
 
   return ok(`saved ${files.length} file(s)`)
+}
+
+/** Reads the email body (Resend Receiving API) and explains Drive/OneDrive/Dropbox links, which can't be fetched. */
+async function driveLinkNote(emailId: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, { headers: { Authorization: `Bearer ${apiKey}` } })
+    if (!res.ok) return null
+    const body = (await res.json()) as { html?: string | null; text?: string | null }
+    const content = `${body.html ?? ''} ${body.text ?? ''}`
+    if (/drive\.google\.com|docs\.google\.com/i.test(content)) return 'Gmail sent the files as Google Drive links (over 25 MB), which can\'t be opened from here. Send smaller files (under 25 MB per email, several emails are fine) or scan on the copier.'
+    if (/1drv\.ms|onedrive\.live\.com|sharepoint\.com|dropbox\.com/i.test(content)) return 'The files came as cloud links, which can\'t be opened from here. Attach the files instead (under 25 MB per email).'
+    return null
+  } catch {
+    return null
+  }
 }
