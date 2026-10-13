@@ -18,9 +18,10 @@ import { missingPages } from "@/lib/stamped/codes"
 import { DEFAULT_SCALE, SCALE_PRESETS, type GradeScale } from "@/lib/grading/scale"
 import { usesMarkingStyle, type MarkingStyle } from "@/lib/grading/marking-style"
 import { fullName, matchRoster, type RosterName } from "@/lib/grading/names"
+import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, X } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -101,6 +102,8 @@ function BatchGrading() {
   const [markFiles, setMarkFiles] = useState<File[]>([])
   const [paperFiles, setPaperFiles] = useState<File[]>([])
   const [sortByName, setSortByName] = useState(true)
+  // null = decide from the file names (looksLikeOnePerFile); the teacher can override.
+  const [onePerFileChoice, setOnePerFileChoice] = useState<boolean | null>(null)
 
   const [phase, setPhase] = useState<Phase>("setup")
   const [status, setStatus] = useState("")
@@ -140,6 +143,8 @@ function BatchGrading() {
   const [rosterNotice, setRosterNotice] = useState("")
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [inboxItem, setInboxItem] = useState<string | null>(null)
+  // Page open full size on the review screen (index into pages).
+  const [viewing, setViewing] = useState<number | null>(null)
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/classes")
@@ -178,6 +183,8 @@ function BatchGrading() {
   }
   useEffect(() => { void loadRoster(classId) }, [classId])
   const rosterNames: RosterName[] = useMemo(() => roster.map((r) => ({ id: r.id, firstName: r.firstName, lastName: r.lastName })), [roster])
+  const namedFiles = paperFiles.filter((f) => nameFromFileName(f.name)).length
+  const onePerFile = onePerFileChoice ?? looksLikeOnePerFile(paperFiles.map((f) => f.name), rosterNames)
 
   const papers = useMemo(() => {
     return groupPages(starts, headers, removed).map((g) => {
@@ -254,13 +261,13 @@ function BatchGrading() {
 
       // Student pages, in camera-roll / file-name order.
       const ordered = sortByName ? [...paperFiles].sort((a, b) => naturalCompare(a.name, b.name)) : paperFiles
-      const imagePages: Array<{ blob: Blob; label: string }> = []
+      const imagePages: Array<{ blob: Blob; label: string; file: string; fileIndex: number }> = []
       const textPapers: Page[] = []
-      for (const file of ordered) {
+      for (const [fileIndex, file] of ordered.entries()) {
         if (imagePages.length >= MAX_PAGES) { issues.push(`Only the first ${MAX_PAGES} pages were used.`); break }
         const prepared = await prepareMaterials([file], { pdfMode: "images", maxImages: MAX_PAGES - imagePages.length, onProgress: setStatus })
         issues.push(...prepared.problems)
-        prepared.images.forEach((img) => imagePages.push({ blob: img.blob, label: img.name }))
+        prepared.images.forEach((img) => imagePages.push({ blob: img.blob, label: img.name, file: file.name, fileIndex }))
         // A typed (Word/PowerPoint/text) paper is one student's whole paper.
         prepared.texts.forEach((t) => textPapers.push({ label: t.name, text: t.content }))
       }
@@ -277,6 +284,15 @@ function BatchGrading() {
       thumbsRef.current.push(...thumbs)
 
       const imageHeaders: Array<PageHeader | undefined> = stamped.headers.slice()
+      // One student per file (files named after students): the name comes from
+      // the file, every page of it is that student's, no AI name read needed.
+      if (onePerFile) {
+        orderedImages.forEach((p, i) => {
+          if (imageHeaders[i]) return // a name stamp wins
+          const name = studentNameForFile(p.file, rosterNames)
+          if (name) imageHeaders[i] = { name, firstPage: i === 0 || orderedImages[i - 1].fileIndex !== p.fileIndex, fromFile: true }
+        })
+      }
       const unread = uploaded.filter((_, i) => !stamped.headers[i])
       if (unread.length) {
         setStatus(`Finding where each student's paper starts (${unread.length} pages)...`)
@@ -316,7 +332,8 @@ function BatchGrading() {
       // the first unstamped page after them starts one too.
       allHeaders.forEach((h, i) => {
         if (h.stamp) startPoints[i] = i === 0 || allHeaders[i - 1]?.stamp?.code !== h.stamp.code
-        else if (i > 0 && allHeaders[i - 1]?.stamp) startPoints[i] = true
+        else if (h.fromFile) startPoints[i] = h.firstPage
+        else if (i > 0 && (allHeaders[i - 1]?.stamp || allHeaders[i - 1]?.fromFile)) startPoints[i] = true
       })
       setMarkScheme(scheme)
       setPages(allPages)
@@ -489,6 +506,12 @@ function BatchGrading() {
               <input type="checkbox" checked={sortByName} onChange={(e) => setSortByName(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               Put pages in file-name order (keeps phone photos in the order you took them)
             </label>
+            {namedFiles > 0 && (
+              <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={onePerFile} onChange={(e) => setOnePerFileChoice(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                Each file is one student&apos;s paper, named after them ({namedFiles} of {paperFiles.length} file{paperFiles.length === 1 ? "" : "s"} look like names, e.g. &quot;Mya.pdf&quot;)
+              </label>
+            )}
           </Section>
 
           <Section n={2} title="Mark scheme" hint="A photo, PDF, Word or text file of the answers.">
@@ -639,6 +662,7 @@ function BatchGrading() {
                       list={roster.length ? "roster-names" : undefined}
                       className={cn("min-w-0 flex-1 rounded-lg border px-2 py-1 font-semibold text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:outline-none disabled:bg-transparent", rosterCheck.duplicates.has(paper.key) ? "border-amber-400 bg-amber-50" : "border-transparent")}
                     />
+                    {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700" title="Name taken from the file name">From file name</span>}
                     {paper.stamp
                       ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Read from the name stamp">Stamped{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>
                       : roster.length > 0 && <RosterChip match={paper.match} roster={roster} onAccept={(name) => setNames((m) => ({ ...m, [paper.key]: name }))} disabled={phase === "grading"} />}
@@ -657,6 +681,7 @@ function BatchGrading() {
                         editable={phase === "review"}
                         onToggleStart={i === paper.pages[0] && n === 0 ? undefined : () => setStarts((s) => s.map((v, j) => (j === i ? !v : v)))}
                         onRemove={() => setRemoved((s) => new Set(s).add(i))}
+                        onOpen={() => setViewing(i)}
                       />
                     ))}
                   </div>
@@ -664,6 +689,23 @@ function BatchGrading() {
               )
             })}
           </ul>
+          {viewing !== null && (
+            <PageViewer
+              index={viewing}
+              pages={pages}
+              order={papers.flatMap((p) => p.pages)}
+              paper={papers.find((p) => p.pages.includes(viewing))}
+              paperNumber={papers.findIndex((p) => p.pages.includes(viewing)) + 1}
+              startsPaper={starts[viewing]}
+              editable={phase === "review"}
+              rosterList={roster.length ? "roster-names" : undefined}
+              onName={(key, name) => setNames((m) => ({ ...m, [key]: name }))}
+              onToggleStart={viewing === papers[0]?.pages[0] ? undefined : () => setStarts((s) => s.map((v, j) => (j === viewing ? !v : v)))}
+              onRemove={() => { setRemoved((s) => new Set(s).add(viewing)); setViewing(null) }}
+              onGo={setViewing}
+              onClose={() => setViewing(null)}
+            />
+          )}
         </StepCard>
       )}
     </Shell>
@@ -785,12 +827,14 @@ function AnswerKeyPanel({ answerKey, editable, onChange, onRedo }: { answerKey: 
   )
 }
 
-function PageThumb({ page, number, startsPaper, editable, onToggleStart, onRemove }: { page: Page; number: number; startsPaper: boolean; editable: boolean; onToggleStart?: () => void; onRemove: () => void }) {
+function PageThumb({ page, number, startsPaper, editable, onToggleStart, onRemove, onOpen }: { page: Page; number: number; startsPaper: boolean; editable: boolean; onToggleStart?: () => void; onRemove: () => void; onOpen?: () => void }) {
   return (
     <div className="group relative shrink-0">
       {page.thumb ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={page.thumb} alt={`Page ${number}`} className="h-36 w-28 rounded-lg border border-slate-200 object-cover object-top" />
+        <button type="button" onClick={onOpen} className="block cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label={`Open page ${number} full size`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={page.thumb} alt={`Page ${number}`} className="h-36 w-28 rounded-lg border border-slate-200 object-cover object-top" />
+        </button>
       ) : (
         <div className="flex h-36 w-28 flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-2 text-center text-[0.65rem] text-slate-500"><FileText className="h-6 w-6" />{page.label}</div>
       )}
@@ -859,4 +903,88 @@ async function readNdjson(body: ReadableStream<Uint8Array>, onEvent: (event: Rec
   } finally {
     reader.releaseLock()
   }
+}
+
+/**
+ * A page full size, to read a name or check a split: the student's name box
+ * beside it, previous/next page (arrow keys too), split and remove.
+ */
+function PageViewer({ index, pages, order, paper, paperNumber, startsPaper, editable, rosterList, onName, onToggleStart, onRemove, onGo, onClose }: {
+  index: number
+  pages: Page[]
+  order: number[]
+  paper: { key: number; name: string } | undefined
+  paperNumber: number
+  startsPaper: boolean
+  editable: boolean
+  rosterList?: string
+  onName: (paperKey: number, name: string) => void
+  onToggleStart?: () => void
+  onRemove: () => void
+  onGo: (index: number) => void
+  onClose: () => void
+}) {
+  const pos = order.indexOf(index)
+  const prev = pos > 0 ? order[pos - 1] : null
+  const next = pos >= 0 && pos < order.length - 1 ? order[pos + 1] : null
+  const [zoom, setZoom] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return
+      if (e.key === "ArrowLeft" && prev !== null) onGo(prev)
+      else if (e.key === "ArrowRight" && next !== null) onGo(next)
+      else if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [prev, next, onGo, onClose])
+
+  const page = pages[index]
+  return (
+    <div className="fixed inset-0 z-50 flex bg-slate-900/80 p-2 sm:p-6" role="dialog" aria-modal="true" aria-label={`Page ${index + 1}`} onClick={onClose}>
+      <div className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl lg:flex-row" onClick={(e) => e.stopPropagation()}>
+        <div className={cn("min-h-0 flex-1 overflow-auto bg-slate-100", zoom ? "cursor-zoom-out" : "cursor-zoom-in")} onClick={() => setZoom((z) => !z)}>
+          {page?.thumb
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={page.thumb} alt={`Page ${index + 1}`} className={cn("mx-auto", zoom ? "w-[200%] max-w-none" : "max-h-[85vh] w-auto")} />
+            : <p className="p-8 text-sm text-slate-600">{page?.label}</p>}
+        </div>
+        <div className="w-full shrink-0 space-y-4 border-t border-slate-200 p-4 lg:w-72 lg:border-l lg:border-t-0">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-900">Page {index + 1} · student {paperNumber}</p>
+            <button type="button" onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-4 w-4" /></button>
+          </div>
+          {paper && (
+            <label className="block text-sm">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Student name</span>
+              <input
+                value={paper.name}
+                onChange={(e) => onName(paper.key, e.target.value)}
+                disabled={!editable}
+                list={rosterList}
+                autoFocus={editable}
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 font-semibold text-slate-900 focus:border-blue-400 focus:outline-none"
+              />
+            </label>
+          )}
+          {editable && (
+            <div className="space-y-2 text-sm">
+              {onToggleStart && (
+                <button type="button" onClick={onToggleStart} className={cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 font-medium", startsPaper ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}>
+                  <Scissors className="h-4 w-4" />{startsPaper ? "A new student starts here" : "Start a new student here"}
+                </button>
+              )}
+              <button type="button" onClick={onRemove} className="flex w-full items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 font-medium text-slate-700 hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-4 w-4" />Remove this page</button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" disabled={prev === null} onClick={() => prev !== null && onGo(prev)}>← Previous</Button>
+            <Button variant="outline" className="flex-1" disabled={next === null} onClick={() => next !== null && onGo(next)}>Next →</Button>
+          </div>
+          <p className="text-xs text-slate-500">Click the page to zoom. Arrow keys move between pages.</p>
+        </div>
+      </div>
+    </div>
+  )
 }

@@ -121,8 +121,21 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
 
       {error && <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{error}</p>}
 
+      {items && items.filter((i) => i.files.length && !added.has(i.id)).length > 1 && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            disabled={disabled || !!loadingId}
+            onClick={async () => { for (const item of items.filter((i) => i.files.length && !added.has(i.id))) await addItem(item) }}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+          >
+            {loadingId ? "Adding…" : `Add all ${items.filter((i) => i.files.length && !added.has(i.id)).length} to stack`}
+          </button>
+        </div>
+      )}
+
       {items && items.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-200 rounded-xl bg-white ring-1 ring-slate-200">
+        <ul className="mt-2 divide-y divide-slate-200 rounded-xl bg-white ring-1 ring-slate-200">
           {items.map((item) => {
             const size = item.files.reduce((s, f) => s + f.size, 0)
             const isAdded = added.has(item.id)

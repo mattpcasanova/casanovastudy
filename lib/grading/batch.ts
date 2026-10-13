@@ -20,6 +20,8 @@ export interface PageHeader {
   period?: string | null
   /** A name-stamped copy's QR code (lib/stamped/), resolved to its student. */
   stamp?: PageStamp
+  /** Name taken from the file name (one student per file, lib/grading/file-names.ts). */
+  fromFile?: boolean
 }
 
 export interface PageStamp {

@@ -155,6 +155,10 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - `/api/google/classroom/{start,callback,courses,import}`: the token is kept 1 hour in `google_classroom_tokens` (service only) and deleted after import. Courses become classes (`classes.google_course_id`, re-import updates) with `class_roster.email`.
     - `linkRosterByEmail` links names to student accounts with that email (also run on every roster load).
     - Needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the OAuth client used for Supabase Google sign-in), the Classroom API enabled, `/api/google/classroom/callback` as an authorized redirect URI, and the scopes on the consent screen (sensitive scopes need Google verification for public use). The button hides until it's configured.
+- **Review screen helpers (2026-10-13)**:
+  - **One student per file**: when 2+ files are named like people ("Mya.pdf", "Miller, Sean.pdf", "Sean Miller P2.pdf"; `nameFromFileName` / `looksLikeOnePerFile` in `lib/grading/file-names.ts`, unit-tested), each file becomes that student's paper, with the name from the file (roster spelling when it matches). Those pages skip the AI header read and are tagged "From file name". The setup checkbox overrides the guess; name stamps still win.
+  - **Full-size page viewer** (`PageViewer` in the batch page): click any thumbnail to see the page large with the student's name box, split/remove and arrow-key paging.
+  - **Scanner panel**: "Add all N to stack" when several scans are waiting.
 - **School years, gradebook, courses, sending grades (2026-10-13, migrations 056-057)**:
   - **School years**: `classes.school_year` ("2026-27"; years start July 1, Eastern time) defaults in the database (`cs_school_year`), so every create path gets it; `lib/classes/years.ts` (unit-tested) is the TS twin.
     - My Classes shows This year first (plus next year if set up) and past years folded, each class still fully usable.
