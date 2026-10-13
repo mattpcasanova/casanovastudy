@@ -4,6 +4,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { rosterRowForStudent } from './roster'
 import { normalizeName } from '@/lib/grading/names'
+import type { AreaBatch } from './areas'
+import type { ClassInsightsAI } from '@/lib/grading/insights'
 
 export interface RosterRow {
   id: string
@@ -12,6 +14,8 @@ export interface RosterRow {
   studentUserId: string | null
   studentNumber: string | null
   email: string | null
+  /** Left the class mid-year: hidden by default, graded work kept. */
+  left: boolean
   linked: boolean
 }
 
@@ -19,7 +23,7 @@ export async function ownedClass(supabase: SupabaseClient, teacherId: string, cl
   if (!/^[0-9a-f-]{36}$/i.test(classId)) return null
   const { data } = await supabase
     .from('classes')
-    .select('id, teacher_id, name, period, subject, enrollment_code, is_archived, created_at')
+    .select('id, teacher_id, name, period, subject, enrollment_code, is_archived, school_year, course, created_at')
     .eq('id', classId)
     .maybeSingle()
   return data && data.teacher_id === teacherId ? data : null
@@ -28,7 +32,7 @@ export async function ownedClass(supabase: SupabaseClient, teacherId: string, cl
 export async function loadRoster(supabase: SupabaseClient, classId: string): Promise<RosterRow[]> {
   const { data } = await supabase
     .from('class_roster')
-    .select('id, first_name, last_name, student_user_id, student_number, email')
+    .select('id, first_name, last_name, student_user_id, student_number, email, left_at')
     .eq('class_id', classId)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
@@ -39,6 +43,7 @@ export async function loadRoster(supabase: SupabaseClient, classId: string): Pro
     studentUserId: r.student_user_id,
     studentNumber: r.student_number,
     email: r.email,
+    left: !!r.left_at,
     linked: !!r.student_user_id,
   }))
 }
@@ -131,4 +136,27 @@ export async function linkRosterByEmail(supabase: SupabaseClient, classId: strin
     linked++
   }
   return linked
+}
+
+/** Graded sets (with their class-report topics) for some classes, ready for classAreas. */
+export async function areaBatchesFor(supabase: SupabaseClient, userId: string, classIds: string[]): Promise<AreaBatch[]> {
+  if (!classIds.length) return []
+  const { data: graded } = await supabase
+    .from('grading_results')
+    .select('batch_id, exam_title, created_at, roster_id, student_name, grade_breakdown')
+    .in('class_id', classIds).eq('user_id', userId).not('batch_id', 'is', null).limit(10000)
+  const batchIds = [...new Set((graded ?? []).map((r) => r.batch_id as string))]
+  if (!batchIds.length) return []
+  const { data: reports } = await supabase.from('grading_batch_insights').select('batch_id, data').in('batch_id', batchIds).eq('user_id', userId)
+  const topicsOf = new Map((reports ?? []).map((r) => [r.batch_id as string, (r.data as ClassInsightsAI)?.topics ?? []]))
+  return batchIds.filter((b) => topicsOf.has(b)).map((b) => {
+    const rows = (graded ?? []).filter((r) => r.batch_id === b)
+    return {
+      batchId: b,
+      title: rows[0]?.exam_title ?? null,
+      createdAt: rows.reduce((min, r) => (r.created_at < min ? r.created_at : min), rows[0]?.created_at ?? ''),
+      topics: topicsOf.get(b)!,
+      papers: rows.map((r) => ({ rosterId: r.roster_id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })),
+    }
+  })
 }

@@ -27,7 +27,7 @@ export async function GET(
 
     const { data: cls, error } = await supabase
       .from('classes')
-      .select('id, teacher_id, name, period, subject, color, enrollment_code, is_archived, created_at, updated_at')
+      .select('id, teacher_id, name, period, subject, color, enrollment_code, is_archived, school_year, course, created_at, updated_at')
       .eq('id', id)
       .maybeSingle()
 
@@ -119,6 +119,14 @@ export async function PATCH(
       if (subject && subject.length > MAX_SUBJECT_LEN) return NextResponse.json({ error: 'Subject too long' }, { status: 400 })
       updates.subject = subject || null
     }
+    if ('school_year' in body) {
+      if (typeof body.school_year !== 'string' || !/^\d{4}-\d{2}$/.test(body.school_year)) return NextResponse.json({ error: 'School year looks like 2026-27' }, { status: 400 })
+      updates.school_year = body.school_year
+    }
+    if ('course' in body) {
+      const course = typeof body.course === 'string' ? body.course.trim().slice(0, MAX_NAME_LEN) : null
+      updates.course = course || null
+    }
     if ('is_archived' in body) {
       if (typeof body.is_archived !== 'boolean') {
         return NextResponse.json({ error: 'is_archived must be boolean' }, { status: 400 })
@@ -209,7 +217,7 @@ export async function PATCH(
 
     const { data: refreshed } = await supabase
       .from('classes')
-      .select('id, name, period, subject, color, enrollment_code, is_archived, created_at, updated_at')
+      .select('id, name, period, subject, color, enrollment_code, is_archived, school_year, course, created_at, updated_at')
       .eq('id', id)
       .single()
 

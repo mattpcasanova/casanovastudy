@@ -62,7 +62,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     topics: topicsOf.get(b.id)!,
     papers: (graded ?? []).filter((r) => r.batch_id === b.id).map((r) => ({ rosterId: r.roster_id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })),
   }))
-  const areas = classAreas(areaBatches)
+  // ?batch=<id>: areas for one test only.
+  const onlyBatch = request.nextUrl.searchParams.get('batch')
+  const areas = classAreas(onlyBatch ? areaBatches.filter((b) => b.batchId === onlyBatch) : areaBatches)
 
   return NextResponse.json({
     areas,

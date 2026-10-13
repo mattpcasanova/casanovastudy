@@ -7,12 +7,17 @@ import { verifyState } from '@/lib/google/classroom'
 // session header). The access token is kept for an hour, only for the import.
 export async function GET(request: NextRequest) {
   const origin = process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin
-  const back = (q: string) => NextResponse.redirect(`${origin}/teacher/classes?${q}`)
   const params = request.nextUrl.searchParams
+  const state = verifyState(params.get('state'))
+  // Back to where the teacher started (class results for grade sending), else My Classes.
+  const back = (q: string) => {
+    const next = state?.next ?? '/teacher/classes'
+    return NextResponse.redirect(`${origin}${next}${next.includes('?') ? '&' : '?'}${q}`)
+  }
   if (params.get('error')) return back('google=denied')
-  const userId = verifyState(params.get('state'))
   const code = params.get('code')
-  if (!userId || !code) return back('google=error')
+  if (!state || !code) return back('google=error')
+  const userId = state.userId
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',

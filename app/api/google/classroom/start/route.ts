@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
   if (error) return error
   if (!classroomConfigured()) return NextResponse.json({ error: 'Google Classroom import is not set up yet' }, { status: 503 })
   const origin = process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin
-  const url = authUrl({ redirectUri: `${origin}/api/google/classroom/callback`, state: signState(user.id), loginHint: user.email })
+  let next: string | null = null
+  try { next = (await request.json()).next ?? null } catch { /* no body */ }
+  const url = authUrl({ redirectUri: `${origin}/api/google/classroom/callback`, state: signState(user.id, Date.now(), next), loginHint: user.email })
   return NextResponse.json({ url })
 }

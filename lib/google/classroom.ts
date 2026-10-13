@@ -8,30 +8,45 @@ export const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses.readonly',
   'https://www.googleapis.com/auth/classroom.rosters.readonly',
   'https://www.googleapis.com/auth/classroom.profile.emails',
+  // Sending scores: only to assignments this app creates (Classroom's rule).
+  'https://www.googleapis.com/auth/classroom.coursework.students',
 ]
 
 export const classroomConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 
 const stateKey = () => process.env.GOOGLE_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
-/** OAuth state: who started the connect, valid 15 minutes, signed so the callback can trust it without a session. */
-export function signState(userId: string, now = Date.now()): string {
-  const body = `${userId}.${now + 15 * 60 * 1000}.${randomBytes(6).toString('hex')}`
-  const sig = createHmac('sha256', stateKey()).update(body).digest('base64url')
-  return `${Buffer.from(body).toString('base64url')}.${sig}`
+/** An in-app path to come back to (never another site). */
+export function safeNextPath(next: unknown): string | null {
+  return typeof next === 'string' && /^\/(?!\/)[\w\-/?=&%.]*$/.test(next) && next.length < 300 ? next : null
 }
 
-export function verifyState(state: string | null, now = Date.now()): string | null {
+/**
+ * OAuth state: who started the connect and where to come back to, valid 15
+ * minutes, signed so the callback can trust it without a session.
+ */
+export function signState(userId: string, now = Date.now(), next: string | null = null): string {
+  const body = JSON.stringify({ u: userId, e: now + 15 * 60 * 1000, n: randomBytes(6).toString('hex'), next: safeNextPath(next) })
+  const encoded = Buffer.from(body).toString('base64url')
+  const sig = createHmac('sha256', stateKey()).update(encoded).digest('base64url')
+  return `${encoded}.${sig}`
+}
+
+export function verifyState(state: string | null, now = Date.now()): { userId: string; next: string | null } | null {
   if (!state) return null
   const [encoded, sig] = state.split('.')
   if (!encoded || !sig) return null
-  const body = Buffer.from(encoded, 'base64url').toString()
-  const expected = createHmac('sha256', stateKey()).update(body).digest('base64url')
+  const expected = createHmac('sha256', stateKey()).update(encoded).digest('base64url')
   const a = Buffer.from(sig)
   const b = Buffer.from(expected)
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null
-  const [userId, exp] = body.split('.')
-  return Number(exp) > now && /^[0-9a-f-]{36}$/i.test(userId) ? userId : null
+  try {
+    const body = JSON.parse(Buffer.from(encoded, 'base64url').toString()) as { u?: string; e?: number; next?: string | null }
+    if (!body.u || !/^[0-9a-f-]{36}$/i.test(body.u) || !(Number(body.e) > now)) return null
+    return { userId: body.u, next: safeNextPath(body.next) }
+  } catch {
+    return null
+  }
 }
 
 export function authUrl(opts: { redirectUri: string; state: string; loginHint?: string | null }): string {
@@ -103,3 +118,33 @@ export const listCourses = (token: string) =>
 
 export const listStudents = (token: string, courseId: string) =>
   getAll<ClassroomStudent>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/students`, 'students', token)
+
+export interface Submission { id: string; userId: string }
+
+export const listSubmissions = (token: string, courseId: string, courseWorkId: string) =>
+  getAll<Submission>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions`, 'studentSubmissions', token)
+
+/** Creates the assignment scores will be sent to (Classroom only lets an app grade its own assignments). */
+export async function createCourseWork(token: string, courseId: string, title: string, maxPoints: number): Promise<string> {
+  const res = await fetch(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title.slice(0, 3000), workType: 'ASSIGNMENT', state: 'PUBLISHED', maxPoints, description: 'Graded with Casanova Study.' }),
+  })
+  if (!res.ok) throw new ClassroomError(res.status, await res.text().catch(() => ''))
+  return ((await res.json()) as { id: string }).id
+}
+
+export async function setGrade(token: string, courseId: string, courseWorkId: string, submissionId: string, grade: number): Promise<void> {
+  const url = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions/${encodeURIComponent(submissionId)}?updateMask=draftGrade,assignedGrade`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draftGrade: grade, assignedGrade: grade }),
+  })
+  if (!res.ok) throw new ClassroomError(res.status, await res.text().catch(() => ''))
+}
+
+export class ClassroomError extends Error {
+  constructor(public status: number, detail: string) { super(`Google Classroom ${status}: ${detail.slice(0, 200)}`) }
+}

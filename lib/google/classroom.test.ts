@@ -5,14 +5,17 @@ describe('OAuth state', () => {
   const user = '5e51e47f-d060-493d-b346-40d89595bc96'
   it('round-trips and expires', () => {
     process.env.GOOGLE_STATE_SECRET = 'test-secret'
-    const state = signState(user, 1_000)
-    expect(verifyState(state, 2_000)).toBe(user)
+    const state = signState(user, 1_000, '/grade-exam/batch/abc?classroom=1')
+    expect(verifyState(state, 2_000)).toEqual({ userId: user, next: '/grade-exam/batch/abc?classroom=1' })
+    expect(verifyState(signState(user, 1_000, 'https://evil.com'), 2_000)).toEqual({ userId: user, next: null })
+    expect(verifyState(signState(user, 1_000, '//evil.com'), 2_000)).toEqual({ userId: user, next: null })
     expect(verifyState(state, 1_000 + 16 * 60 * 1000)).toBeNull()
   })
   it('rejects tampering', () => {
     process.env.GOOGLE_STATE_SECRET = 'test-secret'
     const [body, sig] = signState(user).split('.')
     const forged = Buffer.from(Buffer.from(body, 'base64url').toString().replace(user, '00000000-0000-0000-0000-000000000000')).toString('base64url')
+    expect(forged).not.toBe(body)
     expect(verifyState(`${forged}.${sig}`)).toBeNull()
     expect(verifyState(null)).toBeNull()
   })

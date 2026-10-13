@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // In a class: roster students with no paper (and what the teacher marked
   // them as), plus student numbers for the CSV.
   const classId = results.find((r) => r.class_id)?.class_id as string | undefined
-  let roster: Array<{ rosterId: string; name: string; studentNumber: string | null; status: string | null; hasPaper: boolean }> = []
+  let roster: Array<{ rosterId: string; name: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; status: string | null; hasPaper: boolean }> = []
   if (classId) {
     const [rows, { data: statuses }] = await Promise.all([
       loadRoster(createAdminClient(), classId),
@@ -37,9 +37,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ])
     const statusOf = new Map((statuses ?? []).map((st) => [st.roster_id, st.status]))
     const withPaper = new Set(results.map((r) => r.roster_id).filter(Boolean))
-    roster = rows.map((r) => ({ rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), studentNumber: r.studentNumber, status: statusOf.get(r.id) ?? null, hasPaper: withPaper.has(r.id) }))
+    roster = rows.map((r) => ({ rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), firstName: r.firstName, lastName: r.lastName, studentNumber: r.studentNumber, email: r.email, status: statusOf.get(r.id) ?? null, hasPaper: withPaper.has(r.id) }))
   }
-  return NextResponse.json({ results, insights, roster }, { headers: { 'Cache-Control': 'no-store' } })
+  const { data: cls } = classId ? await createAdminClient().from('classes').select('id, google_course_id').eq('id', classId).maybeSingle() : { data: null }
+  const classInfo = cls ? { id: cls.id, googleCourseId: cls.google_course_id } : null
+  return NextResponse.json({ results, insights, roster, classInfo }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 // Teacher edits across a batch: rename students, apply one grade scale (e.g.

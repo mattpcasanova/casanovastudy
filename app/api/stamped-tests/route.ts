@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   for (const id of classIds) {
     const cls = await ownedClass(supabase, user.id, id)
     if (!cls) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
-    const roster = await loadRoster(supabase, id)
+    const roster = (await loadRoster(supabase, id)).filter((r) => !r.left)
     if (!roster.length) return NextResponse.json({ error: `${cls.name} has no names on its roster yet` }, { status: 400 })
     classes.push({ cls, roster })
   }

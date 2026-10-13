@@ -203,6 +203,34 @@ async function main() {
   r = await t('GET', '/api/google/classroom/courses')
   check('courses need a fresh Google connection', r.status === 401 && r.json?.reconnect === true, `got ${r.status}`)
 
+  console.log('\n== School years, students who left, gradebook, courses ==')
+  r = await t('GET', `/api/classes/${cls.id}/roster`)
+  check('new classes get the current school year', /^\d{4}-\d{2}$/.test(r.json?.class?.school_year ?? ''), JSON.stringify(r.json?.class))
+  const thisYear = r.json.class.school_year
+  const avaRow = r.json.roster.find((x) => x.firstName === 'Ava')
+  await t('PATCH', `/api/classes/${cls.id}/roster/${avaRow.id}`, { left: true })
+  r = await t('GET', `/api/classes/${cls.id}/roster`)
+  check('a student can be marked as left', r.json.roster.find((x) => x.id === avaRow.id)?.left === true)
+  r = await t('GET', `/api/classes/${cls.id}/gradebook`)
+  check('gradebook: one test column, a row per student with averages', r.json?.tests?.length === 1 && r.json.rows.length >= 3 && r.json.rows.some((x) => x.left), JSON.stringify(r.json?.tests))
+  r = await t('POST', '/api/classes/roll-over', { classIds: [cls.id] })
+  const nextYear = r.json?.toYear
+  check('Start next year copies the class with no students', r.status === 200 && r.json.created.length === 1 && nextYear > thisYear, JSON.stringify(r.json))
+  if (r.json?.created?.[0]) created.importedClassIds.push(r.json.created[0].id)
+  r = await t('GET', `/api/classes/${r.json.created[0].id}/roster`)
+  check('the copy is empty and in next year', r.json?.roster?.length === 0 && r.json.class.school_year === nextYear)
+  r = await t('POST', '/api/classes/roll-over', { classIds: [cls.id] })
+  check('rolling over twice does not duplicate', r.json?.created?.length === 0 && r.json.skipped === 1, JSON.stringify(r.json))
+  r = await t('GET', '/api/courses')
+  const course = r.json?.courses?.find((c) => c.name.startsWith('E2E GRADING CLASS'))
+  check('courses link years', course?.years?.length === 2, JSON.stringify(r.json?.courses))
+  r = await t('GET', `/api/courses?key=${encodeURIComponent(course.key)}`)
+  check('course view lists both years', r.json?.years?.length === 2 && r.json.years.some((y) => y.year === thisYear), JSON.stringify(r.json))
+  created.courseKey = course.key
+  created.thisYear = thisYear
+  r = await t('POST', '/api/google/classroom/grades', { batchId: created.batchId })
+  check('sending to Classroom needs a Google connection first', r.status === 401 && r.json?.reconnect === true, `got ${r.status}`)
+
   console.log('\n== Class summary ==')
   r = await t('GET', `/api/classes/${cls.id}/summary`)
   check('graded set listed and released', r.json?.batches?.length === 1 && r.json.batches[0].papers === 3 && r.json.batches[0].released === true, JSON.stringify(r.json))
@@ -211,6 +239,9 @@ async function main() {
   await admin.from('grading_batch_insights').insert({ batch_id: created.batchId, user_id: teacher.id, signature: 'e2e', data: { summary: 'x', topics: [{ name: 'Method', questions: ['1'] }, { name: 'Units', questions: ['2'] }], struggles: [], reteach: [] } })
   r = await t('GET', `/api/classes/${cls.id}/summary`)
   const units = r.json?.areas?.find((a) => a.name === 'Units')
+  r = await t('GET', `/api/courses?key=${encodeURIComponent(created.courseKey)}`)
+  check('course view shows this year\'s areas', r.json?.areas?.length === 2 && r.json.areas.every((a) => a.byYear[created.thisYear]), JSON.stringify(r.json?.areas))
+  r = await t('GET', `/api/classes/${cls.id}/summary`)
   check('areas add up per student, weakest first', r.json?.areas?.length === 2 && r.json.areas[0].pct <= r.json.areas[1].pct && units?.students?.length === 3, JSON.stringify(r.json?.areas))
 }
 

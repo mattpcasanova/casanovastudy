@@ -27,6 +27,9 @@ interface ClassOption { id: string; name: string; period: string | null }
 export interface BatchRosterEntry {
   rosterId: string
   name: string
+  firstName: string
+  lastName: string
+  email: string | null
   studentNumber: string | null
   status: "absent" | "missing" | "exempt" | "late" | null
   hasPaper: boolean

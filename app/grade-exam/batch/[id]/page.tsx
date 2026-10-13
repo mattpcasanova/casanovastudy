@@ -6,7 +6,11 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, Download, GraduationCap, Loader2 } from "lucide-react"
+import { ArrowUpDown, BookUp, Download, GraduationCap, Loader2 } from "lucide-react"
+import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
+import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
+import type { ExportRow } from "@/lib/grading/exports"
+import { parseName } from "@/lib/grading/names"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -53,6 +57,8 @@ function BatchResults({ id }: { id: string }) {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [saved, setSaved] = useState<SavedInsights | null>(null)
   const [roster, setRoster] = useState<BatchRosterEntry[]>([])
+  const [classInfo, setClassInfo] = useState<{ id: string; googleCourseId: string | null } | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<"name" | "score">("name")
   const [scaleOpen, setScaleOpen] = useState(false)
@@ -91,14 +97,33 @@ function BatchResults({ id }: { id: string }) {
     const res = await authFetch(`/api/grade-batch/${id}`, { cache: "no-store" })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) setError(data.error || "Could not load these results")
-    else { setRows(data.results); setSaved(data.insights ?? null); setRoster(data.roster ?? []) }
+    else { setRows(data.results); setSaved(data.insights ?? null); setRoster(data.roster ?? []); setClassInfo(data.classInfo ?? null) }
   }, [id])
   useEffect(() => { void load() }, [load])
+  // Back from connecting Google Classroom to send scores: reopen the dialog.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    if (q.get("send") === "1") { setExportOpen(true); window.history.replaceState(null, "", window.location.pathname) }
+  }, [])
 
   const sorted = useMemo(() => {
     if (!rows) return []
     return [...rows].sort((a, b) => (sort === "name" ? a.student_name.localeCompare(b.student_name) : Number(b.percentage) - Number(a.percentage)))
   }, [rows, sort])
+
+  // One row per student for gradebook files: graded papers (names/IDs from the
+  // roster when matched) plus roster students with no paper and their status.
+  const exportRows: ExportRow[] = useMemo(() => {
+    const byRoster = new Map(roster.map((e) => [e.rosterId, e]))
+    return [
+      ...(rows ?? []).map((r) => {
+        const e = r.roster_id ? byRoster.get(r.roster_id) : undefined
+        const n = e ? { firstName: e.firstName, lastName: e.lastName } : parseName(r.student_name)
+        return { ...n, studentNumber: e?.studentNumber ?? null, email: e?.email ?? null, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), pct: Number(r.percentage), status: e?.status ?? null }
+      }),
+      ...roster.filter((e) => !e.hasPaper).map((e) => ({ firstName: e.firstName, lastName: e.lastName, studentNumber: e.studentNumber, email: e.email, marks: null, possible: null, pct: null, status: e.status })),
+    ]
+  }, [rows, roster])
 
   const reportPapers = useMemo(() => (rows ?? []).map((r) => ({ id: r.id, name: r.student_name, breakdown: r.grade_breakdown ?? [] })), [rows])
 
@@ -143,7 +168,8 @@ function BatchResults({ id }: { id: string }) {
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</Button>
                 <Button variant="outline" onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown className="mr-2 h-4 w-4" />Sort by {sort === "name" ? "score" : "name"}</Button>
-                <Button onClick={downloadCsv} className="bg-blue-600 hover:bg-blue-700"><Download className="mr-2 h-4 w-4" />CSV</Button>
+                <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
+                <Button onClick={() => setExportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><BookUp className="mr-2 h-4 w-4" />Send to gradebook</Button>
               </div>
             </div>
             {scaleOpen && scale && (
@@ -186,6 +212,13 @@ function BatchResults({ id }: { id: string }) {
             </div>
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
             <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} onChanged={() => void load()} />
+            <GradebookExportDialog
+              open={exportOpen}
+              onOpenChange={setExportOpen}
+              title={title}
+              rows={exportRows}
+              classroomSync={classInfo?.googleCourseId ? <GoogleClassroomSync batchId={id} title={title} /> : undefined}
+            />
             <ClassReport batchId={id} papers={reportPapers} saved={saved} />
           </>
         )}

@@ -17,6 +17,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (typeof body.firstName === 'string') update.first_name = body.firstName.trim().slice(0, 60)
   if (typeof body.lastName === 'string') update.last_name = body.lastName.trim().slice(0, 60)
   if (body.unlink === true) update.student_user_id = null
+  if (typeof body.left === 'boolean') update.left_at = body.left ? new Date().toISOString() : null
   if (!Object.keys(update).length) return NextResponse.json({ error: 'Nothing to change' }, { status: 400 })
 
   const { error: dbError } = await supabase.from('class_roster').update(update).eq('id', rosterId).eq('class_id', id)

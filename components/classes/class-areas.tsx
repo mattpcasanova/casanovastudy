@@ -20,7 +20,14 @@ export function practiceRequest(area: ClassArea, className: string): string {
   return `Practice on "${area.name}" for my ${className} class. The class averaged ${Math.round(area.pct)}% on this area across ${area.sets} graded test${area.sets === 1 ? '' : 's'}. The questions they lost the most marks on: ${missed}. Write questions that build up to the same skills, from the basics to exam level, with worked explanations.`
 }
 
-export function ClassAreas({ areas, className, setsWithoutReport }: { areas: ClassArea[]; className: string; setsWithoutReport: number }) {
+export function ClassAreas({ areas, className, setsWithoutReport, tests = [], test = "", onTest }: {
+  areas: ClassArea[]
+  className: string
+  setsWithoutReport: number
+  tests?: Array<{ batchId: string; title: string }>
+  test?: string
+  onTest?: (batchId: string) => void
+}) {
   const router = useRouter()
   const [view, setView] = useState<"areas" | "students">("areas")
 
@@ -48,6 +55,13 @@ export function ClassAreas({ areas, className, setsWithoutReport }: { areas: Cla
           <h2 className="font-semibold text-slate-900">Where the class is struggling</h2>
           <p className="text-xs text-slate-500">By area, across every graded set for this class{setsWithoutReport > 0 ? `. ${setsWithoutReport} set${setsWithoutReport === 1 ? " has" : "s have"} no class report yet; open ${setsWithoutReport === 1 ? "it" : "them"} to include ${setsWithoutReport === 1 ? "it" : "them"}.` : "."}</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {tests.length > 1 && onTest && (
+          <select value={test} onChange={(e) => onTest(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs" aria-label="Which test">
+            <option value="">All tests</option>
+            {tests.map((t) => <option key={t.batchId} value={t.batchId}>{t.title}</option>)}
+          </select>
+        )}
         {areas.length > 0 && (
           <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs">
             {(["areas", "students"] as const).map((v) => (
@@ -57,6 +71,7 @@ export function ClassAreas({ areas, className, setsWithoutReport }: { areas: Cla
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {areas.length === 0 ? (

@@ -20,8 +20,11 @@ import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
 import type { ClassArea } from "@/lib/classes/areas"
 import { ClassAreas } from "@/components/classes/class-areas"
 import { StampTestDialog } from "@/components/classes/stamp-test-dialog"
+import { ClassGradebook } from "@/components/classes/class-gradebook"
+import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
+import { courseKey, courseName, nextSchoolYear, schoolYearFor } from "@/lib/classes/years"
 
-interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string }
+interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string; school_year: string; course: string | null }
 interface BatchSummary { id: string; title: string | null; createdAt: string; papers: number; average: number; released: boolean }
 
 export default function ClassPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +44,10 @@ function ClassView({ id }: { id: string }) {
   const [linkedStudents, setLinkedStudents] = useState(0)
   const [areas, setAreas] = useState<ClassArea[]>([])
   const [setsWithoutReport, setSetsWithoutReport] = useState(0)
+  const [gradebook, setGradebook] = useState<{ tests: GradebookTest[]; rows: GradebookRow[] } | null>(null)
+  const [areaTest, setAreaTest] = useState("")
+  const [showLeft, setShowLeft] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paste, setPaste] = useState("")
   const [pasteOpen, setPasteOpen] = useState(false)
@@ -51,10 +58,12 @@ function ClassView({ id }: { id: string }) {
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
-    const [rosterRes, summaryRes] = await Promise.all([
+    const [rosterRes, summaryRes, gradebookRes] = await Promise.all([
       authFetch(`/api/classes/${id}/roster`, { cache: "no-store" }),
       authFetch(`/api/classes/${id}/summary`, { cache: "no-store" }),
+      authFetch(`/api/classes/${id}/gradebook`, { cache: "no-store" }),
     ])
+    if (gradebookRes.ok) setGradebook(await gradebookRes.json())
     const rosterData = await rosterRes.json().catch(() => ({}))
     if (!rosterRes.ok) { setError(rosterData.error || "Could not load this class"); return }
     setCls(rosterData.class)
@@ -71,6 +80,21 @@ function ClassView({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => { void load() }, [load])
+
+  // Areas for one test (or all of them).
+  const pickAreaTest = async (batch: string) => {
+    setAreaTest(batch)
+    const res = await authFetch(`/api/classes/${id}/summary${batch ? `?batch=${batch}` : ""}`, { cache: "no-store" })
+    if (res.ok) setAreas((await res.json()).areas ?? [])
+  }
+
+  const saveDetails = async (schoolYear: string, course: string) => {
+    const res = await fetch(`/api/classes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ school_year: schoolYear, course }) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { setNotice(data.error || "Could not save"); return }
+    setCls((c) => (c ? { ...c, school_year: schoolYear, course: course || null } : c))
+    setDetailsOpen(false)
+  }
 
   const addNames = async () => {
     if (!paste.trim()) return
@@ -127,7 +151,14 @@ function ClassView({ id }: { id: string }) {
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{cls.name}</h1>
-          <p className="text-slate-600">{[cls.period && `Period ${cls.period}`, cls.subject, `${roster.length} name${roster.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+          <p className="text-slate-600">
+            {[cls.school_year, cls.period && `Period ${cls.period}`, `${roster.filter((r) => !r.left).length} student${roster.filter((r) => !r.left).length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+            {" · "}
+            <Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="text-blue-700 hover:underline">{courseName(cls.name, cls.course)} across years</Link>
+            {" · "}
+            <button type="button" onClick={() => setDetailsOpen((o) => !o)} className="text-blue-700 hover:underline">Year &amp; course</button>
+          </p>
+          {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
@@ -172,7 +203,7 @@ function ClassView({ id }: { id: string }) {
             <p className="text-sm text-slate-500">No names yet.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {roster.map((row) => (
+              {roster.filter((r) => showLeft || !r.left).map((row) => (
                 <RosterItem
                   key={row.id}
                   row={row}
@@ -183,9 +214,17 @@ function ClassView({ id }: { id: string }) {
                     if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null } : x)) ?? null)
                   }}
                   onRemove={() => void removeRow(row)}
+                  onLeft={async (left) => {
+                    if (await patchRow(row, { left })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, left } : x)) ?? null)
+                  }}
                 />
               ))}
             </ul>
+          )}
+          {roster.some((r) => r.left) && (
+            <button type="button" onClick={() => setShowLeft((v) => !v)} className="mt-2 text-xs font-medium text-slate-500 hover:text-slate-800">
+              {showLeft ? "Hide students who left" : `Show ${roster.filter((r) => r.left).length} who left`}
+            </button>
           )}
         </section>
 
@@ -222,7 +261,18 @@ function ClassView({ id }: { id: string }) {
         </div>
       </div>
 
-      {batches.length > 0 && <ClassAreas areas={areas} className={cls.name} setsWithoutReport={setsWithoutReport} />}
+      {gradebook && <ClassGradebook tests={gradebook.tests} rows={gradebook.rows} className={cls.name} />}
+
+      {batches.length > 0 && (
+        <ClassAreas
+          areas={areas.map((a) => ({ ...a, students: a.students.filter((st) => !roster.find((r) => r.id === st.key)?.left) }))}
+          className={cls.name}
+          setsWithoutReport={setsWithoutReport}
+          tests={gradebook?.tests ?? []}
+          test={areaTest}
+          onTest={(b) => void pickAreaTest(b)}
+        />
+      )}
 
       {/* Graded work */}
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -255,7 +305,30 @@ function ClassView({ id }: { id: string }) {
   )
 }
 
-function RosterItem({ row, onRename, onUnlink, onRemove }: { row: RosterRow; onRename: (first: string, last: string) => void; onUnlink: () => void; onRemove: () => void }) {
+function DetailsForm({ cls, onSave, onCancel }: { cls: ClassInfo; onSave: (year: string, course: string) => void; onCancel: () => void }) {
+  const now = schoolYearFor()
+  const years = [...new Set([nextSchoolYear(now), now, cls.school_year, `${Number(now.slice(0, 4)) - 1}-${now.slice(2, 4)}`])].sort().reverse()
+  const [year, setYear] = useState(cls.school_year)
+  const [course, setCourse] = useState(cls.course ?? courseName(cls.name))
+  return (
+    <div className="mt-3 flex flex-wrap items-end gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200">
+      <label className="text-sm">
+        <span className="mb-1 block text-xs font-medium text-slate-600">School year</span>
+        <select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </label>
+      <label className="text-sm">
+        <span className="mb-1 block text-xs font-medium text-slate-600">Course (links this class with other periods and years)</span>
+        <input value={course} onChange={(e) => setCourse(e.target.value)} className="w-64 rounded-lg border border-slate-200 bg-white px-2 py-1.5" />
+      </label>
+      <Button size="sm" onClick={() => onSave(year, course.trim())}>Save</Button>
+      <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+    </div>
+  )
+}
+
+function RosterItem({ row, onRename, onUnlink, onRemove, onLeft }: { row: RosterRow; onRename: (first: string, last: string) => void; onUnlink: () => void; onRemove: () => void; onLeft: (left: boolean) => void }) {
   const [editing, setEditing] = useState(false)
   const [first, setFirst] = useState(row.firstName)
   const [last, setLast] = useState(row.lastName)
@@ -277,6 +350,7 @@ function RosterItem({ row, onRename, onUnlink, onRemove }: { row: RosterRow; onR
       <span className="flex-1 text-sm text-slate-900">
         {row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}
         {row.studentNumber && <span className="ml-2 text-xs text-slate-400">#{row.studentNumber}</span>}
+        {row.left && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Left</span>}
       </span>
       {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><Link2 className="h-3 w-3" />Joined</span>}
       {confirm ? (
@@ -287,6 +361,7 @@ function RosterItem({ row, onRename, onUnlink, onRemove }: { row: RosterRow; onR
       ) : (
         <span className="flex items-center opacity-60 group-hover:opacity-100">
           <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label={`Rename ${row.firstName}`}><Pencil className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={() => onLeft(!row.left)} className="rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100" title={row.left ? "Back in this class" : "Left the class (keeps their graded work)"}>{row.left ? "Back" : "Left"}</button>
           {row.linked && <button type="button" onClick={onUnlink} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Unlink account" title="Unlink this student's account"><Unlink className="h-3.5 w-3.5" /></button>}
           <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>
         </span>
