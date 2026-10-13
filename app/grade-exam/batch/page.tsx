@@ -293,7 +293,9 @@ function BatchGrading() {
           if (name) imageHeaders[i] = { name, firstPage: i === 0 || orderedImages[i - 1].fileIndex !== p.fileIndex, fromFile: true }
         })
       }
-      const unread = uploaded.filter((_, i) => !stamped.headers[i])
+
+      // Only pages with no name yet (no stamp, not named after the file) go to the AI header read.
+      const unread = uploaded.filter((_, i) => !imageHeaders[i])
       if (unread.length) {
         setStatus(`Finding where each student's paper starts (${unread.length} pages)...`)
         const res = await authFetch("/api/grade-batch/split", {
@@ -931,10 +933,10 @@ function PageViewer({ index, pages, order, paper, paperNumber, startsPaper, edit
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return
+      if (e.key === "Escape") { onClose(); return }
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return // arrows move the cursor while typing a name
       if (e.key === "ArrowLeft" && prev !== null) onGo(prev)
       else if (e.key === "ArrowRight" && next !== null) onGo(next)
-      else if (e.key === "Escape") onClose()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
