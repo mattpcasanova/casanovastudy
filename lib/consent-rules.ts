@@ -3,6 +3,8 @@
 // /parent-consent (parent's link).
 
 export const CONSENT_AGE = 13
+/** Teacher accounts are for adults; younger "teachers" become students. */
+export const TEACHER_MIN_AGE = 18
 /** Younger than this is a typo (e.g. the date picker left on this year), so we ask again. */
 export const MIN_PLAUSIBLE_AGE = 5
 
@@ -24,9 +26,11 @@ export type ConsentStep =
   | 'pending'       // waiting for the parent to approve
 
 /**
- * What a student must do before using the app. Teachers, school (Clever)
- * sign-ins and students 13+ are fine. Once a parent has been asked, the
- * account stays gated until they approve, even if the birth date is changed.
+ * What an account must do before using the app. Everyone gives a birth date
+ * once (teachers too, so picking "teacher" can't skip consent); under 13 needs
+ * a parent's OK whatever role was picked. School (Clever) sign-ins and anyone
+ * 13+ are fine. Once a parent has been asked, the account stays gated until
+ * they approve, even if the birth date is changed.
  */
 export function consentStep(input: {
   userType?: string | null
@@ -37,10 +41,17 @@ export function consentStep(input: {
 }): ConsentStep {
   if (input.status === 'granted' || input.status === 'school') return 'ok'
   if (input.status === 'pending') return 'pending'
-  if (input.userType !== 'student' || input.viaSchool) return 'ok'
+  if (input.viaSchool) return 'ok'
   const age = ageOn(input.birthDate, input.now)
   if (age === null || age < MIN_PLAUSIBLE_AGE) return 'birthdate'
   return age < CONSENT_AGE ? 'parent' : 'ok'
+}
+
+/** The role an account should have for its age: under-18 "teachers" are students. */
+export function roleForAge(userType: string | null | undefined, birthDate: string | null | undefined, now = new Date()): 'student' | 'teacher' {
+  if (userType !== 'teacher') return 'student'
+  const age = ageOn(birthDate, now)
+  return age !== null && age < TEACHER_MIN_AGE ? 'student' : 'teacher'
 }
 
 /** A birth date a student could really have (rejects blanks and this-year typos). */

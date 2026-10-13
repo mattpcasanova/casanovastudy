@@ -1,8 +1,8 @@
 "use client"
 
-// The student's consent step (COPPA): confirm a birth date if we don't have
-// one, and if they're under 13, ask a parent or guardian to approve by email.
-// AuthGate sends students here until /api/consent says they're done.
+// The consent step (COPPA): confirm a birth date if we don't have one (students
+// and teachers), and if they're under 13, ask a parent or guardian to approve
+// by email. AuthGate sends people here until /api/consent says they're done.
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
@@ -24,7 +24,7 @@ export default function ConsentPage() {
 }
 
 function Consent() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, refreshProfile } = useAuth()
   const router = useRouter()
   const initial = useConsentStep(user)
   const [step, setStep] = useState<ConsentStep | null>(initial)
@@ -60,6 +60,7 @@ function Consent() {
       if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.")
       if (user) setConsentStep(user.id, data.step)
       if (data.parentEmail) setSentTo(data.parentEmail)
+      if (data.roleChanged) await refreshProfile() // an under-18 "teacher" is now a student
       setEditing(false)
       setStep(data.step)
     } catch (e) {

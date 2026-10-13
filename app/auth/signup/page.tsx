@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
-import { isPlausibleBirthDate } from '@/lib/consent-rules'
+import { TEACHER_MIN_AGE, ageOn, isPlausibleBirthDate } from '@/lib/consent-rules'
 import {
   AuthShell, AuthHeading, Divider, Field, FormError, GoogleButton, PasswordField, PrimaryButton, RolePicker,
   ROLES, friendlyAuthError, type Role,
@@ -31,9 +31,12 @@ export default function SignUpPage() {
     if (!role) return
     if (!firstName.trim() || !lastName.trim()) return setError('Please enter your first and last name.')
     if (password.length < 6) return setError('Your password needs at least 6 characters.')
-    // Students: needed to know who needs a parent's OK (under 13).
-    if (role === 'student' && !birthDate) return setError('Please enter your birth date.')
-    if (birthDate && !isPlausibleBirthDate(birthDate)) return setError('Please check your birth date, especially the year.')
+    // Everyone: tells us who needs a parent's OK (under 13); teachers must be adults.
+    if (!birthDate) return setError('Please enter your birth date.')
+    if (!isPlausibleBirthDate(birthDate)) return setError('Please check your birth date, especially the year.')
+    if (role === 'teacher' && (ageOn(birthDate) ?? 0) < TEACHER_MIN_AGE) {
+      return setError('Teacher accounts are for adults. If you’re a student, go back and choose “I’m a student”.')
+    }
 
     setIsLoading(true)
     try {
@@ -121,8 +124,8 @@ export default function SignUpPage() {
           max={new Date().toISOString().slice(0, 10)}
           onChange={(e) => setBirthDate(e.target.value)}
           disabled={isLoading}
-          required={role === 'student'}
-          labelAside={role === 'student' ? <span className="text-xs text-slate-400">Under 13 needs a parent&apos;s OK</span> : <span className="text-xs text-slate-400">Optional</span>}
+          required
+          labelAside={<span className="text-xs text-slate-400">{role === 'student' ? 'Under 13 needs a parent\'s OK' : 'Teachers must be 18+'}</span>}
         />
         <PrimaryButton type="submit" loading={isLoading} loadingText="Creating your account…">Create account</PrimaryButton>
         <p className="text-center text-xs text-slate-500">

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getConsentState, hashToken, newToken } from '@/lib/consent'
-import { isEmail, isPlausibleBirthDate } from '@/lib/consent-rules'
+import { isEmail, isPlausibleBirthDate, roleForAge } from '@/lib/consent-rules'
 import { sendEmail, EmailNotConfiguredError } from '@/lib/email/send'
 import { parentConsentEmail } from '@/lib/email/templates'
 
-// The student's side of parental consent (/consent page):
+// The account's side of parental consent (/consent page; students and teachers):
 //   GET                                  -> what this account still needs
 //   POST { action: 'birthdate', birthDate } -> record a missing birth date (once)
 //   POST { action: 'request', parentEmail } -> email the parent an approval link
@@ -31,9 +31,13 @@ export async function POST(request: NextRequest) {
     if (state.step !== 'birthdate') return NextResponse.json({ error: 'Your birth date is already set.' }, { status: 400 })
     const birthDate = String(body.birthDate ?? '')
     if (!isPlausibleBirthDate(birthDate)) return NextResponse.json({ error: 'Please check your birth date, especially the year.' }, { status: 400 })
-    await supabase.from('user_profiles').update({ birth_date: birthDate }).eq('id', user.id)
+    // Teacher accounts are 18+; a younger "teacher" carries on as a student.
+    const { data: profile } = await supabase.from('user_profiles').select('user_type').eq('id', user.id).maybeSingle()
+    const role = roleForAge(profile?.user_type, birthDate)
+    const { error } = await supabase.from('user_profiles').update({ birth_date: birthDate, user_type: role }).eq('id', user.id)
+    if (error) return NextResponse.json({ error: 'Could not save. Please try again.' }, { status: 500 })
     const next = await getConsentState(user.id)
-    return NextResponse.json({ step: next.step })
+    return NextResponse.json({ step: next.step, role, roleChanged: role !== profile?.user_type })
   }
 
   if (body.action === 'request') {
