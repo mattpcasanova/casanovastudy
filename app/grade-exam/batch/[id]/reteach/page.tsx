@@ -8,7 +8,7 @@
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Sparkles, Users } from "lucide-react"
+import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Sparkles, Star, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { openHomeWithPrefill } from "@/lib/prefill"
-import { groupLabel, planDocBlocks, planHtml, planSections, planText, type PlanSection, type SavedReteach } from "@/lib/grading/reteach-export"
+import { groupLabel, planDocBlocks, planHtml, planSections, planText, type PlanDetail, type PlanSection, type SavedReteach } from "@/lib/grading/reteach-export"
 import { toDocx } from "@/lib/grading/docx"
 import type { ReteachGroup } from "@/lib/grading/reteach"
 import { displaySerif } from "@/lib/formats/fonts"
@@ -24,6 +24,13 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 
 type Saved = SavedReteach & { createdAt: string }
+interface TopicOption { name: string; pct: number; recommended: boolean }
+
+const DETAILS: Array<{ value: PlanDetail; label: string; hint: string; wait: string }> = [
+  { value: "quick", label: "Quick", hint: "Bullets you can glance at mid-lesson, about a page", wait: "about 15 seconds" },
+  { value: "standard", label: "Standard", hint: "Short steps and activities, the usual choice", wait: "about 25 seconds" },
+  { value: "detailed", label: "Detailed", hint: "Full sentences, every problem written out", wait: "about 40 seconds" },
+]
 
 const MINUTES = [30, 40, 45, 50, 55, 60, 75, 90]
 const GROUP_TONE: Record<ReteachGroup["kind"], string> = {
@@ -53,7 +60,8 @@ function Reteach({ id }: { id: string }) {
   const router = useRouter()
   const { openPremium } = usePlan()
   const [saved, setSaved] = useState<Saved | null>(null)
-  const [topics, setTopics] = useState<string[]>([])
+  const [topics, setTopics] = useState<TopicOption[]>([])
+  const [detail, setDetail] = useState<PlanDetail>("standard")
   const [ready, setReady] = useState(true)
   const [meta, setMeta] = useState<{ examTitle: string | null; className: string | null }>({ examTitle: null, className: null })
   const [loading, setLoading] = useState(true)
@@ -72,9 +80,10 @@ function Reteach({ id }: { id: string }) {
       else {
         setSaved(data.saved)
         setTopics(data.topics ?? [])
+        if (!data.saved) setFocus((data.topics ?? []).filter((t: TopicOption) => t.recommended).map((t: TopicOption) => t.name))
         setReady(data.ready)
         setMeta({ examTitle: data.examTitle, className: data.className })
-        if (data.saved) { setMinutes(data.saved.minutes); setFocus(data.saved.focus.map((f: { name: string }) => f.name)) }
+        if (data.saved) { setMinutes(data.saved.minutes); setDetail(data.saved.detail ?? "detailed"); setFocus(data.saved.focus.map((f: { name: string }) => f.name)) }
       }
       setLoading(false)
     })()
@@ -84,7 +93,7 @@ function Reteach({ id }: { id: string }) {
     setBusy(true)
     setError("")
     try {
-      const res = await authFetch(`/api/grade-batch/${id}/reteach`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minutes, focus: focus.length ? focus : undefined }) })
+      const res = await authFetch(`/api/grade-batch/${id}/reteach`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minutes, detail, focus: focus.length ? focus : undefined }) })
       const data = await res.json().catch(() => ({}))
       if (isPlanBlock(data)) { openPremium(data); return }
       if (!res.ok) throw new Error(data.error || "Could not write the plan")
@@ -149,11 +158,11 @@ function Reteach({ id }: { id: string }) {
             {!ready ? (
               <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">The class report for this set isn&apos;t written yet. Open <Link href={`/grade-exam/batch/${id}`} className="font-semibold underline">class results</Link> first, then come back.</p>
             ) : (
-              <PlanOptions topics={topics} minutes={minutes} setMinutes={setMinutes} focus={focus} setFocus={setFocus} />
+              <PlanOptions topics={topics} minutes={minutes} setMinutes={setMinutes} focus={focus} setFocus={setFocus} detail={detail} setDetail={setDetail} />
             )}
             {error && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             <Button onClick={() => void write()} disabled={busy || !ready} className="mt-5 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 text-base font-semibold">
-              {busy ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Writing the plan (under a minute)…</> : <><Sparkles className="mr-2 h-5 w-5" />Write the plan</>}
+              {busy ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Writing the plan ({DETAILS.find((d) => d.value === detail)?.wait})…</> : <><Sparkles className="mr-2 h-5 w-5" />Write the plan</>}
             </Button>
           </section>
         ) : (
@@ -181,7 +190,7 @@ function Reteach({ id }: { id: string }) {
 
             {optionsOpen && (
               <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 print:hidden">
-                <PlanOptions topics={topics} minutes={minutes} setMinutes={setMinutes} focus={focus} setFocus={setFocus} />
+                <PlanOptions topics={topics} minutes={minutes} setMinutes={setMinutes} focus={focus} setFocus={setFocus} detail={detail} setDetail={setDetail} />
                 {error && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
                 <Button onClick={() => void write()} disabled={busy} className="mt-4 bg-indigo-600 hover:bg-indigo-700">{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Rewriting…</> : "Write a new plan"}</Button>
               </section>
@@ -228,34 +237,66 @@ function Reteach({ id }: { id: string }) {
   )
 }
 
-function PlanOptions({ topics, minutes, setMinutes, focus, setFocus }: { topics: string[]; minutes: number; setMinutes: (m: number) => void; focus: string[]; setFocus: (f: string[]) => void }) {
+function PlanOptions({ topics, minutes, setMinutes, focus, setFocus, detail, setDetail }: {
+  topics: TopicOption[]
+  minutes: number
+  setMinutes: (m: number) => void
+  focus: string[]
+  setFocus: (f: string[]) => void
+  detail: PlanDetail
+  setDetail: (d: PlanDetail) => void
+}) {
+  const recommended = topics.filter((t) => t.recommended).map((t) => t.name)
+  const onRecommended = recommended.length > 0 && recommended.length === focus.length && recommended.every((r) => focus.includes(r))
   return (
-    <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr]">
-      <label className="text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Lesson length</span>
-        <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-          {MINUTES.map((m) => <option key={m} value={m}>{m} minutes</option>)}
-        </select>
-      </label>
+    <div className="mt-5 space-y-5">
+      <div className="flex flex-wrap gap-6">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Lesson length</span>
+          <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+            {MINUTES.map((m) => <option key={m} value={m}>{m} minutes</option>)}
+          </select>
+        </label>
+        <div className="text-sm">
+          <p className="mb-1 font-medium text-slate-700">How much detail</p>
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+            {DETAILS.map((d) => (
+              <button key={d.value} type="button" aria-pressed={detail === d.value} onClick={() => setDetail(d.value)} className={cn("rounded-md px-3 py-1.5", detail === d.value ? "bg-white font-semibold text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900")}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">{DETAILS.find((d) => d.value === detail)?.hint}</p>
+        </div>
+      </div>
       {topics.length > 0 && (
         <div className="text-sm">
-          <p className="mb-1 font-medium text-slate-700">Focus on <span className="font-normal text-slate-500">(up to 3; leave empty for the weakest)</span></p>
+          <p className="mb-1 font-medium text-slate-700">Focus on <span className="font-normal text-slate-500">(up to 3)</span></p>
+          {recommended.length > 0 && (
+            <p className="mb-2 text-xs text-slate-600">
+              <Star className="mr-1 inline h-3.5 w-3.5 fill-amber-400 text-amber-500" />Recommended: the topics the class scored lowest on (under 80%).
+              {!onRecommended && <button type="button" onClick={() => setFocus(recommended)} className="ml-1.5 font-semibold text-blue-700 hover:underline">Use the recommended ones</button>}
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {topics.map((t) => {
-              const on = focus.includes(t)
+              const on = focus.includes(t.name)
               return (
                 <button
-                  key={t}
+                  key={t.name}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setFocus(on ? focus.filter((x) => x !== t) : focus.length < 3 ? [...focus, t] : focus)}
-                  className={cn("rounded-full px-3 py-1 ring-1 ring-inset", on ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}
+                  onClick={() => setFocus(on ? focus.filter((x) => x !== t.name) : focus.length < 3 ? [...focus, t.name] : focus)}
+                  className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 ring-1 ring-inset", on ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50")}
                 >
-                  {t}
+                  {t.recommended && <Star className={cn("h-3 w-3", on ? "fill-amber-300 text-amber-300" : "fill-amber-400 text-amber-500")} />}
+                  {t.name}
+                  <span className={cn("text-xs tabular-nums", on ? "text-indigo-100" : t.pct < 60 ? "text-rose-600" : t.pct < 80 ? "text-amber-700" : "text-emerald-700")}>{t.pct}%</span>
                 </button>
               )
             })}
           </div>
+          {focus.length === 0 && <p className="mt-1.5 text-xs text-slate-500">Nothing picked: we&apos;ll use the recommended ones.</p>}
         </div>
       )}
     </div>

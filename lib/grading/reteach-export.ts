@@ -6,9 +6,12 @@
 
 import type { ReteachGroup, ReteachPlanAI } from './reteach'
 
+export type PlanDetail = 'quick' | 'standard' | 'detailed'
+
 export interface SavedReteach {
   plan: ReteachPlanAI
   minutes: number
+  detail?: PlanDetail
   focus: Array<{ name: string; pct: number }>
   groups: ReteachGroup[]
   examTitle: string | null

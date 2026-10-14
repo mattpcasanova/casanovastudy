@@ -163,12 +163,15 @@ answers, min 3 answered; cap 15/concept then partial credit).
   - **Report editing**: an "Edit report" button; while editing, a blue note above the report, a highlighted frame, and a bottom bar ("Editing · changes saved" + **Done**; Esc works too). Done closes at once and the last save finishes in the background.
   - **Class report "Question by question"** (`QuestionBreakdown` in `components/grading/class-report.tsx`): per question, a full/some/none split bar, average, topic and the class-report issue, plus a topic filter and hardest-first. Opening a row lists students per band (linked to reports) and the marking feedback for those who lost marks.
 - **Teacher home + reteach plans (2026-10-13, migration 058)**:
-  - **Teacher home `/teach`** (`GET /api/teacher/home`): signed-in teachers opening `/` with no query are sent there; students and signed-out visitors keep the guide maker.
+  - **Teacher home `/teach`** (`GET /api/teacher/home`): signed-in teachers opening `/` with no query are sent there; students and signed-out visitors keep the guide maker. The check uses the query the page *opened* with (`openedWith` ref), because the form clears `?from=prefill` with replaceState, which once bounced prefill arrivals to /teach.
     - For teachers, "New Guide" links to `/?new=1` and the logo to `/teach`. Any query on `/` (plan units, prefills, `?welcome=1`) shows the guide maker.
     - The page has Grade a class (main card), grade one paper, make a study guide, waiting scanner-inbox scans, recently graded sets and this year's classes.
   - **Reteach plan** (`/grade-exam/batch/[id]/reteach`, `GET/POST /api/grade-batch/[id]/reteach`, table `reteach_plans`, button on class results): needs the set's class report (topics).
     - `reteachGroups` (`lib/grading/reteach.ts`, unit-tested) picks up to 3 focus topics (class <80%, or the teacher's picks) and puts each student in one group: reteach on their weakest focus topic under 60%, extension at 80%+ on all, practice otherwise.
-    - **Student names never go to the AI** (`groupsForPrompt` sends sizes only). `ClaudeService.reteachPlan` (Sonnet 5, thinking off, about 50 s) writes JSON: objectives, warm-up, mini-lesson + worked example + misconceptions, per-group activity, exit ticket, follow-up. `parseReteachPlan` reads it.
+    - **Student names never go to the AI** (`groupsForPrompt` sends sizes only). `ClaudeService.reteachPlan` writes JSON: objectives, warm-up, mini-lesson + worked example + misconceptions, per-group activity, exit ticket, follow-up. `parseReteachPlan` reads it.
+      - It runs on GRADING_MODEL, Sonnet 5.5. **Thinking off on Sonnet 5.5 is `{type:'between_tools'}`; `{type:'disabled'}` is a 400.**
+      - Detail `quick` / `standard` (default) / `detailed` sets word budgets and max_tokens. Measured: 14 s / ~400 words, 22 s / ~900, 39 s / ~1,900.
+      - GET returns topic scores with `recommended` (the default focus), pre-selected and starred in the UI.
     - Export (`lib/grading/reteach-export.ts`, `lib/grading/docx.ts`, unit-tested): per-section rich-HTML Copy for Planbook-style planners, Copy all, Word (.docx), Print. "Make their practice set" per group opens the guide maker (prefill `class-area`).
     - **Planbook (planbook.com and PlanbookEdu) has no API** (researched 2026-10-13). The only import is a CSV with unpublished columns, so pasting sections and attaching the Word file is the path.
 - **Review screen helpers (2026-10-13)**:

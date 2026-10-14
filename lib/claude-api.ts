@@ -2435,12 +2435,20 @@ Never name or number individual students. No em dashes. Reply with JSON only:
    * the class's weakest topics, the mistakes behind them and the small groups
    * (sizes only, never names) become one lesson as JSON. Sonnet 5, thinking off.
    */
-  async reteachPlan(input: string, meta: { examTitle?: string | null; className?: string | null; minutes: number }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+  async reteachPlan(input: string, meta: { examTitle?: string | null; className?: string | null; minutes: number; detail?: 'quick' | 'standard' | 'detailed' }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
     const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
+    // How wordy: shorter plans also come back faster.
+    const detail = meta.detail ?? 'standard'
+    const style = {
+      quick: 'KEEP IT SHORT: a plan the teacher can glance at mid-lesson. Every step, activity and move is one short line (under 15 words). Steps: 3-4. Misconceptions: 2-3. Worked example: 3-4 short steps. Exit ticket: 2 questions. About 250-350 words in total.',
+      standard: 'Be concise: each step, activity and teacher move is one or two sentences. Steps: 3-5. Misconceptions: 3. Exit ticket: 3 questions. About 450-650 words in total.',
+      detailed: 'Be thorough: full sentences, with the actual problems written out for warm-up and group work, and specific teacher prompts. About 900-1300 words in total.',
+    }[detail]
     const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 6000,
-      thinking: { type: 'disabled' },
+      model: GRADING_MODEL,
+      max_tokens: detail === 'detailed' ? 6000 : detail === 'standard' ? 3500 : 2000,
+      // Sonnet 5.5 rejects {type:'disabled'}; 'between_tools' is its no-thinking setting.
+      thinking: { type: 'between_tools' } as unknown as Anthropic.ThinkingConfigParam,
       messages: [{
         role: 'user',
         content: `A teacher graded a class set${about ? ` (${about})` : ''} and wants to reteach what the class got wrong in one ${meta.minutes}-minute lesson. Here is the evidence:
@@ -2455,7 +2463,7 @@ Write the lesson as JSON. Make it specific to these mistakes, not a generic less
 - "groups": one entry per group listed above, same "key": {"key", "minutes", "activity": what that group does (write real problems where useful), "teacherMove": what the teacher does with them}. Extension groups get a harder task, not more of the same.
 - "exitTicket": 2-4 short questions on the focus topics, each {"question", "answer"}.
 - "followUp": one or two sentences on homework or what to check next time.
-Minutes across warm-up, mini-lesson, group work and exit ticket must add up to about ${meta.minutes}. Never name or number individual students. Write math in plain text with Unicode (x², →, ×), no LaTeX. No em dashes. Reply with JSON only.`,
+Minutes across warm-up, mini-lesson, group work and exit ticket must add up to about ${meta.minutes}. ${style} Never name or number individual students. Write math in plain text with Unicode (x², →, ×), no LaTeX. No em dashes. Reply with JSON only.`,
       }],
     })
     const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('')

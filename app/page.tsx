@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import UploadPageRedesigned from "@/components/upload-page-redesigned"
 import NavigationHeader from "@/components/navigation-header"
@@ -29,8 +29,12 @@ export default function Home() {
   // Teachers start on their teaching home (/teach); "/" with any query (?new=1
   // from New Guide, plan units, prefills, ?welcome=1) is the guide maker for them too.
   const [toTeacherHome, setToTeacherHome] = useState(false)
+  // The query as the page opened: the form clears it (history.replaceState)
+  // when it reads a prefill, which used to bounce teachers to /teach mid-build.
+  const openedWith = useRef<string | null>(null)
+  if (openedWith.current === null && typeof window !== 'undefined') openedWith.current = window.location.search
   useEffect(() => {
-    if (user?.user_type !== 'teacher' || window.location.search) return
+    if (user?.user_type !== 'teacher' || openedWith.current) return
     setToTeacherHome(true)
     router.replace('/teach')
   }, [user, router])
