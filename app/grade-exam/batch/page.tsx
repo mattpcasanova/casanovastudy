@@ -145,6 +145,7 @@ function BatchGrading() {
   const [inboxItem, setInboxItem] = useState<string | null>(null)
   // Page open full size on the review screen (index into pages).
   const [viewing, setViewing] = useState<number | null>(null)
+  const [onlyToCheck, setOnlyToCheck] = useState(false)
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/classes")
@@ -649,36 +650,101 @@ function BatchGrading() {
           )}
           <datalist id="roster-names">{roster.map((r) => <option key={r.id} value={fullName(r)} />)}</datalist>
 
+          {/* How the names stand: matched / to check / needing a name. */}
+          {papers.length > 0 && (() => {
+            const counts = { sure: 0, check: 0, none: 0 }
+            papers.forEach((p) => { counts[paperMatchState(p, roster.length > 0)] += 1 })
+            const toCheck = counts.check + counts.none
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 text-sm ring-1 ring-slate-200">
+                {roster.length > 0 ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-800"><CheckCircle2 className="h-4 w-4" />{counts.sure} matched</span>
+                    {counts.check > 0 && <span className="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800">{counts.check} to check</span>}
+                    {counts.none > 0 && <span className="rounded-full bg-rose-50 px-3 py-1 font-medium text-rose-800">{counts.none} need{counts.none === 1 ? "s" : ""} a name</span>}
+                  </>
+                ) : (
+                  <span className="text-slate-600">No class picked, so names aren&apos;t checked against a class list.</span>
+                )}
+                {toCheck > 0 && roster.length > 0 && (
+                  <label className="ml-auto flex items-center gap-2 text-slate-600">
+                    <input type="checkbox" checked={onlyToCheck} onChange={(e) => setOnlyToCheck(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                    Show only the ones to check
+                  </label>
+                )}
+              </div>
+            )
+          })()}
+
           <ul className="space-y-3">
             {papers.map((paper, n) => {
+              const state = paperMatchState(paper, roster.length > 0)
+              if (onlyToCheck && state === "sure") return null
               const r = results[paper.key]
+              const row = roster.find((x) => x.id === paper.match.rosterId)
+              const duplicate = rosterCheck.duplicates.has(paper.key)
+              const tone = duplicate ? STATE_TONE.check : STATE_TONE[state]
               return (
-                <li key={paper.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">{n + 1}</span>
-                    <input
-                      value={paper.name}
-                      onChange={(e) => setNames((m) => ({ ...m, [paper.key]: e.target.value }))}
-                      disabled={phase === "grading"}
-                      aria-label="Student name"
-                      list={roster.length ? "roster-names" : undefined}
-                      className={cn("min-w-0 flex-1 rounded-lg border px-2 py-1 font-semibold text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:outline-none disabled:bg-transparent", rosterCheck.duplicates.has(paper.key) ? "border-amber-400 bg-amber-50" : "border-transparent")}
-                    />
-                    {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700" title="Name taken from the file name">From file name</span>}
-                    {paper.stamp
-                      ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Read from the name stamp">Stamped{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>
-                      : roster.length > 0 && <RosterChip match={paper.match} roster={roster} onAccept={(name) => setNames((m) => ({ ...m, [paper.key]: name }))} disabled={phase === "grading"} />}
-                    {paper.missing.length > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
-                    <PaperBadge status={r} now={now} />
-                    {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="text-sm font-semibold text-blue-700 hover:underline">Report</Link>}
-                    {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="text-sm font-semibold text-blue-700 hover:underline">Retry</button>}
+                <li key={paper.key} className={cn("overflow-hidden rounded-2xl border bg-white shadow-sm", tone.border)}>
+                  <div className={cn("flex flex-wrap items-center gap-3 border-l-4 px-4 py-3", tone.edge, tone.bg)}>
+                    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold", tone.avatar)} aria-hidden>
+                      {state === "sure" && paper.name ? initials(paper.name) : n + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <input
+                        value={paper.name}
+                        onChange={(e) => setNames((m) => ({ ...m, [paper.key]: e.target.value }))}
+                        disabled={phase === "grading"}
+                        aria-label={`Student ${n + 1} name`}
+                        list={roster.length ? "roster-names" : undefined}
+                        placeholder="Type or pick the student's name"
+                        className="w-full rounded-lg border border-transparent bg-transparent px-1.5 py-0.5 text-base font-semibold text-slate-900 hover:border-slate-200 hover:bg-white focus:border-blue-400 focus:bg-white focus:outline-none disabled:hover:border-transparent"
+                      />
+                      <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 px-1.5 text-xs", tone.text)}>
+                        {duplicate ? (
+                          <span className="font-medium">Same student as another paper: check the name</span>
+                        ) : state === "sure" ? (
+                          <span className="inline-flex items-center gap-1 font-medium"><CheckCircle2 className="h-3.5 w-3.5" />Matched to the class list{row?.studentNumber ? ` · ID ${row.studentNumber}` : ""}</span>
+                        ) : state === "check" && row ? (
+                          <span className="inline-flex items-center gap-2 font-medium">
+                            Is this {fullName(row)}?
+                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="rounded-md bg-amber-600 px-2 py-0.5 font-semibold text-white hover:bg-amber-700">Yes</button>
+                          </span>
+                        ) : state === "none" && roster.length > 0 ? (
+                          <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
+                            {/^Student \d+$/.test(paper.name) ? "Needs a name: open page 1 to read it" : "Not on the class list"}
+                            {/* The class-list names with no paper yet are the likely ones. */}
+                            {rosterCheck.missing.length > 0 && rosterCheck.missing.length <= 4 && phase === "review" && (
+                              <>
+                                <span className="text-slate-500">· No paper yet:</span>
+                                {rosterCheck.missing.map((m) => (
+                                  <button key={m.id} type="button" onClick={() => setNames((x) => ({ ...x, [paper.key]: fullName(m) }))} className="rounded-md bg-white px-2 py-0.5 font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-blue-50 hover:text-blue-800">{fullName(m)}</button>
+                                ))}
+                              </>
+                            )}
+                          </span>
+                        ) : (
+                          <span>{paper.pages.length} page{paper.pages.length === 1 ? "" : "s"}</span>
+                        )}
+                        {roster.length > 0 && <span className="text-slate-400">· {paper.pages.length} page{paper.pages.length === 1 ? "" : "s"}</span>}
+                        {paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">Name stamp{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>}
+                        {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">From file name</span>}
+                        {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <PaperBadge status={r} now={now} />
+                      {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-200 hover:bg-blue-50">Report</Link>}
+                      {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="text-sm font-semibold text-blue-700 hover:underline">Retry</button>}
+                    </div>
                   </div>
-                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                    {paper.pages.map((i) => (
+                  <div className="flex gap-2 overflow-x-auto px-4 py-3">
+                    {paper.pages.map((i, k) => (
                       <PageThumb
                         key={i}
                         page={pages[i]}
                         number={i + 1}
+                        firstOfPaper={k === 0}
                         startsPaper={starts[i]}
                         editable={phase === "review"}
                         onToggleStart={i === paper.pages[0] && n === 0 ? undefined : () => setStarts((s) => s.map((v, j) => (j === i ? !v : v)))}
@@ -730,22 +796,22 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
   return out
 }
 
-/** How a paper's name lines up with the class roster. */
-function RosterChip({ match, roster, onAccept, disabled }: { match: ReturnType<typeof matchRoster>; roster: RosterRow[]; onAccept: (name: string) => void; disabled?: boolean }) {
-  const row = roster.find((r) => r.id === match.rosterId)
-  if (match.confidence === "sure" && row) {
-    const name = fullName(row)
-    return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title={`Matched to ${name} on the roster`}>On roster</span>
-  }
-  if (match.confidence === "check" && row) {
-    return (
-      <button type="button" disabled={disabled} onClick={() => onAccept(fullName(row))} className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200 hover:bg-amber-100">
-        {fullName(row)}?
-      </button>
-    )
-  }
-  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Not on roster</span>
+type MatchState = "sure" | "check" | "none"
+
+/** Where a paper's name stands against the class list (stamps and confident matches are "sure"). */
+function paperMatchState(paper: { match: ReturnType<typeof matchRoster>; stamp?: unknown }, hasRoster: boolean): MatchState {
+  if (!hasRoster) return "none"
+  if (paper.stamp || paper.match.confidence === "sure") return "sure"
+  return paper.match.confidence === "check" ? "check" : "none"
 }
+
+const STATE_TONE: Record<MatchState, { border: string; edge: string; bg: string; avatar: string; text: string }> = {
+  sure: { border: "border-emerald-200", edge: "border-l-emerald-500", bg: "bg-emerald-50/50", avatar: "bg-emerald-600 text-white", text: "text-emerald-800" },
+  check: { border: "border-amber-200", edge: "border-l-amber-500", bg: "bg-amber-50/60", avatar: "bg-amber-500 text-white", text: "text-amber-900" },
+  none: { border: "border-slate-200", edge: "border-l-rose-400", bg: "bg-rose-50/40", avatar: "bg-slate-200 text-slate-700", text: "text-rose-800" },
+}
+
+const initials = (name: string) => name.split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("")
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -829,13 +895,13 @@ function AnswerKeyPanel({ answerKey, editable, onChange, onRedo }: { answerKey: 
   )
 }
 
-function PageThumb({ page, number, startsPaper, editable, onToggleStart, onRemove, onOpen }: { page: Page; number: number; startsPaper: boolean; editable: boolean; onToggleStart?: () => void; onRemove: () => void; onOpen?: () => void }) {
+function PageThumb({ page, number, firstOfPaper = false, startsPaper, editable, onToggleStart, onRemove, onOpen }: { page: Page; number: number; firstOfPaper?: boolean; startsPaper: boolean; editable: boolean; onToggleStart?: () => void; onRemove: () => void; onOpen?: () => void }) {
   return (
     <div className="group relative shrink-0">
       {page.thumb ? (
         <button type="button" onClick={onOpen} className="block cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label={`Open page ${number} full size`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={page.thumb} alt={`Page ${number}`} className="h-36 w-28 rounded-lg border border-slate-200 object-cover object-top" />
+          <img src={page.thumb} alt={`Page ${number}`} className={cn("h-40 w-32 rounded-lg border object-cover object-top shadow-sm transition hover:shadow-md", firstOfPaper ? "border-slate-300" : "border-slate-200")} />
         </button>
       ) : (
         <div className="flex h-36 w-28 flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-2 text-center text-[0.65rem] text-slate-500"><FileText className="h-6 w-6" />{page.label}</div>
