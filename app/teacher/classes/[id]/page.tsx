@@ -236,8 +236,9 @@ function ClassView({ id }: { id: string }) {
                 <RosterItem
                   key={row.id}
                   row={row}
-                  onRename={async (firstName, lastName) => {
-                    if (await patchRow(row, { firstName, lastName })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, firstName, lastName } : x)) ?? null)
+                  classId={id}
+                  onSave={async (fields) => {
+                    if (await patchRow(row, fields)) await load() // reload: a new email may have linked their account
                   }}
                   onUnlink={async () => {
                     if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null } : x)) ?? null)
@@ -290,7 +291,7 @@ function ClassView({ id }: { id: string }) {
         </div>
       </div>
 
-      {gradebook && <ClassGradebook tests={gradebook.tests} rows={gradebook.rows} className={cls.name} />}
+      {gradebook && <ClassGradebook tests={gradebook.tests} rows={gradebook.rows} className={cls.name} classId={cls.id} />}
 
       {batches.length > 0 && (
         <ClassAreas
@@ -357,31 +358,47 @@ function DetailsForm({ cls, onSave, onCancel }: { cls: ClassInfo; onSave: (year:
   )
 }
 
-function RosterItem({ row, onRename, onUnlink, onRemove, onLeft }: { row: RosterRow; onRename: (first: string, last: string) => void; onUnlink: () => void; onRemove: () => void; onLeft: (left: boolean) => void }) {
+function RosterItem({ row, classId, onSave, onUnlink, onRemove, onLeft }: {
+  row: RosterRow
+  classId: string
+  onSave: (fields: { firstName: string; lastName: string; email: string; studentNumber: string }) => void
+  onUnlink: () => void
+  onRemove: () => void
+  onLeft: (left: boolean) => void
+}) {
   const [editing, setEditing] = useState(false)
   const [first, setFirst] = useState(row.firstName)
   const [last, setLast] = useState(row.lastName)
+  const [email, setEmail] = useState(row.email ?? "")
+  const [number, setNumber] = useState(row.studentNumber ?? "")
   const [confirm, setConfirm] = useState(false)
 
   if (editing) {
     return (
-      <li className="flex flex-wrap items-center gap-2 py-2">
-        <input value={first} onChange={(e) => setFirst(e.target.value)} className="w-36 rounded-md border px-2 py-1 text-sm" aria-label="First name" autoFocus />
-        <input value={last} onChange={(e) => setLast(e.target.value)} className="w-40 rounded-md border px-2 py-1 text-sm" aria-label="Last name" />
-        <Button size="sm" onClick={() => { onRename(first.trim(), last.trim()); setEditing(false) }}>Save</Button>
-        <Button size="sm" variant="ghost" onClick={() => { setFirst(row.firstName); setLast(row.lastName); setEditing(false) }}>Cancel</Button>
+      <li className="space-y-2 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={first} onChange={(e) => setFirst(e.target.value)} className="w-36 rounded-md border px-2 py-1 text-sm" aria-label="First name" placeholder="First name" autoFocus />
+          <input value={last} onChange={(e) => setLast(e.target.value)} className="w-40 rounded-md border px-2 py-1 text-sm" aria-label="Last name" placeholder="Last name" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="w-60 rounded-md border px-2 py-1 text-sm" aria-label="School email" placeholder="School email (links their account)" />
+          <input value={number} onChange={(e) => setNumber(e.target.value)} className="w-32 rounded-md border px-2 py-1 text-sm" aria-label="Student ID" placeholder="Student ID" />
+          <Button size="sm" onClick={() => { onSave({ firstName: first.trim(), lastName: last.trim(), email: email.trim(), studentNumber: number.trim() }); setEditing(false) }}>Save</Button>
+          <Button size="sm" variant="ghost" onClick={() => { setFirst(row.firstName); setLast(row.lastName); setEmail(row.email ?? ""); setNumber(row.studentNumber ?? ""); setEditing(false) }}>Cancel</Button>
+        </div>
       </li>
     )
   }
 
   return (
     <li className="group flex items-center gap-2 py-2">
-      <span className="flex-1 text-sm text-slate-900">
-        {row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}
-        {row.studentNumber && <span className="ml-2 text-xs text-slate-400">#{row.studentNumber}</span>}
+      <Link href={`/teacher/classes/${classId}/students/${row.id}`} className="min-w-0 flex-1 rounded-md text-sm text-slate-900 hover:text-blue-700">
+        <span className="group-hover:underline">{row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}</span>
+        {row.studentNumber && <span className="ml-2 text-xs text-slate-400">ID {row.studentNumber}</span>}
+        {row.email && <span className="ml-2 hidden text-xs text-slate-400 sm:inline">{row.email}</span>}
         {row.left && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Left</span>}
-      </span>
-      {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><Link2 className="h-3 w-3" />Joined</span>}
+      </Link>
+      {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Linked to the student's Casanova Study account"><Link2 className="h-3 w-3" />Linked</span>}
       {confirm ? (
         <span className="flex items-center gap-1 text-xs">
           <button type="button" onClick={onRemove} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove</button>
@@ -389,7 +406,7 @@ function RosterItem({ row, onRename, onUnlink, onRemove, onLeft }: { row: Roster
         </span>
       ) : (
         <span className="flex items-center opacity-60 group-hover:opacity-100">
-          <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label={`Rename ${row.firstName}`}><Pencil className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label={`Edit ${row.firstName}`} title="Edit name, email or ID"><Pencil className="h-3.5 w-3.5" /></button>
           <button type="button" onClick={() => onLeft(!row.left)} className="rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100" title={row.left ? "Back in this class" : "Left the class (keeps their graded work)"}>{row.left ? "Back" : "Left"}</button>
           {row.linked && <button type="button" onClick={onUnlink} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Unlink account" title="Unlink this student's account"><Unlink className="h-3.5 w-3.5" /></button>}
           <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>

@@ -181,6 +181,23 @@ async function main() {
   const hook = await fetch(`${BASE}/api/inbound/scan`, { method: 'POST', body: '{}', headers: { 'svix-id': 'x', 'svix-timestamp': '1', 'svix-signature': 'v1,x' } })
   check('webhook refuses unsigned or unconfigured requests', hook.status === 401 || hook.status === 503, `got ${hook.status}`)
 
+  console.log('\n== Student page ==')
+  r = await t('GET', `/api/classes/${cls.id}/roster`)
+  const seanRow = r.json.roster.find((x) => x.firstName === 'Sean')
+  const maryRow = r.json.roster.find((x) => x.firstName === 'Mary Ann')
+  r = await t('GET', `/api/classes/${cls.id}/students/${seanRow.id}`)
+  check('a joined student shows graded work and their own studying', r.status === 200 && r.json.student.joined === true && r.json.work.some((w) => w.kind === 'paper') && r.json.study !== null, JSON.stringify(r.json?.student))
+  r = await t('GET', `/api/classes/${cls.id}/students/${maryRow.id}`)
+  check('a student who has not joined: graded work only, studying stays private', r.status === 200 && r.json.student.joined === false && r.json.study === null)
+  r = await s('GET', `/api/classes/${cls.id}/students/${seanRow.id}`)
+  check("students can't open the teacher's student page", r.status === 403, `got ${r.status}`)
+  r = await t('PATCH', `/api/classes/${cls.id}/roster/${maryRow.id}`, { email: 'not-an-email' })
+  check('bad emails are refused', r.status === 400)
+  r = await t('PATCH', `/api/classes/${cls.id}/roster/${maryRow.id}`, { email: 'Mary.Lee@School.org', studentNumber: '777' })
+  r = await t('GET', `/api/classes/${cls.id}/roster`)
+  const maryNow = r.json.roster.find((x) => x.id === maryRow.id)
+  check('email and student ID can be edited', maryNow.email === 'mary.lee@school.org' && maryNow.studentNumber === '777', JSON.stringify(maryNow))
+
   console.log('\n== Name-stamped tests ==')
   r = await t('POST', '/api/stamped-tests', { title: 'E2E Unit test', pages: 4, classIds: [cls.id] })
   const copies = r.json?.classes?.[0]?.copies ?? []

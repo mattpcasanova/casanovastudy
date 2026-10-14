@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missi
 
 type Sort = { by: "name" | "average" | string; dir: 1 | -1 }
 
-export function ClassGradebook({ tests, rows, className }: { tests: GradebookTest[]; rows: GradebookRow[]; className: string }) {
+export function ClassGradebook({ tests, rows, className, classId }: { tests: GradebookTest[]; rows: GradebookRow[]; className: string; classId?: string }) {
   const [sort, setSort] = useState<Sort>({ by: "name", dir: 1 })
   const [showLeft, setShowLeft] = useState(false)
   const leftCount = rows.filter((r) => r.left).length
@@ -89,7 +89,7 @@ export function ClassGradebook({ tests, rows, className }: { tests: GradebookTes
             {sorted.map((r) => (
               <tr key={r.key} className={cn(r.left && "text-slate-400")}>
                 <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 py-1.5 font-medium">
-                  {r.name}{r.left && <span className="ml-1.5 text-xs font-normal">(left)</span>}{!r.rosterId && <span className="ml-1.5 text-xs font-normal text-amber-700" title="Not matched to a roster name">?</span>}
+                  {r.rosterId && classId ? <Link href={`/teacher/classes/${classId}/students/${r.rosterId}`} className="hover:text-blue-700 hover:underline">{r.name}</Link> : r.name}{r.left && <span className="ml-1.5 text-xs font-normal">(left)</span>}{!r.rosterId && <span className="ml-1.5 text-xs font-normal text-amber-700" title="Not matched to a roster name">?</span>}
                 </td>
                 <td className="px-2 py-1.5 font-semibold">{r.average === null ? "-" : `${Math.round(r.average)}%`}</td>
                 {tests.map((t) => {
