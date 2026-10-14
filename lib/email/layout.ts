@@ -79,7 +79,7 @@ export function emailLayout({ preheader, body, footer, siteUrl }: { preheader: s
             <td bgcolor="${BRAND.blueDark}" style="background-color:${BRAND.blueDark};background-image:linear-gradient(120deg,${BRAND.blueDark} 0%,${BRAND.blue} 55%,${BRAND.cyan} 100%);border-radius:16px 16px 0 0;padding:20px 28px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="background-color:#0f172a;border-radius:10px;width:36px;height:36px;" align="center" valign="middle">
+                  <td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:10px;width:36px;height:36px;" align="center" valign="middle">
                     <img src="${logo}" width="26" height="26" alt="" style="display:block;border:0;">
                   </td>
                   <td style="padding-left:10px;font-family:${SANS};font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">Casanova Study</td>
