@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import UploadPageRedesigned from "@/components/upload-page-redesigned"
 import NavigationHeader from "@/components/navigation-header"
@@ -14,6 +14,7 @@ import { prepareMaterials, type PreparedImage } from "@/lib/uploads/prepare"
 import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
+import { useAuth } from "@/lib/auth"
 
 export default function Home() {
   const router = useRouter()
@@ -24,6 +25,15 @@ export default function Home() {
   const [pending, setPending] = useState<{ title: string; format: string }>({ title: '', format: '' })
   const { toast } = useToast()
   const { openPremium, refresh: refreshPlan } = usePlan()
+  const { user } = useAuth()
+  // Teachers start on their teaching home (/teach); "/" with any query (?new=1
+  // from New Guide, plan units, prefills, ?welcome=1) is the guide maker for them too.
+  const [toTeacherHome, setToTeacherHome] = useState(false)
+  useEffect(() => {
+    if (user?.user_type !== 'teacher' || window.location.search) return
+    setToTeacherHome(true)
+    router.replace('/teach')
+  }, [user, router])
 
   const handleGenerateStudyGuide = async (data: StudyGuideData) => {
     setIsGenerating(true)
@@ -146,6 +156,8 @@ export default function Home() {
       setStatusMessage('')
     }
   }
+
+  if (toTeacherHome) return <main className="min-h-screen bg-slate-50" />
 
   return (
     <AuthGate>

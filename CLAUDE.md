@@ -155,6 +155,15 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - `/api/google/classroom/{start,callback,courses,import}`: the token is kept 1 hour in `google_classroom_tokens` (service only) and deleted after import. Courses become classes (`classes.google_course_id`, re-import updates) with `class_roster.email`.
     - `linkRosterByEmail` links names to student accounts with that email (also run on every roster load).
     - Needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the OAuth client used for Supabase Google sign-in), the Classroom API enabled, `/api/google/classroom/callback` as an authorized redirect URI, and the scopes on the consent screen (sensitive scopes need Google verification for public use). The button hides until it's configured.
+- **Teacher home + reteach plans (2026-10-13, migration 058)**:
+  - **Teacher home `/teach`** (`GET /api/teacher/home`): signed-in teachers opening `/` with no query are sent there; students and signed-out visitors keep the guide maker.
+    - For teachers, "New Guide" links to `/?new=1` and the logo to `/teach`. Any query on `/` (plan units, prefills, `?welcome=1`) shows the guide maker.
+    - The page has Grade a class (main card), grade one paper, make a study guide, waiting scanner-inbox scans, recently graded sets and this year's classes.
+  - **Reteach plan** (`/grade-exam/batch/[id]/reteach`, `GET/POST /api/grade-batch/[id]/reteach`, table `reteach_plans`, button on class results): needs the set's class report (topics).
+    - `reteachGroups` (`lib/grading/reteach.ts`, unit-tested) picks up to 3 focus topics (class <80%, or the teacher's picks) and puts each student in one group: reteach on their weakest focus topic under 60%, extension at 80%+ on all, practice otherwise.
+    - **Student names never go to the AI** (`groupsForPrompt` sends sizes only). `ClaudeService.reteachPlan` (Sonnet 5, thinking off, about 50 s) writes JSON: objectives, warm-up, mini-lesson + worked example + misconceptions, per-group activity, exit ticket, follow-up. `parseReteachPlan` reads it.
+    - Export (`lib/grading/reteach-export.ts`, `lib/grading/docx.ts`, unit-tested): per-section rich-HTML Copy for Planbook-style planners, Copy all, Word (.docx), Print. "Make their practice set" per group opens the guide maker (prefill `class-area`).
+    - **Planbook (planbook.com and PlanbookEdu) has no API** (researched 2026-10-13). The only import is a CSV with unpublished columns, so pasting sections and attaching the Word file is the path.
 - **Review screen helpers (2026-10-13)**:
   - **One student per file**: when 2+ files are named like people ("Mya.pdf", "Miller, Sean.pdf", "Sean Miller P2.pdf"; `nameFromFileName` / `looksLikeOnePerFile` in `lib/grading/file-names.ts`, unit-tested), each file becomes that student's paper, with the name from the file (roster spelling when it matches). Those pages skip the AI header read and are tagged "From file name". The setup checkbox overrides the guess; name stamps still win.
   - **Full-size page viewer** (`PageViewer` in the batch page): click any thumbnail to see the page large with the student's name box, split/remove and arrow-key paging.

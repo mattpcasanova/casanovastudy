@@ -76,7 +76,7 @@ export default function NavigationHeader() {
           {/* Logo lockup — the brand mark is a dim neon-on-dark image, so we show
               the (brightened) icon on a dark chip and set the wordmark as crisp
               white text, guaranteeing it reads on the blue bar. */}
-          <Link href="/" className="group flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]">
+          <Link href={mounted && isTeacher ? '/teach' : '/'} className="group flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]">
             <Image
               src="/images/casanova-study-icon.png"
               alt="Casanova Study"
@@ -94,7 +94,7 @@ export default function NavigationHeader() {
             <nav className="flex items-center gap-2">
               {/* Study guides — the core of the product, so plain top-level links */}
               {[
-                { href: '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
+                { href: isTeacher ? '/?new=1' : '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
                 { href: '/create-guide', label: 'Custom Builder', icon: PenSquare, active: !!pathname?.startsWith('/create-guide'), show: mounted && !!user },
                 { href: '/my-guides', label: 'My Guides', icon: FileText, active: !!(pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')), show: mounted && !!user },
                 { href: '/progress', label: 'Progress', icon: TrendingUp, active: !!pathname?.startsWith('/progress'), show: mounted && !!user },
@@ -372,7 +372,7 @@ export default function NavigationHeader() {
             {/* Study Guides section */}
             <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Study Guides</p>
             <Link
-              href="/"
+              href={isTeacher ? '/?new=1' : '/'}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                 pathname === '/' ? 'bg-white/20' : 'hover:bg-white/10'
               }`}

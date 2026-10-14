@@ -2430,6 +2430,39 @@ Never name or number individual students. No em dashes. Reply with JSON only:
     return { text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens } }
   }
 
+  /**
+   * Reteach plan for a graded set (lib/grading/reteach.ts builds the inputs):
+   * the class's weakest topics, the mistakes behind them and the small groups
+   * (sizes only, never names) become one lesson as JSON. Sonnet 5, thinking off.
+   */
+  async reteachPlan(input: string, meta: { examTitle?: string | null; className?: string | null; minutes: number }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+    const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
+    const response = await this.anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: 6000,
+      thinking: { type: 'disabled' },
+      messages: [{
+        role: 'user',
+        content: `A teacher graded a class set${about ? ` (${about})` : ''} and wants to reteach what the class got wrong in one ${meta.minutes}-minute lesson. Here is the evidence:
+
+${input}
+
+Write the lesson as JSON. Make it specific to these mistakes, not a generic lesson on the topic:
+- "title": short lesson title.
+- "objectives": 2-3 "Students can..." statements.
+- "warmUp": {"minutes", "task": a short task that surfaces the main mistake (write the actual problem), "lookFor": what to watch for}.
+- "miniLesson": {"minutes", "steps": 3-6 teacher steps, "workedExample": {"problem", "solution": ordered steps}, "misconceptions": [{"mistake": what students actually did, "fix": how to correct it}]}.
+- "groups": one entry per group listed above, same "key": {"key", "minutes", "activity": what that group does (write real problems where useful), "teacherMove": what the teacher does with them}. Extension groups get a harder task, not more of the same.
+- "exitTicket": 2-4 short questions on the focus topics, each {"question", "answer"}.
+- "followUp": one or two sentences on homework or what to check next time.
+Minutes across warm-up, mini-lesson, group work and exit ticket must add up to about ${meta.minutes}. Never name or number individual students. Write math in plain text with Unicode (x², →, ×), no LaTeX. No em dashes. Reply with JSON only.`,
+      }],
+    })
+    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('')
+    console.log('Reteach plan usage:', response.usage)
+    return { text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens } }
+  }
+
   async gradeShortAnswer(params: {
     question: string
     sampleAnswer: string
