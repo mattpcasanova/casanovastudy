@@ -47,3 +47,43 @@ describe('one-column lists', () => {
     ])
   })
 })
+
+describe('Focus attendance export', () => {
+  it('finds the heading row under a title row, ignores HTML headings, fixes ALL CAPS names', () => {
+    const csv = [
+      '"Previous Days",,,," ",,"Student Information",,,,"Oct 13, 2026"',
+      '"Aug 10 2026","Aug 11 2026","Today\'s Attendance","Comment","Student","","Student ID","Grade","Course Title","Days Absent","Present<br /><span>(<span class=""x"">0</span>)</span>"',
+      '"P","P","","","ABRAHAM, DANIEL JACOB","","614029077","12","AP STAT","2",""',
+      '"P","AU","","","BALDO, JASON O","","614143378","12","AP STAT","0",""',
+      '"P","P","","","O\'NEIL-SMITH, MARY ANN","","614000001","11","AP STAT","1",""',
+      '"P","P","","","BLUZMANIS, TOBIAS MICHAEL (toby)","","615019568","12","AP STAT","0",""',
+    ].join('\n')
+    const { classes } = parseClassImport(csv)
+    expect(classes).toHaveLength(1)
+    expect(classes[0].name).toBe('AP STAT')
+    expect(classes[0].students).toEqual([
+      { firstName: 'Daniel Jacob', lastName: 'Abraham', studentNumber: '614029077' },
+      { firstName: 'Jason', lastName: 'Baldo', studentNumber: '614143378' },
+      { firstName: 'Mary Ann', lastName: "O'Neil-Smith", studentNumber: '614000001' },
+      { firstName: 'Tobias Michael (Toby)', lastName: 'Bluzmanis', studentNumber: '615019568' },
+    ])
+  })
+})
+
+describe('Google Classroom grade export', () => {
+  it('reads names and emails and skips the Date / Points / Class average rows', () => {
+    const csv = [
+      'Last Name,First Name,Email Address,Unit 1 Quiz,Lab 2',
+      'Date,,,"Sep 4, 2026","Sep 11, 2026"',
+      'Points,,,20,10',
+      'Class average,,,16.5,8',
+      'Miller,Sean,Sean.Miller@school.org,18,9',
+      'Kim,Ava,ava.kim@school.org,15,',
+    ].join('\n')
+    const { classes } = parseClassImport(csv, 'AP Chem')
+    expect(classes[0].students).toEqual([
+      { firstName: 'Sean', lastName: 'Miller', email: 'sean.miller@school.org' },
+      { firstName: 'Ava', lastName: 'Kim', email: 'ava.kim@school.org' },
+    ])
+  })
+})

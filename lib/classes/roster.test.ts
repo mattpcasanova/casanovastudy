@@ -14,7 +14,7 @@ describe('parseRosterPaste', () => {
       { firstName: 'Sean', lastName: 'Miller', studentNumber: '101' },
       { firstName: 'Ava', lastName: 'Kim', studentNumber: '102' },
     ])
-    expect(parseRosterPaste('Student Name,Period,Email\nSean Miller,2,s@x.org')).toEqual([{ firstName: 'Sean', lastName: 'Miller' }])
+    expect(parseRosterPaste('Student Name,Period,Email\nSean Miller,2,s@x.org')).toEqual([{ firstName: 'Sean', lastName: 'Miller', email: 's@x.org' }])
   })
   it('treats header-less two-column rows as Last<TAB>First', () => {
     expect(parseRosterPaste('Miller\tSean')).toEqual([{ firstName: 'Sean', lastName: 'Miller' }])

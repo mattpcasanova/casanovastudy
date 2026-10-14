@@ -8,6 +8,8 @@ export interface ImportedStudent {
   firstName: string
   lastName: string
   studentNumber?: string
+  /** School email (Google Classroom's grade export has it): links the student's account automatically. */
+  email?: string
 }
 
 export interface ImportedClass {
@@ -40,14 +42,30 @@ export function parseDelimited(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c))
 }
 
-type Column = 'first' | 'last' | 'name' | 'id' | 'period' | 'course'
+/** "MILLER" -> "Miller", "O'NEIL-SMITH" -> "O'Neil-Smith" (only for all-caps names). */
+function titleCaseIfShouting(s: string): string {
+  // Nicknames in brackets don't count ("TOBIAS (toby)" is still shouting).
+  const outside = s.replace(/\([^)]*\)/g, '')
+  if (!/\p{Lu}{2}/u.test(outside) || /\p{Ll}/u.test(outside)) return s
+  return s.toLowerCase().replace(/(^|[\s'’(-])(\p{Ll})/gu, (_, sep: string, c: string) => sep + c.toUpperCase())
+}
+
+/** Gradebook names: fix ALL CAPS, drop a trailing middle initial ("JASON O" -> "Jason"). */
+export function tidyName(n: { firstName: string; lastName: string }): { firstName: string; lastName: string } {
+  const first = titleCaseIfShouting(n.firstName).replace(/(\S)\s+\p{L}\.?$/u, '$1')
+  return { firstName: first, lastName: titleCaseIfShouting(n.lastName) }
+}
+
+type Column = 'first' | 'last' | 'name' | 'id' | 'period' | 'course' | 'email'
 
 function columnKind(header: string): Column | null {
-  const h = header.toLowerCase().replace(/[^a-z0-9 #]/g, ' ').replace(/\s+/g, ' ').trim()
+  // Some exports (Focus) put HTML in headings: "Present<br /><span>(0)</span>".
+  const h = header.replace(/<[^>]*>/g, ' ').toLowerCase().replace(/[^a-z0-9 #]/g, ' ').replace(/\s+/g, ' ').trim()
   if (/^(student )?first( name)?$|^given name$|^first$/.test(h)) return 'first'
   if (/^(student )?(last|sur|family)( ?name)?$/.test(h)) return 'last'
   if (/^(student )?(full )?name$|^student$|^name last first$|^last first$/.test(h)) return 'name'
   if (/^(student )?(id|number|no|#|id number|student number|local id|sis id)$|^student id$/.test(h)) return 'id'
+  if (/^(student )?(email|e mail|email address)$/.test(h)) return 'email'
   if (/^(period|per|pd|block|hour|class period)$/.test(h)) return 'period'
   if (/^(course|course name|class|class name|section|course title|subject)$/.test(h)) return 'course'
   return null
@@ -64,11 +82,15 @@ export function parseClassImport(text: string, fallbackName = 'My class'): { cla
   // A one-column list ("Student Name" then names): commas are "Last, First", not columns.
   if (rows[0].length === 1) rows = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l) => [l.trim().replace(/^"|"$/g, '')]).filter((r) => r[0])
 
-  const header = rows[0].map(columnKind)
-  const hasHeader = header.filter(Boolean).length > 0 && (header.includes('first') || header.includes('last') || header.includes('name'))
+  // The heading row isn't always first: Focus's attendance export has a
+  // "Previous Days ... Student Information" row above the real headings.
+  const isHeader = (r: string[]) => { const k = r.map(columnKind); return k.includes('first') || k.includes('last') || k.includes('name') }
+  const headerAt = rows.slice(0, 6).findIndex(isHeader)
+  const hasHeader = headerAt >= 0
+  const header = hasHeader ? rows[headerAt].map(columnKind) : []
   const idx = (k: Column) => (hasHeader ? header.indexOf(k) : -1)
-  const cols = { first: idx('first'), last: idx('last'), name: idx('name'), id: idx('id'), period: idx('period'), course: idx('course') }
-  const body = hasHeader ? rows.slice(1) : rows
+  const cols = { first: idx('first'), last: idx('last'), name: idx('name'), id: idx('id'), period: idx('period'), course: idx('course'), email: idx('email') }
+  const body = hasHeader ? rows.slice(headerAt + 1) : rows
 
   const byClass = new Map<string, ImportedClass & { seen: Set<string> }>()
   for (const r of body) {
@@ -83,11 +105,15 @@ export function parseClassImport(text: string, fallbackName = 'My class'): { cla
     } else {
       student = parseName((r[0] ?? '').replace(/^\s*(?:\d+[.)]|[-*•])\s*/, ''))
     }
-    student = { firstName: student.firstName.trim().slice(0, 60), lastName: student.lastName.trim().slice(0, 60) }
+    student = tidyName({ firstName: student.firstName.trim().slice(0, 60), lastName: student.lastName.trim().slice(0, 60) })
     if (!/\p{L}/u.test(fullName(student))) continue
+    // Summary rows in grade exports (Google Classroom: "Date", "Points", "Class average").
+    if (/^(date|due date|points|max(imum)? points|class average|average|total|mean|median)$/i.test(fullName(student))) continue
     if (!hasHeader && /^(student\s*)?names?:?$|^roster:?$/i.test(fullName(student))) continue
     const id = cols.id >= 0 ? (r[cols.id] ?? '').trim().slice(0, 40) : ''
     if (id) student.studentNumber = id
+    const email = cols.email >= 0 ? (r[cols.email] ?? '').trim().toLowerCase().slice(0, 200) : ''
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) student.email = email
 
     const course = cols.course >= 0 ? (r[cols.course] ?? '').trim().slice(0, 100) : ''
     const period = cols.period >= 0 ? (r[cols.period] ?? '').replace(/^(period|per|pd|p)\.?\s*/i, '').trim().slice(0, 20) : ''

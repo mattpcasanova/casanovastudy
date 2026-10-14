@@ -43,3 +43,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   return NextResponse.json({ added: result.added, skipped: result.skipped, roster: await loadRoster(supabase, id) })
 }
+
+// Remove every name (e.g. after a bad import). Graded papers keep their
+// scores; their link to a roster name is cleared. Owner only.
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, error } = await requireTeacher(request)
+  if (error) return error
+  const { id } = await params
+  const supabase = createAdminClient()
+  if (!(await ownedClass(supabase, user.id, id))) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+  const { error: dbError } = await supabase.from('class_roster').delete().eq('class_id', id)
+  if (dbError) return NextResponse.json({ error: 'Could not clear the list' }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

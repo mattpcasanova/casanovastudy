@@ -133,6 +133,9 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - Renames are keyed by the page they were typed on. The single grader has a class + roster picker too.
 - **Class imports, statuses, scanner inbox, areas, stamped tests, Google Classroom (2026-10-13, migrations 052-055)**:
   - **Imports**: `parseClassImport` / `parseDelimited` (`lib/classes/import.ts`, unit-tested) read any gradebook CSV/TSV or pasted columns.
+    - The heading row is found in the first 6 rows: Focus's Take Attendance export has a "Previous Days … Student Information" row above it, about 43 date columns, then Student ("LAST, FIRST MIDDLE (nick)"), Student ID and Course Title. HTML in headings is ignored.
+    - `tidyName` fixes ALL CAPS and drops a trailing middle initial. An Email column is read; Google Classroom's Grades → ⚙ → "Download all grades as CSV" gives names + emails, and its Date/Points/Class average rows are skipped.
+    - `RosterFileHelp` shows per-gradebook export steps. The class page's Add names box shows a live preview, and the roster has "Remove all names" (`DELETE /api/classes/[id]/roster`).
     - Course/Period columns split one file into classes; student IDs land in `class_roster.student_number`; `parseRosterPaste` uses the same parser.
     - `/teacher/classes` "Import from a file" (`ImportClassesDialog`) posts to `POST /api/classes/import`, which merges into a same name+period class. `addRosterNames` (`lib/classes/server.ts`) dedupes by name, student number or email.
   - **No-paper statuses**: `batch_student_status` (absent/missing/exempt/late) is set on the class results page (`BatchClassPanel`) via `PATCH /api/grade-batch/[id]` `{statuses}`.

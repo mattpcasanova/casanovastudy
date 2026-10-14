@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { authFetch } from "@/lib/auth-fetch"
 import { parseClassImport } from "@/lib/classes/import"
+import { RosterFileHelp } from "./roster-file-help"
 
 const SPREADSHEET = /\.(xlsx|xls|numbers|ods)$/i
 
@@ -69,6 +70,7 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
         </DialogHeader>
 
         <div className="space-y-3">
+          <RosterFileHelp />
           <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={(e) => void pickFile(e.target.files?.[0])} />
           <Button variant="outline" onClick={() => fileRef.current?.click()} className="w-full border-dashed py-6">
             <FileUp className="mr-2 h-5 w-5" />{fileName ? `Chosen: ${fileName}` : "Choose a CSV file"}
@@ -98,8 +100,11 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
                 <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto text-sm">
                   {preview.classes.map((c, i) => (
                     <li key={i} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <span className="font-medium text-slate-900">{c.name}{c.period ? <span className="font-normal text-slate-500"> · Period {c.period}</span> : null}</span>
-                      <span className="shrink-0 text-slate-500">{c.students.length} student{c.students.length === 1 ? "" : "s"}{c.students.some((s) => s.studentNumber) ? " · IDs" : ""}</span>
+                      <span className="min-w-0">
+                        <span className="block font-medium text-slate-900">{c.name}{c.period ? <span className="font-normal text-slate-500"> · Period {c.period}</span> : null}</span>
+                        <span className="block truncate text-xs text-slate-500">{c.students.slice(0, 4).map((s) => `${s.firstName} ${s.lastName}`.trim()).join(", ")}{c.students.length > 4 ? ", …" : ""}</span>
+                      </span>
+                      <span className="shrink-0 text-slate-500">{c.students.length} student{c.students.length === 1 ? "" : "s"}{c.students.some((s) => s.studentNumber) ? " · IDs" : ""}{c.students.some((s) => s.email) ? " · emails" : ""}</span>
                     </li>
                   ))}
                 </ul>

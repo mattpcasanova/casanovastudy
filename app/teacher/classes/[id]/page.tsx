@@ -4,7 +4,7 @@
 // against, the join code, this class's graded sets, and its top weak spots.
 // Deliberately nothing else (no assignments, calendar or gradebook).
 
-import { use, useCallback, useEffect, useState } from "react"
+import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
@@ -20,6 +20,8 @@ import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
 import type { ClassArea } from "@/lib/classes/areas"
 import { ClassAreas } from "@/components/classes/class-areas"
 import { StampTestDialog } from "@/components/classes/stamp-test-dialog"
+import { RosterFileHelp } from "@/components/classes/roster-file-help"
+import { parseRosterPaste } from "@/lib/classes/roster"
 import { ClassGradebook } from "@/components/classes/class-gradebook"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { courseKey, courseName, nextSchoolYear, schoolYearFor } from "@/lib/classes/years"
@@ -95,6 +97,17 @@ function ClassView({ id }: { id: string }) {
     setCls((c) => (c ? { ...c, school_year: schoolYear, course: course || null } : c))
     setDetailsOpen(false)
   }
+
+  const [clearing, setClearing] = useState(false)
+  const clearRoster = async () => {
+    const res = await authFetch(`/api/classes/${id}/roster`, { method: "DELETE" })
+    setClearing(false)
+    if (!res.ok) { setNotice("Could not clear the list"); return }
+    setRoster([])
+    setPasteOpen(true)
+    setNotice("List cleared. Add the names again.")
+  }
+  const pastePreview = useMemo(() => (paste.trim() ? parseRosterPaste(paste) : null), [paste])
 
   const addNames = async () => {
     if (!paste.trim()) return
@@ -172,12 +185,21 @@ function ClassView({ id }: { id: string }) {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="font-semibold text-slate-900">Roster</h2>
+            {roster.length > 0 && !pasteOpen && (
+              clearing
+                ? <span className="ml-auto mr-2 flex items-center gap-1 text-xs">Remove all {roster.length} names?
+                    <button type="button" onClick={() => void clearRoster()} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove all</button>
+                    <button type="button" onClick={() => setClearing(false)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Keep</button>
+                  </span>
+                : <button type="button" onClick={() => setClearing(true)} className="ml-auto mr-2 text-xs font-medium text-slate-500 hover:text-rose-700">Remove all names</button>
+            )}
             {!pasteOpen && <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
           </div>
 
           {pasteOpen && (
             <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
               <p className="mb-2 text-sm text-slate-700">Paste your class list, one student per line, or choose a CSV from your gradebook. &quot;Last, First&quot;, student IDs and columns copied from a spreadsheet all work.</p>
+              <RosterFileHelp className="mb-3" />
               <textarea
                 value={paste}
                 onChange={(e) => setPaste(e.target.value)}
@@ -186,12 +208,19 @@ function ClassView({ id }: { id: string }) {
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 aria-label="Class list"
               />
+              {pastePreview && (
+                <p className={cn("mt-2 text-xs", pastePreview.length ? "text-slate-600" : "text-amber-800")}>
+                  {pastePreview.length
+                    ? <>Found {pastePreview.length} student{pastePreview.length === 1 ? "" : "s"}{pastePreview.some((p) => p.studentNumber) ? " with IDs" : ""}: {pastePreview.slice(0, 5).map((p) => `${p.firstName} ${p.lastName}`.trim()).join(", ")}{pastePreview.length > 5 ? ", …" : ""}</>
+                    : "No student names found. The file needs a name column (Student, Name, or First and Last)."}
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                   Choose a CSV
                   <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPaste(await f.text()) }} />
                 </label>
-                <Button onClick={addNames} disabled={busy || !paste.trim()} className="bg-blue-600 hover:bg-blue-700"><ClipboardPaste className="mr-2 h-4 w-4" />{busy ? "Adding…" : "Add to roster"}</Button>
+                <Button onClick={addNames} disabled={busy || !paste.trim() || pastePreview?.length === 0} className="bg-blue-600 hover:bg-blue-700"><ClipboardPaste className="mr-2 h-4 w-4" />{busy ? "Adding…" : pastePreview?.length ? `Add ${pastePreview.length} student${pastePreview.length === 1 ? "" : "s"}` : "Add to roster"}</Button>
                 {roster.length > 0 && <Button variant="ghost" onClick={() => setPasteOpen(false)}>Cancel</Button>}
               </div>
             </div>
