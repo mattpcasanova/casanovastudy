@@ -7,6 +7,8 @@ import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 import { createAdminClient } from '@/lib/supabase-server'
 import { gradingChoices, settingsFromRow } from '@/lib/grading/report-settings'
 import { matchRoster, parseName } from '@/lib/grading/names'
+import { groupMembersFrom } from '@/lib/grading/group'
+import { randomUUID } from 'crypto'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 
 // Batch grading, step 2: grade one student's paper (pages already uploaded to
@@ -47,19 +49,27 @@ export async function POST(request: NextRequest) {
   const { scale, markingStyle } = gradingChoices(settingsFromRow(settingsRow), body.gradeScale, body.markingStyle)
   const nameParts = parseName(studentName)
 
-  // A class picked for this stack: the paper is linked to its roster name
+  // Group work: one paper, a report for each member (graded once).
+  const members = groupMembersFrom(body.groupMembers, { name: studentName, rosterId: typeof body.rosterId === 'string' ? body.rosterId : null })
+  // A class picked for this stack: each member is linked to their roster name
   // (the one the teacher confirmed, else the closest confident match).
-  let classLink: Record<string, unknown> = {}
+  let classId: string | null = null
+  const links: Array<Record<string, unknown>> = members.map(() => ({}))
   if (typeof body.classId === 'string' && body.classId) {
     const cls = await ownedClass(createAdminClient(), user.id, body.classId)
     if (cls) {
+      classId = cls.id
       const roster = await loadRoster(createAdminClient(), cls.id)
-      const chosen = roster.find((r) => r.id === body.rosterId)
-      const m = chosen ? null : matchRoster(studentName, roster)
-      const row = chosen ?? (m?.confidence === 'sure' ? roster.find((r) => r.id === m.rosterId) : undefined)
-      classLink = { class_id: cls.id, roster_id: row?.id ?? null, student_user_id: row?.studentUserId ?? null }
+      members.forEach((member, i) => {
+        const chosen = roster.find((r) => r.id === member.rosterId)
+        const m = chosen ? null : matchRoster(member.name, roster)
+        const row = chosen ?? (m?.confidence === 'sure' ? roster.find((r) => r.id === m.rosterId) : undefined)
+        member.rosterId = row?.id ?? null
+        links[i] = { class_id: cls.id, roster_id: row?.id ?? null, student_user_id: row?.studentUserId ?? null }
+      })
     }
   }
+  const groupId = members.length > 1 ? randomUUID() : null
 
   // Stream newline-delimited JSON so the class page can show each paper's
   // progress: {type:'status'|'progress'|'done'|'error', ...}.
@@ -101,17 +111,19 @@ export async function POST(request: NextRequest) {
         })
 
         send({ type: 'status', message: 'Saving' })
-        const { data: saved, error: saveError } = await createAdminClient()
-          .from('grading_results')
-          .insert({
+        const rows = members.map((member, i) => {
+          const parts = i === 0 ? nameParts : parseName(member.name)
+          return {
             user_id: user.id,
             batch_id: batchId,
-            student_name: studentName,
-            student_first_name: nameParts.firstName || null,
-            student_last_name: nameParts.lastName || null,
+            student_name: member.name,
+            student_first_name: parts.firstName || null,
+            student_last_name: parts.lastName || null,
             grade_scale: scale,
             marking_style: markingStyle,
-            ...classLink,
+            ...links[i],
+            group_id: groupId,
+            group_members: groupId ? members : null,
             released: false,
             student_exam_filename: (Array.isArray(body.pages) ? body.pages.length : 0) + ' page(s)',
             total_marks: graded.totalMarks,
@@ -124,20 +136,24 @@ export async function POST(request: NextRequest) {
             class_name: str(body.className, 120),
             class_period: str(body.classPeriod, 40),
             exam_title: str(body.examTitle, 200),
-            token_usage: graded.usage ? { ...graded.usage, model: GRADING_MODEL, pages: student.length } : null,
-          })
-          .select('id')
-          .single()
-        if (saveError) throw new Error(`Could not save: ${saveError.message}`)
+            // The paper was graded once: its cost sits on the first member's row.
+            token_usage: i === 0 && graded.usage ? { ...graded.usage, model: GRADING_MODEL, pages: student.length } : null,
+          }
+        })
+        const { data: savedRows, error: saveError } = await createAdminClient().from('grading_results').insert(rows).select('id')
+        if (saveError || !savedRows?.length) throw new Error(`Could not save: ${saveError?.message ?? 'no rows'}`)
+        const saved = savedRows[0]
         // A student marked absent/missing who now has a paper: it came in late.
-        if (classLink.roster_id) {
+        const rosterIds = members.map((m) => m.rosterId).filter((r): r is string => !!r)
+        if (classId && rosterIds.length) {
           await createAdminClient().from('batch_student_status').update({ status: 'late', updated_at: new Date().toISOString() })
-            .eq('batch_id', batchId).eq('roster_id', classLink.roster_id as string).eq('user_id', user.id).in('status', ['absent', 'missing'])
+            .eq('batch_id', batchId).in('roster_id', rosterIds).eq('user_id', user.id).in('status', ['absent', 'missing'])
         }
 
         send({
           type: 'done',
           id: saved.id,
+          members: members.length,
           totalMarks: graded.totalMarks,
           totalPossible: graded.totalPossible,
           percentage: graded.percentage,

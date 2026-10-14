@@ -6,7 +6,9 @@ import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { gradePaper } from '@/lib/grading/grade-paper'
 import { gradingChoices, settingsFromRow } from '@/lib/grading/report-settings'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
-import { matchRoster } from '@/lib/grading/names'
+import { matchRoster, parseName } from '@/lib/grading/names'
+import { groupMembersFrom, type GroupMember } from '@/lib/grading/group'
+import { randomUUID } from 'crypto'
 
 // Vercel config for longer timeout and larger body size (for image uploads)
 export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
@@ -185,10 +187,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Save to database
+        // Group work: the same grading saved for each other member (their own names and roster links).
+        let others: GroupMember[] = []
+        try { others = groupMembersFrom(JSON.parse(String(formData.get('groupMembers') ?? '[]')), { name: studentName }).slice(1) } catch { others = [] }
+        const groupId = others.length ? randomUUID() : null
+        const groupMembers = groupId ? [{ name: studentName, rosterId: (classLink.roster_id as string | null) ?? null }, ...others] : null
+
         const { data: savedGrading, error: saveError } = await supabase
           .from('grading_results')
           .insert({
             user_id: userId,
+            group_id: groupId,
+            group_members: groupMembers,
             student_name: studentName,
             student_first_name: studentFirstName || null,
             student_last_name: studentLastName || null,
@@ -217,6 +227,21 @@ export async function POST(request: NextRequest) {
         if (saveError) {
           console.error('Failed to save grading result:', saveError)
           // Still send the result even if save failed
+        }
+        if (savedGrading && others.length) {
+          const classIdForGroup = (classLink.class_id as string | undefined) ?? null
+          const roster = classIdForGroup ? await loadRoster(supabase, classIdForGroup) : []
+          const copies = others.map((m) => {
+            const mm = matchRoster(m.name, roster)
+            const r = mm.confidence === 'sure' ? roster.find((x) => x.id === mm.rosterId) : undefined
+            const parts = parseName(m.name)
+            // The member's own copy of the saved row (no id, timestamps or cost).
+            const base: Record<string, unknown> = { ...(savedGrading as Record<string, unknown>) }
+            for (const k of ['id', 'created_at', 'updated_at', 'token_usage']) delete base[k]
+            return { ...base, student_name: m.name, student_first_name: parts.firstName || null, student_last_name: parts.lastName || null, roster_id: r?.id ?? null, student_user_id: r?.studentUserId ?? null, released: r?.studentUserId ? false : true }
+          })
+          const { error: copyError } = await supabase.from('grading_results').insert(copies)
+          if (copyError) console.error('Saving group members failed:', copyError)
         }
 
         const totalTime = Date.now() - startTime

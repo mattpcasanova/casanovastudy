@@ -21,7 +21,7 @@ import { fullName, matchRoster, type RosterName } from "@/lib/grading/names"
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, UsersRound, X } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -146,6 +146,9 @@ function BatchGrading() {
   // Page open full size on the review screen (index into pages).
   const [viewing, setViewing] = useState<number | null>(null)
   const [onlyToCheck, setOnlyToCheck] = useState(false)
+  // Group work: other members of a paper (keyed by the paper's first page), graded once, saved for each.
+  const [groups, setGroups] = useState<Record<number, string[]>>({})
+  const [groupOpen, setGroupOpen] = useState<Set<number>>(new Set())
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/classes")
@@ -195,9 +198,10 @@ function BatchGrading() {
       const renamed = g.pages.some((i) => names[i] !== undefined)
       const match: ReturnType<typeof matchRoster> = stamp?.rosterId && !renamed ? { rosterId: stamp.rosterId, score: 1, confidence: "sure" } : matchRoster(name, rosterNames)
       const missing = stamp ? missingPages(g.pages.map((i) => headers[i]?.stamp?.page ?? 0), stamp.total) : []
-      return { ...g, key: g.pages[0], name, match, stamp, missing }
+      const others = (groups[g.pages[0]] ?? []).map((n) => ({ name: n, match: matchRoster(n, rosterNames) }))
+      return { ...g, key: g.pages[0], name, match, stamp, missing, others }
     })
-  }, [starts, headers, removed, names, rosterNames])
+  }, [starts, headers, removed, names, rosterNames, groups])
 
   // Stamped copies from several classes: one class set (and results page) per class.
   const paperClasses = useMemo(() => {
@@ -221,9 +225,11 @@ function BatchGrading() {
     const seen = new Map<string, number>()
     const duplicates = new Set<number>()
     papers.forEach((p) => {
-      if (p.match.confidence !== "sure" || !p.match.rosterId) return
-      const prev = seen.get(p.match.rosterId)
-      if (prev !== undefined) { duplicates.add(prev); duplicates.add(p.key) } else seen.set(p.match.rosterId, p.key)
+      for (const m of [p.match, ...p.others.map((o) => o.match)]) {
+        if (m.confidence !== "sure" || !m.rosterId) continue
+        const prev = seen.get(m.rosterId)
+        if (prev !== undefined && prev !== p.key) { duplicates.add(prev); duplicates.add(p.key) } else seen.set(m.rosterId, p.key)
+      }
     })
     const missing = roster.filter((r) => !seen.has(r.id))
     const unknown = papers.filter((p) => p.match.confidence === "none" && !/^Student \d+$/.test(p.name))
@@ -344,6 +350,8 @@ function BatchGrading() {
       setStarts(startPoints)
       setRemoved(new Set())
       setNames({})
+      setGroups({})
+      setGroupOpen(new Set())
       setRosterNotice("")
       setResults({})
       setProblems(issues)
@@ -411,6 +419,7 @@ function BatchGrading() {
           markingStyle,
           classId: paper.stamp?.classId || classId || undefined,
           rosterId: paper.match.confidence === "sure" ? paper.match.rosterId : undefined,
+          groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
           pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
@@ -730,7 +739,20 @@ function BatchGrading() {
                         {paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">Name stamp{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>}
                         {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">From file name</span>}
                         {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
+                        {phase === "review" && !groupOpen.has(paper.key) && !paper.others.length && (
+                          <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-3 w-3" />Group work?</button>
+                        )}
                       </p>
+                      {(groupOpen.has(paper.key) || paper.others.length > 0) && (
+                        <GroupMembers
+                          first={paper.name}
+                          others={paper.others}
+                          editable={phase === "review"}
+                          rosterList={roster.length ? "roster-names" : undefined}
+                          onChange={(list) => setGroups((g) => ({ ...g, [paper.key]: list }))}
+                          onClose={() => { setGroups((g) => ({ ...g, [paper.key]: [] })); setGroupOpen((s) => { const n = new Set(s); n.delete(paper.key); return n }) }}
+                        />
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <PaperBadge status={r} now={now} />
@@ -794,6 +816,53 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
   }
   await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker))
   return out
+}
+
+/** Group work on a paper: the members graded with it (first = the paper's name). */
+function GroupMembers({ first, others, editable, rosterList, onChange, onClose }: {
+  first: string
+  others: Array<{ name: string; match: ReturnType<typeof matchRoster> }>
+  editable: boolean
+  rosterList?: string
+  onChange: (names: string[]) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState("")
+  const add = () => {
+    const name = draft.trim()
+    if (!name || name.toLowerCase() === first.toLowerCase() || others.some((o) => o.name.toLowerCase() === name.toLowerCase())) { setDraft(""); return }
+    onChange([...others.map((o) => o.name), name])
+    setDraft("")
+  }
+  return (
+    <div className="mt-2 rounded-xl bg-white/90 px-2.5 py-2 ring-1 ring-indigo-200">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-800">
+        <UsersRound className="h-3.5 w-3.5" />Group work: graded once, a report for each member
+        {editable && <button type="button" onClick={onClose} className="ml-auto font-medium text-slate-500 hover:text-rose-700">Not a group</button>}
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-900">{first || "This paper"}</span>
+        {others.map((o) => (
+          <span key={o.name} className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium", o.match.confidence === "sure" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")} title={o.match.confidence === "sure" ? "On the class list" : "Not matched to the class list"}>
+            {o.name}
+            {editable && <button type="button" onClick={() => onChange(others.filter((x) => x.name !== o.name).map((x) => x.name))} aria-label={`Remove ${o.name}`} className="text-slate-400 hover:text-rose-600"><X className="h-3 w-3" /></button>}
+          </span>
+        ))}
+        {editable && (
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add() } }}
+            onBlur={add}
+            list={rosterList}
+            placeholder={others.length ? "Add another member" : "Add a group member"}
+            aria-label="Add a group member"
+            className="min-w-[10rem] flex-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs focus:border-blue-400 focus:outline-none"
+          />
+        )}
+      </div>
+    </div>
+  )
 }
 
 type MatchState = "sure" | "check" | "none"

@@ -81,6 +81,9 @@ export default function GradeExamPage() {
   const [classId, setClassId] = useState("")
   const [roster, setRoster] = useState<RosterRow[]>([])
   const [rosterId, setRosterId] = useState("")
+  // Group work: other members get their own copy of the report.
+  const [isGroup, setIsGroup] = useState(false)
+  const [groupNames, setGroupNames] = useState("")
   useEffect(() => {
     if (!isTeacher) return
     void (async () => {
@@ -391,6 +394,7 @@ export default function GradeExamPage() {
       if (examTitle.trim()) formData.append("examTitle", examTitle.trim())
       if (selectedStudentUserId) formData.append("studentUserId", selectedStudentUserId)
       if (classId) formData.append("classId", classId)
+      if (isGroup && groupNames.trim()) formData.append("groupMembers", JSON.stringify(groupNames.split(/[,;\n]+/).map((n) => n.trim()).filter(Boolean)))
       if (classId && rosterId) formData.append("rosterId", rosterId)
 
       if (isTeacher) {
@@ -655,6 +659,27 @@ export default function GradeExamPage() {
                         <Label htmlFor="studentLastName" className="text-sm font-medium text-slate-700">Student last name</Label>
                         <AutocompleteInput id="studentLastName" placeholder="e.g., Smith" value={studentLastName} onChange={setStudentLastName} disabled={isGrading} className="bg-white border-slate-200" fieldName="studentLastName" userId={user?.id} />
                       </div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <input type="checkbox" checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} disabled={isGrading} className="h-4 w-4 rounded border-slate-300" />
+                        This is a group&apos;s work (graded once, a report for each member)
+                      </label>
+                      {isGroup && (
+                        <div className="mt-2 space-y-1">
+                          <input
+                            value={groupNames}
+                            onChange={(e) => setGroupNames(e.target.value)}
+                            disabled={isGrading}
+                            list={roster.length ? "single-roster-names" : undefined}
+                            placeholder="Other members, separated by commas: Ava Kim, Liam Chen"
+                            aria-label="Other group members"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                          />
+                          <p className="text-xs text-slate-500">The student above plus these names each get the same marks and feedback. You can change one student&apos;s report later.</p>
+                          {roster.length > 0 && <datalist id="single-roster-names">{roster.map((r) => <option key={r.id} value={`${r.firstName} ${r.lastName}`.trim()} />)}</datalist>}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="examTitle" className="text-sm font-medium text-slate-700">Exam title</Label>

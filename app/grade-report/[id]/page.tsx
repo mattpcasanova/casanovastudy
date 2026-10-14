@@ -37,6 +37,8 @@ interface GradingResult {
   createdAt: string
   isOwner: boolean
   linkedStudent: boolean
+  groupId: string | null
+  groupMembers: string[]
   released: boolean
   reportSettings: ReportSettings
 }
@@ -87,6 +89,7 @@ export default function GradeReportPage() {
   const [showOptions, setShowOptions] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState('')
+  const [applyToGroup, setApplyToGroup] = useState(true)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
@@ -113,6 +116,8 @@ export default function GradeReportPage() {
     return () => { cancelled = true }
   }, [id, user?.id, authLoading])
 
+  const applyToGroupRef = useRef(true)
+  applyToGroupRef.current = applyToGroup && !!result?.groupId
   const saveDraft = useCallback(async (d: ReportDraft) => {
     setSaveState('saving')
     try {
@@ -129,6 +134,7 @@ export default function GradeReportPage() {
           teacherComment: d.comment,
           gradeScale: d.scale,
           markingStyle: d.markingStyle,
+          applyToGroup: applyToGroupRef.current,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -163,6 +169,20 @@ export default function GradeReportPage() {
     const res = await authFetch(`/api/grade-exam/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ released }) })
     setSaveState(res.ok ? 'saved' : 'error')
   }
+
+  // Finishing an edit: save anything still waiting, then leave edit mode.
+  const finishEditing = useCallback(async () => {
+    // Close right away; the last save finishes in the background (status shows in the toolbar).
+    setEditing(false)
+    if (draft) await saveDraft(draft)
+  }, [draft, saveDraft])
+
+  useEffect(() => {
+    if (!editing) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') void finishEditing() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editing, finishEditing])
 
   const patchDraft = (patch: Partial<ReportDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d))
   const patchSettings = (patch: Partial<ReportSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s))
@@ -219,9 +239,9 @@ export default function GradeReportPage() {
                   <Link href={`/grade-exam/batch/${result.batchId}`}><Users className="mr-1.5 h-4 w-4" /> Class results</Link>
                 </Button>
               )}
-              {canEdit && (
-                <Button variant={editing ? "default" : "outline"} size="sm" onClick={() => setEditing((e) => !e)}>
-                  {editing ? <><Check className="mr-1.5 h-4 w-4" /> Done editing</> : <><Edit2 className="mr-1.5 h-4 w-4" /> Edit</>}
+              {canEdit && !editing && (
+                <Button size="sm" onClick={() => setEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                  <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
                 </Button>
               )}
               {canEdit && (
@@ -243,16 +263,47 @@ export default function GradeReportPage() {
                   Visible to student
                 </label>
               )}
-              {canEdit && (
+              {canEdit && !editing && saveState !== 'idle' && (
                 <span className={cn("ml-auto pr-2 text-xs", saveState === 'error' ? "text-red-600" : "text-slate-500")} aria-live="polite">
-                  {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'All changes saved' : saveState === 'error' ? `Not saved: ${saveError || 'check your connection.'}` : ''}
+                  {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'All changes saved' : `Not saved: ${saveError || 'check your connection.'}`}
                 </span>
               )}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-blue-900/10 sm:p-8 print:rounded-none print:border-0 print:p-0 print:shadow-none">
+            {editing && canEdit && (
+              <p className="rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-inset ring-blue-200 print:hidden">
+                <strong>You&apos;re editing.</strong> Change names, marks and feedback right on the report. Changes save as you go; press <strong>Done</strong> (or Esc) when you&apos;re finished.
+                {result.groupId && result.groupMembers.length > 1 && (
+                  <label className="mt-2 flex items-center gap-2">
+                    <Switch checked={applyToGroup} onCheckedChange={setApplyToGroup} />
+                    Apply mark, feedback and comment changes to the whole group ({result.groupMembers.join(', ')})
+                  </label>
+                )}
+              </p>
+            )}
+            <div className={cn("rounded-3xl border bg-white p-6 shadow-2xl shadow-blue-900/10 sm:p-8 print:rounded-none print:border-0 print:p-0 print:shadow-none", editing && canEdit ? "border-blue-300 ring-4 ring-blue-100" : "border-slate-200")}>
+              {result.groupId && result.groupMembers.length > 1 && (
+                <p className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-800 ring-1 ring-inset ring-indigo-200">
+                  <Users className="h-4 w-4" />Group work: {result.groupMembers.join(', ')}
+                </p>
+              )}
               <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} />
             </div>
+
+            {editing && canEdit && (
+              <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 print:hidden">
+                <div className="flex items-center gap-4 rounded-2xl bg-slate-900 py-2.5 pl-5 pr-2.5 text-sm text-white shadow-2xl">
+                  <span className="flex items-center gap-2" aria-live="polite">
+                    {saveState === 'saving'
+                      ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                      : saveState === 'error'
+                        ? <span className="text-rose-300">Not saved: {saveError || 'check your connection'}</span>
+                        : <><Check className="h-4 w-4 text-emerald-400" />Editing · changes saved</>}
+                  </span>
+                  <Button size="sm" onClick={() => void finishEditing()} className="bg-white text-slate-900 hover:bg-slate-100">Done</Button>
+                </div>
+              </div>
+            )}
 
             {isTeacher && (
               <div className="print:hidden">

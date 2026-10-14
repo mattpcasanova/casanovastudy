@@ -37,6 +37,8 @@ interface Row {
   roster_id: string | null
   student_user_id: string | null
   released: boolean
+  group_id: string | null
+  group_members: Array<{ name: string }> | null
   exam_title: string | null
   class_name: string | null
   class_period: string | null
@@ -169,7 +171,7 @@ function BatchResults({ id }: { id: string }) {
                 <Button variant="outline" onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</Button>
                 <Button variant="outline" onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown className="mr-2 h-4 w-4" />Sort by {sort === "name" ? "score" : "name"}</Button>
                 <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
-                <Button asChild variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"><Link href={`/grade-exam/batch/${id}/reteach`}><Sparkles className="mr-2 h-4 w-4" />Reteach plan</Link></Button>
+                <Button asChild className="border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-none hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800"><Link href={`/grade-exam/batch/${id}/reteach`}><Sparkles className="mr-2 h-4 w-4" />Reteach plan</Link></Button>
                 <Button onClick={() => setExportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><BookUp className="mr-2 h-4 w-4" />Send to gradebook</Button>
               </div>
             </div>
@@ -201,6 +203,9 @@ function BatchResults({ id }: { id: string }) {
                           aria-label="Student name"
                           className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 font-medium text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:bg-white focus:outline-none"
                         />
+                        {r.group_id && r.group_members && r.group_members.length > 1 && (
+                          <span className="ml-2 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700" title={`Group work: ${r.group_members.map((m) => m.name).join(", ")}`}>Group of {r.group_members.length}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{r.total_marks}/{r.total_possible_marks}</td>
                       <td className="px-4 py-3 text-slate-700">{Number(r.percentage).toFixed(1)}%</td>

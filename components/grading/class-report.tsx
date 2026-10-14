@@ -6,7 +6,9 @@
 // once and saved; it's offered again when a mark changes.
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, ArrowUpDown, Lightbulb, Loader2, RefreshCw, Sparkles } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, ArrowUpDown, ChevronDown, Lightbulb, Loader2, RefreshCw, Sparkles } from "lucide-react"
+import { normalizeQuestionKey, type GradedQuestion } from "@/lib/grading/parse"
 import { Button } from "@/components/ui/button"
 import { authFetch } from "@/lib/auth-fetch"
 import { markedConsistently, questionStats, topicStats, type ClassInsightsAI, type PaperForInsights } from "@/lib/grading/insights"
@@ -41,7 +43,6 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
   const stats = useMemo(() => questionStats(papers), [papers])
   const consistent = useMemo(() => markedConsistently(papers), [papers])
   const topics = useMemo(() => (report ? topicStats(stats, report.insights.topics) : []), [stats, report])
-  const ordered = useMemo(() => (hardestFirst ? [...stats].sort((a, b) => a.avgPct - b.avgPct) : stats), [stats, hardestFirst])
 
   const generate = async () => {
     setLoading(true)
@@ -160,49 +161,145 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
         )}
       </div>
 
-      {/* Per-question numbers */}
-      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-blue-900/10">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          <p className="font-semibold text-slate-900">Every question <span className="font-normal text-slate-500">({stats.length})</span></p>
-          <div className="flex gap-1">
-            {questionsOpen && (
-              <Button variant="ghost" size="sm" onClick={() => setHardestFirst((v) => !v)}>
-                <ArrowUpDown className="mr-2 h-3.5 w-3.5" />{hardestFirst ? "Question order" : "Hardest first"}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => setShowQuestions(!questionsOpen)}>{questionsOpen ? "Hide" : "Show"}</Button>
-          </div>
-        </div>
-        {questionsOpen && <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2.5">Question</th>
-                <th className="px-4 py-2.5">Class average</th>
-                <th className="px-4 py-2.5 text-right">Got 0</th>
-                <th className="px-4 py-2.5 text-right">Full marks</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {ordered.map((q) => (
-                <tr key={q.key}>
-                  <td className="px-4 py-2.5 font-medium text-slate-900">{q.label}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <span className="h-2 w-24 shrink-0 overflow-hidden rounded-full bg-slate-100 sm:w-40">
-                        <span className={cn("block h-full rounded-full", tone(q.avgPct))} style={{ width: `${Math.max(2, q.avgPct)}%` }} />
-                      </span>
-                      <span className="whitespace-nowrap tabular-nums text-slate-700">{fmt(q.avgMarks)}/{q.possible} <span className={cn("font-semibold", toneText(q.avgPct))}>({Math.round(q.avgPct)}%)</span></span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{q.zeroCount} of {q.n}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{q.fullCount} of {q.n}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
-      </div>
+      {/* Question by question */}
+      <QuestionBreakdown papers={papers} stats={stats} report={report?.insights ?? null} open={questionsOpen} onToggle={() => setShowQuestions(!questionsOpen)} hardestFirst={hardestFirst} setHardestFirst={setHardestFirst} />
     </section>
+  )
+}
+
+/**
+ * Every question, one row each: who got full / part / no marks (a split bar),
+ * the class average and the question's topic. Opening a row shows what went
+ * wrong, the students in each band (linked to their reports) and the marking
+ * feedback from students who lost marks.
+ */
+function QuestionBreakdown({ papers, stats, report, open, onToggle, hardestFirst, setHardestFirst }: {
+  papers: PaperForInsights[]
+  stats: ReturnType<typeof questionStats>
+  report: ClassInsightsAI | null
+  open: boolean
+  onToggle: () => void
+  hardestFirst: boolean
+  setHardestFirst: (v: boolean) => void
+}) {
+  const [topicFilter, setTopicFilter] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const key = (l: string) => normalizeQuestionKey(l)
+  const topicOf = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of report?.topics ?? []) for (const q of t.questions) m.set(key(q), t.name)
+    return m
+  }, [report])
+  const issueOf = useMemo(() => new Map((report?.struggles ?? []).map((s) => [key(s.question), s.issue])), [report])
+
+  const rows = useMemo(() => {
+    const list = stats.map((q) => {
+      const answers = papers.map((p) => ({ paper: p, q: p.breakdown.find((x) => key(x.questionNumber) === q.key) })).filter((a): a is { paper: PaperForInsights; q: GradedQuestion } => !!a.q)
+      const full = answers.filter((a) => a.q.marksAwarded >= a.q.marksPossible && a.q.marksPossible > 0)
+      const zero = answers.filter((a) => a.q.marksAwarded <= 0)
+      const part = answers.filter((a) => !full.includes(a) && !zero.includes(a))
+      return { stat: q, topic: topicOf.get(q.key) ?? null, issue: issueOf.get(q.key) ?? null, full, part, zero }
+    })
+    const filtered = topicFilter ? list.filter((r) => r.topic === topicFilter) : list
+    return hardestFirst ? [...filtered].sort((a, b) => a.stat.avgPct - b.stat.avgPct) : filtered
+  }, [stats, papers, topicOf, issueOf, topicFilter, hardestFirst])
+
+  const topicNames = [...new Set((report?.topics ?? []).map((t) => t.name))]
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-blue-900/10">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+        <div>
+          <p className="font-semibold text-slate-900">Question by question <span className="font-normal text-slate-500">({stats.length})</span></p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />Full marks</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />Some marks</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-rose-500" />No marks</span>
+            <span>Click a question for who and why.</span>
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {open && (
+            <Button variant="ghost" size="sm" onClick={() => setHardestFirst(!hardestFirst)}>
+              <ArrowUpDown className="mr-2 h-3.5 w-3.5" />{hardestFirst ? "Question order" : "Hardest first"}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onToggle}>{open ? "Hide" : "Show"}</Button>
+        </div>
+      </div>
+
+      {open && topicNames.length > 1 && (
+        <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-5 py-3">
+          <button type="button" onClick={() => setTopicFilter(null)} className={cn("rounded-full px-3 py-1 text-xs font-medium", !topicFilter ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}>All topics</button>
+          {topicNames.map((t) => (
+            <button key={t} type="button" onClick={() => setTopicFilter(t === topicFilter ? null : t)} className={cn("rounded-full px-3 py-1 text-xs font-medium", t === topicFilter ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}>{t}</button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <ul className="divide-y divide-slate-100">
+          {rows.map((r) => {
+            const q = r.stat
+            const isOpen = expanded === q.key
+            const n = r.full.length + r.part.length + r.zero.length || 1
+            return (
+              <li key={q.key}>
+                <button type="button" onClick={() => setExpanded(isOpen ? null : q.key)} aria-expanded={isOpen} className="grid w-full grid-cols-[4.5rem_minmax(0,1fr)_4rem_1.25rem] items-center gap-3 px-5 py-3 text-left hover:bg-slate-50 sm:grid-cols-[4.5rem_minmax(0,1fr)_11rem_4rem_1.25rem]">
+                  <span className="truncate rounded-lg bg-slate-100 px-2 py-1 text-center text-sm font-semibold text-slate-800" title={q.label}>{questionChip(q.label)}</span>
+                  <span className="min-w-0">
+                    <span className="flex h-3 overflow-hidden rounded-full bg-slate-100" aria-label={`${r.full.length} full marks, ${r.part.length} some marks, ${r.zero.length} no marks`}>
+                      <span className="bg-emerald-500" style={{ width: `${(r.full.length / n) * 100}%` }} />
+                      <span className="bg-amber-400" style={{ width: `${(r.part.length / n) * 100}%` }} />
+                      <span className="bg-rose-500" style={{ width: `${(r.zero.length / n) * 100}%` }} />
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-slate-500">
+                      {r.topic ?? "Not grouped"}{r.issue ? " · " : ""}{r.issue && <span className="text-slate-600">{r.issue}</span>}
+                    </span>
+                  </span>
+                  <span className="hidden text-xs text-slate-600 sm:block">{r.full.length} full · {r.part.length} some · {r.zero.length} none</span>
+                  <span className={cn("text-right text-sm font-semibold tabular-nums", toneText(q.avgPct))}>{Math.round(q.avgPct)}%</span>
+                  <ChevronDown className={cn("h-4 w-4 text-slate-400 transition", isOpen && "rotate-180")} />
+                </button>
+                {isOpen && (
+                  <div className="space-y-4 bg-slate-50/70 px-5 pb-5 pt-1">
+                    <p className="text-sm text-slate-700">
+                      Worth {q.possible} mark{q.possible === 1 ? "" : "s"}. Class average {fmt(q.avgMarks)} of {q.possible} ({Math.round(q.avgPct)}%).
+                      {r.issue && <><br /><span className="font-medium text-slate-900">What went wrong:</span> {r.issue}</>}
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {([["No marks", r.zero, "text-rose-700", "bg-rose-50 ring-rose-200"], ["Some marks", r.part, "text-amber-800", "bg-amber-50 ring-amber-200"], ["Full marks", r.full, "text-emerald-700", "bg-emerald-50 ring-emerald-200"]] as const).map(([label, list, text, box]) => (
+                        <div key={label} className={cn("rounded-xl p-3 ring-1 ring-inset", box)}>
+                          <p className={cn("text-xs font-semibold uppercase tracking-wide", text)}>{label} ({list.length})</p>
+                          <ul className="mt-1.5 space-y-0.5 text-sm">
+                            {list.length === 0 && <li className="text-slate-400">Nobody</li>}
+                            {list.map((a) => (
+                              <li key={a.paper.id} className="flex justify-between gap-2">
+                                <Link href={`/grade-report/${a.paper.id}`} className="truncate text-slate-800 hover:text-blue-700 hover:underline">{a.paper.name}</Link>
+                                {label === "Some marks" && <span className="shrink-0 tabular-nums text-slate-500">{fmt(a.q.marksAwarded)}/{fmt(a.q.marksPossible)}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    {[...r.zero, ...r.part].some((a) => a.q.explanation) && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marking feedback for students who lost marks</p>
+                        <ul className="mt-1.5 space-y-1.5 text-sm text-slate-700">
+                          {[...r.zero, ...r.part].filter((a) => a.q.explanation).slice(0, 5).map((a) => (
+                            <li key={a.paper.id}><span className="font-medium text-slate-900">{a.paper.name}:</span> {a.q.explanation}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

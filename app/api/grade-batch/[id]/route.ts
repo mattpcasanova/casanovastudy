@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data, error: dbError } = await createAdminClient()
     .from('grading_results')
-    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown')
+    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members')
     .eq('batch_id', id)
     .eq('user_id', user.id)
     .order('student_name', { ascending: true })

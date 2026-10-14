@@ -155,6 +155,13 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - `/api/google/classroom/{start,callback,courses,import}`: the token is kept 1 hour in `google_classroom_tokens` (service only) and deleted after import. Courses become classes (`classes.google_course_id`, re-import updates) with `class_roster.email`.
     - `linkRosterByEmail` links names to student accounts with that email (also run on every roster load).
     - Needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the OAuth client used for Supabase Google sign-in), the Classroom API enabled, `/api/google/classroom/callback` as an authorized redirect URI, and the scopes on the consent screen (sensitive scopes need Google verification for public use). The button hides until it's configured.
+- **Group work, clearer editing, question breakdown (2026-10-13, migration 059)**:
+  - **Group work**: one paper by several students is graded once and saved as a report for each member (`grading_results.group_id` ties them together, `group_members` lists them). `groupMembersFrom` in `lib/grading/group.ts` is unit-tested.
+    - The batch grader's cards have "Group work?" (`GroupMembers`, roster datalist); members count as handed in. The paper route inserts one row per member, each roster-linked, with the cost on the first row only.
+    - The single grader has "This is a group's work" (`groupMembers` form field) and the stream route copies the saved row per member.
+    - Reports show "Group work: …". Report PATCH `applyToGroup` copies marks, feedback, comment, scale and exam details to the other members (names stay their own); the edit banner has the switch, on by default.
+  - **Report editing**: an "Edit report" button; while editing, a blue note above the report, a highlighted frame, and a bottom bar ("Editing · changes saved" + **Done**; Esc works too). Done closes at once and the last save finishes in the background.
+  - **Class report "Question by question"** (`QuestionBreakdown` in `components/grading/class-report.tsx`): per question, a full/some/none split bar, average, topic and the class-report issue, plus a topic filter and hardest-first. Opening a row lists students per band (linked to reports) and the marking feedback for those who lost marks.
 - **Teacher home + reteach plans (2026-10-13, migration 058)**:
   - **Teacher home `/teach`** (`GET /api/teacher/home`): signed-in teachers opening `/` with no query are sent there; students and signed-out visitors keep the guide maker.
     - For teachers, "New Guide" links to `/?new=1` and the logo to `/teach`. Any query on `/` (plan units, prefills, `?welcome=1`) shows the guide maker.

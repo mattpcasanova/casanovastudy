@@ -53,7 +53,7 @@ export async function PATCH(
   const supabase = createAdminClient()
   const { data: row } = await supabase
     .from('grading_results')
-    .select('user_id, grade_breakdown, grade_scale, student_first_name, student_last_name')
+    .select('user_id, grade_breakdown, grade_scale, student_first_name, student_last_name, group_id')
     .eq('id', id)
     .single()
   if (!row) return NextResponse.json({ success: false, error: 'Grading result not found' }, { status: 404 })
@@ -118,6 +118,15 @@ export async function PATCH(
   if (updateError) {
     console.error('Update grading result failed:', updateError)
     return NextResponse.json({ success: false, error: 'Failed to update grading result' }, { status: 500 })
+  }
+
+  // Group work: marks, feedback, comment and exam details go to every member (names stay their own).
+  if (body.applyToGroup === true && row.group_id) {
+    const shared: Record<string, unknown> = {}
+    for (const k of ['grade_breakdown', 'grade_scale', 'marking_style', 'teacher_comment', 'exam_title', 'class_name', 'class_period', 'total_marks', 'total_possible_marks', 'percentage', 'grade', 'updated_at']) {
+      if (k in update) shared[k] = update[k]
+    }
+    await supabase.from('grading_results').update(shared).eq('group_id', row.group_id).eq('user_id', user.id).neq('id', id)
   }
 
   return NextResponse.json({
@@ -192,6 +201,8 @@ export async function GET(
         createdAt: gradingResult.created_at,
         updatedAt: gradingResult.updated_at,
         isOwner: requestUserId === gradingResult.user_id,
+        groupId: gradingResult.group_id ?? null,
+        groupMembers: Array.isArray(gradingResult.group_members) ? gradingResult.group_members.map((m: { name?: string }) => String(m?.name ?? '')).filter(Boolean) : [],
         linkedStudent: !!gradingResult.student_user_id,
         released: gradingResult.released !== false,
         reportSettings: settingsFromRow(settingsRow),
