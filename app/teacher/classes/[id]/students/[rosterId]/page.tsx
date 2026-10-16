@@ -2,12 +2,12 @@
 
 // One student (/teacher/classes/[id]/students/[rosterId]): every graded test
 // with the class average beside it, absent/missing marks, their areas next
-// to the class, and, only if they joined the class with its code, their own
-// study activity on Casanova Study.
+// to the class, and, only if they joined the class with its code, their
+// practice on this teacher's own guides (never their other studying).
 
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Flame, Link2, Loader2, Lock, Mail, TrendingDown, TrendingUp, Users } from "lucide-react"
+import { ArrowLeft, Link2, Loader2, Lock, Mail, TrendingDown, TrendingUp, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { authFetch } from "@/lib/auth-fetch"
@@ -36,7 +36,7 @@ interface StudentData {
   student: { id: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; linked: boolean; joined: boolean; left: boolean }
   work: Work[]
   areas: Array<{ name: string; pct: number; classPct: number }>
-  study: null | { answered: number; accuracy: number; streak: number; last14: number[]; weak: Array<{ topic: string; pct: number; answered: number }>; strong: Array<{ topic: string; pct: number }> }
+  practice: null | { answered: number; accuracy: number; lastAt: string | null; guides: Array<{ id: string; title: string; answered: number; pct: number; lastAt: string }> }
 }
 
 const tone = (pct: number) => (pct >= 80 ? "text-emerald-700" : pct >= 65 ? "text-blue-700" : pct >= 50 ? "text-amber-700" : "text-rose-700")
@@ -161,39 +161,31 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                 </section>
 
                 <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h2 className="font-semibold text-slate-900">Their own studying</h2>
-                  {!data.study ? (
+                  <h2 className="font-semibold text-slate-900">Practice on your material</h2>
+                  <p className="text-xs text-slate-500">Only questions they answered in guides you made (practice sets, reteach practice, guides you shared). Nothing from their other studying.</p>
+                  {!data.practice ? (
                     <p className="mt-2 flex items-start gap-2 text-sm text-slate-500">
                       <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                      {data.student.joined
-                        ? "No practice on Casanova Study yet."
-                        : "Shows once they join this class with its code. Their personal practice stays private until then."}
+                      Shows once they join this class with its code.
                     </p>
+                  ) : data.practice.answered === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">No practice on your guides yet.</p>
                   ) : (
-                    <div className="mt-2 space-y-3 text-sm">
-                      <div className="flex gap-4">
-                        <span><span className="font-semibold text-slate-900">{data.study.answered}</span> answered</span>
-                        <span><span className="font-semibold text-slate-900">{Math.round(data.study.accuracy * 100)}%</span> right</span>
-                        {data.study.streak > 0 && <span className="inline-flex items-center gap-1 text-orange-700"><Flame className="h-4 w-4" />{data.study.streak}-day streak</span>}
+                    <div className="mt-3 space-y-3 text-sm">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <span><span className="font-semibold text-slate-900">{data.practice.answered}</span> questions</span>
+                        <span><span className={cn("font-semibold", tone(data.practice.accuracy * 100))}>{Math.round(data.practice.accuracy * 100)}%</span> right</span>
+                        {data.practice.lastAt && <span className="text-slate-500">last {new Date(data.practice.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>}
                       </div>
-                      <div className="flex h-8 items-end gap-0.5" aria-label="Answers per day, last 14 days">
-                        {data.study.last14.map((n, i) => {
-                          const max = Math.max(1, ...data.study!.last14)
-                          return <span key={i} className="flex-1 rounded-sm bg-blue-400" style={{ height: `${Math.max(6, (n / max) * 100)}%`, opacity: n ? 1 : 0.2 }} />
-                        })}
-                      </div>
-                      {data.study.weak.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Weak spots</p>
-                          <ul className="mt-1 space-y-0.5">{data.study.weak.map((t) => <li key={t.topic} className="flex justify-between gap-2"><span className="truncate">{t.topic}</span><span className="tabular-nums text-rose-700">{t.pct}%</span></li>)}</ul>
-                        </div>
-                      )}
-                      {data.study.strong.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Strong</p>
-                          <ul className="mt-1 space-y-0.5">{data.study.strong.map((t) => <li key={t.topic} className="flex justify-between gap-2"><span className="truncate">{t.topic}</span><span className="tabular-nums text-emerald-700">{t.pct}%</span></li>)}</ul>
-                        </div>
-                      )}
+                      <ul className="divide-y divide-slate-100">
+                        {data.practice.guides.map((g) => (
+                          <li key={g.id} className="flex items-center gap-2 py-1.5">
+                            <Link href={`/study-guide/${g.id}`} className="min-w-0 flex-1 truncate text-slate-800 hover:text-blue-700 hover:underline">{g.title}</Link>
+                            <span className="shrink-0 text-xs text-slate-500">{g.answered} · </span>
+                            <span className={cn("shrink-0 text-xs font-semibold tabular-nums", tone(g.pct))}>{g.pct}%</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </section>

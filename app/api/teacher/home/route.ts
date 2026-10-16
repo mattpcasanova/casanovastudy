@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { schoolYearFor } from '@/lib/classes/years'
+import { sortClasses } from '@/lib/classes/sort'
 
 // The teacher home (/teach): recent graded sets, this year's classes, and
 // scans waiting in the scanner inbox. Owner only.
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       .select('batch_id, exam_title, class_name, class_period, class_id, percentage, created_at, released')
       .eq('user_id', user.id).not('batch_id', 'is', null)
       .order('created_at', { ascending: false }).limit(600),
-    supabase.from('classes').select('id, name, period, school_year').eq('teacher_id', user.id).eq('school_year', year).eq('is_archived', false).order('name'),
+    supabase.from('classes').select('id, name, period, school_year, created_at').eq('teacher_id', user.id).eq('school_year', year).eq('is_archived', false).order('name'),
     supabase.from('scan_inbox_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('used_at', null).gte('received_at', since),
     supabase.from('user_profiles').select('first_name').eq('id', user.id).single(),
   ])
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     firstName: profile?.first_name ?? null,
     year,
     recent: [...sets.values()].slice(0, 6).map(({ total, ...s }) => ({ ...s, average: s.papers ? total / s.papers : 0 })),
-    classes: (classes ?? []).map((c) => ({ id: c.id, name: c.name, period: c.period, students: counts.get(c.id) ?? 0 })),
+    classes: sortClasses(classes ?? []).map((c) => ({ id: c.id, name: c.name, period: c.period, students: counts.get(c.id) ?? 0 })),
     scansWaiting: waiting ?? 0,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -3,11 +3,10 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { areaBatchesFor, loadRoster, ownedClass } from '@/lib/classes/server'
 import { classAreas } from '@/lib/classes/areas'
-import { buildProfile, type AnswerRow } from '@/lib/learner/profile'
 
 // One student in a class: graded work (with "no paper" statuses), how they do
 // by area next to the class, and, only if they joined the class with its
-// code, their own study activity (accuracy, streak, weak topics). Owner only.
+// code, their practice on this teacher's own guides (nothing else). Owner only.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; rosterId: string }> }) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -69,23 +68,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .filter((a): a is NonNullable<typeof a> => !!a)
     .sort((a, b) => a.pct - b.pct)
 
-  // Their own study activity: only when they joined this class with its code.
-  let study = null
+  // Practice on the teacher's own material (guides this teacher made: shared
+  // guides, practice sets, reteach practice), never their other studying.
+  // Only when they joined this class with its code.
+  let practice = null
   if (student.studentUserId && enrollment) {
-    const { data: rows } = await supabase
-      .from('study_results')
-      .select('subject, topic, correct, answered_at, study_guide_id, item_id')
-      .eq('user_id', student.studentUserId)
-      .order('answered_at', { ascending: false })
-      .limit(3000)
-    const profile = buildProfile((rows ?? []) as AnswerRow[])
-    study = {
-      answered: profile.answered,
-      accuracy: profile.accuracy,
-      streak: profile.streak,
-      last14: profile.last14,
-      weak: profile.weak.slice(0, 6).map((t) => ({ topic: t.topic, pct: Math.round(t.recentAccuracy * 100), answered: t.answered })),
-      strong: profile.strong.slice(0, 6).map((t) => ({ topic: t.topic, pct: Math.round(t.recentAccuracy * 100) })),
+    const { data: guides } = await supabase.from('study_guides').select('id, title').eq('user_id', user.id).limit(2000)
+    const titleOf = new Map((guides ?? []).map((g) => [g.id as string, g.title as string]))
+    const ids = [...titleOf.keys()]
+    const rows: Array<{ study_guide_id: string; correct: boolean; answered_at: string }> = []
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data } = await supabase.from('study_results').select('study_guide_id, correct, answered_at').eq('user_id', student.studentUserId).in('study_guide_id', ids.slice(i, i + 200)).limit(5000)
+      rows.push(...((data ?? []) as typeof rows))
+    }
+    const byGuide = new Map<string, { answered: number; correct: number; lastAt: string }>()
+    for (const r of rows) {
+      const g = byGuide.get(r.study_guide_id) ?? { answered: 0, correct: 0, lastAt: r.answered_at }
+      g.answered += 1
+      if (r.correct) g.correct += 1
+      if (r.answered_at > g.lastAt) g.lastAt = r.answered_at
+      byGuide.set(r.study_guide_id, g)
+    }
+    const correct = rows.filter((r) => r.correct).length
+    practice = {
+      answered: rows.length,
+      accuracy: rows.length ? correct / rows.length : 0,
+      lastAt: rows.reduce<string | null>((m, r) => (!m || r.answered_at > m ? r.answered_at : m), null),
+      guides: [...byGuide.entries()]
+        .map(([id, g]) => ({ id, title: titleOf.get(id) ?? 'Guide', answered: g.answered, pct: Math.round((g.correct / g.answered) * 100), lastAt: g.lastAt }))
+        .sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+        .slice(0, 10),
     }
   }
 
@@ -94,6 +106,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     student: { ...student, joined: !!enrollment },
     work: [...work, ...missing].sort((a, b) => b.date.localeCompare(a.date)),
     areas,
-    study,
+    practice,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

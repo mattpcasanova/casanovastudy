@@ -10,6 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CalendarPlus, ChevronRight, FileUp, Loader2, Plus, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { CLASS_SORTS, sortClasses, type ClassSort } from "@/lib/classes/sort"
 import { courseKey, courseName, nextSchoolYear, schoolYearFor, sortYears } from "@/lib/classes/years"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
@@ -33,6 +34,7 @@ interface ClassRecord {
   student_count: number
   school_year: string
   course: string | null
+  created_at: string
 }
 
 function ClassCard({ c, muted = false }: { c: ClassRecord; muted?: boolean }) {
@@ -148,7 +150,14 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function YearSections({ classes, onRolledOver }: { classes: ClassRecord[]; onRolledOver: (summary: string) => void }) {
+function YearSections({ classes: unsorted, onRolledOver }: { classes: ClassRecord[]; onRolledOver: (summary: string) => void }) {
+  const [sortBy, setSortBy] = useState<ClassSort>("period")
+  useEffect(() => {
+    const saved = localStorage.getItem("cs:classes:sort")
+    if (CLASS_SORTS.some((o) => o.value === saved)) setSortBy(saved as ClassSort)
+  }, [])
+  const changeSort = (value: ClassSort) => { setSortBy(value); localStorage.setItem("cs:classes:sort", value) }
+  const classes = sortClasses(unsorted, sortBy)
   const current = schoolYearFor()
   const years = sortYears([current, ...classes.map((c) => c.school_year)])
   const thisYear = classes.filter((c) => c.school_year === current)
@@ -167,7 +176,15 @@ function YearSections({ classes, onRolledOver }: { classes: ClassRecord[]; onRol
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>This year <span className="text-base font-normal text-slate-500">{current}</span></h2>
-          <Button variant="outline" size="sm" onClick={() => setRollOpen(true)} disabled={!classes.some((c) => c.school_year === latest)}><CalendarPlus className="mr-1.5 h-4 w-4" />Start next year</Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-slate-600">
+              Sort by
+              <select value={sortBy} onChange={(e) => changeSort(e.target.value as ClassSort)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800">
+                {CLASS_SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <Button variant="outline" size="sm" onClick={() => setRollOpen(true)} disabled={!classes.some((c) => c.school_year === latest)}><CalendarPlus className="mr-1.5 h-4 w-4" />Start next year</Button>
+          </div>
         </div>
         {thisYear.length ? <ul className="grid gap-4 sm:grid-cols-2">{thisYear.map((c) => <ClassCard key={c.id} c={c} />)}</ul> : <p className="text-sm text-slate-500">No classes for {current} yet.</p>}
       </div>

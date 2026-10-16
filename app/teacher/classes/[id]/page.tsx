@@ -244,9 +244,6 @@ function ClassView({ id }: { id: string }) {
                     if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null } : x)) ?? null)
                   }}
                   onRemove={() => void removeRow(row)}
-                  onLeft={async (left) => {
-                    if (await patchRow(row, { left })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, left } : x)) ?? null)
-                  }}
                 />
               ))}
             </ul>
@@ -358,13 +355,12 @@ function DetailsForm({ cls, onSave, onCancel }: { cls: ClassInfo; onSave: (year:
   )
 }
 
-function RosterItem({ row, classId, onSave, onUnlink, onRemove, onLeft }: {
+function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
   row: RosterRow
   classId: string
   onSave: (fields: { firstName: string; lastName: string; email: string; studentNumber: string }) => void
   onUnlink: () => void
   onRemove: () => void
-  onLeft: (left: boolean) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [first, setFirst] = useState(row.firstName)
@@ -407,7 +403,6 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove, onLeft }: {
       ) : (
         <span className="flex items-center opacity-60 group-hover:opacity-100">
           <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label={`Edit ${row.firstName}`} title="Edit name, email or ID"><Pencil className="h-3.5 w-3.5" /></button>
-          <button type="button" onClick={() => onLeft(!row.left)} className="rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100" title={row.left ? "Back in this class" : "Left the class (keeps their graded work)"}>{row.left ? "Back" : "Left"}</button>
           {row.linked && <button type="button" onClick={onUnlink} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Unlink account" title="Unlink this student's account"><Unlink className="h-3.5 w-3.5" /></button>}
           <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>
         </span>
