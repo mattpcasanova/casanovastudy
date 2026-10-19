@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { periodFromSection, signState, studentToRoster, studentWork, uploadAssignments, verifyState } from './classroom'
+import { matchClassForCourse, periodFromSection, periodIn, signState, studentToRoster, studentWork, uploadAssignments, verifyState } from './classroom'
 
 describe('OAuth state', () => {
   const user = '5e51e47f-d060-493d-b346-40d89595bc96'
@@ -57,5 +57,25 @@ describe('assignment uploads', () => {
       ['Adams', false, false, 0, null],
       ['Miller', true, true, 2, 'sean@school.org'],
     ])
+  })
+})
+
+describe('matching a Classroom course to a class', () => {
+  const classes = [
+    { id: 'p1', name: 'AP Statistics', period: '1' },
+    { id: 'p2', name: 'AP Statistics', period: '2' },
+    { id: 'c1', name: 'AP Chemistry', period: '1' },
+    { id: 'c4', name: 'AP Chemistry', period: '4' },
+  ]
+  it('reads periods anywhere', () => {
+    expect(periodIn('Period 01 (Colegia)')).toBe('1')
+    expect(periodIn('AP Stats P3')).toBe('3')
+    expect(periodIn('AP STAT-522112103200100')).toBeNull()
+  })
+  it('same period, then the name decides', () => {
+    expect(matchClassForCourse({ name: 'Period 01 (Colegia)', section: 'AP STAT-522112103200100' }, classes)).toBe('p1')
+    expect(matchClassForCourse({ name: 'Period 4', section: null }, classes)).toBe('c4')
+    expect(matchClassForCourse({ name: 'Period 1', section: null }, classes)).toBeNull() // two period-1 classes, no name
+    expect(matchClassForCourse({ name: 'Period 6', section: 'AP Stats' }, classes)).toBeNull()
   })
 })

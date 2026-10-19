@@ -60,7 +60,9 @@ export function authUrl(opts: { redirectUri: string; state: string; loginHint?: 
     scope: CLASSROOM_SCOPES.join(' '),
     access_type: 'online',
     include_granted_scopes: 'true',
-    prompt: 'consent',
+    // Only the first connect shows Google's permission screen (and, until the app
+    // is verified, its warning); later ones just pick the account.
+    prompt: 'select_account',
     state: opts.state,
   })
   if (opts.loginHint) params.set('login_hint', opts.loginHint)
@@ -106,7 +108,13 @@ async function getAll<T>(url: string, key: string, token: string): Promise<T[]> 
   const out: T[] = []
   let pageToken = ''
   for (let i = 0; i < 20; i++) {
-    const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}pageSize=100${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`, { headers: { Authorization: `Bearer ${token}` } })
+    const pageUrl = `${url}${url.includes('?') ? '&' : '?'}pageSize=100${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`
+    let res = await fetch(pageUrl, { headers: { Authorization: `Bearer ${token}` } })
+    // Classroom sometimes answers 500/503 for a moment; try twice more before giving up.
+    for (let retry = 1; retry <= 2 && (res.status >= 500 || res.status === 429); retry++) {
+      await new Promise((r) => setTimeout(r, 700 * retry))
+      res = await fetch(pageUrl, { headers: { Authorization: `Bearer ${token}` } })
+    }
     if (!res.ok) throw new Error(`Google Classroom ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`)
     const data = (await res.json()) as Record<string, unknown>
     out.push(...((data[key] as T[]) ?? []))
@@ -143,11 +151,12 @@ export interface CourseWork {
 }
 
 export const listCourseWork = (token: string, courseId: string) =>
-  getAll<CourseWork>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork?courseWorkStates=PUBLISHED&orderBy=updateTime%20desc`, 'courseWork', token)
+  getAll<CourseWork>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork?courseWorkStates=PUBLISHED`, 'courseWork', token)
 
 /** Assignments students upload work to, newest first (questions and materials can't have uploads). */
 export function uploadAssignments(work: CourseWork[]): Array<{ id: string; title: string; due: string | null; maxPoints: number | null; folderId: string | null }> {
-  return work
+  return [...work]
+    .sort((a, b) => (b.creationTime ?? '').localeCompare(a.creationTime ?? ''))
     .filter((w) => !w.workType || w.workType === 'ASSIGNMENT')
     .map((w) => ({
       id: w.id,
@@ -216,4 +225,41 @@ export async function setGrade(token: string, courseId: string, courseWorkId: st
 
 export class ClassroomError extends Error {
   constructor(public status: number, detail: string) { super(`Google Classroom ${status}: ${detail.slice(0, 200)}`) }
+}
+
+export async function getCourse(token: string, courseId: string): Promise<ClassroomCourse | null> {
+  const res = await fetch(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}`, { headers: { Authorization: `Bearer ${token}` } })
+  return res.ok ? ((await res.json()) as ClassroomCourse) : null
+}
+
+/** A period written anywhere in a course name or section ("Period 01 (Colegia)", "AP Stats P3") → "1", "3". */
+export function periodIn(text: string | null | undefined): string | null {
+  const m = (text ?? '').match(/\b(?:period|per\.?|pd\.?|p|block|hour)\s*:?\s*0*([0-9]{1,2}[a-z]?)\b/i)
+  return m ? m[1].toLowerCase() : null
+}
+
+const normPeriod = (p: string | null | undefined) => (p ?? '').trim().toLowerCase().replace(/^(?:period|p)\s*/, '').replace(/^0+(?=\w)/, '') || null
+const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w.length > 1 && !/^\d+$/.test(w) && !['period', 'per', 'block', 'the', 'and'].includes(w)))
+
+/**
+ * The teacher's class a Classroom course is for, when the class came from a
+ * gradebook file rather than a Classroom import: same period, and if several
+ * classes share it, the one whose name shares words with the course
+ * ("AP STAT" ~ "AP Statistics"). Null unless exactly one fits.
+ */
+export function matchClassForCourse(course: { name: string; section?: string | null }, classes: Array<{ id: string; name: string; period: string | null; course?: string | null }>): string | null {
+  const period = periodIn(course.name) ?? periodIn(course.section) ?? normPeriod(periodFromSection(course.section))
+  const courseWords = words(`${course.name} ${course.section ?? ''}`)
+  const overlap = (c: { name: string; course?: string | null }) => [...words(`${c.name} ${c.course ?? ''}`)].filter((w) => [...courseWords].some((cw) => cw.startsWith(w) || w.startsWith(cw))).length
+  let pool = period ? classes.filter((c) => normPeriod(c.period) === period) : []
+  if (pool.length > 1) {
+    const best = Math.max(...pool.map(overlap))
+    pool = best > 0 ? pool.filter((c) => overlap(c) === best) : []
+  }
+  if (!pool.length && !period) {
+    const scored = classes.map((c) => ({ c, n: overlap(c) })).filter((x) => x.n >= 2)
+    const best = Math.max(0, ...scored.map((x) => x.n))
+    pool = scored.filter((x) => x.n === best).map((x) => x.c)
+  }
+  return pool.length === 1 ? pool[0].id : null
 }

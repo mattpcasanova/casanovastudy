@@ -148,6 +148,7 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
       `Added ${files.length} file${files.length === 1 ? "" : "s"} from ${counts.size} student${counts.size === 1 ? "" : "s"}.`,
       left > 0 ? `${left} file${left === 1 ? " wasn't" : "s weren't"} picked; click Get the files again to add ${left === 1 ? "it" : "them"}.` : "",
       blocked + failed ? `${blocked + failed} couldn't be downloaded.` : "",
+      classId ? "" : "No class here matches this course, so pick the class above to check the names against your roster.",
     ].filter(Boolean).join(" "))
     if (files.length) onFiles({ files, owners, classId, title: assignment.title })
   }

@@ -37,7 +37,7 @@ export interface PickedFile { id: string; name: string; mimeType: string }
 export async function pickFiles(opts: { token: string; fileIds: string[]; folderId?: string | null; title: string }): Promise<PickedFile[] | null> {
   await loadPicker()
   const picker = window.google.picker
-  const view = new picker.DocsView(picker.ViewId.DOCS).setMode(picker.DocsViewMode.GRID).setIncludeFolders(false)
+  const view = new picker.DocsView(picker.ViewId.DOCS).setMode(picker.DocsViewMode.LIST).setIncludeFolders(false)
   if (typeof view.setFileIds === "function") view.setFileIds(opts.fileIds.join(","))
   else if (opts.folderId) view.setParent(opts.folderId)
   return new Promise((resolve) => {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
-import { listStudents, listSubmissions, studentWork } from '@/lib/google/classroom'
+import { getCourse, listStudents, listSubmissions, matchClassForCourse, studentWork } from '@/lib/google/classroom'
+import { schoolYearFor } from '@/lib/classes/years'
 
 // Who uploaded what for one Classroom assignment, plus the teacher's own
 // short-lived Google token: the browser opens Google's file picker with it
@@ -23,9 +24,20 @@ export async function GET(request: NextRequest) {
       listSubmissions(tok.access_token, course, work),
       supabase.from('classes').select('id').eq('teacher_id', user.id).eq('google_course_id', course).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
+    // A class made from a gradebook file isn't tied to the course yet: find it
+    // by period (and name), and remember the link so scores can go back too.
+    let classId: string | null = cls?.id ?? null
+    if (!classId) {
+      const [gc, { data: mine }] = await Promise.all([
+        getCourse(tok.access_token, course),
+        supabase.from('classes').select('id, name, period, course').eq('teacher_id', user.id).eq('school_year', schoolYearFor()).eq('is_archived', false).is('google_course_id', null),
+      ])
+      classId = gc ? matchClassForCourse({ name: gc.name, section: gc.section }, mine ?? []) : null
+      if (classId) await supabase.from('classes').update({ google_course_id: course }).eq('id', classId).eq('teacher_id', user.id).is('google_course_id', null)
+    }
     return NextResponse.json({
       students: studentWork(submissions, students),
-      classId: cls?.id ?? null,
+      classId,
       accessToken: tok.access_token,
       expiresAt: tok.expires_at,
     })
