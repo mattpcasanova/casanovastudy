@@ -16,6 +16,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { actionButton } from "@/components/grading/grading-ui"
 
 interface HomeData {
   firstName: string | null
@@ -106,9 +107,9 @@ function TeacherHome() {
         ) : (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Recently graded</h2>
-                <Link href="/graded-exams" className="text-sm font-medium text-blue-700 hover:underline">All reports</Link>
+                <Link href="/graded-exams" className={actionButton}><FileCheck />All reports</Link>
               </div>
               {data.recent.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-600">
@@ -134,9 +135,9 @@ function TeacherHome() {
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Your classes <span className="font-normal text-slate-500">{data.year}</span></h2>
-                <Link href="/teacher/classes" className="text-sm font-medium text-blue-700 hover:underline">Manage</Link>
+                <Link href="/teacher/classes" className={actionButton}><Users />Manage classes</Link>
               </div>
               {data.classes.length === 0 ? (
                 <Link href="/teacher/classes" className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 hover:bg-blue-50">

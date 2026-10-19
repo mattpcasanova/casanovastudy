@@ -22,7 +22,7 @@ import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
+import { AlertCircle, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -31,7 +31,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { ClientCompression } from "@/lib/client-compression"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
-import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta, selectBox } from "@/components/grading/grading-ui"
+import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
@@ -669,18 +669,18 @@ function BatchGrading() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {phase === "review" && <Button variant="outline" onClick={() => setPhase("setup")}><RotateCcw className="mr-2 h-4 w-4" />Start over</Button>}
+              {phase === "review" && <button type="button" onClick={() => setPhase("setup")} className={bigButton}><RotateCcw />Start over</button>}
               {phase === "review" && (
-                <Button onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0} className="bg-blue-600 hover:bg-blue-700">
-                  {answerKey.status === "drafting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Writing answer key…</> : `Grade ${papers.length} paper${papers.length === 1 ? "" : "s"}`}
-                </Button>
+                <button type="button" onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0} className={bigButtonPrimary}>
+                  {answerKey.status === "drafting" ? <><Loader2 className="animate-spin" />Writing answer key…</> : <><CheckCircle2 />Grade {papers.length} paper{papers.length === 1 ? "" : "s"}</>}
+                </button>
               )}
-              {phase === "grading" && running && <Button variant="outline" onClick={() => { stopRef.current = true }}>Pause after current papers</Button>}
-              {phase === "grading" && !running && failed.length > 0 && <Button variant="outline" onClick={() => void gradeAll(failed.map((p) => p.key))}><RotateCcw className="mr-2 h-4 w-4" />Retry {failed.length} failed</Button>}
-              {done.length > 0 && <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>}
-              {done.length > 0 && !running && paperClasses.size <= 1 && <Button asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch/${batchId.current}`}>Class results</Link></Button>}
+              {phase === "grading" && running && <button type="button" onClick={() => { stopRef.current = true }} className={bigButton}><Pause />Pause after current papers</button>}
+              {phase === "grading" && !running && failed.length > 0 && <button type="button" onClick={() => void gradeAll(failed.map((p) => p.key))} className={bigButton}><RotateCcw />Retry {failed.length} failed</button>}
+              {done.length > 0 && <button type="button" onClick={downloadCsv} className={bigButton}><Download />Download CSV</button>}
+              {done.length > 0 && !running && paperClasses.size <= 1 && <Link href={`/grade-exam/batch/${batchId.current}`} className={bigButtonPrimary}>See class results<ArrowRight /></Link>}
               {done.length > 0 && !running && paperClasses.size > 1 && [...paperClasses.entries()].map(([cid, label]) => (
-                <Button key={cid} asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch/${batchFor(cid)}`}>{label || "Class"} results</Link></Button>
+                <Link key={cid} href={`/grade-exam/batch/${batchFor(cid)}`} className={bigButtonPrimary}>{label || "Class"} results<ArrowRight /></Link>
               ))}
             </div>
           </div>
@@ -753,18 +753,30 @@ function BatchGrading() {
           {problems.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{problems.join(" ")}</p>}
 
           {classId && roster.length > 0 && (rosterCheck.missing.length > 0 || rosterCheck.duplicates.size > 0 || rosterCheck.unknown.length > 0) && (
-            <div className="space-y-1.5 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-inset ring-slate-200">
-              {rosterCheck.duplicates.size > 0 && <p className="text-amber-800">Two or more papers have the same student. Check the highlighted names.</p>}
+            <div className="space-y-3">
+              {rosterCheck.duplicates.size > 0 && (
+                <p className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"><AlertCircle className="h-4 w-4 shrink-0" />Two or more papers have the same student. Check the highlighted names.</p>
+              )}
               {rosterCheck.missing.length > 0 && (
-                <p className="text-slate-700">
-                  <span className="font-medium">No paper for {rosterCheck.missing.length}:</span> {rosterCheck.missing.map((r) => fullName(r)).join(", ")}
-                </p>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><UsersRound className="h-4 w-4" /></span>
+                    No paper yet
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{rosterCheck.missing.length} student{rosterCheck.missing.length === 1 ? "" : "s"}</span>
+                  </p>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {[...rosterCheck.missing].sort((a, b) => lastFirst(a).localeCompare(lastFirst(b))).map((r) => (
+                      <li key={r.id} className="rounded-xl bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200">{fullName(r)}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-slate-500">Mark them absent or missing on the class results page after grading, or add their papers later with Add more papers.</p>
+                </div>
               )}
               {rosterCheck.unknown.length > 0 && (
-                <p className="text-slate-700">
-                  {rosterCheck.unknown.length} name{rosterCheck.unknown.length === 1 ? " isn't" : "s aren't"} on the roster.{" "}
-                  <button type="button" onClick={() => void addUnknownToRoster()} className="font-semibold text-blue-700 hover:underline">Add {rosterCheck.unknown.length === 1 ? "it" : "them"} to the class</button>
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-medium text-slate-800">{rosterCheck.unknown.length} name{rosterCheck.unknown.length === 1 ? " isn't" : "s aren't"} on the class list.</p>
+                  <button type="button" onClick={() => void addUnknownToRoster()} className={bigButton}><UserPlus />Add {rosterCheck.unknown.length === 1 ? "it" : "them"} to the class</button>
+                </div>
               )}
             </div>
           )}
@@ -1044,35 +1056,43 @@ function GroupMembers({ first, others, editable, rosterList, onChange, onClose }
     setDraft("")
   }
   return (
-    <div className="mt-2 rounded-xl bg-white/90 px-2.5 py-2 ring-1 ring-indigo-200">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-800">
-        <UsersRound className="h-3.5 w-3.5" />Group work: graded once, a report for each member
-        {editable && <button type="button" onClick={onClose} className="ml-auto font-medium text-slate-500 hover:text-rose-700">Not a group</button>}
-      </p>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-900">{first || "This paper"}</span>
+    <div className="mt-3 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold text-indigo-900"><UsersRound className="h-4 w-4" />Group work</p>
+          <p className="mt-0.5 text-sm text-slate-600">Graded once. Each member gets their own report with the same marks.</p>
+        </div>
+        {editable && <button type="button" onClick={onClose} className={bigButton}><X />Not a group</button>}
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-2">
+        <li className="inline-flex h-9 items-center rounded-xl bg-indigo-50 px-3 text-sm font-semibold text-indigo-900 ring-1 ring-inset ring-indigo-200">{first || "This paper"}</li>
         {others.map((o) => (
-          <span key={o.name} className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium", o.match.confidence === "sure" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")} title={o.match.confidence === "sure" ? "On the class list" : "Not matched to the class list"}>
+          <li key={o.name} className={cn("inline-flex h-9 items-center gap-1.5 rounded-xl pl-3 text-sm font-semibold ring-1 ring-inset", editable ? "pr-1" : "pr-3", o.match.confidence === "sure" ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-amber-200")} title={o.match.confidence === "sure" ? "On the class list" : "Not matched to the class list"}>
             {o.name}
-            {editable && <button type="button" onClick={() => onChange(others.filter((x) => x.name !== o.name).map((x) => x.name))} aria-label={`Remove ${o.name}`} className="text-slate-400 hover:text-rose-600"><X className="h-3 w-3" /></button>}
-          </span>
+            {editable && <button type="button" onClick={() => onChange(others.filter((x) => x.name !== o.name).map((x) => x.name))} aria-label={`Remove ${o.name}`} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-rose-600"><X className="h-4 w-4" /></button>}
+          </li>
         ))}
-        {editable && (
+      </ul>
+      {editable && (
+        <form onSubmit={(e) => { e.preventDefault(); add() }} className="mt-3 flex flex-wrap gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add() } }}
             onBlur={add}
             list={rosterList}
-            placeholder={others.length ? "Add another member" : "Add a group member"}
+            placeholder={rosterList ? "Type a name from the class list" : "Type a group member's name"}
             aria-label="Add a group member"
-            className="min-w-[10rem] flex-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs focus:border-blue-400 focus:outline-none"
+            className="h-10 min-w-[14rem] flex-1 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
-        )}
-      </div>
+          <button type="submit" disabled={!draft.trim()} className={bigButtonPrimary}><UserPlus />Add member</button>
+        </form>
+      )}
     </div>
   )
 }
+
+const bigButton = actionButton.replace("h-10", "h-11")
+const bigButtonPrimary = actionButtonPrimary.replace("h-10", "h-11")
 
 type MatchState = "sure" | "check" | "none"
 
