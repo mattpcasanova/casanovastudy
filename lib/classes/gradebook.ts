@@ -47,8 +47,10 @@ export interface GradebookRow {
   studentNumber: string | null
   left: boolean
   cells: Record<string, GradebookCell>
-  /** Average percent over the tests this student has a paper for (exempt/absent don't count). */
+  /** Average percent over the tests this student has a paper for (exempt/absent don't count). Tests only. */
   average: number | null
+  /** Average of their best scores on assigned practice, kept apart from tests. */
+  practiceAverage: number | null
 }
 
 export function buildGradebook(
@@ -68,11 +70,11 @@ export function buildGradebook(
 
   const rows = new Map<string, GradebookRow>()
   for (const r of roster) {
-    rows.set(r.id, { key: r.id, rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), studentNumber: r.studentNumber, left: r.left, cells: {}, average: null })
+    rows.set(r.id, { key: r.id, rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), studentNumber: r.studentNumber, left: r.left, cells: {}, average: null, practiceAverage: null })
   }
   for (const p of papers) {
     const key = p.rosterId && rows.has(p.rosterId) ? p.rosterId : `name:${p.studentName.trim().toLowerCase()}`
-    const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, studentNumber: null, left: false, cells: {}, average: null }
+    const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, studentNumber: null, left: false, cells: {}, average: null, practiceAverage: null }
     row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade }
     rows.set(key, row)
   }
@@ -95,8 +97,9 @@ export function buildGradebook(
     }
   }
   for (const row of rows.values()) {
-    const pcts = Object.values(row.cells).flatMap((c) => (c.kind === 'paper' || c.kind === 'practice' ? [c.pct] : []))
-    row.average = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null
+    const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+    row.average = mean(Object.values(row.cells).flatMap((c) => (c.kind === 'paper' ? [c.pct] : [])))
+    row.practiceAverage = mean(Object.values(row.cells).flatMap((c) => (c.kind === 'practice' ? [c.pct] : [])))
   }
 
   return {

@@ -34,12 +34,12 @@ describe('resultsCsvTable', () => {
       [{ id: 'r1', firstName: 'Sean', lastName: 'Miller', studentNumber: '1001', left: false }, { id: 'r2', firstName: 'Ava', lastName: 'Kim', studentNumber: null, left: false }],
       [{ batchId: 'b1', rosterId: 'r2', status: 'exempt' }],
     )
-    expect(resultsCsvTable(tests, rows)).toBe('"Student ID","Student","Average","Unit 1 (2026-09-01)"\n"","Ava Kim","","Exempt"\n"1001","Sean Miller","70.0","70.0"')
+    expect(resultsCsvTable(tests, rows)).toBe('"Student ID","Student","Test average","Unit 1 (2026-09-01)"\n"","Ava Kim","","Exempt"\n"1001","Sean Miller","70.0","70.0"')
   })
 })
 
 describe('assigned practice in the gradebook', () => {
-  it('adds a column per assignment, best score per student, missing when past due, and counts it in averages', () => {
+  it('adds a column per assignment, best score per student, missing when past due, with its own average', () => {
     const roster = [
       { id: 'r1', firstName: 'Ana', lastName: 'B', studentNumber: '1', left: false },
       { id: 'r2', firstName: 'Cal', lastName: 'D', studentNumber: '2', left: false },
@@ -52,7 +52,8 @@ describe('assigned practice in the gradebook', () => {
     expect(tests.map((t) => [t.batchId, t.kind ?? 'test', t.papers, t.average])).toEqual([['b1', 'test', 1, 60], ['a1', 'practice', 1, 90]])
     const ana = rows.find((r) => r.rosterId === 'r1')!, cal = rows.find((r) => r.rosterId === 'r2')!
     expect(ana.cells.a1).toEqual({ kind: 'practice', assignmentId: 'a1', marks: 9, possible: 10, pct: 90, late: true })
-    expect(ana.average).toBe(75)
+    expect(ana.average).toBe(60)
+    expect(ana.practiceAverage).toBe(90)
     expect(cal.cells.a1).toEqual({ kind: 'status', status: 'missing' })
     expect(practiceCsv(tests, rows).split('\n')[0]).toContain('Reteach [practice]')
   })

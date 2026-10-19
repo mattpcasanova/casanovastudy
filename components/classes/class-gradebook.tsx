@@ -1,6 +1,7 @@
 "use client"
 
-// Class page gradebook: students × graded sets, sortable by name, average or
+// Class page gradebook: students × graded sets and assigned practice (own
+// average, kept apart from tests), sortable by name, average or
 // any test; a cell opens the student's report. Students who left are hidden
 // unless asked for. CSV includes student IDs for gradebook imports.
 
@@ -14,17 +15,19 @@ import { cn } from "@/lib/utils"
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-50 text-emerald-900" : pct >= 65 ? "bg-blue-50 text-blue-900" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900")
 const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late" }
 
-type Sort = { by: "name" | "average" | string; dir: 1 | -1 }
+type Sort = { by: "name" | "average" | "practiceAverage" | string; dir: 1 | -1 }
 
 export function ClassGradebook({ tests, rows, className, classId }: { tests: GradebookTest[]; rows: GradebookRow[]; className: string; classId?: string }) {
   const [sort, setSort] = useState<Sort>({ by: "name", dir: 1 })
   const [showLeft, setShowLeft] = useState(false)
   const leftCount = rows.filter((r) => r.left).length
+  const hasPractice = tests.some((t) => t.kind === "practice")
 
   const sorted = useMemo(() => {
     const value = (r: GradebookRow): number | string | null => {
       if (sort.by === "name") return r.name.toLowerCase()
       if (sort.by === "average") return r.average
+      if (sort.by === "practiceAverage") return r.practiceAverage
       const c = r.cells[sort.by]
       return c && c.kind !== "status" ? c.pct : null
     }
@@ -57,7 +60,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold text-slate-900">Gradebook</h2>
-          <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report. Practice columns are assigned practice (best attempt).</p>
+          <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report. Practice columns are assigned practice (best attempt), averaged separately from tests.</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
           {leftCount > 0 && (
@@ -74,7 +77,8 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
           <thead>
             <tr className="text-left text-xs text-slate-500">
               <th className="sticky left-0 z-10 bg-white px-2 py-2"><button type="button" onClick={() => toggle("name")} className="font-semibold hover:text-slate-900">Student {arrow("name")}</button></th>
-              <th className="px-2 py-2"><button type="button" onClick={() => toggle("average")} className="font-semibold hover:text-slate-900">Average {arrow("average")}</button></th>
+              <th className="px-2 py-2"><button type="button" onClick={() => toggle("average")} className="font-semibold hover:text-slate-900">{hasPractice ? "Tests" : "Average"} {arrow("average")}</button></th>
+              {hasPractice && <th className="px-2 py-2"><button type="button" onClick={() => toggle("practiceAverage")} className="font-semibold text-emerald-800 hover:text-emerald-950">Practice {arrow("practiceAverage")}</button></th>}
               {tests.map((t) => (
                 <th key={t.batchId} className="min-w-[6.5rem] px-2 py-2 align-bottom">
                   <button type="button" onClick={() => toggle(t.batchId)} className="text-left font-semibold hover:text-slate-900">
@@ -93,6 +97,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
                   {r.rosterId && classId ? <Link href={`/teacher/classes/${classId}/students/${r.rosterId}`} className="hover:text-blue-700 hover:underline">{r.name}</Link> : r.name}{r.left && <span className="ml-1.5 text-xs font-normal">(left)</span>}{!r.rosterId && <span className="ml-1.5 text-xs font-normal text-amber-700" title="Not matched to a roster name">?</span>}
                 </td>
                 <td className="px-2 py-1.5 font-semibold">{r.average === null ? "-" : `${Math.round(r.average)}%`}</td>
+                {hasPractice && <td className="px-2 py-1.5 font-semibold text-emerald-900">{r.practiceAverage === null ? "-" : `${Math.round(r.practiceAverage)}%`}</td>}
                 {tests.map((t) => {
                   const c = r.cells[t.batchId]
                   return (

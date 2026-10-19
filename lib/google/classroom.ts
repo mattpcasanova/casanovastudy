@@ -3,6 +3,7 @@
 // (classroom.test.ts); the fetch helpers call the Classroom API.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { matchRoster } from '@/lib/grading/names'
 
 export const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.courses.readonly',
@@ -262,4 +263,66 @@ export function matchClassForCourse(course: { name: string; section?: string | n
     pool = scored.filter((x) => x.n === best).map((x) => x.c)
   }
   return pool.length === 1 ? pool[0].id : null
+}
+
+/** A due date for Classroom (dates and times are UTC there); none if it has passed. */
+export function classroomDue(iso: string | null, now = Date.now()): { dueDate: { year: number; month: number; day: number }; dueTime: { hours: number; minutes: number } } | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime()) || d.getTime() <= now) return null
+  return { dueDate: { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() }, dueTime: { hours: d.getUTCHours(), minutes: d.getUTCMinutes() } }
+}
+
+/**
+ * Classroom students for roster names: by school email first, then by a
+ * confident name match. Also says which roster names can get their email
+ * from Classroom (so the share link recognises them when they sign in).
+ */
+export function matchClassroomStudents(
+  roster: Array<{ id: string; firstName: string; lastName: string; email: string | null }>,
+  students: ClassroomStudent[],
+): { userIdByRoster: Map<string, string>; emailFill: Array<{ rosterId: string; email: string }>; unmatched: string[] } {
+  const people = students
+    .map((s) => ({ userId: s.userId ?? '', person: studentToRoster(s) }))
+    .filter((x): x is { userId: string; person: { firstName: string; lastName: string; email: string | null } } => !!x.userId && !!x.person)
+  const byEmail = new Map(people.filter((p) => p.person.email).map((p) => [p.person.email!, p]))
+  const asRoster = people.map((p) => ({ id: p.userId, firstName: p.person.firstName, lastName: p.person.lastName }))
+  const userIdByRoster = new Map<string, string>()
+  const emailFill: Array<{ rosterId: string; email: string }> = []
+  const unmatched: string[] = []
+  const used = new Set<string>()
+  for (const r of roster) {
+    let hit = r.email ? byEmail.get(r.email.toLowerCase()) : undefined
+    if (!hit) {
+      const m = matchRoster(`${r.firstName} ${r.lastName}`, asRoster.filter((x) => !used.has(x.id)))
+      if (m.confidence === 'sure' && m.rosterId) hit = people.find((p) => p.userId === m.rosterId)
+    }
+    if (!hit || used.has(hit.userId)) { unmatched.push(`${r.firstName} ${r.lastName}`.trim()); continue }
+    used.add(hit.userId)
+    userIdByRoster.set(r.id, hit.userId)
+    if (!r.email && hit.person.email) emailFill.push({ rosterId: r.id, email: hit.person.email })
+  }
+  return { userIdByRoster, emailFill, unmatched }
+}
+
+/** Posts assigned practice to chosen students as a Classroom assignment with the link. */
+export async function createLinkCourseWork(token: string, courseId: string, opts: { title: string; description: string; url: string; studentIds: string[]; due: ReturnType<typeof classroomDue> }): Promise<{ id: string; alternateLink: string | null }> {
+  const res = await fetch(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: opts.title.slice(0, 3000),
+      description: opts.description,
+      workType: 'ASSIGNMENT',
+      state: 'PUBLISHED',
+      maxPoints: 100,
+      materials: [{ link: { url: opts.url } }],
+      assigneeMode: 'INDIVIDUAL_STUDENTS',
+      individualStudentsOptions: { studentIds: opts.studentIds },
+      ...(opts.due ?? {}),
+    }),
+  })
+  if (!res.ok) throw new ClassroomError(res.status, await res.text().catch(() => ''))
+  const data = (await res.json()) as { id: string; alternateLink?: string }
+  return { id: data.id, alternateLink: data.alternateLink ?? null }
 }

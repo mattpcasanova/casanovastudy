@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
 import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, QrCode, Trash2 } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
+import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
 import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
@@ -93,6 +94,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           <code className="text-sm text-slate-600">{a.url}</code>
         </div>
       )}
+
+      <ClassroomPracticePanel assignmentId={a.id} students={students.length} />
 
       <section className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
         <span className="inline-flex items-center gap-2 text-slate-800"><CalendarClock className="h-4 w-4 text-slate-500" />

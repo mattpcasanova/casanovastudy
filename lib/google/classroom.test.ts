@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchClassForCourse, periodFromSection, periodIn, signState, studentToRoster, studentWork, uploadAssignments, verifyState } from './classroom'
+import { classroomDue, matchClassroomStudents, matchClassForCourse, periodFromSection, periodIn, signState, studentToRoster, studentWork, uploadAssignments, verifyState } from './classroom'
 
 describe('OAuth state', () => {
   const user = '5e51e47f-d060-493d-b346-40d89595bc96'
@@ -77,5 +77,27 @@ describe('matching a Classroom course to a class', () => {
     expect(matchClassForCourse({ name: 'Period 4', section: null }, classes)).toBe('c4')
     expect(matchClassForCourse({ name: 'Period 1', section: null }, classes)).toBeNull() // two period-1 classes, no name
     expect(matchClassForCourse({ name: 'Period 6', section: 'AP Stats' }, classes)).toBeNull()
+  })
+})
+
+describe('posting practice to Classroom', () => {
+  it('due dates in UTC, none once passed', () => {
+    expect(classroomDue('2026-10-24T03:59:00Z', Date.parse('2026-10-20T00:00:00Z'))).toEqual({ dueDate: { year: 2026, month: 10, day: 24 }, dueTime: { hours: 3, minutes: 59 } })
+    expect(classroomDue('2026-10-01T00:00:00Z', Date.parse('2026-10-20T00:00:00Z'))).toBeNull()
+    expect(classroomDue(null)).toBeNull()
+  })
+  it('matches roster names to Classroom students by email, then name, and fills missing emails', () => {
+    const students = [
+      { userId: 'g1', profile: { name: { givenName: 'Lianna', familyName: 'Wysocki' }, emailAddress: 'lw@school.org' } },
+      { userId: 'g2', profile: { name: { givenName: 'Mya', familyName: 'Adams' }, emailAddress: 'MA@school.org' } },
+    ]
+    const out = matchClassroomStudents([
+      { id: 'r1', firstName: 'Lianna Christine', lastName: 'Wysocki', email: null },
+      { id: 'r2', firstName: 'Mya', lastName: 'Adams', email: 'ma@school.org' },
+      { id: 'r3', firstName: 'Noah', lastName: 'Zed', email: null },
+    ], students)
+    expect([...out.userIdByRoster.entries()]).toEqual([['r1', 'g1'], ['r2', 'g2']])
+    expect(out.emailFill).toEqual([{ rosterId: 'r1', email: 'lw@school.org' }])
+    expect(out.unmatched).toEqual(['Noah Zed'])
   })
 })

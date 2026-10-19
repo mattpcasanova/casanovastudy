@@ -11,6 +11,7 @@ import { Check, Copy, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
+import { ClassroomPracticePanel } from "./classroom-practice-panel"
 import { sortClasses } from "@/lib/classes/sort"
 import type { AssignPreset } from "@/lib/practice/preset"
 import { cn } from "@/lib/utils"
@@ -127,6 +128,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
               </button>
             </div>
             {qr && <img src={qr} alt={`QR code for ${created.url}`} className="mx-auto h-56 w-56 rounded-xl ring-1 ring-slate-200" />}
+            <ClassroomPracticePanel assignmentId={created.id} students={chosen.length} compact />
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
               {chosen.length} student{chosen.length === 1 ? "" : "s"}: {ready} already have a linked account.
               {chosen.length - ready > 0 && <> The other {chosen.length - ready} pick their name when they open the link{withWay ? ", matched by their school email or confirmed with their student ID" : ""}.</>}

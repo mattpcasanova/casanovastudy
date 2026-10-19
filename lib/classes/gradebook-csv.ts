@@ -5,11 +5,13 @@ import type { GradebookRow, GradebookTest } from './gradebook'
 
 export function resultsCsvTable(tests: GradebookTest[], rows: GradebookRow[]): string {
   const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
-  const head = ['Student ID', 'Student', 'Average', ...tests.map((t) => `${t.title}${t.kind === 'practice' ? ' [practice]' : ''} (${t.date.slice(0, 10)})`)]
+  const practice = tests.some((t) => t.kind === 'practice')
+  const head = ['Student ID', 'Student', 'Test average', ...(practice ? ['Practice average'] : []), ...tests.map((t) => `${t.title}${t.kind === 'practice' ? ' [practice]' : ''} (${t.date.slice(0, 10)})`)]
   const body = rows.map((r) => [
     r.studentNumber ?? '',
     r.name,
     r.average === null ? '' : r.average.toFixed(1),
+    ...(practice ? [r.practiceAverage === null ? '' : r.practiceAverage.toFixed(1)] : []),
     ...tests.map((t) => {
       const c = r.cells[t.batchId]
       if (!c) return ''
