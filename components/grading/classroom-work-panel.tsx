@@ -131,21 +131,26 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
     }
   }
 
-  const isGraded = (s: StudentWork) => alreadyGraded.some((g) => nameScore(`${s.firstName} ${s.lastName}`, g) >= 0.85)
+  const gradedIn = (names: string[]) => (s: StudentWork) => names.some((g) => nameScore(`${s.firstName} ${s.lastName}`, g) >= 0.85)
+  const isGraded = gradedIn(alreadyGraded)
   const graded = students?.filter(isGraded) ?? []
   const withFiles = students?.filter((s) => s.files.length && !isGraded(s)) ?? []
   const nothing = students?.filter((s) => !s.files.length && !isGraded(s)) ?? []
   const fileCount = withFiles.reduce((n, s) => n + s.files.length, 0)
   const assignment = assignments?.find((a) => a.id === work)
+  // The earlier set's students who uploaded files here, and everyone else.
+  const earlierDone = earlier ? (students ?? []).filter((s) => s.files.length && gradedIn(earlier.names)(s)) : []
+  const earlierRest = earlier ? withFiles.filter((s) => !gradedIn(earlier.names)(s)) : []
 
-  const getPhotos = async () => {
+  const getPhotos = async (skip: string[] = []) => {
     if (!students || !assignment) return
     setError(""); setNotice("")
     const owner = new Map<string, string>()
-    for (const s of withFiles) for (const f of s.files) owner.set(f.id, `${s.firstName} ${s.lastName}`.trim())
+    for (const s of withFiles.filter((x) => !gradedIn(skip)(x))) for (const f of s.files) owner.set(f.id, `${s.firstName} ${s.lastName}`.trim())
+    if (!owner.size) { setError("Everyone who uploaded files is already graded."); return }
     let picked
     try {
-      picked = await pickFiles({ token, fileIds: [...owner.keys()], folderId: assignment.folderId, title: `Select all ${fileCount} files for ${assignment.title}` })
+      picked = await pickFiles({ token, fileIds: [...owner.keys()], folderId: assignment.folderId, title: `Select all ${owner.size} files for ${assignment.title}` })
     } catch (e) {
       setError(e instanceof Error ? e.message : "Google's file picker didn't open")
       return
@@ -183,7 +188,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
       setReconnect(true)
       return
     }
-    const left = fileCount - mine.length
+    const left = owner.size - mine.length
     setNotice([
       `Added ${files.length} file${files.length === 1 ? "" : "s"} from ${counts.size} student${counts.size === 1 ? "" : "s"}.`,
       left > 0 ? `${left} file${left === 1 ? " wasn't" : "s weren't"} picked; click Get the files again to add ${left === 1 ? "it" : "them"}.` : "",
@@ -220,33 +225,36 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
                   </select>
                 )}
               </div>
-              {earlier && !addingTo && (
-                <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
-                  <p><span className="font-semibold">You already graded {earlier.names.length} student{earlier.names.length === 1 ? "" : "s"} from this assignment</span> in &quot;{earlier.title || "a class set"}&quot; ({new Date(earlier.date).toLocaleDateString([], { month: "short", day: "numeric" })}).</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button type="button" className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" onClick={async () => { if (await onUseEarlier!(earlier.batchId, { courseId: course, workId: work })) setEarlier(null) }}>Add the rest to that set</button>
-                    <button type="button" className="inline-flex h-10 items-center rounded-xl bg-white px-4 font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50" onClick={() => setEarlier(null)}>Start a new set</button>
-                  </div>
-                  <p className="mt-1.5 text-xs text-amber-900">Adding to it skips the students already graded and keeps everyone on one results page.</p>
-                </div>
-              )}
               {students && (
-                <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
-                  {graded.length > 0 && <p className="mb-1 text-emerald-800">{graded.length} already graded in this set (left out).</p>}
-                  <p className="text-slate-800">
-                    <span className="font-semibold">{withFiles.length}{graded.length ? " more" : ""} student{withFiles.length === 1 ? "" : "s"}</span> uploaded {fileCount} file{fileCount === 1 ? "" : "s"}
-                    {withFiles.some((s) => !s.turnedIn) && <span className="text-slate-500"> ({withFiles.filter((s) => !s.turnedIn).length} not turned in yet)</span>}
-                    {withFiles.some((s) => s.late) && <span className="text-slate-500">, {withFiles.filter((s) => s.late).length} late</span>}.
-                  </p>
-                  {nothing.length > 0 && <p className="mt-1 text-slate-500">Nothing from {nothing.length}: {nothing.slice(0, 8).map((s) => `${s.firstName} ${s.lastName}`.trim()).join(", ")}{nothing.length > 8 ? "…" : ""}</p>}
-                  {fileCount > 0 && (
+                <div className={cn("rounded-xl p-3 text-sm ring-1", earlier && !addingTo ? "bg-amber-50 ring-amber-200" : "bg-white ring-slate-200")}>
+                  {earlier && !addingTo ? (
                     <>
-                      <Button className="mt-3 h-11 rounded-xl bg-blue-600 px-5 text-base font-semibold hover:bg-blue-700" disabled={disabled || !!busy} onClick={() => void getPhotos()}>
-                        {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{busy}</> : `Get the ${fileCount} file${fileCount === 1 ? "" : "s"}`}
-                      </Button>
-                      <p className="mt-1.5 text-xs text-slate-500">Google opens its file picker showing these files: select them all (drag across them, or click the first and Shift-click the last) and press Select. That lets us open just these files, nothing else in your Drive.</p>
+                      <p className="font-semibold text-slate-900">{earlierDone.length} of {earlierDone.length + earlierRest.length} students are already graded <span className="font-normal text-slate-600">(&quot;{earlier.title || "a class set"}&quot;, {new Date(earlier.date).toLocaleDateString([], { month: "short", day: "numeric" })})</span></p>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        <button type="button" disabled={disabled || !!busy || !earlierRest.length} onClick={async () => { const skip = earlier.names; if (await onUseEarlier!(earlier.batchId, { courseId: course, workId: work })) { setEarlier(null); await getPhotos(skip) } }} className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                          {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : `Grade the other ${earlierRest.length}`}
+                        </button>
+                        <button type="button" disabled={disabled || !!busy} onClick={() => { setEarlier(null); void getPhotos() }} className="inline-flex h-11 items-center rounded-xl bg-white px-5 font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-50">
+                          Regrade all {earlierDone.length + earlierRest.length}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-slate-800">
+                        <span className="font-semibold">{withFiles.length} student{withFiles.length === 1 ? "" : "s"}{graded.length ? " left to grade" : " turned it in"}</span>
+                        {graded.length > 0 && <span className="text-slate-500"> ({graded.length} already graded)</span>}
+                        {withFiles.some((s) => s.late) && <span className="text-slate-500"> · {withFiles.filter((s) => s.late).length} late</span>}
+                      </p>
+                      {nothing.length > 0 && <p className="mt-1 text-slate-500">Nothing from {nothing.length}: {nothing.slice(0, 8).map((s) => `${s.firstName} ${s.lastName}`.trim()).join(", ")}{nothing.length > 8 ? "…" : ""}</p>}
+                      {fileCount > 0 && (
+                        <button type="button" disabled={disabled || !!busy} onClick={() => void getPhotos()} className="mt-2.5 inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                          {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : `Get ${graded.length ? "their" : "the"} files`}
+                        </button>
+                      )}
                     </>
                   )}
+                  <p className="mt-2 text-xs text-slate-500">In Google&apos;s picker, select all the files and press Select.</p>
                 </div>
               )}
               {busy && !students && <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />{busy}</p>}
