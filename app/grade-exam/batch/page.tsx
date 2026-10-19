@@ -22,7 +22,7 @@ import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, UsersRound, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, UserPlus, UsersRound, X } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -837,31 +837,34 @@ function BatchGrading() {
                       {phase === "review" && state !== "sure" && (() => {
                         const { open, taken } = suggestions
                         return (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 px-1.5 text-xs">
+                          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white/80 p-2.5 text-sm ring-1 ring-slate-200">
+                            {classId && state === "none" && elsewhere[paper.name] && (() => {
+                              const from = elsewhere[paper.name]!
+                              return (
+                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 font-semibold text-white shadow-sm hover:bg-blue-700">
+                                  <UserPlus className="h-4 w-4" />
+                                  <span>Add {from.firstName} {from.lastName} from {from.className}{from.period ? ` (P${from.period})` : ""}{from.studentNumber ? <span className="font-normal opacity-90"> · ID {from.studentNumber}</span> : null}</span>
+                                </button>
+                              )
+                            })()}
                             {roster.length > 0 && (
                               <select
                                 value=""
                                 onChange={(e) => { const row = roster.find((x) => x.id === e.target.value); if (row) setNames((m) => ({ ...m, [paper.key]: fullName(row) })) }}
                                 aria-label={`Match ${paper.name} to a student on the class list`}
-                                className="max-w-[16rem] rounded-md border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-800 hover:border-blue-400"
+                                className="h-10 max-w-[18rem] rounded-xl border border-slate-300 bg-white px-3 font-semibold text-slate-800 hover:border-blue-400"
                               >
-                                <option value="">Match to a student…</option>
+                                <option value="">Match to a student on the list…</option>
                                 {open.length > 0 && <optgroup label="No paper yet">{open.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
                                 {taken.length > 0 && <optgroup label="Already have a paper">{taken.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
                               </select>
                             )}
-                            {classId && state === "none" && elsewhere[paper.name] && (() => {
-                              const from = elsewhere[paper.name]!
-                              return (
-                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} className="rounded-md bg-blue-600 px-2 py-1 font-semibold text-white hover:bg-blue-700">
-                                  Add {from.firstName} {from.lastName} from {from.className}{from.period ? ` (P${from.period})` : ""}{from.studentNumber ? ` · ID ${from.studentNumber}` : ""}
-                                </button>
-                              )
-                            })()}
-                            {classId && state === "none" && !elsewhere[paper.name] && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
-                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} className="rounded-md bg-white px-2 py-1 font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Add {paper.name.trim()} to the class list</button>
+                            {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
+                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} className={cn("inline-flex h-10 items-center gap-2 rounded-xl px-4 font-semibold ring-1", elsewhere[paper.name] ? "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50" : "bg-blue-600 text-white ring-blue-600 hover:bg-blue-700")}>
+                                <UserPlus className="h-4 w-4" />{elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`}
+                              </button>
                             )}
-                            <button type="button" onClick={() => removePaper(paper)} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 font-semibold text-rose-700 ring-1 ring-slate-300 hover:bg-rose-50"><Trash2 className="h-3 w-3" />Leave out of this grading</button>
+                            <button type="button" onClick={() => removePaper(paper)} className="ml-auto inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="h-4 w-4" />Leave out of this grading</button>
                           </div>
                         )
                       })()}
