@@ -133,6 +133,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - Students get a "Join a class" link on `/progress`.
   - **Names**: `lib/grading/names.ts` (unit-tested): `parseName` ("Last, First"), `matchRoster` (sure/check/none; token Levenshtein, initials, accents, rn→m look-alikes) and `sameStudent`, which `splitPoints` uses so a misread repeat of the name doesn't split a paper.
     - The batch grader has an optional Class picker (`?class=` preselects). Roster names go to `readPageHeader`.
+    - Review screen, per paper not matched: "Match to a student…" (class list A-Z by last name, no-paper-yet first), "Add <name> to the class list" (optimistic temp row; Grade waits for the save; then an ID/email form, also "Add student ID / email" on matched papers), and "Leave out of this grading" (undo). A name that's on another of the teacher's classes this year (`POST /api/classes/[id]/roster/elsewhere`) is offered as "Add <full name> from <class> · ID", copying name, student ID and email.
     - The review list uses a roster datalist, On roster / "Name?" / Not on roster chips, duplicate highlighting, "No paper for N" and "Add them to the class".
     - Renames are keyed by the page they were typed on. The single grader has a class + roster picker too.
 - **Class imports, statuses, scanner inbox, areas, stamped tests, Google Classroom (2026-10-13, migrations 052-055)**:

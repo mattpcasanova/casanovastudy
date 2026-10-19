@@ -244,19 +244,41 @@ function BatchGrading() {
   const [adding, setAdding] = useState(0)
   // The paper whose student's ID/email form is open.
   const [detailsFor, setDetailsFor] = useState<number | null>(null)
-  const addUnknownToRoster = async (only?: { name: string; paperKey: number }) => {
+  // Unknown names that are on another of the teacher's classes (a student in two of their classes).
+  const [elsewhere, setElsewhere] = useState<Record<string, ElsewhereMatch>>({})
+  const unknownKey = rosterCheck.unknown.map((p) => p.name).sort().join("|")
+  useEffect(() => {
+    if (!classId || !unknownKey || phase !== "review") return
+    const names = unknownKey.split("|").filter((n) => !(n in elsewhere))
+    if (!names.length) return
+    void (async () => {
+      const res = await authFetch(`/api/classes/${classId}/roster/elsewhere`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ names }) })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setElsewhere((m) => ({ ...m, ...Object.fromEntries(names.map((n) => [n, data.found?.[n] ?? null])) }))
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, unknownKey, phase])
+  const addUnknownToRoster = async (only?: { name: string; paperKey: number; from?: ElsewhereMatch }) => {
     const list = only ? [only.name] : rosterCheck.unknown.map((p) => p.name)
     if (!classId || !list.length) return
     const before = roster
-    setRoster((r) => [...r, ...list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, linked: false }))])
+    const from = only?.from
+    // Copying a student from another class keeps their full name, so this paper
+    // is renamed to it (the roster spelling).
+    if (from && only) setNames((m) => ({ ...m, [only.paperKey]: `${from.firstName} ${from.lastName}`.trim() }))
+    setRoster((r) => [...r, ...(from
+      ? [{ id: `temp-${Date.now()}`, firstName: from.firstName, lastName: from.lastName, studentUserId: null, studentNumber: from.studentNumber, email: from.email, left: false, linked: false }]
+      : list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, linked: false })))])
     setAdding((n) => n + 1)
     try {
-      const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: list.join("\n") }) })
+      const body = from ? { names: [{ firstName: from.firstName, lastName: from.lastName, studentNumber: from.studentNumber ?? undefined, email: from.email }] } : { text: list.join("\n") }
+      const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { setRoster(before); setRosterNotice(data.error || "Could not add those names"); return }
       setRoster(data.roster ?? [])
-      setRosterNotice(only ? `Added ${only.name} to the class list. Add their student ID or email below if you have it.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
-      if (only) setDetailsFor(only.paperKey)
+      if (from) setRosterNotice(`Added ${from.firstName} ${from.lastName} to the class list with their details from ${from.className}${from.period ? ` (P${from.period})` : ""}.`)
+      else setRosterNotice(only ? `Added ${only.name} to the class list. Add their student ID or email below if you have it.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+      if (only && !from) setDetailsFor(only.paperKey)
     } finally {
       setAdding((n) => n - 1)
     }
@@ -828,7 +850,15 @@ function BatchGrading() {
                                 {taken.length > 0 && <optgroup label="Already have a paper">{taken.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
                               </select>
                             )}
-                            {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
+                            {classId && state === "none" && elsewhere[paper.name] && (() => {
+                              const from = elsewhere[paper.name]!
+                              return (
+                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} className="rounded-md bg-blue-600 px-2 py-1 font-semibold text-white hover:bg-blue-700">
+                                  Add {from.firstName} {from.lastName} from {from.className}{from.period ? ` (P${from.period})` : ""}{from.studentNumber ? ` · ID ${from.studentNumber}` : ""}
+                                </button>
+                              )
+                            })()}
+                            {classId && state === "none" && !elsewhere[paper.name] && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
                               <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} className="rounded-md bg-white px-2 py-1 font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Add {paper.name.trim()} to the class list</button>
                             )}
                             <button type="button" onClick={() => removePaper(paper)} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 font-semibold text-rose-700 ring-1 ring-slate-300 hover:bg-rose-50"><Trash2 className="h-3 w-3" />Leave out of this grading</button>
@@ -911,6 +941,8 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
 }
 
 /** Group work on a paper: the members graded with it (first = the paper's name). */
+type ElsewhereMatch = { rosterId: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; className: string; period: string | null } | null
+
 function RosterDetailsForm({ row, onSave, onClose }: { row: RosterRow; onSave: (d: { studentNumber: string; email: string }) => Promise<string | null>; onClose: () => void }) {
   const [studentNumber, setStudentNumber] = useState(row.studentNumber ?? "")
   const [email, setEmail] = useState(row.email ?? "")
