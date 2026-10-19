@@ -61,15 +61,15 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Send scores to your gradebook</DialogTitle>
           <DialogDescription>Pick your school&apos;s gradebook. You&apos;ll get the file it imports, matched on student ID, with the steps to bring it in.</DialogDescription>
         </DialogHeader>
 
-        {classroomSync}
+        <div className="-mx-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-6">
+          {classroomSync}
 
-        <div className="space-y-4">
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Gradebook</span>
             <select value={preset} onChange={(e) => pick(e.target.value as ExportPreset)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -108,15 +108,15 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
               </tbody>
             </table>
           </div>
+        </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
-            {info.file === "copy" ? (
-              <Button onClick={copy} className="bg-blue-600 hover:bg-blue-700">{copied ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy scores</>}</Button>
-            ) : (
-              <Button onClick={() => void download()} className="bg-blue-600 hover:bg-blue-700"><Download className="mr-2 h-4 w-4" />Download {info.file === "xlsx" ? "Excel file" : "CSV"}</Button>
-            )}
-          </div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+          {info.file === "copy" ? (
+            <Button onClick={copy} className="bg-blue-600 hover:bg-blue-700">{copied ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy scores</>}</Button>
+          ) : (
+            <Button onClick={() => void download()} className="bg-blue-600 hover:bg-blue-700"><Download className="mr-2 h-4 w-4" />Download {info.file === "xlsx" ? "Excel file" : "CSV"}</Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

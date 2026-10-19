@@ -92,7 +92,7 @@ export function StampTestDialog({ open, onOpenChange, defaultClassId }: { open: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><QrCode className="h-5 w-5 text-blue-600" />Print name-stamped copies</DialogTitle>
           <DialogDescription>
