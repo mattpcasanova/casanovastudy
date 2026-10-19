@@ -193,7 +193,7 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
                       <Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700" disabled={disabled || !!busy} onClick={() => void getPhotos()}>
                         {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{busy}</> : `Get the ${fileCount} file${fileCount === 1 ? "" : "s"}`}
                       </Button>
-                      <p className="mt-1.5 text-xs text-slate-500">Google opens its file picker showing these files: select them all (click the first, then Shift-click the last) and press Select. That lets us open just these files, nothing else in your Drive.</p>
+                      <p className="mt-1.5 text-xs text-slate-500">Google opens its file picker showing these files: select them all (drag across them, or click the first and Shift-click the last) and press Select. That lets us open just these files, nothing else in your Drive.</p>
                     </>
                   )}
                 </div>

@@ -18,7 +18,7 @@ import { placeStampedPages } from "@/lib/stamped/place"
 import { missingPages } from "@/lib/stamped/codes"
 import { DEFAULT_SCALE, SCALE_PRESETS, type GradeScale } from "@/lib/grading/scale"
 import { usesMarkingStyle, type MarkingStyle } from "@/lib/grading/marking-style"
-import { fullName, matchRoster, nameScore, type RosterName } from "@/lib/grading/names"
+import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading/names"
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
@@ -239,14 +239,35 @@ function BatchGrading() {
     return { duplicates, missing, unknown }
   }, [papers, roster])
 
-  const addUnknownToRoster = async (only?: string) => {
-    const list = only ? [only] : rosterCheck.unknown.map((p) => p.name)
+  // Names being added right now: shown as on the list at once (temp ids),
+  // grading waits until the real rows are back.
+  const [adding, setAdding] = useState(0)
+  // The paper whose student's ID/email form is open.
+  const [detailsFor, setDetailsFor] = useState<number | null>(null)
+  const addUnknownToRoster = async (only?: { name: string; paperKey: number }) => {
+    const list = only ? [only.name] : rosterCheck.unknown.map((p) => p.name)
     if (!classId || !list.length) return
-    const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: list.join("\n") }) })
+    const before = roster
+    setRoster((r) => [...r, ...list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, linked: false }))])
+    setAdding((n) => n + 1)
+    try {
+      const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: list.join("\n") }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setRoster(before); setRosterNotice(data.error || "Could not add those names"); return }
+      setRoster(data.roster ?? [])
+      setRosterNotice(only ? `Added ${only.name} to the class list. Add their student ID or email below if you have it.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+      if (only) setDetailsFor(only.paperKey)
+    } finally {
+      setAdding((n) => n - 1)
+    }
+  }
+  const saveRosterDetails = async (row: RosterRow, details: { studentNumber: string; email: string }) => {
+    const res = await authFetch(`/api/classes/${classId}/roster/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(details) })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) { setRosterNotice(data.error || "Could not add those names"); return }
-    setRoster(data.roster ?? [])
-    setRosterNotice(only ? `Added ${only} to the class list.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+    if (!res.ok) return data.error || "Could not save"
+    setRoster((r) => r.map((x) => (x.id === row.id ? { ...x, studentNumber: details.studentNumber.trim() || null, email: details.email.trim().toLowerCase() || null } : x)))
+    setDetailsFor(null)
+    return null
   }
   // A paper taken out of this grading, so it can be put back.
   const [lastRemoved, setLastRemoved] = useState<{ name: string; pages: number[] } | null>(null)
@@ -254,12 +275,13 @@ function BatchGrading() {
     setRemoved((s) => { const next = new Set(s); paper.pages.forEach((i) => next.add(i)); return next })
     setLastRemoved({ name: paper.name, pages: paper.pages })
   }
-  /** Class-list names to offer for a paper: no paper yet first, closest name first. */
-  const suggestionsFor = (name: string) => {
+  /** Class-list names to offer for a paper: no paper yet first, each by last name. */
+  const suggestions = useMemo(() => {
     const without = new Set(rosterCheck.missing.map((r) => r.id))
-    const ranked = roster.map((r) => ({ r, score: nameScore(name, fullName(r)) })).sort((a, b) => b.score - a.score)
-    return { open: ranked.filter((x) => without.has(x.r.id)).map((x) => x.r), taken: ranked.filter((x) => !without.has(x.r.id)).map((x) => x.r) }
-  }
+    const sorted = [...roster].filter((r) => !r.id.startsWith("temp-")).sort((a, b) => a.lastName.localeCompare(b.lastName, undefined, { sensitivity: "base" }) || a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" }))
+    return { open: sorted.filter((r) => without.has(r.id)), taken: sorted.filter((r) => !without.has(r.id)) }
+  }, [roster, rosterCheck])
+  const lastFirst = (r: RosterRow) => (r.lastName && r.firstName ? `${r.lastName}, ${r.firstName}` : fullName(r))
 
   if (user && user.user_type !== "teacher") {
     return <Shell><p className="rounded-xl bg-amber-50 p-6 text-amber-900">Batch grading is for teacher accounts.</p></Shell>
@@ -442,7 +464,7 @@ function BatchGrading() {
           gradeScale,
           markingStyle,
           classId: paper.stamp?.classId || classId || undefined,
-          rosterId: paper.match.confidence === "sure" ? paper.match.rosterId : undefined,
+          rosterId: paper.match.confidence === "sure" && !paper.match.rosterId?.startsWith("temp-") ? paper.match.rosterId : undefined,
           groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
           pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
@@ -592,7 +614,7 @@ function BatchGrading() {
             <div className="flex flex-wrap gap-2">
               {phase === "review" && <Button variant="outline" onClick={() => setPhase("setup")}><RotateCcw className="mr-2 h-4 w-4" />Start over</Button>}
               {phase === "review" && (
-                <Button onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting"} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0} className="bg-blue-600 hover:bg-blue-700">
                   {answerKey.status === "drafting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Writing answer key…</> : `Grade ${papers.length} paper${papers.length === 1 ? "" : "s"}`}
                 </Button>
               )}
@@ -752,7 +774,12 @@ function BatchGrading() {
                         {duplicate ? (
                           <span className="font-medium">Same student as another paper: check the name</span>
                         ) : state === "sure" ? (
-                          <span className="inline-flex items-center gap-1 font-medium"><CheckCircle2 className="h-3.5 w-3.5" />Matched to the class list{row?.studentNumber ? ` · ID ${row.studentNumber}` : ""}</span>
+                          <span className="inline-flex flex-wrap items-center gap-1 font-medium">
+                            <CheckCircle2 className="h-3.5 w-3.5" />{row?.id.startsWith("temp-") ? "Adding to the class list…" : "Matched to the class list"}{row?.studentNumber ? ` · ID ${row.studentNumber}` : ""}
+                            {row && !row.id.startsWith("temp-") && phase === "review" && detailsFor !== paper.key && (
+                              <button type="button" onClick={() => setDetailsFor(paper.key)} className="ml-1 font-semibold text-blue-700 hover:underline">{row.studentNumber ? "Edit ID / email" : "Add student ID / email"}</button>
+                            )}
+                          </span>
                         ) : state === "check" && row ? (
                           <span className="inline-flex items-center gap-2 font-medium">
                             Is this {fullName(row)}?
@@ -782,8 +809,11 @@ function BatchGrading() {
                           <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-3 w-3" />Group work?</button>
                         )}
                       </p>
+                      {detailsFor === paper.key && row && !row.id.startsWith("temp-") && classId && (
+                        <RosterDetailsForm key={row.id} row={row} onSave={(d) => saveRosterDetails(row, d)} onClose={() => setDetailsFor(null)} />
+                      )}
                       {phase === "review" && state !== "sure" && (() => {
-                        const { open, taken } = suggestionsFor(paper.name)
+                        const { open, taken } = suggestions
                         return (
                           <div className="mt-2 flex flex-wrap items-center gap-2 px-1.5 text-xs">
                             {roster.length > 0 && (
@@ -794,12 +824,12 @@ function BatchGrading() {
                                 className="max-w-[16rem] rounded-md border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-800 hover:border-blue-400"
                               >
                                 <option value="">Match to a student…</option>
-                                {open.length > 0 && <optgroup label="No paper yet">{open.map((r) => <option key={r.id} value={r.id}>{fullName(r)}</option>)}</optgroup>}
-                                {taken.length > 0 && <optgroup label="Already have a paper">{taken.map((r) => <option key={r.id} value={r.id}>{fullName(r)}</option>)}</optgroup>}
+                                {open.length > 0 && <optgroup label="No paper yet">{open.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
+                                {taken.length > 0 && <optgroup label="Already have a paper">{taken.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
                               </select>
                             )}
                             {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
-                              <button type="button" onClick={() => void addUnknownToRoster(paper.name.trim())} className="rounded-md bg-white px-2 py-1 font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Add {paper.name.trim()} to the class list</button>
+                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} className="rounded-md bg-white px-2 py-1 font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Add {paper.name.trim()} to the class list</button>
                             )}
                             <button type="button" onClick={() => removePaper(paper)} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 font-semibold text-rose-700 ring-1 ring-slate-300 hover:bg-rose-50"><Trash2 className="h-3 w-3" />Leave out of this grading</button>
                           </div>
@@ -881,6 +911,34 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
 }
 
 /** Group work on a paper: the members graded with it (first = the paper's name). */
+function RosterDetailsForm({ row, onSave, onClose }: { row: RosterRow; onSave: (d: { studentNumber: string; email: string }) => Promise<string | null>; onClose: () => void }) {
+  const [studentNumber, setStudentNumber] = useState(row.studentNumber ?? "")
+  const [email, setEmail] = useState(row.email ?? "")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const save = async () => {
+    setBusy(true)
+    setError((await onSave({ studentNumber, email })) ?? "")
+    setBusy(false)
+  }
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); void save() }} className="mt-2 flex flex-wrap items-end gap-2 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+      <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+        Student ID
+        <input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} autoFocus className="w-36 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-400" />
+      </label>
+      <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-slate-600">
+        School email (optional)
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="links their account" className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-400" />
+      </label>
+      <Button type="submit" size="sm" disabled={busy} className="bg-blue-600 hover:bg-blue-700">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
+      <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+      <span className="w-full text-xs text-slate-500">Saved to {fullName(row)} on the class list.</span>
+      {error && <span className="w-full text-xs text-rose-700">{error}</span>}
+    </form>
+  )
+}
+
 function GroupMembers({ first, others, editable, rosterList, onChange, onClose }: {
   first: string
   others: Array<{ name: string; match: ReturnType<typeof matchRoster> }>
