@@ -27,6 +27,11 @@ function loadPicker(): Promise<void> {
   return loading
 }
 
+/** Start loading the picker early (when an assignment is chosen) so it opens quickly. */
+export function preloadPicker() {
+  void loadPicker().catch(() => { /* tried again when opening */ })
+}
+
 export interface PickedFile { id: string; name: string; mimeType: string }
 
 /**

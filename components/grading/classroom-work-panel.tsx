@@ -12,7 +12,7 @@ import { selectBox } from "@/components/grading/grading-ui"
 import { cn } from "@/lib/utils"
 import { authFetch } from "@/lib/auth-fetch"
 import { connectGoogleClassroom } from "@/components/classes/google-classroom-dialog"
-import { DriveAccessError, downloadDriveFile, pickFiles, pickerConfigured } from "@/lib/google/picker"
+import { DriveAccessError, downloadDriveFile, pickFiles, pickerConfigured, preloadPicker } from "@/lib/google/picker"
 import type { StudentWork } from "@/lib/google/classroom"
 import { nameScore } from "@/lib/grading/names"
 
@@ -116,6 +116,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
       const res = await authFetch(`/api/google/classroom/submissions?course=${encodeURIComponent(courseId)}&work=${encodeURIComponent(id)}`, { cache: "no-store" })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { fail(data, "Could not load the submissions"); return }
+      preloadPicker()
       setStudents(data.students)
       setToken(data.accessToken)
       setClassId(data.classId)
@@ -142,9 +143,17 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
   const earlierDone = earlier ? (students ?? []).filter((s) => s.files.length && gradedIn(earlier.names)(s)) : []
   const earlierRest = earlier ? withFiles.filter((s) => !gradedIn(earlier.names)(s)) : []
 
+  // One pull at a time: the picker takes a moment to open and repeat clicks used to stack up.
+  const pulling = useRef(false)
   const getPhotos = async (skip: string[] = []) => {
+    if (!students || !assignment || pulling.current) return
+    pulling.current = true
+    try { await pull(skip) } finally { pulling.current = false; setBusy("") }
+  }
+  const pull = async (skip: string[]) => {
     if (!students || !assignment) return
     setError(""); setNotice("")
+    setBusy("Opening Google's file picker…")
     const owner = new Map<string, string>()
     for (const s of withFiles.filter((x) => !gradedIn(skip)(x))) for (const f of s.files) owner.set(f.id, `${s.firstName} ${s.lastName}`.trim())
     if (!owner.size) { setError("Everyone who uploaded files is already graded."); return }
@@ -155,6 +164,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
       setError(e instanceof Error ? e.message : "Google's file picker didn't open")
       return
     }
+    setBusy("")
     if (!picked) return
     const mine = picked.filter((p) => owner.has(p.id))
     if (!mine.length) { setError("None of the picked files were uploaded for this assignment. Pick the files shown in the picker."); return }
@@ -231,7 +241,15 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
                     <>
                       <p className="font-semibold text-slate-900">{earlierDone.length} of {earlierDone.length + earlierRest.length} students are already graded <span className="font-normal text-slate-600">(&quot;{earlier.title || "a class set"}&quot;, {new Date(earlier.date).toLocaleDateString([], { month: "short", day: "numeric" })})</span></p>
                       <div className="mt-2.5 flex flex-wrap gap-2">
-                        <button type="button" disabled={disabled || !!busy || !earlierRest.length} onClick={async () => { const skip = earlier.names; if (await onUseEarlier!(earlier.batchId, { courseId: course, workId: work })) { setEarlier(null); await getPhotos(skip) } }} className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                        <button type="button" disabled={disabled || !!busy || !earlierRest.length} onClick={async () => {
+                          if (pulling.current) return
+                          const skip = earlier.names
+                          setBusy("Getting ready…")
+                          const ok = await onUseEarlier!(earlier.batchId, { courseId: course, workId: work })
+                          if (!ok) { setBusy(""); setError("Couldn't open that class set. Try again."); return }
+                          setEarlier(null)
+                          await getPhotos(skip)
+                        }} className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
                           {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : `Grade the other ${earlierRest.length}`}
                         </button>
                         <button type="button" disabled={disabled || !!busy} onClick={() => { setEarlier(null); void getPhotos() }} className="inline-flex h-11 items-center rounded-xl bg-white px-5 font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-50">
