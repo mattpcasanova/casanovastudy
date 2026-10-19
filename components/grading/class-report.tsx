@@ -271,11 +271,11 @@ function QuestionBreakdown({ papers, stats, report, open, onToggle, hardestFirst
                       {([["No marks", r.zero, "text-rose-700", "bg-rose-50 ring-rose-200"], ["Some marks", r.part, "text-amber-800", "bg-amber-50 ring-amber-200"], ["Full marks", r.full, "text-emerald-700", "bg-emerald-50 ring-emerald-200"]] as const).map(([label, list, text, box]) => (
                         <div key={label} className={cn("rounded-xl p-3 ring-1 ring-inset", box)}>
                           <p className={cn("text-xs font-semibold uppercase tracking-wide", text)}>{label} ({list.length})</p>
-                          <ul className="mt-1.5 space-y-0.5 text-sm">
+                          <ul className="mt-2 space-y-1.5 text-sm">
                             {list.length === 0 && <li className="text-slate-400">Nobody</li>}
                             {list.map((a) => (
                               <li key={a.paper.id} className="flex justify-between gap-2">
-                                <Link href={`/grade-report/${a.paper.id}`} className="truncate text-slate-800 hover:text-blue-700 hover:underline">{a.paper.name}</Link>
+                                <Link href={`/grade-report/${a.paper.id}`} className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg bg-white px-2.5 py-1 font-medium text-slate-800 ring-1 ring-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200">{a.paper.name}</Link>
                                 {label === "Some marks" && <span className="shrink-0 tabular-nums text-slate-500">{fmt(a.q.marksAwarded)}/{fmt(a.q.marksPossible)}</span>}
                               </li>
                             ))}

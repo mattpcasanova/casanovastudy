@@ -26,7 +26,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
       if (sort.by === "name") return r.name.toLowerCase()
       if (sort.by === "average") return r.average
       const c = r.cells[sort.by]
-      return c?.kind === "paper" ? c.pct : null
+      return c && c.kind !== "status" ? c.pct : null
     }
     return rows
       .filter((r) => showLeft || !r.left)
@@ -57,7 +57,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold text-slate-900">Gradebook</h2>
-          <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report.</p>
+          <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report. Practice columns are assigned practice (best attempt).</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
           {leftCount > 0 && (
@@ -78,6 +78,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
               {tests.map((t) => (
                 <th key={t.batchId} className="min-w-[6.5rem] px-2 py-2 align-bottom">
                   <button type="button" onClick={() => toggle(t.batchId)} className="text-left font-semibold hover:text-slate-900">
+                    {t.kind === "practice" && <span className="mb-0.5 inline-block rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Practice</span>}
                     <span className="line-clamp-2">{t.title}</span>
                     <span className="block font-normal text-slate-400">{new Date(t.date).toLocaleDateString([], { month: "short", day: "numeric" })} · avg {Math.round(t.average)}% {arrow(t.batchId)}</span>
                   </button>
@@ -98,6 +99,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
                     <td key={t.batchId} className="px-1 py-1">
                       {!c ? <span className="block px-2 text-slate-300">-</span>
                         : c.kind === "status" ? <span className="block rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{STATUS_LABEL[c.status] ?? c.status}</span>
+                        : c.kind === "practice" ? <Link href={`/teacher/practice/${c.assignmentId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.late && <span className="ml-1 text-xs opacity-70">late</span>}</Link>
                         : <Link href={`/grade-report/${c.gradingId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.grade && <span className="ml-1 text-xs opacity-70">{c.grade}</span>}</Link>}
                     </td>
                   )

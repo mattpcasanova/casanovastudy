@@ -24,16 +24,16 @@ export const shareUrl = (origin: string, code: string) => `${origin.replace(/\/$
 /** Per-student progress on assignments (teacher views). */
 export async function assignmentProgress(supabase: SupabaseClient, assignments: AssignmentRow[]) {
   const ids = assignments.map((a) => a.id)
-  if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
   const [{ data: who }, { data: tries }] = await Promise.all([
-    supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via)').in('assignment_id', ids),
+    supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email)').in('assignment_id', ids),
     supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at, detail').in('assignment_id', ids),
   ])
-  const out = new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  const out = new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
   for (const a of assignments) {
     const rows = (who ?? []).filter((w) => w.assignment_id === a.id)
     out.set(a.id, rows.map((w) => {
-      const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null } | null
+      const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null; student_number: string | null; email: string | null } | null
       const mine = (tries ?? []).filter((t) => t.assignment_id === a.id && t.roster_id === w.roster_id)
       const list: Array<Attempt & { detail: unknown }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string, detail: t.detail }))
       const best = bestAttempt(list)
@@ -44,6 +44,8 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         name: `${r?.first_name ?? ''} ${r?.last_name ?? ''}`.trim(),
         linked: !!r?.student_user_id,
         linkedVia: r?.linked_via ?? null,
+        studentNumber: r?.student_number ?? null,
+        email: r?.email ?? null,
         status: practiceStatus(list, a.due_at),
         attempts: list.filter((t) => t.counted).length,
         best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: best.detail } : null,

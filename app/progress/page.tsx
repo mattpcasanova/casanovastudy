@@ -4,6 +4,7 @@
 // from their answer log (study_results) by lib/learner/profile.ts. Weak spots
 // turn into a targeted quiz through the homepage prefill.
 
+import { MyAssignments } from "@/components/assign/my-assignments"
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -145,6 +146,7 @@ function Progress() {
       </section>
 
       <main className="container relative mx-auto -mt-24 max-w-5xl space-y-6 px-4 pb-24">
+        <MyAssignments />
         {error ? (
           <Card><p className="text-rose-700">{error}</p></Card>
         ) : !profile ? (

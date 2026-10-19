@@ -7,7 +7,9 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { ArrowLeft, CalendarClock, Check, Copy, Loader2, QrCode, Trash2 } from "lucide-react"
+import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, QrCode, Trash2 } from "lucide-react"
+import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
+import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
 import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
@@ -15,7 +17,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; url: string; created_at: string; class_id: string }
   students: Student[]
@@ -42,6 +44,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [editDue, setEditDue] = useState(false)
   const [due, setDue] = useState("")
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/practice-assignments/${id}`, { cache: "no-store" })
@@ -80,6 +83,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
         <div className="flex flex-wrap gap-2">
           <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
           <button type="button" className={actionButton} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
+          <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp />Send to gradebook</button>
         </div>
       </div>
 
@@ -132,6 +136,22 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           ))}
         </ul>
       </section>
+
+      <GradebookExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        title={a.title}
+        rows={students.map((s): ExportRow => ({
+          firstName: s.firstName,
+          lastName: s.lastName,
+          studentNumber: s.studentNumber,
+          email: s.email,
+          marks: s.best ? s.best.correct : null,
+          possible: s.best ? s.best.total : null,
+          pct: s.best ? s.best.pct : null,
+          status: s.best ? (s.status === "late" ? "late" : null) : s.status === "missing" ? "missing" : null,
+        }))}
+      />
 
       <div className="mt-8 flex justify-end">
         {confirmDelete ? (

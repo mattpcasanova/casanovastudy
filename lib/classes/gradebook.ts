@@ -15,16 +15,30 @@ export interface GradebookPaper {
 }
 
 export interface GradebookTest {
+  /** The graded set's batch id, or the assignment id for assigned practice. */
   batchId: string
   title: string
   date: string
   papers: number
   average: number
+  /** Assigned practice (scores from practice_attempts) rather than a graded test. */
+  kind?: 'practice'
+}
+
+/** One student's standing on one assigned practice (lib/practice). */
+export interface GradebookPractice {
+  assignmentId: string
+  title: string
+  date: string
+  rosterId: string
+  status: string
+  best: { correct: number; total: number; pct: number } | null
 }
 
 export type GradebookCell =
   | { kind: 'paper'; gradingId: string; marks: number; possible: number; pct: number; grade: string }
   | { kind: 'status'; status: string }
+  | { kind: 'practice'; assignmentId: string; marks: number; possible: number; pct: number; late: boolean }
 
 export interface GradebookRow {
   key: string
@@ -41,6 +55,7 @@ export function buildGradebook(
   papers: GradebookPaper[],
   roster: Array<{ id: string; firstName: string; lastName: string; studentNumber: string | null; left: boolean }>,
   statuses: Array<{ batchId: string; rosterId: string; status: string }>,
+  practice: GradebookPractice[] = [],
 ): { tests: GradebookTest[]; rows: GradebookRow[] } {
   const tests = new Map<string, GradebookTest & { total: number }>()
   for (const p of papers) {
@@ -65,8 +80,22 @@ export function buildGradebook(
     const row = rows.get(s.rosterId)
     if (row && !row.cells[s.batchId] && tests.has(s.batchId)) row.cells[s.batchId] = { kind: 'status', status: s.status }
   }
+  // Assigned practice: a column per assignment, best counted attempt per student.
+  for (const p of practice) {
+    const t = tests.get(p.assignmentId) ?? { batchId: p.assignmentId, title: p.title || 'Practice', date: p.date, papers: 0, average: 0, total: 0, kind: 'practice' as const }
+    tests.set(p.assignmentId, t)
+    const row = rows.get(p.rosterId)
+    if (!row) continue
+    if (p.best) {
+      t.papers += 1
+      t.total += p.best.pct
+      row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late' }
+    } else if (p.status === 'missing') {
+      row.cells[p.assignmentId] = { kind: 'status', status: 'missing' }
+    }
+  }
   for (const row of rows.values()) {
-    const pcts = Object.values(row.cells).flatMap((c) => (c.kind === 'paper' ? [c.pct] : []))
+    const pcts = Object.values(row.cells).flatMap((c) => (c.kind === 'paper' || c.kind === 'practice' ? [c.pct] : []))
     row.average = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null
   }
 

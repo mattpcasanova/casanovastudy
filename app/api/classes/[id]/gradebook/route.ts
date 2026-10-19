@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
-import { buildGradebook } from '@/lib/classes/gradebook'
+import { buildGradebook, type GradebookPractice } from '@/lib/classes/gradebook'
+import { ASSIGNMENT_COLUMNS, assignmentProgress, type AssignmentRow } from '@/lib/practice/server'
 
 // A class's gradebook grid: every graded set for the class × every student,
 // with absent/missing/exempt/late where there's no paper. Owner only.
@@ -24,6 +25,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? await supabase.from('batch_student_status').select('batch_id, roster_id, status').in('batch_id', batchIds).eq('user_id', user.id)
     : { data: [] as Array<{ batch_id: string; roster_id: string; status: string }> }
 
+  // Assigned practice for this class: a column each, best counted attempt.
+  const { data: assignments } = await supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).eq('class_id', id).eq('teacher_id', user.id)
+  const progress = await assignmentProgress(supabase, (assignments ?? []) as AssignmentRow[])
+  const practice: GradebookPractice[] = ((assignments ?? []) as AssignmentRow[]).flatMap((a) =>
+    (progress.get(a.id) ?? []).map((st) => ({ assignmentId: a.id, title: a.title, date: a.due_at ?? a.created_at, rosterId: st.rosterId, status: st.status, best: st.best ? { correct: st.best.correct, total: st.best.total, pct: st.best.pct } : null })),
+  )
+
   const gradebook = buildGradebook(
     (papers ?? []).map((p) => ({
       id: p.id, batchId: p.batch_id, title: p.exam_title, createdAt: p.created_at, rosterId: p.roster_id, studentName: p.student_name ?? '',
@@ -31,6 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })),
     roster,
     (statuses ?? []).map((s) => ({ batchId: s.batch_id, rosterId: s.roster_id, status: s.status })),
+    practice,
   )
   return NextResponse.json(gradebook, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Plus } from "lucide-react"
+import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Plus, FileText } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -210,9 +210,9 @@ function BatchResults({ id }: { id: string }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{r.total_marks}/{r.total_possible_marks}</td>
-                      <td className="px-4 py-3 text-slate-700">{Number(r.percentage).toFixed(1)}%</td>
+                      <td className="px-4 py-3"><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span></td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.grade}</td>
-                      <td className="px-4 py-3 text-right"><Link href={`/grade-report/${r.id}`} className="font-semibold text-blue-700 hover:underline">Report</Link></td>
+                      <td className="px-4 py-2 text-right"><Link href={`/grade-report/${r.id}`} className={cn(actionButton, "text-blue-700")}><FileText />Open report</Link></td>
                     </tr>
                   ))}
                 </tbody>

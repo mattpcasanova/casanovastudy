@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildGradebook, type GradebookPaper } from './gradebook'
+import { resultsCsvTable as practiceCsv } from './gradebook-csv'
 
 const paper = (id: string, batchId: string, rosterId: string | null, studentName: string, pct: number, createdAt: string): GradebookPaper =>
   ({ id, batchId, title: batchId === 'b1' ? 'Unit 1' : 'Unit 2', createdAt, rosterId, studentName, marks: pct / 10, possible: 10, percentage: pct, grade: '' })
@@ -36,3 +37,24 @@ describe('resultsCsvTable', () => {
     expect(resultsCsvTable(tests, rows)).toBe('"Student ID","Student","Average","Unit 1 (2026-09-01)"\n"","Ava Kim","","Exempt"\n"1001","Sean Miller","70.0","70.0"')
   })
 })
+
+describe('assigned practice in the gradebook', () => {
+  it('adds a column per assignment, best score per student, missing when past due, and counts it in averages', () => {
+    const roster = [
+      { id: 'r1', firstName: 'Ana', lastName: 'B', studentNumber: '1', left: false },
+      { id: 'r2', firstName: 'Cal', lastName: 'D', studentNumber: '2', left: false },
+    ]
+    const papers = [{ id: 'g1', batchId: 'b1', title: 'Test 1', createdAt: '2026-10-01', rosterId: 'r1', studentName: 'Ana B', marks: 6, possible: 10, percentage: 60, grade: 'D' }]
+    const { tests, rows } = buildGradebook(papers, roster, [], [
+      { assignmentId: 'a1', title: 'Reteach', date: '2026-10-05', rosterId: 'r1', status: 'late', best: { correct: 9, total: 10, pct: 90 } },
+      { assignmentId: 'a1', title: 'Reteach', date: '2026-10-05', rosterId: 'r2', status: 'missing', best: null },
+    ])
+    expect(tests.map((t) => [t.batchId, t.kind ?? 'test', t.papers, t.average])).toEqual([['b1', 'test', 1, 60], ['a1', 'practice', 1, 90]])
+    const ana = rows.find((r) => r.rosterId === 'r1')!, cal = rows.find((r) => r.rosterId === 'r2')!
+    expect(ana.cells.a1).toEqual({ kind: 'practice', assignmentId: 'a1', marks: 9, possible: 10, pct: 90, late: true })
+    expect(ana.average).toBe(75)
+    expect(cal.cells.a1).toEqual({ kind: 'status', status: 'missing' })
+    expect(practiceCsv(tests, rows).split('\n')[0]).toContain('Reteach [practice]')
+  })
+})
+
