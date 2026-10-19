@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 
 const MAX_NAME_LEN = 100
 const MAX_PERIOD_LEN = 50
@@ -8,7 +9,7 @@ const MAX_SUBJECT_LEN = 100
 // GET - List classes owned by the authenticated teacher (with student counts)
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request)
+    const user = await getRequestUser(request)
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in' }, { status: 401 })
     }
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       linkClassByAssignment.set(l.assignment_id, arr)
     }
 
-    let pendingByClass = new Map<string, number>()
+    const pendingByClass = new Map<string, number>()
     if (linkedAssignmentIds.length > 0) {
       const { data: pendingSubs } = await supabase
         .from('assignment_submissions')
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
 // POST - Teacher creates a new class
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request)
+    const user = await getRequestUser(request)
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in' }, { status: 401 })
     }

@@ -84,6 +84,9 @@ async function main() {
   const { data: guide } = await admin.from('study_guides').insert({ user_id: teacher.id, title: 'Binomial practice', subject: 'mathematics', grade_level: '12th', format: 'quiz', content: '## Q\n', file_count: 0 }).select('id').single()
   created.guideId = guide.id
 
+  let r0 = await t('GET', '/api/classes')
+  check('teacher class list loads with a Bearer token (Assign window)', r0.status === 200 && r0.json?.classes?.some((c) => c.id === cls.id), JSON.stringify(r0.json).slice(0, 200))
+
   console.log('\n== Assign ==')
   let r = await t('POST', '/api/practice-assignments', { guideId: guide.id, classId: cls.id, rosterIds: [lianna.id, mya.id], maxAttempts: 2, dueAt: new Date(Date.now() + 86400000).toISOString() })
   check('teacher assigns to two students', r.status === 200 && r.json?.assignment?.code?.length === 8, JSON.stringify(r.json))

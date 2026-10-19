@@ -24,6 +24,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { rememberAssignPreset } from "@/lib/practice/preset"
+import { AssignExistingButton } from "@/components/assign/assign-existing"
 
 type Saved = SavedReteach & { createdAt: string }
 interface TopicOption { name: string; pct: number; recommended: boolean }
@@ -216,6 +217,7 @@ function Reteach({ id }: { id: string }) {
                   </div>
                   {s.key === "groups" ? (
                     <div className="space-y-3">
+                      {!meta.classId && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 print:hidden">To assign practice to these groups, attach this class set to one of your classes first (on its class results page, under Class), so the app knows who each student is.</p>}
                       {saved.groups.map((g) => {
                         const ai = saved.plan.groups.find((x) => x.key === g.key)
                         return (
@@ -227,13 +229,21 @@ function Reteach({ id }: { id: string }) {
                                 const mine = assigned.filter((x) => x.source?.groupKey === g.key)
                                 const done = mine.reduce((n, x) => n + x.students.filter((st) => st.status === "done" || st.status === "late").length, 0)
                                 const total = mine.reduce((n, x) => n + x.students.length, 0)
+                                const rosterIds = g.students.map((st) => st.rosterId).filter((x): x is string => !!x)
+                                const existing = meta.classId && rosterIds.length
+                                  ? <AssignExistingButton preset={{ classId: meta.classId, rosterIds, source: { batchId: id, groupKey: g.key } }} label={mine.length ? "Assign another set" : "Assign a set you have"} />
+                                  : null
                                 return mine.length ? (
                                   <span className="ml-auto flex flex-wrap gap-2 print:hidden">
                                     <Link href={`/teacher/practice/${mine[0].id}`} className={cn(actionButton, "bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100")}><ClipboardCheck />Assigned · {done} of {total} done</Link>
                                     <button type="button" onClick={() => practiceFor(g)} className={actionButton}><PencilLine />Make another</button>
+                                    {existing}
                                   </span>
                                 ) : (
-                                  <button type="button" onClick={() => practiceFor(g)} className={cn(actionButtonPrimary, "ml-auto print:hidden")}><PencilLine />Make and assign their practice</button>
+                                  <span className="ml-auto flex flex-wrap gap-2 print:hidden">
+                                    <button type="button" onClick={() => practiceFor(g)} className={actionButtonPrimary}><PencilLine />Make and assign their practice</button>
+                                    {existing}
+                                  </span>
                                 )
                               })()}
                             </div>

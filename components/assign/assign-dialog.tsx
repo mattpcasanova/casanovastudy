@@ -20,7 +20,12 @@ interface ClassOption { id: string; name: string; period: string | null; school_
 interface RosterRow { id: string; firstName: string; lastName: string; linked: boolean; left: boolean; email: string | null; studentNumber: string | null }
 export interface CreatedAssignment { id: string; code: string; url: string; title: string }
 
-const endOfDay = (d: string) => `${d}T23:59`
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+const inDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d) }
+/** Next Friday (or a week on Friday when it's Friday). */
+const friday = () => { const d = new Date(); d.setDate(d.getDate() + (((5 - d.getDay() + 7) % 7) || 7)); return ymd(d) }
+const TIMES = [["08:00", "8:00 AM"], ["12:00", "12:00 PM"], ["15:00", "3:00 PM"], ["17:00", "5:00 PM"], ["20:00", "8:00 PM"], ["23:59", "11:59 PM"]] as const
+const chip = (on: boolean) => cn("h-10 rounded-xl px-3.5 text-sm font-semibold ring-1 transition", on ? "bg-blue-600 text-white ring-blue-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50")
 
 export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   open: boolean
@@ -35,7 +40,8 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [picked, setPicked] = useState<Set<string>>(new Set(preset?.rosterIds ?? []))
   const [title, setTitle] = useState(preset?.title ?? guide.title)
   const [dueOn, setDueOn] = useState(false)
-  const [dueAt, setDueAt] = useState(() => { const d = new Date(Date.now() + 3 * 86400000); return endOfDay(d.toISOString().slice(0, 10)) })
+  const [dueDay, setDueDay] = useState(() => inDays(2))
+  const [dueTime, setDueTime] = useState("23:59")
   const [attempts, setAttempts] = useState("1")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -84,7 +90,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
           classId,
           rosterIds: chosen.map((r) => r.id),
           title,
-          dueAt: dueOn ? new Date(dueAt).toISOString() : null,
+          dueAt: dueOn ? new Date(`${dueDay}T${dueTime}`).toISOString() : null,
           maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
           source: preset?.source,
         }),
@@ -147,11 +153,12 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Class
-                <select value={classId} onChange={(e) => { setClassId(e.target.value); setPicked(new Set()) }} className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
+                <select value={classId} onChange={(e) => { setClassId(e.target.value); setPicked(new Set()) }} className="mt-1 h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white bg-[length:18px] bg-[right_0.85rem_center] bg-no-repeat pl-3 pr-10 text-sm" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}>
                   <option value="">{classes ? "Pick a class" : "Loading classes…"}</option>
                   {classes?.map((c) => <option key={c.id} value={c.id}>{c.name}{c.period ? ` (P${c.period})` : ""}{c.school_year ? ` · ${c.school_year}` : ""}</option>)}
                 </select>
               </label>
+              {classes && classes.length === 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">You don&apos;t have any classes yet. <Link href="/teacher/classes" className="font-semibold underline">Add one</Link> (import your class list), then assign.</p>}
               {classId && (
                 <div>
                   <div className="mb-1.5 flex items-center justify-between text-sm">
@@ -180,26 +187,36 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   )}
                 </div>
               )}
-              <div className="flex flex-wrap items-end gap-4">
-                <div className="text-sm">
-                  <label className="flex items-center gap-2 font-medium text-slate-700">
-                    <input type="checkbox" checked={dueOn} onChange={(e) => setDueOn(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-                    Due date
-                  </label>
-                  {dueOn && <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="mt-1 h-10 rounded-xl border border-slate-300 px-3 text-sm" />}
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-slate-700">Due</p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(!dueOn)} onClick={() => setDueOn(false)}>No due date</button>
+                  {([["Tomorrow", inDays(1)], ["Friday", friday()], ["In a week", inDays(7)]] as const).map(([label, day]) => (
+                    <button key={label} type="button" className={chip(dueOn && dueDay === day)} onClick={() => { setDueOn(true); setDueDay(day) }}>{label}</button>
+                  ))}
+                  <button type="button" className={chip(dueOn && ![inDays(1), friday(), inDays(7)].includes(dueDay))} onClick={() => setDueOn(true)}>Pick a date</button>
                 </div>
-                {!mastery && (
-                  <label className="text-sm font-medium text-slate-700">
-                    Attempts
-                    <select value={attempts} onChange={(e) => setAttempts(e.target.value)} className="mt-1 block h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm">
-                      <option value="1">1 attempt</option>
-                      <option value="2">2 attempts</option>
-                      <option value="3">3 attempts</option>
-                      <option value="any">Unlimited</option>
+                {dueOn && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                    <input type="date" value={dueDay} min={inDays(0)} onChange={(e) => setDueDay(e.target.value)} aria-label="Due date" className="h-10 rounded-xl border border-slate-300 bg-white px-3" />
+                    <span>at</span>
+                    <select value={dueTime} onChange={(e) => setDueTime(e.target.value)} aria-label="Due time" className="h-10 appearance-none rounded-xl border border-slate-300 bg-white bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pl-3 pr-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}>
+                      {TIMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
                     </select>
-                  </label>
+                    <span className="text-slate-500">{new Date(`${dueDay}T${dueTime}`).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}</span>
+                  </div>
                 )}
               </div>
+              {!mastery && (
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-700">Attempts <span className="font-normal text-slate-500">(their best one counts)</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {([["1", "1"], ["2", "2"], ["3", "3"], ["any", "Unlimited"]] as const).map(([v, label]) => (
+                      <button key={v} type="button" className={cn(chip(attempts === v), "min-w-[3rem]")} onClick={() => setAttempts(v)}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">
