@@ -107,6 +107,11 @@ function BatchGrading() {
   const [onePerFileChoice, setOnePerFileChoice] = useState<boolean | null>(null)
   // Files brought in from Google Classroom know whose they are.
   const fileOwners = useRef(new WeakMap<File, string>())
+  // The Classroom assignment these papers came from (saved with the set).
+  const [classroomSource, setClassroomSource] = useState<{ courseId: string; workId: string } | null>(null)
+  // Adding to an existing set: its mark scheme is reused unless a new one is dropped in.
+  const [inheritedScheme, setInheritedScheme] = useState(false)
+  const [alreadyGraded, setAlreadyGraded] = useState<string[]>([])
 
   const [phase, setPhase] = useState<Phase>("setup")
   const [status, setStatus] = useState("")
@@ -176,6 +181,14 @@ function BatchGrading() {
         if (first.class_name) setClassName(first.class_name)
         if (first.class_period) setClassPeriod(first.class_period)
         if (first.grade_scale) setGradeScale(first.grade_scale)
+        setAlreadyGraded((data.results as Array<{ student_name: string | null }>).map((r) => r.student_name ?? "").filter(Boolean))
+        const setup = data.setup
+        if (setup?.markScheme && (setup.markScheme.texts?.length || setup.markScheme.images?.length)) {
+          setMarkScheme({ texts: setup.markScheme.texts ?? [], images: setup.markScheme.images ?? [] })
+          setInheritedScheme(true)
+        }
+        if (setup?.notes) setNotes(setup.notes)
+        if (setup?.classroom) setClassroomSource(setup.classroom)
       })()
     }
   }, [])
@@ -317,7 +330,7 @@ function BatchGrading() {
     try {
       // Mark scheme: typed PDFs/Word read as text, photos and scans as images.
       const issues: string[] = []
-      let scheme = { texts: [] as Array<{ name: string; content: string }>, images: [] as Array<{ url: string; name: string }> }
+      let scheme = inheritedScheme && !markFiles.length ? markScheme : { texts: [] as Array<{ name: string; content: string }>, images: [] as Array<{ url: string; name: string }> }
       if (markFiles.length) {
         setStatus("Reading the mark scheme...")
         const prepared = await prepareMaterials(markFiles, { pdfMode: "auto", maxImages: 30, onProgress: setStatus })
@@ -489,6 +502,7 @@ function BatchGrading() {
           rosterId: paper.match.confidence === "sure" && !paper.match.rosterId?.startsWith("temp-") ? paper.match.rosterId : undefined,
           groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
+          classroom: classroomSource ?? undefined,
           pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
         }),
@@ -582,7 +596,10 @@ function BatchGrading() {
             </div>
             <ClassroomWorkPanel
               disabled={phase === "preparing"}
-              onFiles={({ files, owners, classId: linked, title }) => {
+              initial={classroomSource}
+              alreadyGraded={alreadyGraded}
+              onFiles={({ files, owners, classId: linked, title, courseId, workId }) => {
+                setClassroomSource({ courseId, workId })
                 owners.forEach((who, f) => fileOwners.current.set(f, who))
                 setPaperFiles((prev) => [...prev, ...files])
                 if (linked && !classId) setClassId(linked)
@@ -604,7 +621,10 @@ function BatchGrading() {
           </Section>
 
           <Section n={2} title="Mark scheme" hint="A photo, PDF, Word or text file of the answers.">
-            {!markFiles.length && <MarkSchemeNudge batch />}
+            {!markFiles.length && inheritedScheme && (
+              <p className="mb-3 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Using the same mark scheme as the rest of {addingTo ?? "this set"}{markScheme.texts.some((t) => t.name === ANSWER_KEY_NAME) ? " (the answer key you checked)" : ""}, so everyone is marked the same way. Drop a file here only to use a different one.</p>
+            )}
+            {!markFiles.length && !inheritedScheme && <MarkSchemeNudge batch />}
             <DropZone files={markFiles} onFiles={(f) => setMarkFiles((prev) => [...prev, ...f])} onRemove={(i) => setMarkFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} />
           </Section>
 

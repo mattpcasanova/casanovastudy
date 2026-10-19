@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
         const { data: savedRows, error: saveError } = await createAdminClient().from('grading_results').insert(rows).select('id')
         if (saveError || !savedRows?.length) throw new Error(`Could not save: ${saveError?.message ?? 'no rows'}`)
         const saved = savedRows[0]
+        await rememberBatchSetup(user.id, batchId, body).catch((e) => console.error('Batch setup not saved:', e))
         // A student marked absent/missing who now has a paper: it came in late.
         const rosterIds = members.map((m) => m.rosterId).filter((r): r is string => !!r)
         if (classId && rosterIds.length) {
@@ -168,4 +169,35 @@ export async function POST(request: NextRequest) {
     },
   })
   return new Response(stream, { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } })
+}
+
+/**
+ * Keep the set's mark scheme (or checked answer key), notes and Classroom
+ * assignment, so papers added later are marked the same way. Never touches
+ * another teacher's set.
+ */
+async function rememberBatchSetup(userId: string, batchId: string, body: Record<string, unknown>) {
+  const supabase = createAdminClient()
+  const { data: existing } = await supabase.from('grading_batches').select('user_id').eq('batch_id', batchId).maybeSingle()
+  if (existing && existing.user_id !== userId) return
+  const scheme = (body.markScheme ?? {}) as { texts?: unknown; images?: unknown }
+  const texts = (Array.isArray(scheme.texts) ? scheme.texts : [])
+    .filter((t): t is { name: string; content: string } => !!t && typeof t.name === 'string' && typeof t.content === 'string')
+    .slice(0, 20).map((t) => ({ name: t.name.slice(0, 200), content: t.content.slice(0, 200_000) }))
+  const images = (Array.isArray(scheme.images) ? scheme.images : [])
+    .filter((i): i is { url: string; name?: string } => !!i && typeof i.url === 'string')
+    .slice(0, 40).map((i) => ({ url: i.url.slice(0, 500), name: String(i.name ?? '').slice(0, 200) }))
+  const row: Record<string, unknown> = {
+    batch_id: batchId,
+    user_id: userId,
+    mark_scheme: texts.length || images.length ? { texts, images } : null,
+    notes: typeof body.additionalComments === 'string' && body.additionalComments.trim() ? body.additionalComments.trim().slice(0, 4000) : null,
+    updated_at: new Date().toISOString(),
+  }
+  const classroom = body.classroom as { courseId?: unknown; workId?: unknown } | undefined
+  if (classroom && typeof classroom.courseId === 'string' && typeof classroom.workId === 'string' && /^[\w-]{1,40}$/.test(classroom.courseId) && /^[\w-]{1,40}$/.test(classroom.workId)) {
+    row.classroom_course_id = classroom.courseId
+    row.classroom_work_id = classroom.workId
+  }
+  await supabase.from('grading_batches').upsert(row, { onConflict: 'batch_id' })
 }

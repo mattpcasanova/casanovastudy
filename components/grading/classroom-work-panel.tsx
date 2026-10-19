@@ -5,13 +5,14 @@
 // gives this app access to just those files) and they download into the stack,
 // each tagged with the student who uploaded it. Hidden until Google is set up.
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { GraduationCap, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { authFetch } from "@/lib/auth-fetch"
 import { connectGoogleClassroom } from "@/components/classes/google-classroom-dialog"
 import { DriveAccessError, downloadDriveFile, pickFiles, pickerConfigured } from "@/lib/google/picker"
 import type { StudentWork } from "@/lib/google/classroom"
+import { nameScore } from "@/lib/grading/names"
 
 interface Course { id: string; name: string; section: string | null; importedClassId: string | null }
 interface Assignment { id: string; title: string; due: string | null; folderId: string | null }
@@ -22,11 +23,17 @@ export interface ClassroomFiles {
   owners: Map<File, string>
   classId: string | null
   title: string
+  courseId: string
+  workId: string
 }
 
 const selectClass = "min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
 
-export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: ClassroomFiles) => void; disabled?: boolean }) {
+/**
+ * `initial`: the assignment this class set came from (adding papers later);
+ * `alreadyGraded`: names graded in the set, left out of the files to get.
+ */
+export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded = [] }: { onFiles: (picked: ClassroomFiles) => void; disabled?: boolean; initial?: { courseId: string; workId: string } | null; alreadyGraded?: string[] }) {
   const [state, setState] = useState<"loading" | "hidden" | "disconnected" | "connected">("loading")
   const [courses, setCourses] = useState<Course[] | null>(null)
   const [course, setCourse] = useState("")
@@ -67,6 +74,17 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
       setCourses(data.courses)
     })()
   }, [state])
+  // Adding to a class set that came from Classroom: open the same assignment.
+  const openedInitial = useRef(false)
+  useEffect(() => {
+    if (!initial || !courses || openedInitial.current || !courses.some((c) => c.id === initial.courseId)) return
+    openedInitial.current = true
+    void (async () => {
+      await pickCourse(initial.courseId)
+      await pickWork(initial.workId, initial.courseId)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courses, initial])
 
   const pickCourse = async (id: string) => {
     setCourse(id); setWork(""); setStudents(null); setAssignments(null); setError(""); setNotice("")
@@ -77,12 +95,12 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
     setAssignments(data.assignments)
   }
 
-  const pickWork = async (id: string) => {
+  const pickWork = async (id: string, courseId = course) => {
     setWork(id); setStudents(null); setError(""); setNotice("")
     if (!id) return
     setBusy("Checking who turned it in…")
     try {
-      const res = await authFetch(`/api/google/classroom/submissions?course=${encodeURIComponent(course)}&work=${encodeURIComponent(id)}`, { cache: "no-store" })
+      const res = await authFetch(`/api/google/classroom/submissions?course=${encodeURIComponent(courseId)}&work=${encodeURIComponent(id)}`, { cache: "no-store" })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { fail(data, "Could not load the submissions"); return }
       setStudents(data.students)
@@ -93,8 +111,10 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
     }
   }
 
-  const withFiles = students?.filter((s) => s.files.length) ?? []
-  const nothing = students?.filter((s) => !s.files.length) ?? []
+  const isGraded = (s: StudentWork) => alreadyGraded.some((g) => nameScore(`${s.firstName} ${s.lastName}`, g) >= 0.85)
+  const graded = students?.filter(isGraded) ?? []
+  const withFiles = students?.filter((s) => s.files.length && !isGraded(s)) ?? []
+  const nothing = students?.filter((s) => !s.files.length && !isGraded(s)) ?? []
   const fileCount = withFiles.reduce((n, s) => n + s.files.length, 0)
   const assignment = assignments?.find((a) => a.id === work)
 
@@ -150,7 +170,7 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
       blocked + failed ? `${blocked + failed} couldn't be downloaded.` : "",
       classId ? "" : "No class here matches this course, so pick the class above to check the names against your roster.",
     ].filter(Boolean).join(" "))
-    if (files.length) onFiles({ files, owners, classId, title: assignment.title })
+    if (files.length) onFiles({ files, owners, classId, title: assignment.title, courseId: course, workId: work })
   }
 
   if (state === "loading" || state === "hidden") return null
@@ -182,8 +202,9 @@ export function ClassroomWorkPanel({ onFiles, disabled }: { onFiles: (picked: Cl
               </div>
               {students && (
                 <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
+                  {graded.length > 0 && <p className="mb-1 text-emerald-800">{graded.length} already graded in this set (left out).</p>}
                   <p className="text-slate-800">
-                    <span className="font-semibold">{withFiles.length} student{withFiles.length === 1 ? "" : "s"}</span> uploaded {fileCount} file{fileCount === 1 ? "" : "s"}
+                    <span className="font-semibold">{withFiles.length}{graded.length ? " more" : ""} student{withFiles.length === 1 ? "" : "s"}</span> uploaded {fileCount} file{fileCount === 1 ? "" : "s"}
                     {withFiles.some((s) => !s.turnedIn) && <span className="text-slate-500"> ({withFiles.filter((s) => !s.turnedIn).length} not turned in yet)</span>}
                     {withFiles.some((s) => s.late) && <span className="text-slate-500">, {withFiles.filter((s) => s.late).length} late</span>}.
                   </p>

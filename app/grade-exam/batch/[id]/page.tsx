@@ -6,7 +6,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Download, GraduationCap, Loader2, Sparkles } from "lucide-react"
+import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, Sparkles } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -167,7 +167,8 @@ function BatchResults({ id }: { id: string }) {
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
                 <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}%</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline"><Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`}><FilePlus2 className="mr-2 h-4 w-4" />Add more papers</Link></Button>
                 <Button variant="outline" onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</Button>
                 <Button variant="outline" onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown className="mr-2 h-4 w-4" />Sort by {sort === "name" ? "score" : "name"}</Button>
                 <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>

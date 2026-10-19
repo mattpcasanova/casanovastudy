@@ -41,7 +41,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   const { data: cls } = classId ? await createAdminClient().from('classes').select('id, google_course_id').eq('id', classId).maybeSingle() : { data: null }
   const classInfo = cls ? { id: cls.id, googleCourseId: cls.google_course_id } : null
-  return NextResponse.json({ results, insights, roster, classInfo }, { headers: { 'Cache-Control': 'no-store' } })
+  // What adding more papers later reuses: the mark scheme, notes and Classroom assignment.
+  const { data: setupRow } = await createAdminClient().from('grading_batches').select('mark_scheme, notes, classroom_course_id, classroom_work_id').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
+  const setup = setupRow ? {
+    markScheme: setupRow.mark_scheme ?? null,
+    notes: setupRow.notes ?? null,
+    classroom: setupRow.classroom_course_id && setupRow.classroom_work_id ? { courseId: setupRow.classroom_course_id, workId: setupRow.classroom_work_id } : null,
+  } : null
+  return NextResponse.json({ results, insights, roster, classInfo, setup }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 // Teacher edits across a batch: rename students, apply one grade scale (e.g.

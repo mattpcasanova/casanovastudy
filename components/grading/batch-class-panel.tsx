@@ -157,7 +157,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                     <p className="text-sm font-semibold text-slate-800">No paper for {noPaper.length} student{noPaper.length === 1 ? "" : "s"}</p>
                     <div className="flex flex-wrap gap-2 text-xs">
                       <button type="button" onClick={() => void setStatus(noPaper.filter((e) => !statusOf(e)).map((e) => e.rosterId), "missing")} className="font-semibold text-blue-700 hover:underline">Mark the rest missing</button>
-                      <Link href={`/grade-exam/batch?batch=${batchId}&class=${classId}`} className="font-semibold text-blue-700 hover:underline">Grade a late paper</Link>
+                      <Link href={`/grade-exam/batch?batch=${batchId}&class=${classId}`} className="font-semibold text-blue-700 hover:underline">Grade late papers</Link>
                     </div>
                   </div>
                   <ul className="divide-y divide-slate-200/70">
