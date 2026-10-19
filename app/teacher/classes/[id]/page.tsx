@@ -4,6 +4,7 @@
 // against, the join code, this class's graded sets, and its top weak spots.
 // Deliberately nothing else (no assignments, calendar or gradebook).
 
+import { backLink } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
@@ -160,17 +161,17 @@ function ClassView({ id }: { id: string }) {
 
   return (
     <Shell>
-      <Link href="/teacher/classes" className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"><ArrowLeft className="h-4 w-4" />My classes</Link>
+      <Link href="/teacher/classes" className={backLink}><ArrowLeft />My classes</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{cls.name}</h1>
           <p className="text-slate-600">
             {[cls.school_year, cls.period && `Period ${cls.period}`, `${roster.filter((r) => !r.left).length} student${roster.filter((r) => !r.left).length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
-            {" · "}
-            <Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="text-blue-700 hover:underline">{courseName(cls.name, cls.course)} across years</Link>
-            {" · "}
-            <button type="button" onClick={() => setDetailsOpen((o) => !o)} className="text-blue-700 hover:underline">Year &amp; course</button>
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className={backLink}>{courseName(cls.name, cls.course)} across years</Link>
+            <button type="button" onClick={() => setDetailsOpen((o) => !o)} className={backLink}>Year &amp; course</button>
+          </div>
           {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>
         <div className="flex gap-2">

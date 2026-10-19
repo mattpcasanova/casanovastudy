@@ -5,6 +5,7 @@
 // to the class, and, only if they joined the class with its code, their
 // practice on this teacher's own guides (never their other studying).
 
+import { backLink } from "@/components/grading/grading-ui"
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Link2, Loader2, Lock, Mail, TrendingDown, TrendingUp, Users } from "lucide-react"
@@ -77,7 +78,7 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
       <main className="container mx-auto max-w-5xl px-4 py-10">
-        <Link href={`/teacher/classes/${classId}`} className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"><ArrowLeft className="h-4 w-4" />{data?.class.name ?? "Class"}</Link>
+        <Link href={`/teacher/classes/${classId}`} className={backLink}><ArrowLeft />{data?.class.name ?? "Class"}</Link>
         {error ? (
           <p className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>
         ) : !data ? (

@@ -134,6 +134,9 @@ export function FileList({ files, onRemove, disabled }: { files: File[]; onRemov
 export const actionButton = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 transition hover:bg-slate-50 hover:ring-slate-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
 export const actionButtonPrimary = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
 
+/** "Back to …" at the top of a page: a real button, not a text link. */
+export const backLink = "inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-blue-700 hover:ring-slate-300 [&_svg]:h-4 [&_svg]:w-4"
+
 export const primaryCta = "h-14 w-full rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 text-lg font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:brightness-110 hover:shadow-xl sm:w-auto sm:px-12"
 
 /**

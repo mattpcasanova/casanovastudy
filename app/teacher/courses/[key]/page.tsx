@@ -4,6 +4,7 @@
 // where each year's students struggled, area by area, from every graded set
 // of every class (all periods) in that course. Links to each year's classes.
 
+import { backLink } from "@/components/grading/grading-ui"
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
@@ -48,7 +49,7 @@ function Course({ courseKey }: { courseKey: string }) {
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
       <main className="container mx-auto max-w-5xl px-4 py-10">
-        <Link href="/teacher/classes" className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"><ArrowLeft className="h-4 w-4" />My classes</Link>
+        <Link href="/teacher/classes" className={backLink}><ArrowLeft />My classes</Link>
         {error ? (
           <p className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>
         ) : !data ? (

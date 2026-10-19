@@ -4,9 +4,10 @@
 // class average, links to each report (where marks can be adjusted), CSV, and
 // the class report (components/grading/class-report.tsx).
 
+import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList } from "lucide-react"
+import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Plus } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -155,7 +156,7 @@ function BatchResults({ id }: { id: string }) {
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
       <main className="container mx-auto max-w-5xl px-4 py-10">
-        <Link href="/grade-exam/batch" className="text-sm text-blue-700 hover:underline">← Grade another class</Link>
+        <Link href="/grade-exam/batch" className={backLink}><Plus />Grade another class</Link>
         {error ? (
           <p className="mt-6 rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p>
         ) : !rows ? (
@@ -168,12 +169,12 @@ function BatchResults({ id }: { id: string }) {
                 <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}%</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline"><Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`}><FilePlus2 className="mr-2 h-4 w-4" />Add more papers</Link></Button>
-                <Button variant="outline" onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</Button>
-                <Button variant="outline" onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown className="mr-2 h-4 w-4" />Sort by {sort === "name" ? "score" : "name"}</Button>
-                <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
-                <Button asChild className="border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-none hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800"><Link href={`/grade-exam/batch/${id}/reteach`}><ClipboardList className="mr-2 h-4 w-4" />Reteach plan</Link></Button>
-                <Button onClick={() => setExportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><BookUp className="mr-2 h-4 w-4" />Send to gradebook</Button>
+                <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
+                <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
+                <button type="button" className={actionButton} onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown />Sort by {sort === "name" ? "score" : "name"}</button>
+                <button type="button" className={actionButton} onClick={downloadCsv}><Download />CSV</button>
+                <Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>
+                <button type="button" className={actionButtonPrimary} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
               </div>
             </div>
             {scaleOpen && scale && (
