@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from "react"
 import { GraduationCap, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { selectBox } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 import { authFetch } from "@/lib/auth-fetch"
 import { connectGoogleClassroom } from "@/components/classes/google-classroom-dialog"
 import { DriveAccessError, downloadDriveFile, pickFiles, pickerConfigured } from "@/lib/google/picker"
@@ -27,13 +29,22 @@ export interface ClassroomFiles {
   workId: string
 }
 
-const selectClass = "min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+const selectClass = cn(selectBox, "min-w-0 flex-1")
 
 /**
  * `initial`: the assignment this class set came from (adding papers later);
  * `alreadyGraded`: names graded in the set, left out of the files to get.
  */
-export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded = [] }: { onFiles: (picked: ClassroomFiles) => void; disabled?: boolean; initial?: { courseId: string; workId: string } | null; alreadyGraded?: string[] }) {
+export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded = [], addingTo, onUseEarlier }: {
+  onFiles: (picked: ClassroomFiles) => void
+  disabled?: boolean
+  initial?: { courseId: string; workId: string } | null
+  alreadyGraded?: string[]
+  /** Title of the class set these papers are being added to, if any. */
+  addingTo?: string | null
+  /** Switch to adding to an earlier set from this assignment (students graded there are skipped). */
+  onUseEarlier?: (batchId: string, source: { courseId: string; workId: string }) => Promise<boolean>
+}) {
   const [state, setState] = useState<"loading" | "hidden" | "disconnected" | "connected">("loading")
   const [courses, setCourses] = useState<Course[] | null>(null)
   const [course, setCourse] = useState("")
@@ -46,6 +57,8 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
   const [error, setError] = useState("")
   const [reconnect, setReconnect] = useState(false)
   const [notice, setNotice] = useState("")
+  // An earlier class set from this assignment (graded some of it before).
+  const [earlier, setEarlier] = useState<{ batchId: string; title: string | null; date: string; names: string[] } | null>(null)
 
   const fail = (data: { error?: string; reconnect?: boolean }, fallback: string) => {
     setError(data.error || fallback)
@@ -106,6 +119,13 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
       setStudents(data.students)
       setToken(data.accessToken)
       setClassId(data.classId)
+      setEarlier(null)
+      if (!addingTo && onUseEarlier) {
+        const title = assignments?.find((x) => x.id === id)?.title ?? ""
+        const e = await authFetch(`/api/grade-batch/earlier?work=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}`, { cache: "no-store" })
+        const found = e.ok ? (await e.json()).set : null
+        if (found && (data.students as StudentWork[]).some((st) => found.names.some((n: string) => nameScore(`${st.firstName} ${st.lastName}`, n) >= 0.85))) setEarlier(found)
+      }
     } finally {
       setBusy("")
     }
@@ -200,6 +220,16 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
                   </select>
                 )}
               </div>
+              {earlier && !addingTo && (
+                <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-200">
+                  <p><span className="font-semibold">You already graded {earlier.names.length} student{earlier.names.length === 1 ? "" : "s"} from this assignment</span> in &quot;{earlier.title || "a class set"}&quot; ({new Date(earlier.date).toLocaleDateString([], { month: "short", day: "numeric" })}).</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" onClick={async () => { if (await onUseEarlier!(earlier.batchId, { courseId: course, workId: work })) setEarlier(null) }}>Add the rest to that set</button>
+                    <button type="button" className="inline-flex h-10 items-center rounded-xl bg-white px-4 font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50" onClick={() => setEarlier(null)}>Start a new set</button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-amber-900">Adding to it skips the students already graded and keeps everyone on one results page.</p>
+                </div>
+              )}
               {students && (
                 <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
                   {graded.length > 0 && <p className="mb-1 text-emerald-800">{graded.length} already graded in this set (left out).</p>}

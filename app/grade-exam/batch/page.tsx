@@ -31,7 +31,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { ClientCompression } from "@/lib/client-compression"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
-import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta, selectBox } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
@@ -157,6 +157,30 @@ function BatchGrading() {
   // Group work: other members of a paper (keyed by the paper's first page), graded once, saved for each.
   const [groups, setGroups] = useState<Record<number, string[]>>({})
   const [groupOpen, setGroupOpen] = useState<Set<number>>(new Set())
+  // Add to an existing class set: same title, class, scale and mark scheme;
+  // students already graded in it are left out of a Classroom pull.
+  const attachToBatch = async (existing: string) => {
+    const res = await authFetch(`/api/grade-batch/${existing}`, { cache: "no-store" })
+    const data = await res.json().catch(() => ({}))
+    const first = data.results?.[0]
+    if (!res.ok || !first) return false
+    batchId.current = existing
+    setAddingTo(first.exam_title || "this class set")
+    if (first.exam_title) setExamTitle(first.exam_title)
+    if (first.class_name) setClassName(first.class_name)
+    if (first.class_period) setClassPeriod(first.class_period)
+    if (first.grade_scale) setGradeScale(first.grade_scale)
+    if (first.class_id) setClassId((c) => c || first.class_id)
+    setAlreadyGraded((data.results as Array<{ student_name: string | null }>).map((r) => r.student_name ?? "").filter(Boolean))
+    const setup = data.setup
+    if (setup?.markScheme && (setup.markScheme.texts?.length || setup.markScheme.images?.length)) {
+      setMarkScheme({ texts: setup.markScheme.texts ?? [], images: setup.markScheme.images ?? [] })
+      setInheritedScheme(true)
+    }
+    if (setup?.notes) setNotes(setup.notes)
+    if (setup?.classroom) setClassroomSource(setup.classroom)
+    return true
+  }
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/classes")
@@ -169,28 +193,7 @@ function BatchGrading() {
     if (fromUrl) setClassId(fromUrl)
     // ?batch=<id>: add late papers to an existing class set (same title, class and scale).
     const existing = query.get("batch")
-    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) {
-      void (async () => {
-        const res = await authFetch(`/api/grade-batch/${existing}`, { cache: "no-store" })
-        const data = await res.json().catch(() => ({}))
-        const first = data.results?.[0]
-        if (!res.ok || !first) return
-        batchId.current = existing
-        setAddingTo(first.exam_title || "this class set")
-        if (first.exam_title) setExamTitle(first.exam_title)
-        if (first.class_name) setClassName(first.class_name)
-        if (first.class_period) setClassPeriod(first.class_period)
-        if (first.grade_scale) setGradeScale(first.grade_scale)
-        setAlreadyGraded((data.results as Array<{ student_name: string | null }>).map((r) => r.student_name ?? "").filter(Boolean))
-        const setup = data.setup
-        if (setup?.markScheme && (setup.markScheme.texts?.length || setup.markScheme.images?.length)) {
-          setMarkScheme({ texts: setup.markScheme.texts ?? [], images: setup.markScheme.images ?? [] })
-          setInheritedScheme(true)
-        }
-        if (setup?.notes) setNotes(setup.notes)
-        if (setup?.classroom) setClassroomSource(setup.classroom)
-      })()
-    }
+    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) void attachToBatch(existing)
   }, [])
   const loadRoster = async (id: string) => {
     if (!id) { setRoster([]); return }
@@ -306,10 +309,20 @@ function BatchGrading() {
   }
   // A paper taken out of this grading, so it can be put back.
   const [lastRemoved, setLastRemoved] = useState<{ name: string; pages: number[] } | null>(null)
-  const removePaper = (paper: { name: string; pages: number[] }) => {
-    setRemoved((s) => { const next = new Set(s); paper.pages.forEach((i) => next.add(i)); return next })
-    setLastRemoved({ name: paper.name, pages: paper.pages })
+  const removePapers = (list: Array<{ name: string; pages: number[] }>) => {
+    if (!list.length) return
+    const pagesOut = list.flatMap((p) => p.pages)
+    setRemoved((s) => { const next = new Set(s); pagesOut.forEach((i) => next.add(i)); return next })
+    setLastRemoved({ name: list.length === 1 ? list[0].name : `${list.length} students`, pages: pagesOut })
+    setSelected(new Set())
   }
+  const removePaper = (paper: { name: string; pages: number[] }) => removePapers([paper])
+  // Papers ticked on the review screen (by first page), to leave several out at once.
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  // Re-splitting pages changes which papers exist; drop ticks on ones that are gone.
+  useEffect(() => {
+    setSelected((cur) => { const keys = new Set(papers.map((p) => p.key)); const next = new Set([...cur].filter((k) => keys.has(k))); return next.size === cur.size ? cur : next })
+  }, [papers])
   /** Class-list names to offer for a paper: no paper yet first, each by last name. */
   const suggestions = useMemo(() => {
     const without = new Set(rosterCheck.missing.map((r) => r.id))
@@ -586,7 +599,7 @@ function BatchGrading() {
           <Section n={1} title="Student papers" hint="The whole stack: phone photos in any order of students, scanned PDFs, or one file per student. Names only need to be on the first page.">
             <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
               <label htmlFor="batch-class" className="font-medium text-slate-700">Class</label>
-              <select id="batch-class" value={classId} onChange={(e) => setClassId(e.target.value)} disabled={phase === "preparing"} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+              <select id="batch-class" value={classId} onChange={(e) => setClassId(e.target.value)} disabled={phase === "preparing"} className={cn(selectBox, "min-w-[16rem]")}>
                 <option value="">None (type names as you go)</option>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.period ? ` (P${c.period})` : ""}</option>)}
               </select>
@@ -598,6 +611,8 @@ function BatchGrading() {
               disabled={phase === "preparing"}
               initial={classroomSource}
               alreadyGraded={alreadyGraded}
+              addingTo={addingTo}
+              onUseEarlier={async (id: string, source: { courseId: string; workId: string }) => { const ok = await attachToBatch(id); if (ok) setClassroomSource(source); return ok }}
               onFiles={({ files, owners, classId: linked, title, courseId, workId }) => {
                 setClassroomSource({ courseId, workId })
                 owners.forEach((who, f) => fileOwners.current.set(f, who))
@@ -782,6 +797,22 @@ function BatchGrading() {
             )
           })()}
 
+          {phase === "review" && papers.length > 1 && (
+            <div className={cn("sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-2xl p-2.5 text-sm transition", selected.size ? "bg-slate-900 text-white shadow-lg" : "bg-white ring-1 ring-slate-200")}>
+              <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl px-3 font-semibold">
+                <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={selected.size > 0 && selected.size === papers.length} ref={(el) => { if (el) el.indeterminate = selected.size > 0 && selected.size < papers.length }} onChange={(e) => setSelected(e.target.checked ? new Set(papers.map((p) => p.key)) : new Set())} />
+                {selected.size ? `${selected.size} selected` : "Select students"}
+              </label>
+              {selected.size > 0 ? (
+                <>
+                  <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-600 px-4 font-semibold text-white hover:bg-rose-700" onClick={() => removePapers(papers.filter((p) => selected.has(p.key)))}><Trash2 className="h-4 w-4" />Leave {selected.size === 1 ? "them" : `these ${selected.size}`} out of this grading</button>
+                  <button type="button" className="inline-flex h-10 items-center rounded-xl px-4 font-semibold text-white/90 ring-1 ring-white/30 hover:bg-white/10" onClick={() => setSelected(new Set())}>Clear</button>
+                </>
+              ) : (
+                <span className="text-slate-500">Tick students to leave several out of this grading at once.</span>
+              )}
+            </div>
+          )}
           {lastRemoved && phase === "review" && (
             <p className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-700" aria-live="polite">
               Left {lastRemoved.name || "that paper"} out of this grading.
@@ -799,6 +830,9 @@ function BatchGrading() {
               return (
                 <li key={paper.key} className={cn("overflow-hidden rounded-2xl border bg-white shadow-sm", tone.border)}>
                   <div className={cn("flex flex-wrap items-center gap-3 border-l-4 px-4 py-3", tone.edge, tone.bg)}>
+                    {phase === "review" && papers.length > 1 && (
+                      <input type="checkbox" aria-label={`Select ${paper.name}`} checked={selected.has(paper.key)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(paper.key); else next.delete(paper.key); return next })} className="h-5 w-5 shrink-0 rounded border-slate-300" />
+                    )}
                     <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold", tone.avatar)} aria-hidden>
                       {state === "sure" && paper.name ? initials(paper.name) : n + 1}
                     </span>
@@ -845,10 +879,10 @@ function BatchGrading() {
                         )}
                         {roster.length > 0 && <span className="text-slate-400">· {paper.pages.length} page{paper.pages.length === 1 ? "" : "s"}</span>}
                         {paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">Name stamp{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>}
-                        {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">{headers[paper.key]?.fromClassroom ? "From Google Classroom" : "From file name"}</span>}
+                        {headers[paper.key]?.fromFile && !paper.stamp && <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-sm font-semibold text-sky-700 ring-1 ring-sky-200">{headers[paper.key]?.fromClassroom ? "From Google Classroom" : "From file name"}</span>}
                         {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
                         {phase === "review" && !groupOpen.has(paper.key) && !paper.others.length && (
-                          <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-3 w-3" />Group work?</button>
+                          <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-4 w-4" />Group work?</button>
                         )}
                       </p>
                       {detailsFor === paper.key && row && !row.id.startsWith("temp-") && classId && (

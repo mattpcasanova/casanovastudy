@@ -99,6 +99,13 @@ async function main() {
   const idOf = (name) => inserted.find((x) => x.student_name === name).id
   r = await t('PATCH', `/api/grade-batch/${created.batchId}`, { classId: cls.id })
   check('2 of 3 papers matched to the roster (misread "Millr" included)', r.json?.matched === 2 && r.json?.total === 3, JSON.stringify(r.json))
+  r = await t('GET', `/api/grade-batch/earlier?work=nope&title=${encodeURIComponent('e2e quiz')}`)
+  check('an earlier set from the same assignment is found by title', r.json?.set?.batchId === created.batchId && r.json.set.names.length === 3, JSON.stringify(r.json))
+  await admin.from('grading_batches').insert({ batch_id: created.batchId, user_id: teacher.id, classroom_course_id: 'c1', classroom_work_id: 'w-e2e' })
+  r = await t('GET', '/api/grade-batch/earlier?work=w-e2e&title=other')
+  check('...and by the Classroom assignment it came from', r.json?.set?.batchId === created.batchId)
+  r = await s('GET', '/api/grade-batch/earlier?title=E2E%20Quiz')
+  check('students cannot look up sets', r.status === 403 || r.status === 401)
   r = await t('PATCH', `/api/grade-batch/${created.batchId}`, { gradeScale: { preset: 'a_level', basis: 'marks', bands: [{ grade: 'A*', min: 9 }, { grade: 'A', min: 8 }, { grade: 'B', min: 6 }], below: 'U' } })
   r = await t('GET', `/api/grade-batch/${created.batchId}`)
   const grades = Object.fromEntries(r.json.results.map((x) => [x.student_name, x.grade]))
@@ -268,6 +275,7 @@ async function cleanup() {
   for (const id of created.importedClassIds) await admin.from('classes').delete().eq('id', id)
   await admin.from('batch_student_status').delete().eq('batch_id', created.batchId)
   await admin.from('grading_batch_insights').delete().eq('batch_id', created.batchId)
+  await admin.from('grading_batches').delete().eq('batch_id', created.batchId)
   if (created.stampedTestId) await admin.from('stamped_tests').delete().eq('id', created.stampedTestId)
   for (const id of created.users) {
     await admin.from('teacher_report_settings').delete().eq('user_id', id)

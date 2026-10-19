@@ -100,8 +100,8 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
           <p className="text-sm text-slate-600">Use the copier&apos;s Scan to Email and send it to your own grading address. It shows up here in a minute or two.</p>
           {address && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="rounded-lg bg-white px-2.5 py-1.5 text-sm text-slate-900 ring-1 ring-slate-200">{address}</code>
-              <button type="button" onClick={async () => { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 2000) }} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">
+              <code className="flex h-11 items-center rounded-xl bg-white px-3.5 text-base font-medium text-slate-900 ring-1 ring-slate-300">{address}</code>
+              <button type="button" onClick={async () => { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 2000) }} className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">
                 {copied ? <><Check className="h-4 w-4" />Copied</> : <><Copy className="h-4 w-4" />Copy</>}
               </button>
             </div>
