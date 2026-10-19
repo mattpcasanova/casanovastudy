@@ -10,6 +10,9 @@ export const CLASSROOM_SCOPES = [
   'https://www.googleapis.com/auth/classroom.profile.emails',
   // Sending scores: only to assignments this app creates (Classroom's rule).
   'https://www.googleapis.com/auth/classroom.coursework.students',
+  // Grading students' uploads: only the files the teacher picks in Google's
+  // file picker (not their whole Drive).
+  'https://www.googleapis.com/auth/drive.file',
 ]
 
 export const classroomConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
@@ -119,7 +122,73 @@ export const listCourses = (token: string) =>
 export const listStudents = (token: string, courseId: string) =>
   getAll<ClassroomStudent>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/students`, 'students', token)
 
-export interface Submission { id: string; userId: string }
+export interface Submission {
+  id: string
+  userId: string
+  state?: string
+  late?: boolean
+  updateTime?: string
+  assignmentSubmission?: { attachments?: Array<{ driveFile?: { id?: string; title?: string; thumbnailUrl?: string } }> }
+}
+
+export interface CourseWork {
+  id: string
+  title: string
+  state?: string
+  workType?: string
+  maxPoints?: number
+  creationTime?: string
+  dueDate?: { year: number; month: number; day: number }
+  assignment?: { studentWorkFolder?: { id?: string } }
+}
+
+export const listCourseWork = (token: string, courseId: string) =>
+  getAll<CourseWork>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork?courseWorkStates=PUBLISHED&orderBy=updateTime%20desc`, 'courseWork', token)
+
+/** Assignments students upload work to, newest first (questions and materials can't have uploads). */
+export function uploadAssignments(work: CourseWork[]): Array<{ id: string; title: string; due: string | null; maxPoints: number | null; folderId: string | null }> {
+  return work
+    .filter((w) => !w.workType || w.workType === 'ASSIGNMENT')
+    .map((w) => ({
+      id: w.id,
+      title: w.title || 'Untitled assignment',
+      due: w.dueDate ? `${w.dueDate.year}-${String(w.dueDate.month).padStart(2, '0')}-${String(w.dueDate.day).padStart(2, '0')}` : null,
+      maxPoints: w.maxPoints ?? null,
+      folderId: w.assignment?.studentWorkFolder?.id ?? null,
+    }))
+}
+
+export interface StudentWork {
+  userId: string
+  firstName: string
+  lastName: string
+  email: string | null
+  /** Turned in (or returned after turning in). */
+  turnedIn: boolean
+  late: boolean
+  files: Array<{ id: string; title: string }>
+}
+
+/**
+ * Each student's uploads for one assignment, by name. Students who attached
+ * files but didn't press Turn in still have their files listed (teachers often
+ * grade those too); students with no files have none. Sorted by last name.
+ */
+export function studentWork(submissions: Submission[], students: ClassroomStudent[]): StudentWork[] {
+  const byId = new Map(students.filter((s) => s.userId).map((s) => [s.userId!, s]))
+  const out: StudentWork[] = []
+  for (const sub of submissions) {
+    const person = byId.get(sub.userId)
+    const name = person ? studentToRoster(person) : null
+    if (!name) continue // a removed student, or no name to grade under
+    const files = (sub.assignmentSubmission?.attachments ?? [])
+      .map((a) => a.driveFile)
+      .filter((f): f is { id: string; title?: string } => !!f?.id)
+      .map((f) => ({ id: f.id, title: (f.title ?? 'file').slice(0, 200) }))
+    out.push({ userId: sub.userId, ...name, turnedIn: sub.state === 'TURNED_IN' || sub.state === 'RETURNED', late: !!sub.late, files })
+  }
+  return out.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+}
 
 export const listSubmissions = (token: string, courseId: string, courseWorkId: string) =>
   getAll<Submission>(`https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions`, 'studentSubmissions', token)

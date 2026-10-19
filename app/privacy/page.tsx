@@ -22,6 +22,7 @@ const sections: LegalSection[] = [
         <li><strong>How you answer:</strong> your answers in quizzes, practice and Learn mode. We use them to show your progress and weak spots and to focus new practice on what you find hard.</li>
         <li><strong>Questions to the AI tutor:</strong> what you ask the Explain helper, so it can answer.</li>
         <li><strong>Teachers&apos; grading:</strong> exams, mark schemes and student names that teachers upload, and the grades and feedback produced.</li>
+        <li><strong>Google Classroom (teachers who connect it):</strong> the teacher&apos;s course list, class rosters (student names and school emails), and, for an assignment the teacher picks, who turned it in and the files the teacher selects in Google&apos;s file picker. We only open files the teacher picks, never the rest of their Google Drive. Access lasts one hour and is not stored after that. Scanned work emailed to a teacher&apos;s grading address is kept for 30 days.</li>
         <li><strong>Usage and device information:</strong> how many guides and explanations you use (to run fair-use limits), basic technical logs, and privacy-friendly page analytics from our host that do not use advertising cookies.</li>
       </ul>
       <p>We use cookies and similar browser storage only to keep you signed in and to remember settings on your device (for example, your last calculator). We do not use advertising or cross-site tracking cookies.</p>
@@ -38,6 +39,7 @@ const sections: LegalSection[] = [
         <li>To improve Casanova Study, using totals and trends rather than individual profiles where possible.</li>
       </ul>
       <p><strong>We never</strong> show ads, sell or rent personal information, or use student information to build advertising profiles.</p>
+      <p>Information we receive from Google APIs is used only to provide the features the teacher asked for (importing a roster, grading uploaded work, sending scores back), follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-blue-700 underline">Google API Services User Data Policy</a> including its Limited Use requirements, is never used for advertising, and is never used to train AI models.</p>
     </>,
   },
   {

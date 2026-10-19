@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ScaleEditor } from "@/components/grading/report/scale-editor"
 import { ScanInboxPanel } from "@/components/grading/scan-inbox-panel"
+import { ClassroomWorkPanel } from "@/components/grading/classroom-work-panel"
 import { placeStampedPages } from "@/lib/stamped/place"
 import { missingPages } from "@/lib/stamped/codes"
 import { DEFAULT_SCALE, SCALE_PRESETS, type GradeScale } from "@/lib/grading/scale"
@@ -104,6 +105,8 @@ function BatchGrading() {
   const [sortByName, setSortByName] = useState(true)
   // null = decide from the file names (looksLikeOnePerFile); the teacher can override.
   const [onePerFileChoice, setOnePerFileChoice] = useState<boolean | null>(null)
+  // Files brought in from Google Classroom know whose they are.
+  const fileOwners = useRef(new WeakMap<File, string>())
 
   const [phase, setPhase] = useState<Phase>("setup")
   const [status, setStatus] = useState("")
@@ -268,15 +271,17 @@ function BatchGrading() {
 
       // Student pages, in camera-roll / file-name order.
       const ordered = sortByName ? [...paperFiles].sort((a, b) => naturalCompare(a.name, b.name)) : paperFiles
-      const imagePages: Array<{ blob: Blob; label: string; file: string; fileIndex: number }> = []
+      const imagePages: Array<{ blob: Blob; label: string; file: string; fileIndex: number; owner?: string }> = []
       const textPapers: Page[] = []
+      const textOwners: Array<string | undefined> = []
       for (const [fileIndex, file] of ordered.entries()) {
         if (imagePages.length >= MAX_PAGES) { issues.push(`Only the first ${MAX_PAGES} pages were used.`); break }
         const prepared = await prepareMaterials([file], { pdfMode: "images", maxImages: MAX_PAGES - imagePages.length, onProgress: setStatus })
         issues.push(...prepared.problems)
-        prepared.images.forEach((img) => imagePages.push({ blob: img.blob, label: img.name, file: file.name, fileIndex }))
+        const owner = fileOwners.current.get(file)
+        prepared.images.forEach((img) => imagePages.push({ blob: img.blob, label: img.name, file: file.name, fileIndex, owner }))
         // A typed (Word/PowerPoint/text) paper is one student's whole paper.
-        prepared.texts.forEach((t) => textPapers.push({ label: t.name, text: t.content }))
+        prepared.texts.forEach((t) => { textPapers.push({ label: t.name, text: t.content }); textOwners.push(owner) })
       }
       if (!imagePages.length && !textPapers.length) throw new Error("None of the papers could be read. " + issues.join(" "))
 
@@ -293,6 +298,12 @@ function BatchGrading() {
       const imageHeaders: Array<PageHeader | undefined> = stamped.headers.slice()
       // One student per file (files named after students): the name comes from
       // the file, every page of it is that student's, no AI name read needed.
+      // Google Classroom uploads: the student who uploaded them; all of one
+      // student's photos are one paper.
+      orderedImages.forEach((p, i) => {
+        if (imageHeaders[i] || !p.owner) return // a name stamp wins
+        imageHeaders[i] = { name: p.owner, firstPage: i === 0 || orderedImages[i - 1].owner !== p.owner, fromFile: true, fromClassroom: true }
+      })
       if (onePerFile) {
         orderedImages.forEach((p, i) => {
           if (imageHeaders[i]) return // a name stamp wins
@@ -326,7 +337,7 @@ function BatchGrading() {
       ]
       const allHeaders: PageHeader[] = [
         ...imageHeaders.map((h) => h ?? { name: null, firstPage: false }),
-        ...textPapers.map((t) => ({ name: t.label.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), firstPage: true })),
+        ...textPapers.map((t, i) => (textOwners[i] ? { name: textOwners[i]!, firstPage: true, fromFile: true, fromClassroom: true } : { name: t.label.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), firstPage: true })),
       ]
       // Fill the exam details from the papers (only the boxes the teacher left empty).
       const firsts = allHeaders.filter((h) => h.firstPage)
@@ -512,6 +523,15 @@ function BatchGrading() {
                 ? <span className="text-slate-500">{roster.length} name{roster.length === 1 ? "" : "s"} on the roster; papers are matched to them.</span>
                 : <Link href="/teacher/classes" className="text-blue-700 hover:underline">{classes.length ? "Manage classes" : "Add a class list"}</Link>}
             </div>
+            <ClassroomWorkPanel
+              disabled={phase === "preparing"}
+              onFiles={({ files, owners, classId: linked, title }) => {
+                owners.forEach((who, f) => fileOwners.current.set(f, who))
+                setPaperFiles((prev) => [...prev, ...files])
+                if (linked && !classId) setClassId(linked)
+                if (!examTitle.trim()) setExamTitle(title)
+              }}
+            />
             <ScanInboxPanel onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} openItemId={inboxItem} disabled={phase === "preparing"} />
             <DropZone files={paperFiles} onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} onRemove={(i) => setPaperFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} big />
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
@@ -737,7 +757,7 @@ function BatchGrading() {
                         )}
                         {roster.length > 0 && <span className="text-slate-400">· {paper.pages.length} page{paper.pages.length === 1 ? "" : "s"}</span>}
                         {paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">Name stamp{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>}
-                        {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">From file name</span>}
+                        {headers[paper.key]?.fromFile && !paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-sky-700 ring-1 ring-sky-200">{headers[paper.key]?.fromClassroom ? "From Google Classroom" : "From file name"}</span>}
                         {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
                         {phase === "review" && !groupOpen.has(paper.key) && !paper.others.length && (
                           <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-3 w-3" />Group work?</button>

@@ -162,6 +162,7 @@ answers, min 3 answered; cap 15/concept then partial credit).
     - `/api/google/classroom/{start,callback,courses,import}`: the token is kept 1 hour in `google_classroom_tokens` (service only) and deleted after import. Courses become classes (`classes.google_course_id`, re-import updates) with `class_roster.email`.
     - `linkRosterByEmail` links names to student accounts with that email (also run on every roster load).
     - Needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (the OAuth client used for Supabase Google sign-in), the Classroom API enabled, `/api/google/classroom/callback` as an authorized redirect URI, and the scopes on the consent screen (sensitive scopes need Google verification for public use). The button hides until it's configured.
+- **Grading Google Classroom uploads (2026-10-19)**: `ClassroomWorkPanel` (`components/grading/classroom-work-panel.tsx`) on `/grade-exam/batch`: course → assignment (`GET /api/google/classroom/assignments`, `uploadAssignments`) → who uploaded what (`GET /api/google/classroom/submissions`, `studentWork`, unit-tested; also returns the teacher's 1-hour token and the class imported from that course) → **Get the files** opens Google's Picker (`lib/google/picker.ts`) showing just those file ids; picking them grants `drive.file` access, then the browser downloads them from Drive (Docs/Slides export as PDF; never proxy them, Vercel's 4.5 MB limit). Files are named `<Student> 01.jpg` and tagged in a `fileOwners` WeakMap, so each student's photos become one paper (`fromClassroom` header, chip "From Google Classroom"), skipping the AI name read. We use `drive.file` + Picker instead of `drive.readonly` because readonly is a restricted scope (yearly paid security audit). **Scores can't go back onto that assignment**: Classroom only lets an app grade coursework it created, so "Send to Google Classroom" makes its own assignment. Needs `NEXT_PUBLIC_GOOGLE_API_KEY` + `NEXT_PUBLIC_GOOGLE_APP_ID` (project number) besides the client id/secret; hidden until all are set. Unverified: up to 100 connecting (teacher) accounts; a school's Workspace admin can trust the client id. /privacy has the Google Limited Use statement verification needs.
 - **Group work, clearer editing, question breakdown (2026-10-13, migration 059)**:
   - **Group work**: one paper by several students is graded once and saved as a report for each member (`grading_results.group_id` ties them together, `group_members` lists them). `groupMembersFrom` in `lib/grading/group.ts` is unit-tested.
     - The batch grader's cards have "Group work?" (`GroupMembers`, roster datalist); members count as handed in. The paper route inserts one row per member, each roster-linked, with the cost on the first row only.
@@ -266,6 +267,8 @@ RESEND_RECEIVING_API_KEY=        # full-access Resend key (RESEND_API_KEY is sen
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_STATE_SECRET=             # optional; signs the OAuth state (defaults to the service role key)
+NEXT_PUBLIC_GOOGLE_API_KEY=      # Picker API key (restricted to the site's referrers)
+NEXT_PUBLIC_GOOGLE_APP_ID=       # Google Cloud project number of the OAuth client
 
 # Review reminders cron (Vercel sends it as a Bearer token)
 CRON_SECRET=

@@ -22,6 +22,8 @@ export interface PageHeader {
   stamp?: PageStamp
   /** Name taken from the file name (one student per file, lib/grading/file-names.ts). */
   fromFile?: boolean
+  /** Uploaded by this student to a Google Classroom assignment. */
+  fromClassroom?: boolean
 }
 
 export interface PageStamp {

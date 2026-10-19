@@ -11,8 +11,9 @@ import { authFetch } from "@/lib/auth-fetch"
 
 interface Course { id: string; name: string; section: string | null; period: string | null; importedClassId: string | null }
 
-export async function connectGoogleClassroom(): Promise<string | null> {
-  const res = await authFetch("/api/google/classroom/start", { method: "POST" })
+/** Sends the teacher to Google; `next` is the in-app page to come back to. */
+export async function connectGoogleClassroom(next?: string): Promise<string | null> {
+  const res = await authFetch("/api/google/classroom/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ next: next ?? null }) })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || !data.url) return data.error || "Could not connect to Google Classroom"
   window.location.href = data.url
