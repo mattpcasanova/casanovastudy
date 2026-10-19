@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { notFound, redirect } from 'next/navigation'
 import StudyGuideViewer from '@/components/study-guide-viewer'
+import { AssignmentProvider } from '@/components/assign/assignment-context'
 import { Metadata } from 'next'
 
 interface StudyGuidePageProps {
@@ -50,5 +51,5 @@ export default async function StudyGuidePage({ params }: StudyGuidePageProps) {
     redirect(cc.static_route)
   }
 
-  return <StudyGuideViewer studyGuide={studyGuide} />
+  return <AssignmentProvider guideId={studyGuide.id}><StudyGuideViewer studyGuide={studyGuide} /></AssignmentProvider>
 }

@@ -42,6 +42,7 @@ import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
 import LearnCallout from '@/components/learn/learn-callout'
+import { AssignBar } from '@/components/assign/assign-bar'
 import { DesmosProvider } from '@/components/desmos/desmos-calculator'
 import { ExplainProvider } from '@/components/explain/explain-provider'
 import { StudyResultsProvider } from '@/components/study-results-context'
@@ -445,6 +446,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 print:max-w-none print:px-0 print:py-0">
+        {isOwner && user?.user_type === 'teacher' && <AssignBar guide={studyGuide} />}
         <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
         <DesmosProvider guideId={studyGuide.id} mode={calculatorMode} showButton={false}>
           <ExplainProvider guideId={studyGuide.id}>

@@ -20,6 +20,7 @@ import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { useAssignmentFinish } from '@/components/assign/assignment-context'
 import { WeakSpotBanner } from './weak-spot-banner'
 
 interface QuizFormatProps {
@@ -72,6 +73,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
 
   // Each question is logged once per run (practice reveal or test submit).
   const logResult = useRecordResult()
+  const reportAssignment = useAssignmentFinish()
   const logged = useRef(new Set<string>())
   const log = (q: Question, correct: boolean, score?: number) => {
     if (logged.current.has(q.id)) return
@@ -124,14 +126,20 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     const fresh = await Promise.all(pending.map(scoreShortAnswer))
     const scores: Record<string, ShortAnswerScore> = { ...saScores }
     pending.forEach((q, i) => { const r = fresh[i]; if (r) scores[q.id] = r })
+    let right = 0
     for (const q of questions) {
       if (q.type === 'sa') {
         const r = scores[q.id]
         if (r) log(q, r.isCorrect, r.score)
+        if (r?.isCorrect) right++
       } else if (answers[q.id]) {
-        log(q, isObjectiveCorrect(q, answers[q.id]))
+        const ok = isObjectiveCorrect(q, answers[q.id])
+        log(q, ok)
+        if (ok) right++
       }
     }
+    // Assigned practice: a full run counts (retrying just the missed ones doesn't).
+    if (!subset) reportAssignment?.({ correct: right, total: questions.length })
     setSubmitting(false)
     setFinished(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })

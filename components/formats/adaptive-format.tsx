@@ -8,6 +8,7 @@
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAssignmentFinish } from "@/components/assign/assignment-context"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Target, Trophy, XCircle, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -181,6 +182,15 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
 
   const finished = started && !current && (step?.kind === "done" || (step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length)))
   const waiting = started && !current && step?.kind === "empty" && !finished
+  // Assigned practice: graded on topics mastered, sent once per finished session.
+  const reportAssignment = useAssignmentFinish()
+  const reported = useRef(false)
+  useEffect(() => {
+    if (!finished || reported.current || !reportAssignment || !progress.length) return
+    reported.current = true
+    const mastered = progress.filter((p) => p.status === "mastered")
+    reportAssignment({ correct: mastered.length, total: progress.length, detail: { mastered: mastered.map((p) => p.name), notMastered: progress.filter((p) => p.status !== "mastered").map((p) => p.name) } })
+  }, [finished, progress, reportAssignment])
 
   const submit = useCallback((given: string, extra?: { correct: boolean; score?: number; feedback?: string }) => {
     if (!current || !answers) return
@@ -199,6 +209,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
   const advance = () => { setCurrent(null); setResult(null) }
 
   const restart = () => {
+    reported.current = false
     updateAnswers([])
     setCurrent(null)
     setResult(null)

@@ -20,6 +20,7 @@ import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { useAssignmentFinish } from '@/components/assign/assignment-context'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill } from '@/lib/prefill'
 import { missedPrefill, missedQuestionsFromGuide } from '@/lib/learner/missed'
@@ -105,6 +106,14 @@ export function PracticeSession({
 
   const done = index >= activities.length
   const current = activities[Math.min(index, activities.length - 1)]
+  // Assigned practice: a full run on the practice page counts (not inline blocks or missed-only retries).
+  const reportAssignment = useAssignmentFinish()
+  const reported = useRef(false)
+  useEffect(() => {
+    if (!done || reported.current || !reportAssignment || variant !== 'page' || subset || !activities.length) return
+    reported.current = true
+    reportAssignment({ correct: activities.filter((a) => results[a.id]?.correct).length, total: activities.length })
+  }, [done, reportAssignment, variant, subset, activities, results])
 
   const record = (correct: boolean, note?: string) => {
     if (!current) return
@@ -146,6 +155,7 @@ export function PracticeSession({
   }
 
   const restart = (ids: string[] | null) => {
+    reported.current = false
     setSubset(ids)
     setLater([])
     logged.current = new Set()

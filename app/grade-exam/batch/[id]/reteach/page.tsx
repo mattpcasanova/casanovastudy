@@ -9,7 +9,7 @@ import { actionButton, actionButtonPrimary } from "@/components/grading/grading-
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Star, Users, ClipboardList, PenLine, PencilLine } from "lucide-react"
+import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Star, Users, ClipboardList, PenLine, PencilLine, ClipboardCheck } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,7 @@ import type { ReteachGroup } from "@/lib/grading/reteach"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { rememberAssignPreset } from "@/lib/practice/preset"
 
 type Saved = SavedReteach & { createdAt: string }
 interface TopicOption { name: string; pct: number; recommended: boolean }
@@ -64,7 +65,9 @@ function Reteach({ id }: { id: string }) {
   const [topics, setTopics] = useState<TopicOption[]>([])
   const [detail, setDetail] = useState<PlanDetail>("standard")
   const [ready, setReady] = useState(true)
-  const [meta, setMeta] = useState<{ examTitle: string | null; className: string | null }>({ examTitle: null, className: null })
+  const [meta, setMeta] = useState<{ examTitle: string | null; className: string | null; classId: string | null }>({ examTitle: null, className: null, classId: null })
+  // Practice already assigned from this plan, by group.
+  const [assigned, setAssigned] = useState<Array<{ id: string; source: { groupKey?: string } | null; students: Array<{ status: string }> }>>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -83,10 +86,12 @@ function Reteach({ id }: { id: string }) {
         setTopics(data.topics ?? [])
         if (!data.saved) setFocus((data.topics ?? []).filter((t: TopicOption) => t.recommended).map((t: TopicOption) => t.name))
         setReady(data.ready)
-        setMeta({ examTitle: data.examTitle, className: data.className })
+        setMeta({ examTitle: data.examTitle, className: data.className, classId: data.classId ?? null })
         if (data.saved) { setMinutes(data.saved.minutes); setDetail(data.saved.detail ?? "detailed"); setFocus(data.saved.focus.map((f: { name: string }) => f.name)) }
       }
       setLoading(false)
+      const a = await authFetch(`/api/practice-assignments?batchId=${id}`, { cache: "no-store" })
+      if (a.ok) setAssigned((await a.json()).assignments ?? [])
     })()
   }, [id])
 
@@ -128,6 +133,9 @@ function Reteach({ id }: { id: string }) {
     if (!saved) return
     const topic = g.topic ?? saved.focus.map((f) => f.name).join(", ")
     const mistakes = saved.plan.miniLesson.misconceptions.map((m) => m.mistake).slice(0, 4).join("; ")
+    // The new guide's Assign dialog opens with this group ticked.
+    const rosterIds = g.students.map((st) => st.rosterId).filter((x): x is string => !!x)
+    if (meta.classId && rosterIds.length) rememberAssignPreset({ classId: meta.classId, rosterIds, title: `${topic}: ${groupLabel(g)}`, source: { batchId: id, groupKey: g.key } })
     const level = g.kind === "extend" ? "harder, exam-level and extension problems" : g.kind === "reteach" ? "start from the basics and build up step by step" : "mixed practice at test level"
     router.push(openHomeWithPrefill({
       source: "class-area",
@@ -215,7 +223,19 @@ function Reteach({ id }: { id: string }) {
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset", GROUP_TONE[g.kind])}><Users className="h-3.5 w-3.5" />{groupLabel(g)}</span>
                               {ai?.minutes ? <span className="text-xs text-slate-500">{ai.minutes} min</span> : null}
-                              <button type="button" onClick={() => practiceFor(g)} className={cn(actionButtonPrimary, "ml-auto print:hidden")}><PencilLine />Make their practice set</button>
+                              {(() => {
+                                const mine = assigned.filter((x) => x.source?.groupKey === g.key)
+                                const done = mine.reduce((n, x) => n + x.students.filter((st) => st.status === "done" || st.status === "late").length, 0)
+                                const total = mine.reduce((n, x) => n + x.students.length, 0)
+                                return mine.length ? (
+                                  <span className="ml-auto flex flex-wrap gap-2 print:hidden">
+                                    <Link href={`/teacher/practice/${mine[0].id}`} className={cn(actionButton, "bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100")}><ClipboardCheck />Assigned · {done} of {total} done</Link>
+                                    <button type="button" onClick={() => practiceFor(g)} className={actionButton}><PencilLine />Make another</button>
+                                  </span>
+                                ) : (
+                                  <button type="button" onClick={() => practiceFor(g)} className={cn(actionButtonPrimary, "ml-auto print:hidden")}><PencilLine />Make and assign their practice</button>
+                                )
+                              })()}
                             </div>
                             <p className="mt-2 text-sm text-slate-800">{g.students.map((st) => st.name).join(", ")}</p>
                             {ai && <p className="mt-2 text-sm text-slate-700">{ai.activity}</p>}

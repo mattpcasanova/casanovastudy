@@ -4,6 +4,7 @@
 // against, the join code, this class's graded sets, and its top weak spots.
 // Deliberately nothing else (no assignments, calendar or gradebook).
 
+import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
 import { backLink } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -301,6 +302,8 @@ function ClassView({ id }: { id: string }) {
           onTest={(b) => void pickAreaTest(b)}
         />
       )}
+
+      <AssignedPracticeList classId={cls.id} />
 
       {/* Graded work */}
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

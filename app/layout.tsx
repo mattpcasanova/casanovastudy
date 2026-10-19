@@ -1,4 +1,5 @@
 import type React from "react"
+import { ReturnToResume } from '@/components/return-to-resume'
 import type { Metadata, Viewport } from "next"
 import { DM_Sans } from "next/font/google"
 import { GeistMono } from "geist/font/mono"
@@ -48,6 +49,7 @@ export default function RootLayout({
         <AuthProvider>
           <PlanProvider>
             <Suspense fallback={null}>{children}</Suspense>
+            <ReturnToResume />
           </PlanProvider>
         </AuthProvider>
         <ServiceWorkerRegistrar />

@@ -5,6 +5,7 @@
 // to the class, and, only if they joined the class with its code, their
 // practice on this teacher's own guides (never their other studying).
 
+import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
 import { backLink } from "@/components/grading/grading-ui"
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
@@ -104,6 +105,8 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                 <Stat label="Latest trend" value={trend == null ? "-" : `${trend >= 0 ? "+" : ""}${Math.round(trend)}`} icon={trend == null ? null : trend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} className={trend == null ? "" : trend >= 0 ? "text-emerald-700" : "text-rose-700"} />
               </div>
             </div>
+
+            <AssignedPracticeList classId={classId} rosterId={rosterId} />
 
             <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

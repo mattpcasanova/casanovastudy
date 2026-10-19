@@ -16,7 +16,7 @@ export const maxDuration = 120
 async function load(userId: string, batchId: string) {
   const supabase = createAdminClient()
   const [{ data: rows }, { data: report }] = await Promise.all([
-    supabase.from('grading_results').select('id, student_name, roster_id, grade_breakdown, exam_title, class_name').eq('batch_id', batchId).eq('user_id', userId).order('student_name'),
+    supabase.from('grading_results').select('id, student_name, roster_id, grade_breakdown, exam_title, class_name, class_id').eq('batch_id', batchId).eq('user_id', userId).order('student_name'),
     supabase.from('grading_batch_insights').select('data').eq('batch_id', batchId).eq('user_id', userId).maybeSingle(),
   ])
   return { rows: rows ?? [], insights: (report?.data ?? null) as ClassInsightsAI | null }
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     topics: scored.map((t) => ({ name: t.name, pct: Math.round(t.pct), recommended: recommended.has(t.name) })),
     examTitle: rows[0].exam_title,
     className: rows[0].class_name,
+    classId: rows.find((r) => r.class_id)?.class_id ?? null,
     ready: !!insights?.topics?.length,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
