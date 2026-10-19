@@ -6,7 +6,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, Sparkles } from "lucide-react"
+import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -172,7 +172,7 @@ function BatchResults({ id }: { id: string }) {
                 <Button variant="outline" onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</Button>
                 <Button variant="outline" onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown className="mr-2 h-4 w-4" />Sort by {sort === "name" ? "score" : "name"}</Button>
                 <Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
-                <Button asChild className="border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-none hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800"><Link href={`/grade-exam/batch/${id}/reteach`}><Sparkles className="mr-2 h-4 w-4" />Reteach plan</Link></Button>
+                <Button asChild className="border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-none hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800"><Link href={`/grade-exam/batch/${id}/reteach`}><ClipboardList className="mr-2 h-4 w-4" />Reteach plan</Link></Button>
                 <Button onClick={() => setExportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><BookUp className="mr-2 h-4 w-4" />Send to gradebook</Button>
               </div>
             </div>

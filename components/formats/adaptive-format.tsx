@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Sparkles, Target, Trophy, XCircle } from "lucide-react"
+import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Target, Trophy, XCircle, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { InlineMarkdown, StudyMarkdown } from "./study-markdown"
@@ -319,7 +319,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
 
               {showLesson && concept && (
                 <div className="mt-4 animate-fade-up rounded-xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-200">
-                  <p className="flex items-center gap-2 font-semibold text-amber-900"><Sparkles className="h-4 w-4" /> Quick review: {concept.name}</p>
+                  <p className="flex items-center gap-2 font-semibold text-amber-900"><Lightbulb className="h-4 w-4" /> Quick review: {concept.name}</p>
                   <p className="mt-1.5 text-sm leading-relaxed text-slate-800"><InlineMarkdown text={concept.lesson} /></p>
                   {q.level > 1 && <p className="mt-2 text-xs text-amber-800">The next one on this will be a little easier.</p>}
                 </div>
@@ -587,7 +587,7 @@ function DoneCard({ progress, summary, next, onNext, onRestart }: {
         <p className="mt-1.5 flex items-center gap-2 text-lg font-semibold text-slate-900"><rec.Icon className="h-5 w-5 text-sky-600" /> {rec.title}</p>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">A new adaptive session with {nextDetail(next.recommended)}.</p>
         <Button onClick={() => onNext(next.recommended)} className="mt-4 bg-sky-600 text-white hover:bg-sky-700">
-          <Sparkles className="mr-1.5 h-4 w-4" /> {rec.button}
+          <ArrowRight className="mr-1.5 h-4 w-4" /> {rec.button}
         </Button>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Trophy } from "lucide-react"
 import ConceptProgress from "@/components/mastery/concept-progress"
 import type {
   MasteryConceptInfo,
@@ -42,7 +42,7 @@ export default function RoundSummary({
         {newlyMastered.length > 0 && (
           <div className="mb-5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 p-4">
             <p className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
+              <Trophy className="h-4 w-4" />
               Mastered this round: {newlyMastered.join(", ")}
             </p>
           </div>

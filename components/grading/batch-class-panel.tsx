@@ -4,6 +4,7 @@
 // new class, attach the set to an existing class (each paper is matched to a
 // roster name), and release the reports to students who joined.
 
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Loader2, Users } from "lucide-react"
@@ -155,14 +156,14 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                 <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-800">No paper for {noPaper.length} student{noPaper.length === 1 ? "" : "s"}</p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <button type="button" onClick={() => void setStatus(noPaper.filter((e) => !statusOf(e)).map((e) => e.rosterId), "missing")} className="font-semibold text-blue-700 hover:underline">Mark the rest missing</button>
-                      <Link href={`/grade-exam/batch?batch=${batchId}&class=${classId}`} className="font-semibold text-blue-700 hover:underline">Grade late papers</Link>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void setStatus(noPaper.filter((e) => !statusOf(e)).map((e) => e.rosterId), "missing")} className={actionButton}>Mark the rest missing</button>
+                      <Link href={`/grade-exam/batch?batch=${batchId}&class=${classId}`} className={actionButtonPrimary}>Grade late papers</Link>
                     </div>
                   </div>
                   <ul className="divide-y divide-slate-200/70">
                     {noPaper.map((e) => (
-                      <li key={e.rosterId} className="flex flex-wrap items-center gap-2 py-1.5 text-sm">
+                      <li key={e.rosterId} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                         <span className="min-w-0 flex-1 text-slate-800">{e.name}{e.studentNumber && <span className="ml-1.5 text-xs text-slate-400">#{e.studentNumber}</span>}</span>
                         <span className="flex gap-1" role="group" aria-label={`Status for ${e.name}`}>
                           {STATUSES.map(([value, text]) => (
@@ -171,7 +172,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                               type="button"
                               aria-pressed={statusOf(e) === value}
                               onClick={() => void setStatus([e.rosterId], statusOf(e) === value ? null : value)}
-                              className={statusOf(e) === value ? "rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-white" : "rounded-full bg-white px-2.5 py-0.5 text-xs text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-100"}
+                              className={statusOf(e) === value ? "rounded-full bg-slate-800 px-3.5 py-1.5 text-sm font-semibold text-white" : "rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-100"}
                             >
                               {text}
                             </button>

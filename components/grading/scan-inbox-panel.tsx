@@ -127,7 +127,7 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
             type="button"
             disabled={disabled || !!loadingId}
             onClick={async () => { for (const item of items.filter((i) => i.files.length && !added.has(i.id))) await addItem(item) }}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+            className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-300"
           >
             {loadingId ? "Adding…" : `Add all ${items.filter((i) => i.files.length && !added.has(i.id)).length} to stack`}
           </button>
@@ -157,7 +157,7 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
                     type="button"
                     disabled={disabled || isAdded || loadingId === item.id}
                     onClick={() => void addItem(item)}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                    className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-300"
                   >
                     {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : isAdded ? "Added" : "Add to stack"}
                   </button>

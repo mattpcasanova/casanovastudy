@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowUpDown, ChevronDown, Lightbulb, Loader2, RefreshCw, Sparkles } from "lucide-react"
+import { AlertTriangle, ArrowUpDown, ChevronDown, Lightbulb, Loader2, RefreshCw, ClipboardList } from "lucide-react"
 import { normalizeQuestionKey, type GradedQuestion } from "@/lib/grading/parse"
 import { Button } from "@/components/ui/button"
 import { authFetch } from "@/lib/auth-fetch"
@@ -88,7 +88,7 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
       {/* AI summary */}
       <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-blue-900/10 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="flex items-center gap-2 font-semibold text-slate-900"><Sparkles className="h-4 w-4 text-blue-600" />Class summary</p>
+          <p className="flex items-center gap-2 font-semibold text-slate-900"><ClipboardList className="h-4 w-4 text-blue-600" />Class summary</p>
           {report && !loading && (
             <Button variant="outline" size="sm" onClick={() => void generate()}>
               <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : "Update for the new marks"}

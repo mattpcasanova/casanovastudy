@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { CheckCircle2, XCircle, Clock, Sparkles } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, Scale } from "lucide-react"
 
 interface StudentResponse {
   concept_name: string
@@ -142,7 +142,7 @@ export default function StudentAttemptDialog({ assignmentId, attemptId, onClose 
                         {r.type === "short_answer" && (
                           <div className="mt-1.5 text-xs text-slate-500">
                             <span className="inline-flex items-center gap-1">
-                              <Sparkles className="h-3 w-3" /> AI-judged
+                              <Scale className="h-3 w-3" /> AI-judged
                             </span>
                             {r.score !== null && <span> · {r.score}/100</span>}
                             {r.ai_feedback && <p className="mt-1 text-slate-600">{r.ai_feedback}</p>}

@@ -5,9 +5,10 @@
 // the students lowest in each area, a students-by-areas grid, and "Make
 // practice" (a homepage request built from the questions they lost marks on).
 
+import { actionButton } from "@/components/grading/grading-ui"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, PencilLine } from "lucide-react"
 import type { ClassArea } from "@/lib/classes/areas"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { cn } from "@/lib/utils"
@@ -90,8 +91,8 @@ export function ClassAreas({ areas, className, setsWithoutReport, tests = [], te
                     </span>
                   )}
                   <span className="w-12 text-right text-sm font-semibold text-slate-900">{Math.round(a.pct)}%</span>
-                  <button type="button" onClick={() => makePractice(a)} className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
-                    <Sparkles className="h-3.5 w-3.5" />Make practice
+                  <button type="button" onClick={() => makePractice(a)} className={actionButton}>
+                    <PencilLine />Make practice
                   </button>
                 </div>
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">

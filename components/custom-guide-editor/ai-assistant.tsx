@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { cn } from "@/lib/utils"
-import { Sparkles, Loader2, Wand2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle } from "lucide-react"
+import { Loader2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle, MessageSquareText, ArrowRight } from "lucide-react"
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { Segmented, fieldLabel } from "./editor-ui"
@@ -240,7 +240,7 @@ export function AIAssistant({
         <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-cyan-300/30 blur-2xl" />
         <div className="relative flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 ring-1 ring-inset ring-white/25">
-            <Sparkles className="h-4 w-4" />
+            <MessageSquareText className="h-4 w-4" />
           </span>
           <div>
             <h3 className="flex items-center gap-1.5 text-sm font-semibold leading-tight">
@@ -484,7 +484,7 @@ export function AIAssistant({
             disabled={busy || !canGenerate}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
           >
-            <Wand2 className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4" />
             {hasExistingContent && mode === 'add' ? 'Add to guide' : 'Generate guide'}
           </button>
         )}

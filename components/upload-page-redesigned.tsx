@@ -22,7 +22,6 @@ import {
   CreditCard,
   HelpCircle,
   ScrollText,
-  Sparkles,
   Upload,
   PenLine,
   Puzzle,
@@ -40,6 +39,8 @@ import {
   ArrowRight,
   LineChart,
   Target,
+  ScanText,
+  BookOpen,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -714,7 +715,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </span>
                 ) : autoFilled ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                    <Sparkles className="h-3.5 w-3.5" /> Suggested from your files. Edit freely
+                    <ScanText className="h-3.5 w-3.5" /> Suggested from your files. Edit freely
                   </span>
                 ) : null}
               </div>
@@ -1120,7 +1121,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             {isGenerating ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating…</>
             ) : (
-              <><Sparkles className="mr-2 h-5 w-5" /> {format === "adaptive" ? "Start adaptive practice" : "Generate study guide"}</>
+              <><ArrowRight className="mr-2 h-5 w-5" /> {format === "adaptive" ? "Start adaptive practice" : "Generate study guide"}</>
             )}
           </Button>
           {format === "adaptive" && freeAdaptive ? (
@@ -1219,7 +1220,7 @@ type Arrival =
 const ARRIVAL_STYLE = {
   plan: { ring: "ring-teal-200", bg: "from-teal-50 to-white", iconBg: "bg-teal-600", eyebrow: "text-teal-700", button: "bg-teal-600 hover:bg-teal-700", Icon: MapIcon },
   missed: { ring: "ring-purple-200", bg: "from-purple-50 to-white", iconBg: "bg-purple-600", eyebrow: "text-purple-700", button: "bg-purple-600 hover:bg-purple-700", Icon: RotateCcw },
-  welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Sparkles },
+  welcome: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: BookOpen },
   weak: { ring: "ring-amber-200", bg: "from-amber-50 to-white", iconBg: "bg-amber-500", eyebrow: "text-amber-700", button: "bg-amber-500 hover:bg-amber-600", Icon: Target },
   next: { ring: "ring-sky-200", bg: "from-sky-50 to-white", iconBg: "bg-sky-600", eyebrow: "text-sky-700", button: "bg-sky-600 hover:bg-sky-700", Icon: Target },
   class: { ring: "ring-indigo-200", bg: "from-indigo-50 to-white", iconBg: "bg-indigo-600", eyebrow: "text-indigo-700", button: "bg-indigo-600 hover:bg-indigo-700", Icon: Target },
@@ -1293,7 +1294,7 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
                 disabled={busy}
                 className={cn("inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60", style.button)}
               >
-                <Sparkles className="h-4 w-4" /> Create it now
+                <ArrowRight className="h-4 w-4" /> Create it now
               </button>
               <button type="button" onClick={onEdit} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white">
                 Change something first

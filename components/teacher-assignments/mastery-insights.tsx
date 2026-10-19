@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { ChevronDown, ChevronRight, CheckCircle2, Clock, Sparkles } from "lucide-react"
+import { ChevronDown, ChevronRight, CheckCircle2, Clock, Scale } from "lucide-react"
 import type { ConceptInsight, QuestionInsight } from "@/lib/mastery/analytics"
 
 interface Props {
@@ -218,7 +218,7 @@ function QuestionRow({ q }: { q: QuestionInsight }) {
         <div className="mt-2.5 text-xs">
           <div className="flex items-center gap-2 text-slate-500">
             <span className="inline-flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> AI-judged
+              <Scale className="h-3 w-3" /> AI-judged
             </span>
             {q.avgScore !== null && q.avgScore !== undefined && <span>· avg score {q.avgScore}/100</span>}
           </div>

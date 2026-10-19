@@ -184,7 +184,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
           {state === "disconnected" ? (
             <>
               <p className="text-sm text-slate-600">Bring in the photos students uploaded to an assignment, already sorted by student.</p>
-              <Button variant="outline" size="sm" className="mt-2" disabled={disabled} onClick={async () => { const err = await connectGoogleClassroom("/grade-exam/batch?classroom=1"); if (err) setError(err) }}>Connect Google Classroom</Button>
+              <Button variant="outline" className="mt-2 h-10 rounded-xl px-4 font-semibold" disabled={disabled} onClick={async () => { const err = await connectGoogleClassroom("/grade-exam/batch?classroom=1"); if (err) setError(err) }}>Connect Google Classroom</Button>
             </>
           ) : (
             <div className="mt-2 space-y-2">
@@ -211,7 +211,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
                   {nothing.length > 0 && <p className="mt-1 text-slate-500">Nothing from {nothing.length}: {nothing.slice(0, 8).map((s) => `${s.firstName} ${s.lastName}`.trim()).join(", ")}{nothing.length > 8 ? "…" : ""}</p>}
                   {fileCount > 0 && (
                     <>
-                      <Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700" disabled={disabled || !!busy} onClick={() => void getPhotos()}>
+                      <Button className="mt-3 h-11 rounded-xl bg-blue-600 px-5 text-base font-semibold hover:bg-blue-700" disabled={disabled || !!busy} onClick={() => void getPhotos()}>
                         {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{busy}</> : `Get the ${fileCount} file${fileCount === 1 ? "" : "s"}`}
                       </Button>
                       <p className="mt-1.5 text-xs text-slate-500">Google opens its file picker showing these files: select them all (drag across them, or click the first and Shift-click the last) and press Select. That lets us open just these files, nothing else in your Drive.</p>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Clock, Eye, Lightbulb, RotateCcw, Sparkles, Trophy, XCircle } from 'lucide-react'
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Clock, Eye, Lightbulb, RotateCcw, Trophy, XCircle, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -208,7 +208,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
                   <span className="text-slate-500"> · {reviews} review{reviews === 1 ? '' : 's'}, {planned.length - reviews} new · about {Math.max(2, Math.round(planned.length * 0.5))} min</span>
                 </p>
                 <Button size="lg" onClick={() => start()} disabled={!ready} className="bg-violet-600 text-white hover:bg-violet-700">
-                  <Sparkles className="mr-2 h-4 w-4" /> Start
+                  <Play className="mr-2 h-4 w-4" /> Start
                 </Button>
               </>
             ) : (

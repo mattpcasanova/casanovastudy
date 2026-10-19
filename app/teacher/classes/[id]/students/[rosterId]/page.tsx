@@ -125,7 +125,7 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                         {w.kind === "paper" ? (
                           <>
                             <span className={cn("text-right text-sm font-semibold tabular-nums", tone(w.pct ?? 0))}>{w.marks}/{w.possible} · {Math.round(w.pct ?? 0)}%{w.grade ? ` · ${w.grade}` : ""}</span>
-                            <Link href={`/grade-report/${w.id}`} className="rounded-lg px-2.5 py-1 text-sm font-semibold text-blue-700 ring-1 ring-slate-200 hover:bg-blue-50">Report</Link>
+                            <Link href={`/grade-report/${w.id}`} className="inline-flex h-9 items-center rounded-xl px-3.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>
                           </>
                         ) : (
                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">{STATUS[w.status ?? ""] ?? w.status}</span>

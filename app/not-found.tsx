@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { BookOpen, Home, Sparkles, Undo2 } from "lucide-react"
+import { BookOpen, Home, Undo2 } from "lucide-react"
 import { StatusPage, type StatusAction } from "@/components/status-page"
 import { useAuth } from "@/lib/auth"
 
@@ -11,7 +11,7 @@ export default function NotFound() {
   const isGuide = pathname.startsWith("/study-guide/")
 
   const actions: StatusAction[] = [
-    { label: "Make a study guide", href: "/", icon: Sparkles, primary: true },
+    { label: "Make a study guide", href: "/", icon: BookOpen, primary: true },
     user
       ? { label: "My Guides", href: "/my-guides", icon: BookOpen }
       : { label: "Home", href: "/", icon: Home },

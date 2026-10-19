@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Sparkles, Flag, Lightbulb, FileText, History, CalendarDays, Loader2, AlertCircle, X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, Clock, CreditCard, HelpCircle, List, Puzzle, ScrollText, Flag, Lightbulb, FileText, History, CalendarDays, Loader2, AlertCircle, X, BookOpen } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -234,7 +234,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
             </button>
           ) : (
             <button type="button" onClick={() => setConfirmAll(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
-              <Sparkles className="h-4 w-4" /> Create all {missing.length} guides
+              <BookOpen className="h-4 w-4" /> Create all {missing.length} guides
             </button>
           )}
         </div>
@@ -390,7 +390,7 @@ function UnitAction({ unit, planId, child, tone }: { unit: PlanUnit; planId: str
         </>
       ) : (
         <Link href={createHref} className={cn('inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold shadow-sm transition', primary)}>
-          <Sparkles className="h-4 w-4" /> Create this guide
+          <BookOpen className="h-4 w-4" /> Create this guide
         </Link>
       )}
     </div>

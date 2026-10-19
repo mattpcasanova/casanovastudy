@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Sparkles } from 'lucide-react'
+import { PenLine } from 'lucide-react'
 
 interface GenerationProgressProps {
   isGenerating: boolean
@@ -58,7 +58,7 @@ export default function GenerationProgress({ isGenerating }: GenerationProgressP
         <div className="space-y-4">
           {/* Thinking header with sparkles */}
           <div className="flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
+            <PenLine className="h-5 w-5 text-blue-600 animate-pulse" />
             <p className="text-sm font-medium text-blue-900">
               {thinkingVerbs[currentMessage]}...
             </p>
@@ -74,7 +74,7 @@ export default function GenerationProgress({ isGenerating }: GenerationProgressP
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400">
                 <div className="text-center space-y-2">
-                  <Sparkles className="h-8 w-8 animate-pulse mx-auto" />
+                  <PenLine className="h-8 w-8 animate-pulse mx-auto" />
                   <p className="text-sm">Generating your study guide...</p>
                 </div>
               </div>
@@ -204,7 +204,7 @@ export function StreamingGenerationProgress({
 
         <div className="text-center space-y-3 relative z-10">
           <div className="flex items-center justify-center gap-3">
-            {!isComplete && <Sparkles className="h-6 w-6 text-blue-500 animate-pulse" />}
+            {!isComplete && <PenLine className="h-6 w-6 text-blue-500 animate-pulse" />}
             {isComplete && (
               <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -237,7 +237,7 @@ export function StreamingGenerationProgress({
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-4">
-                  <Sparkles className="h-12 w-12 text-blue-400 animate-pulse mx-auto" />
+                  <PenLine className="h-12 w-12 text-blue-400 animate-pulse mx-auto" />
                   <p className="text-gray-500 font-medium">{loadingText}</p>
                 </div>
               </div>

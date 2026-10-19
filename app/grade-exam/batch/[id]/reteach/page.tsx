@@ -5,10 +5,11 @@
 // student. Each section copies cleanly into a lesson planner (Planbook,
 // Planboard, Common Planner, Google Docs); also Word download and print.
 
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Sparkles, Star, Users } from "lucide-react"
+import { ArrowLeft, Check, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Star, Users, ClipboardList, PenLine, PencilLine } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -150,7 +151,7 @@ function Reteach({ id }: { id: string }) {
           <p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
         ) : !saved ? (
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 text-white"><Sparkles className="h-6 w-6" /></span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 text-white"><ClipboardList className="h-6 w-6" /></span>
             <h1 className={cn(fontDisplay, "mt-4 text-3xl font-semibold tracking-tight text-slate-900")}>Plan the reteach</h1>
             <p className="mt-1 max-w-2xl text-slate-600">
               One lesson built from {meta.examTitle ? <strong>{meta.examTitle}</strong> : "this test"}{meta.className ? ` (${meta.className})` : ""}: a warm-up aimed at the mistakes students actually made, a short mini-lesson, small groups by student, and an exit ticket. Students&apos; names stay here; the AI only sees group sizes.
@@ -162,7 +163,7 @@ function Reteach({ id }: { id: string }) {
             )}
             {error && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             <Button onClick={() => void write()} disabled={busy || !ready} className="mt-5 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 text-base font-semibold">
-              {busy ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Writing the plan ({DETAILS.find((d) => d.value === detail)?.wait})…</> : <><Sparkles className="mr-2 h-5 w-5" />Write the plan</>}
+              {busy ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Writing the plan ({DETAILS.find((d) => d.value === detail)?.wait})…</> : <><PenLine className="mr-2 h-5 w-5" />Write the plan</>}
             </Button>
           </section>
         ) : (
@@ -201,7 +202,7 @@ function Reteach({ id }: { id: string }) {
                 <section key={s.key} className="break-inside-avoid rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>{s.title}</h2>
-                    <button type="button" onClick={() => void copy(s.key, s.html, s.text)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50 print:hidden">
+                    <button type="button" onClick={() => void copy(s.key, s.html, s.text)} className={cn(actionButton, "print:hidden")}>
                       {copied === s.key ? <><Check className="h-4 w-4" />Copied</> : <><ClipboardCopy className="h-4 w-4" />Copy</>}
                     </button>
                   </div>
@@ -214,7 +215,7 @@ function Reteach({ id }: { id: string }) {
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset", GROUP_TONE[g.kind])}><Users className="h-3.5 w-3.5" />{groupLabel(g)}</span>
                               {ai?.minutes ? <span className="text-xs text-slate-500">{ai.minutes} min</span> : null}
-                              <button type="button" onClick={() => practiceFor(g)} className="ml-auto inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 print:hidden"><Sparkles className="h-3.5 w-3.5" />Make their practice set</button>
+                              <button type="button" onClick={() => practiceFor(g)} className={cn(actionButtonPrimary, "ml-auto print:hidden")}><PencilLine />Make their practice set</button>
                             </div>
                             <p className="mt-2 text-sm text-slate-800">{g.students.map((st) => st.name).join(", ")}</p>
                             {ai && <p className="mt-2 text-sm text-slate-700">{ai.activity}</p>}

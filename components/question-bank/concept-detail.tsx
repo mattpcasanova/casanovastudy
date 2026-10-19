@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Loader2, Pencil, Plus, Sparkles, Trash2 } from "lucide-react"
+import { ArrowLeft, Loader2, Pencil, Plus, Trash2, Lightbulb } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import ConceptFormDialog from "@/components/question-bank/concept-form-dialog"
 import ManualQuestionForm from "@/components/question-bank/manual-question-form"
@@ -149,7 +149,7 @@ export default function ConceptDetail({ concept, questions }: ConceptDetailProps
             <Button variant="outline" size="sm" onClick={handleSuggest} disabled={suggesting}>
               {suggesting
                 ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                : <Sparkles className="h-4 w-4 mr-2" />}
+                : <Lightbulb className="h-4 w-4 mr-2" />}
               {suggesting ? "Generating…" : "Suggest with AI"}
             </Button>
             <Button size="sm" onClick={openCreateQuestion}>

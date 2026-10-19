@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, Sparkles } from "lucide-react"
+import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, ScanText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
@@ -625,7 +625,7 @@ export default function GradeExamPage() {
                   <div className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200 sm:p-5">
                     <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
                       <span><span className="font-semibold text-slate-800">Report details</span> help you find and organize reports later.</span>
-                      {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><Sparkles className="h-3 w-3" />Filled in from the paper, check them</span>}
+                      {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><ScanText className="h-3 w-3" />Filled in from the paper, check them</span>}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <Label htmlFor="grade-class" className="text-sm font-medium text-slate-700">Class</Label>

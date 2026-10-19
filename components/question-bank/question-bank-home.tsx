@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, ChevronRight, FileUp, Library, Loader2, Sparkles } from "lucide-react"
+import { Plus, ChevronRight, FileUp, Library, Loader2, Lightbulb } from "lucide-react"
 import ConceptFormDialog from "@/components/question-bank/concept-form-dialog"
 import ImportMaterialDialog from "@/components/question-bank/import-material-dialog"
 import type { ConceptWithCounts } from "@/lib/types/question-bank"
@@ -94,7 +94,7 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
             </span>
             {pendingSuggestions > 0 && (
               <span className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
-                <Sparkles className="h-4 w-4" />
+                <Lightbulb className="h-4 w-4" />
                 {pendingSuggestions} suggestion{pendingSuggestions === 1 ? "" : "s"} awaiting review
               </span>
             )}
@@ -106,7 +106,7 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
                 <Button size="sm" variant="outline" onClick={handleFillGaps} disabled={fillingGaps}>
                   {fillingGaps
                     ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                    : <Lightbulb className="h-3.5 w-3.5 mr-1.5" />}
                   {fillingGaps ? "Generating…" : `Suggest with AI${emptyConcepts.length > 5 ? " (first 5)" : ""}`}
                 </Button>
               </span>

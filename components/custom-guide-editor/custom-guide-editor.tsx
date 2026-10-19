@@ -72,12 +72,12 @@ import {
   X,
   ArrowLeft,
   Plus,
-  Sparkles,
-  Wand2,
   Check,
   CloudOff,
   History,
   ChevronDown,
+  Eraser,
+  MessageSquareText,
 } from "lucide-react"
 
 interface CustomGuideEditorProps {
@@ -499,7 +499,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
   const status = isSaving
     ? { icon: Loader2, text: 'Saving…', cls: 'text-slate-500', spin: true }
     : isGenerating
-    ? { icon: Sparkles, text: 'AI is writing…', cls: 'text-blue-600', spin: false }
+    ? { icon: PenLine, text: 'AI is writing…', cls: 'text-blue-600', spin: false }
     : isDirty && draftSavedAt
     ? { icon: Check, text: `Draft saved ${timeAgo(draftSavedAt)}`, cls: 'text-slate-500', spin: false }
     : isDirty
@@ -851,7 +851,7 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
                 onClick={handleDeduplicate}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               >
-                <Wand2 className="h-4 w-4 text-slate-400" /> Remove duplicate content
+                <Eraser className="h-4 w-4 text-slate-400" /> Remove duplicate content
               </button>
               {definitionCount > 0 && (
                 <div className="flex items-center justify-between gap-2 px-2">
@@ -936,7 +936,7 @@ function EmptyCanvas({
         className="group mx-auto mt-6 flex w-full max-w-lg items-center gap-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-3 text-left transition hover:border-blue-300 hover:shadow-sm"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
-          <Sparkles className="h-4 w-4" />
+          <MessageSquareText className="h-4 w-4" />
         </span>
         <span className="flex-1">
           <span className="block text-sm font-semibold text-blue-900">Generate with AI</span>

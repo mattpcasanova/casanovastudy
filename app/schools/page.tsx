@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { BookOpenCheck, Brain, ClipboardCheck, FileLock2, KeyRound, LineChart, Mail, ShieldCheck, Sparkles, Trash2, UserCheck, type LucideIcon } from "lucide-react"
+import { BookOpenCheck, Brain, ClipboardCheck, FileLock2, KeyRound, LineChart, Mail, ShieldCheck, Trash2, UserCheck, type LucideIcon, BookOpen } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 const CONTACT = "mailto:hello@casanovastudy.com?subject=Casanova%20Study%20for%20our%20school"
 
 const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
-  { icon: Sparkles, title: "Guides from class materials", body: "Students turn notes, slides, worksheets or phone photos into outlines, quizzes, flashcards, practice and study plans in about a minute, written at their grade level." },
+  { icon: BookOpen, title: "Guides from class materials", body: "Students turn notes, slides, worksheets or phone photos into outlines, quizzes, flashcards, practice and study plans in about a minute, written at their grade level." },
   { icon: Brain, title: "Practice that sticks", body: "Learn mode spaces out review so students come back to each card right before they would forget it, and every quiz retries what they missed." },
   { icon: LineChart, title: "Weak spots, not just scores", body: "Each student sees which topics they are strong and weak in, and gets a one-tap quiz built from the exact questions they got wrong." },
   { icon: ClipboardCheck, title: "Grading for teachers", body: "Teachers photograph a class set of handwritten exams, add the mark scheme, and get a marked paper with feedback for each student, plus a class results table." },
@@ -92,7 +92,7 @@ export default function SchoolsPage() {
           <h2 className={cn(fontDisplay, "text-3xl font-semibold")}>See it with your own materials</h2>
           <p className="mx-auto mt-2 max-w-lg text-blue-50">Make a guide from one of your own units in a minute, then talk to us about your school.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50"><Sparkles className="h-4 w-4" />Make a study guide</Link>
+            <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50"><BookOpen className="h-4 w-4" />Make a study guide</Link>
             <a href={CONTACT} className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10"><Mail className="h-4 w-4" />hello@casanovastudy.com</a>
           </div>
         </section>

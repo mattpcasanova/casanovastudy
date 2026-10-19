@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Sparkles, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -57,7 +57,7 @@ const FORMAT_META = {
   cheatsheet: { accent: formatAccent.cheatsheet, icon: FileText, label: 'Cheat sheet' },
   timeline: { accent: formatAccent.timeline, icon: History, label: 'Timeline' },
   adaptive: { accent: formatAccent.adaptive, icon: Target, label: 'Adaptive practice' },
-  custom: { accent: formatAccent.outline, icon: Sparkles, label: 'Custom' },
+  custom: { accent: formatAccent.outline, icon: Blocks, label: 'Custom' },
 } as const
 
 interface StudyGuideViewerProps {

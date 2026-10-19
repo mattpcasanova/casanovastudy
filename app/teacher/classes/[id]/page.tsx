@@ -6,7 +6,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
+import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -188,12 +188,12 @@ function ClassView({ id }: { id: string }) {
             {roster.length > 0 && !pasteOpen && (
               clearing
                 ? <span className="ml-auto mr-2 flex items-center gap-1 text-xs">Remove all {roster.length} names?
-                    <button type="button" onClick={() => void clearRoster()} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove all</button>
-                    <button type="button" onClick={() => setClearing(false)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Keep</button>
+                    <button type="button" onClick={() => void clearRoster()} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove all</button>
+                    <button type="button" onClick={() => setClearing(false)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
                   </span>
-                : <button type="button" onClick={() => setClearing(true)} className="ml-auto mr-2 text-xs font-medium text-slate-500 hover:text-rose-700">Remove all names</button>
+                : <button type="button" onClick={() => setClearing(true)} className="ml-auto mr-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700">Remove all names</button>
             )}
-            {!pasteOpen && <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
+            {!pasteOpen && <Button variant="outline" onClick={() => setPasteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
           </div>
 
           {pasteOpen && (
@@ -307,12 +307,18 @@ function ClassView({ id }: { id: string }) {
         {batches.length === 0 ? (
           <p className="mt-1 text-sm text-slate-500">Nothing graded for this class yet. Pick this class when you grade a stack.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-slate-100">
+          <ul className="mt-3 space-y-2">
             {batches.map((b) => (
-              <li key={b.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
-                <Link href={`/grade-exam/batch/${b.id}`} className="font-medium text-blue-700 hover:underline">{b.title || "Untitled"}</Link>
-                <span className="text-slate-500">{new Date(b.createdAt).toLocaleDateString()} · {b.papers} paper{b.papers === 1 ? "" : "s"} · average {b.average.toFixed(1)}%</span>
-                {b.released && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Released</span>}
+              <li key={b.id}>
+                <Link href={`/grade-exam/batch/${b.id}`} className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-3 transition hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm">
+                  <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold", b.average >= 80 ? "bg-emerald-50 text-emerald-700" : b.average >= 65 ? "bg-blue-50 text-blue-700" : b.average >= 50 ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700")}>{Math.round(b.average)}%</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-semibold text-slate-900 group-hover:text-blue-700">{b.title || "Untitled"}</span>
+                    <span className="block text-sm text-slate-500">{new Date(b.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} · {b.papers} paper{b.papers === 1 ? "" : "s"} · class average</span>
+                  </span>
+                  {b.released && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Released</span>}
+                  <span className="hidden items-center gap-1 text-sm font-semibold text-blue-700 sm:inline-flex">Open<ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -397,8 +403,8 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
       {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Linked to the student's Casanova Study account"><Link2 className="h-3 w-3" />Linked</span>}
       {confirm ? (
         <span className="flex items-center gap-1 text-xs">
-          <button type="button" onClick={onRemove} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove</button>
-          <button type="button" onClick={() => setConfirm(false)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Keep</button>
+          <button type="button" onClick={onRemove} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove</button>
+          <button type="button" onClick={() => setConfirm(false)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
         </span>
       ) : (
         <span className="flex items-center opacity-60 group-hover:opacity-100">

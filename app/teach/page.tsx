@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, Plus, Sparkles, Users } from "lucide-react"
+import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, Plus, Users, ClipboardCheck } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -112,7 +112,7 @@ function TeacherHome() {
               </div>
               {data.recent.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-600">
-                  <Sparkles className="mx-auto mb-2 h-6 w-6 text-blue-600" />
+                  <ClipboardCheck className="mx-auto mb-2 h-6 w-6 text-blue-600" />
                   Nothing graded yet. Your first class set shows up here with its average, class report and reteach plan.
                 </div>
               ) : (

@@ -22,7 +22,7 @@ import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Sparkles, Trash2, UserPlus, UsersRound, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -673,7 +673,7 @@ function BatchGrading() {
           <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
             <p className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
               Exam details
-              {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><Sparkles className="h-3 w-3" />Filled in from the papers, check them</span>}
+              {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><ScanText className="h-3 w-3" />Filled in from the papers, check them</span>}
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <TextInput label="Exam title" value={examTitle} onChange={setExamTitle} placeholder="Unit 4 quiz" disabled={phase === "grading"} />
@@ -819,13 +819,13 @@ function BatchGrading() {
                           <span className="inline-flex flex-wrap items-center gap-1 font-medium">
                             <CheckCircle2 className="h-3.5 w-3.5" />{row?.id.startsWith("temp-") ? "Adding to the class list…" : "Matched to the class list"}{row?.studentNumber ? ` · ID ${row.studentNumber}` : ""}
                             {row && !row.id.startsWith("temp-") && phase === "review" && detailsFor !== paper.key && (
-                              <button type="button" onClick={() => setDetailsFor(paper.key)} className="ml-1 font-semibold text-blue-700 hover:underline">{row.studentNumber ? "Edit ID / email" : "Add student ID / email"}</button>
+                              <button type="button" onClick={() => setDetailsFor(paper.key)} className="ml-1 inline-flex h-8 items-center rounded-lg bg-white px-3 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">{row.studentNumber ? "Edit ID / email" : "Add student ID / email"}</button>
                             )}
                           </span>
                         ) : state === "check" && row ? (
                           <span className="inline-flex items-center gap-2 font-medium">
                             Is this {fullName(row)}?
-                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="rounded-md bg-amber-600 px-2 py-0.5 font-semibold text-white hover:bg-amber-700">Yes</button>
+                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="inline-flex h-8 items-center rounded-lg bg-amber-600 px-3 text-sm font-semibold text-white hover:bg-amber-700">Yes</button>
                           </span>
                         ) : state === "none" && roster.length > 0 ? (
                           <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
@@ -835,7 +835,7 @@ function BatchGrading() {
                               <>
                                 <span className="text-slate-500">· No paper yet:</span>
                                 {rosterCheck.missing.map((m) => (
-                                  <button key={m.id} type="button" onClick={() => setNames((x) => ({ ...x, [paper.key]: fullName(m) }))} className="rounded-md bg-white px-2 py-0.5 font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-blue-50 hover:text-blue-800">{fullName(m)}</button>
+                                  <button key={m.id} type="button" onClick={() => setNames((x) => ({ ...x, [paper.key]: fullName(m) }))} className="inline-flex h-8 items-center rounded-lg bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-blue-50 hover:text-blue-800">{fullName(m)}</button>
                                 ))}
                               </>
                             )}
@@ -901,8 +901,8 @@ function BatchGrading() {
                     </div>
                     <div className="flex items-center gap-3">
                       <PaperBadge status={r} now={now} />
-                      {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-200 hover:bg-blue-50">Report</Link>}
-                      {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="text-sm font-semibold text-blue-700 hover:underline">Retry</button>}
+                      {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>}
+                      {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Retry</button>}
                     </div>
                   </div>
                   <div className="flex gap-2 overflow-x-auto px-4 py-3">

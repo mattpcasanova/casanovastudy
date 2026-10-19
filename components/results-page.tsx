@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Download, Mail, FileText, CheckCircle, Sparkles, Share2, BookOpen, Smartphone, Link, Printer } from "lucide-react"
+import { ArrowLeft, Download, Mail, FileText, CheckCircle, Share2, BookOpen, Smartphone, Link, Printer, Check, Lightbulb, PartyPopper, Plus } from "lucide-react"
 import { StudyGuideData, StudyGuideResponse } from "@/types"
 import { useState } from "react"
 
@@ -97,7 +97,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
               <h1 className="text-4xl md:text-5xl font-bold text-balance animate-in slide-in-from-bottom-4 duration-700">
                 Success!
               </h1>
-              <Sparkles className="h-12 w-12 text-yellow-300 animate-bounce" />
+              <PartyPopper className="h-12 w-12 text-yellow-300 animate-bounce" />
             </div>
             <p className="text-xl font-semibold mb-2 animate-in slide-in-from-bottom-6 duration-700 [animation-delay:200ms]">
               Your Interactive Study Guide is Ready
@@ -126,7 +126,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                       <div className="relative inline-block">
                         <FileText className="h-16 w-16 mx-auto text-primary" />
                         <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
-                          <Sparkles className="h-3 w-3 text-accent-foreground" />
+                          <Check className="h-3 w-3 text-accent-foreground" />
                         </div>
                       </div>
                       <h3 className="text-2xl font-bold text-foreground mt-4">
@@ -169,7 +169,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                     <div className="relative">
                       <FileText className="h-20 w-20 mx-auto text-primary animate-pulse" />
                       <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
-                        <Sparkles className="h-3 w-3 text-accent-foreground" />
+                        <Check className="h-3 w-3 text-accent-foreground" />
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -241,7 +241,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                   variant="outline"
                   className="w-full h-11 border-2 border-blue-400 text-blue-600 hover:bg-blue-600 hover:text-white bg-transparent transition-all duration-300 transform hover:scale-[1.02] shadow-md hover:shadow-lg font-semibold"
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 mr-2" />
                   Create Another Study Guide
                 </Button>
               </CardContent>
@@ -252,7 +252,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-100 mb-2">
-                  <Sparkles className="h-7 w-7 text-green-600" />
+                  <Lightbulb className="h-7 w-7 text-green-600" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-800">What's Next?</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">

@@ -29,7 +29,6 @@ import {
   Trash2,
   Loader2,
   ExternalLink,
-  Sparkles,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -40,6 +39,7 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
 } from "lucide-react"
 import CreateAssignmentDialog from "@/components/teacher-assignments/create-assignment-dialog"
 
@@ -620,7 +620,7 @@ export default function TeacherAssignmentDetailPage() {
                             onClick={() => gradeSubmission(s)}
                             disabled={gradingId === s.id || !canGrade}
                           >
-                            <Sparkles className="h-4 w-4 mr-2" />
+                            <ClipboardCheck className="h-4 w-4 mr-2" />
                             Grade with AI
                           </Button>
                         )}

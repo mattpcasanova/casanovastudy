@@ -237,8 +237,8 @@ export function ReportDocument({ draft, onChange, editing, settings, date }: {
                     />
                     {confirmRemove === i ? (
                       <span className="ml-2 flex items-center gap-1 text-xs">
-                        <button type="button" onClick={() => { onChange({ breakdown: draft.breakdown.filter((_, k) => k !== i) }); setConfirmRemove(null) }} className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700">Remove</button>
-                        <button type="button" onClick={() => setConfirmRemove(null)} className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100">Keep</button>
+                        <button type="button" onClick={() => { onChange({ breakdown: draft.breakdown.filter((_, k) => k !== i) }); setConfirmRemove(null) }} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove</button>
+                        <button type="button" onClick={() => setConfirmRemove(null)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
                       </span>
                     ) : (
                       <button type="button" onClick={() => setConfirmRemove(i)} className="ml-1 rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700" aria-label="Remove question">

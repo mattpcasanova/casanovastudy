@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Sparkles, Flag } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill, type GuidePrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
@@ -661,7 +661,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                   variant="outline"
                   className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
                 >
-                  <Sparkles className="mr-2 h-4 w-4" /> New quiz on what I missed
+                  <ListChecks className="mr-2 h-4 w-4" /> New quiz on what I missed
                 </Button>
               )}
               {marked.size > 0 && (

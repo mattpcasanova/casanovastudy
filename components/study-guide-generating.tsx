@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, Loader2, Sparkles } from "lucide-react"
+import { CheckCircle2, Loader2, PenLine } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -125,7 +125,7 @@ export default function StudyGuideGenerating({ title, format, content, statusMes
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-blue-900/5">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 text-sm">
             <span className="flex items-center gap-2 font-medium text-slate-700">
-              {isComplete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Sparkles className="h-4 w-4 animate-pulse text-blue-600" />}
+              {isComplete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <PenLine className="h-4 w-4 animate-pulse text-blue-600" />}
               {!isComplete && figures.drawing && content ? "Drawing a visual…" : statusMessage || "Starting…"}
             </span>
             <span className="flex items-center gap-1.5 tabular-nums text-slate-400">
