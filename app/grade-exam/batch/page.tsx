@@ -18,7 +18,7 @@ import { placeStampedPages } from "@/lib/stamped/place"
 import { missingPages } from "@/lib/stamped/codes"
 import { DEFAULT_SCALE, SCALE_PRESETS, type GradeScale } from "@/lib/grading/scale"
 import { usesMarkingStyle, type MarkingStyle } from "@/lib/grading/marking-style"
-import { fullName, matchRoster, type RosterName } from "@/lib/grading/names"
+import { fullName, matchRoster, nameScore, type RosterName } from "@/lib/grading/names"
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
@@ -239,13 +239,26 @@ function BatchGrading() {
     return { duplicates, missing, unknown }
   }, [papers, roster])
 
-  const addUnknownToRoster = async () => {
-    if (!classId || !rosterCheck.unknown.length) return
-    const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: rosterCheck.unknown.map((p) => p.name).join("\n") }) })
+  const addUnknownToRoster = async (only?: string) => {
+    const list = only ? [only] : rosterCheck.unknown.map((p) => p.name)
+    if (!classId || !list.length) return
+    const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: list.join("\n") }) })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { setRosterNotice(data.error || "Could not add those names"); return }
     setRoster(data.roster ?? [])
-    setRosterNotice(`Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+    setRosterNotice(only ? `Added ${only} to the class list.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+  }
+  // A paper taken out of this grading, so it can be put back.
+  const [lastRemoved, setLastRemoved] = useState<{ name: string; pages: number[] } | null>(null)
+  const removePaper = (paper: { name: string; pages: number[] }) => {
+    setRemoved((s) => { const next = new Set(s); paper.pages.forEach((i) => next.add(i)); return next })
+    setLastRemoved({ name: paper.name, pages: paper.pages })
+  }
+  /** Class-list names to offer for a paper: no paper yet first, closest name first. */
+  const suggestionsFor = (name: string) => {
+    const without = new Set(rosterCheck.missing.map((r) => r.id))
+    const ranked = roster.map((r) => ({ r, score: nameScore(name, fullName(r)) })).sort((a, b) => b.score - a.score)
+    return { open: ranked.filter((x) => without.has(x.r.id)).map((x) => x.r), taken: ranked.filter((x) => !without.has(x.r.id)).map((x) => x.r) }
   }
 
   if (user && user.user_type !== "teacher") {
@@ -674,9 +687,9 @@ function BatchGrading() {
                   <button type="button" onClick={() => void addUnknownToRoster()} className="font-semibold text-blue-700 hover:underline">Add {rosterCheck.unknown.length === 1 ? "it" : "them"} to the class</button>
                 </p>
               )}
-              {rosterNotice && <p className="text-slate-600">{rosterNotice}</p>}
             </div>
           )}
+          {rosterNotice && phase === "review" && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" aria-live="polite">{rosterNotice}</p>}
           <datalist id="roster-names">{roster.map((r) => <option key={r.id} value={fullName(r)} />)}</datalist>
 
           {/* How the names stand: matched / to check / needing a name. */}
@@ -705,6 +718,12 @@ function BatchGrading() {
             )
           })()}
 
+          {lastRemoved && phase === "review" && (
+            <p className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-700" aria-live="polite">
+              Left {lastRemoved.name || "that paper"} out of this grading.
+              <button type="button" onClick={() => { setRemoved((s) => { const next = new Set(s); lastRemoved.pages.forEach((i) => next.delete(i)); return next }); setLastRemoved(null) }} className="font-semibold text-blue-700 hover:underline">Undo</button>
+            </p>
+          )}
           <ul className="space-y-3">
             {papers.map((paper, n) => {
               const state = paperMatchState(paper, roster.length > 0)
@@ -763,6 +782,29 @@ function BatchGrading() {
                           <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-3 w-3" />Group work?</button>
                         )}
                       </p>
+                      {phase === "review" && state !== "sure" && (() => {
+                        const { open, taken } = suggestionsFor(paper.name)
+                        return (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 px-1.5 text-xs">
+                            {roster.length > 0 && (
+                              <select
+                                value=""
+                                onChange={(e) => { const row = roster.find((x) => x.id === e.target.value); if (row) setNames((m) => ({ ...m, [paper.key]: fullName(row) })) }}
+                                aria-label={`Match ${paper.name} to a student on the class list`}
+                                className="max-w-[16rem] rounded-md border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-800 hover:border-blue-400"
+                              >
+                                <option value="">Match to a student…</option>
+                                {open.length > 0 && <optgroup label="No paper yet">{open.map((r) => <option key={r.id} value={r.id}>{fullName(r)}</option>)}</optgroup>}
+                                {taken.length > 0 && <optgroup label="Already have a paper">{taken.map((r) => <option key={r.id} value={r.id}>{fullName(r)}</option>)}</optgroup>}
+                              </select>
+                            )}
+                            {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
+                              <button type="button" onClick={() => void addUnknownToRoster(paper.name.trim())} className="rounded-md bg-white px-2 py-1 font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Add {paper.name.trim()} to the class list</button>
+                            )}
+                            <button type="button" onClick={() => removePaper(paper)} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 font-semibold text-rose-700 ring-1 ring-slate-300 hover:bg-rose-50"><Trash2 className="h-3 w-3" />Leave out of this grading</button>
+                          </div>
+                        )
+                      })()}
                       {(groupOpen.has(paper.key) || paper.others.length > 0) && (
                         <GroupMembers
                           first={paper.name}
