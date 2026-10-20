@@ -302,10 +302,12 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         </div>
       )}
 
-      {/* Floating Action Menu */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end print:hidden">
+      {/* Floating Action Menu. The wrapper ignores taps: while the menu is closed its
+          box still spans the hidden buttons and used to swallow taps on the Next /
+          Continue buttons underneath. Only the toggle and the open menu take taps. */}
+      <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end print:hidden">
         {/* Expandable Menu */}
-        <div className={`flex flex-col gap-2 mb-3 transition-all duration-300 ${isMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className={`flex flex-col gap-2 mb-3 transition-all duration-300 ${isMenuOpen ? 'pointer-events-auto opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'}`}>
           {canSave && (
             <Button
               onClick={() => { handleSaveToMyGuides(); setIsMenuOpen(false); }}
@@ -427,7 +429,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         {/* Toggle Button */}
         <Button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className={cn('h-14 w-14 rounded-full shadow-xl transition-all duration-300', isMenuOpen ? 'bg-slate-700 hover:bg-slate-800' : cn(fmt.accent.solid, fmt.accent.hover))}
+          className={cn('pointer-events-auto h-14 w-14 rounded-full shadow-xl transition-all duration-300', isMenuOpen ? 'bg-slate-700 hover:bg-slate-800' : cn(fmt.accent.solid, fmt.accent.hover))}
           size="icon"
         >
           {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

@@ -8,6 +8,7 @@
 //   SORT: <instruction>           - Category: item, item, item
 //   MC_QUESTION: … A) … Correct Answer: B     TF_QUESTION: … Answer: True
 //   FIND_BUG: <prompt>  ```lang …code… ```  Bug line: 3   Fix: <corrected line>
+//   WRITE_CODE: <prompt>  ```exercise …(lib/code-exercise/format.ts)… ```
 //   Explanation: <optional line after any activity>
 // Any activity may include one fenced code block (``` or ~~~) in its body; it is
 // attached as `code` and shown above the activity. A ```graph fence instead
@@ -18,6 +19,7 @@
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 import { levenshtein } from '@/lib/text/levenshtein'
+import { parseExercise, runnableLang, type CodeExercise } from '@/lib/code-exercise/format'
 
 export interface CodeSnippet { lang: string; text: string }
 
@@ -39,9 +41,11 @@ export interface SortActivity extends Base { kind: 'sort'; buckets: Array<{ name
 export interface ChoiceActivity extends Base { kind: 'choice'; options: string[]; correct: number }
 /** "Find the bug": click the wrong line(s) of `code`. `bugLines` are 1-based. */
 export interface BugActivity extends Base { kind: 'bug'; code: CodeSnippet; bugLines: number[]; fix?: string }
-export type PracticeActivity = MatchActivity | FillActivity | OrderActivity | SortActivity | ChoiceActivity | BugActivity
+/** "Write the code": edit starter code, run it; tests decide (components/formats/code-exercise.tsx). */
+export interface WriteActivity extends Base { kind: 'write'; exercise: CodeExercise }
+export type PracticeActivity = MatchActivity | FillActivity | OrderActivity | SortActivity | ChoiceActivity | BugActivity | WriteActivity
 
-const MARKER = /^\*{0,2}(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION|FIND_BUG)\s*:\*{0,2}\s*(.*)$/i
+const MARKER = /^\*{0,2}(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION|FIND_BUG|WRITE_CODE)\s*:\*{0,2}\s*(.*)$/i
 const FENCE = /^(`{3,}|~{3,})\s*([\w+#.-]*)/
 
 /** "3", "3, 5", "lines 3 and 5" → [3, 5] (positive integers, deduped, sorted). */
@@ -116,7 +120,7 @@ export function parsePractice(content: string): PracticeActivity[] {
     // Attach the snippet to whatever activity gets built below.
     const withCode = <T extends PracticeActivity>(a: T): T => {
       const withFig = figure ? { ...a, figure } : a
-      return code && a.kind !== 'bug' ? { ...withFig, code } : withFig
+      return code && a.kind !== 'bug' && a.kind !== 'write' ? { ...withFig, code } : withFig
     }
     const rest = restAll
 
@@ -187,6 +191,17 @@ export function parsePractice(content: string): PracticeActivity[] {
       const total = code ? code.text.split('\n').length : 0
       if (code && total >= 2 && bugLines.length && bugLines.every((n) => n <= total)) {
         out.push({ kind: 'bug', id, topic, prompt: head || 'Find the bug', code, bugLines, fix: fix || undefined, explanation })
+      }
+    } else if (kind === 'WRITE_CODE' && code) {
+      // Normally an ```exercise fence; also accept a plain ```python fence as the
+      // starter with Test:/Output:/Solution: lines in the body.
+      const exercise = code.lang === 'exercise'
+        ? parseExercise(code.text, { prompt: head })
+        : parseExercise([`lang: ${code.lang}`, `prompt: ${head}`, 'starter:', code.text, ...restAll.filter((l) => /^(test|output|hint|explanation)\s*:/i.test(l))].join('\n'))
+      if (exercise) {
+        if (head) exercise.prompt = head
+        const ex = { ...exercise, hint: exercise.hint ?? hint, explanation: exercise.explanation ?? explanation }
+        out.push({ kind: 'write', id, topic, prompt: ex.prompt, exercise: ex, explanation: ex.explanation, ...(ex.hint ? { hint: ex.hint } : {}) })
       }
     }
     if (hint && out.length > before) out[out.length - 1].hint = hint
@@ -277,6 +292,7 @@ const KIND_ALIASES: Record<string, PracticeActivity['kind'] | 'tf'> = {
   sort: 'sort', sorting: 'sort', categorize: 'sort',
   choice: 'choice', mc: 'choice', 'multiple-choice': 'choice', multiple_choice: 'choice',
   tf: 'tf', 'true-false': 'tf', true_false: 'tf', truefalse: 'tf',
+  write: 'write', 'write-code': 'write', write_code: 'write', code: 'write', coding: 'write', exercise: 'write', 'code-exercise': 'write', program: 'write',
   bug: 'bug', 'find-bug': 'bug', find_bug: 'bug', 'find-the-bug': 'bug', find_the_bug: 'bug', findbug: 'bug', debug: 'bug', 'spot-the-bug': 'bug',
 }
 
@@ -303,6 +319,7 @@ export function isPlayable(a: PracticeActivity): boolean {
       const total = a.code.text.split('\n').length
       return total >= 2 && a.bugLines.length > 0 && a.bugLines.every((n) => n >= 1 && n <= total)
     }
+    case 'write': return !!a.exercise.prompt.trim() && (a.exercise.tests.some((t) => t.trim()) || !!a.exercise.output?.trim())
   }
 }
 
@@ -316,6 +333,7 @@ export function tidyActivity(a: PracticeActivity): PracticeActivity {
       const keep = a.options.map((o, i) => ({ o, i })).filter(({ o }) => o.trim())
       return { ...a, options: keep.map(({ o }) => o), correct: Math.max(0, keep.findIndex(({ i }) => i === a.correct)) }
     }
+    case 'write': return { ...a, exercise: { ...a.exercise, tests: a.exercise.tests.map((t) => t.trim()).filter(Boolean) } }
     default: return a
   }
 }
@@ -373,6 +391,22 @@ export function normalizePracticeActivities(raw: unknown, opts: { strict?: boole
         .map((b) => (b && typeof b === 'object' ? b as Record<string, unknown> : {}))
         .map((b) => ({ name: str(b.name ?? b.category ?? b.label), items: strList(b.items) }))
       act = { kind, ...base, buckets }
+    } else if (kind === 'write') {
+      const ex = (o.exercise && typeof o.exercise === 'object' ? o.exercise : o) as Record<string, unknown>
+      const starter = toCode(ex.starter ?? ex.starterCode ?? ex.code, ex.language ?? ex.lang)
+      const tests = Array.isArray(ex.tests) ? strList(ex.tests) : str(ex.tests).split('\n')
+      const exercise: CodeExercise = {
+        lang: runnableLang(str(ex.language ?? ex.lang ?? starter?.lang)) ?? 'python',
+        prompt: str(ex.prompt ?? ex.instruction ?? ex.question ?? o.prompt),
+        starter: starter?.text ?? '',
+        tests: opts.strict ? tests.map((t) => t.trim()).filter(Boolean) : tests,
+        ...(str(ex.output ?? ex.expectedOutput).trim() ? { output: str(ex.output ?? ex.expectedOutput).replace(/\s+$/, '') } : {}),
+        ...(str(ex.solution).trim() ? { solution: str(ex.solution).replace(/\s+$/, '') } : {}),
+        ...(str(ex.hint ?? o.hint) ? { hint: str(ex.hint ?? o.hint) } : {}),
+        ...(str(ex.explanation ?? o.explanation) ? { explanation: str(ex.explanation ?? o.explanation) } : {}),
+      }
+      const { code: _snippet, ...rest } = base
+      act = { kind, ...rest, prompt: exercise.prompt, exercise }
     } else if (kind === 'bug') {
       const bugLines = parseLineList(o.bugLines ?? o.bugLine ?? o.lines ?? o.line)
       act = { kind, ...base, code: code ?? { lang: str(o.language ?? o.lang).toLowerCase(), text: '' }, bugLines, fix: str(o.fix ?? o.fixedLine ?? o.correction) || undefined }

@@ -15,6 +15,7 @@ export interface StudyGuideData {
   difficultyLevel?: 'easier' | 'standard' | 'hard' // Difficulty picker; default standard
   additionalInstructions?: string
   visuals?: boolean // false = no graphs/models (see components/visuals-info.tsx)
+  codeEditor?: boolean // false = no runnable "write the code" exercises (lib/code-exercise)
   length?: 'short' | 'medium' | 'long' // Short / Medium / Long picker; default medium
 }
 
@@ -59,6 +60,7 @@ export interface StudyGuideRequest {
   planUnit?: string // PlanUnit.key within that plan
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models
+  codeEditor?: boolean // false = no runnable code exercises
   length?: 'short' | 'medium' | 'long'
 }
 
@@ -115,6 +117,7 @@ export interface ClaudeApiRequest {
   sourcePolicy?: 'strict' | 'expand'
   materialsKind?: 'notes' | 'assessment' | 'topic_list'
   visuals?: boolean // false = leave out graphs and science models
+  codeEditor?: boolean // false = leave out runnable "write the code" exercises
   length?: 'short' | 'medium' | 'long' // guide length; default medium
   /** Photos and scanned pages (base64), sent to Claude as image blocks ahead of the prompt. */
   images?: GuideImage[]

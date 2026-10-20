@@ -20,6 +20,7 @@ const KIND_LABEL: Record<PracticeActivity['kind'], string> = {
   sort: 'Sort',
   choice: 'Question',
   bug: 'Find the bug',
+  write: 'Write the code',
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -38,7 +39,7 @@ function Question({ a, n }: { a: PracticeActivity; n: number }) {
         {a.kind !== 'fill' && a.prompt && <span className="font-medium text-slate-900"><QuestionStem text={a.prompt} listClassName="text-sm" /></span>}
       </p>
       {a.figure && <div className="max-w-md"><GraphFence text={a.figure} compact /></div>}
-      {a.code && a.kind !== 'bug' && <CodeBlock lang={a.code.lang} text={a.code.text} compact className="my-2" />}
+      {a.code && a.kind !== 'bug' && a.kind !== 'write' && <CodeBlock lang={a.code.lang} text={a.code.text} compact className="my-2" />}
 
       {a.kind === 'match' && (() => {
         const defs = seededShuffle(a.pairs.map((p, i) => ({ ...p, i })), a.id)
@@ -96,6 +97,14 @@ function Question({ a, n }: { a: PracticeActivity; n: number }) {
         )
       )}
 
+      {a.kind === 'write' && (
+        <>
+          {a.exercise.starter && <CodeBlock lang={a.exercise.lang} text={a.exercise.starter} compact className="my-2" />}
+          {a.exercise.output && <p className="text-sm">It should print: <code className="font-mono">{a.exercise.output.replace(/\n/g, ' / ')}</code></p>}
+          <div className="mt-2 space-y-4">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-5 border-b border-slate-400" />)}</div>
+        </>
+      )}
+
       {a.kind === 'bug' && (
         <>
           <CodeLines lang={a.code.lang} text={a.code.text} />
@@ -120,6 +129,8 @@ function answerFor(a: PracticeActivity): React.ReactNode {
       return a.buckets.map((b) => `${b.name}: ${b.items.join(', ')}`).join(' | ')
     case 'choice':
       return isTrueFalse(a) ? a.options[a.correct] : `${LETTERS[a.correct]}. ${a.options[a.correct]}`
+    case 'write':
+      return a.exercise.solution ? <pre className="whitespace-pre-wrap font-mono text-xs">{a.exercise.solution}</pre> : `Passes: ${a.exercise.tests.join('; ')}`
     case 'bug':
       return `Line ${a.bugLines.join(', ')}${a.fix ? ` (fix: ${a.fix})` : ''}`
   }

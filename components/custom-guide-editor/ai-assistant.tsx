@@ -2,13 +2,15 @@
 
 import { useRef, useState } from "react"
 import { cn } from "@/lib/utils"
-import { Loader2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle, MessageSquareText, ArrowRight } from "lucide-react"
+import { Loader2, Plus, RefreshCw, Wand, SlidersHorizontal, List, ScrollText, CreditCard, HelpCircle, BookOpen, Table2, Check, Square, AlertCircle, FileText, Puzzle, ArrowRight, MessageSquareText } from "lucide-react"
 import { CustomGuideContent, CustomSection, GuideControls, GuideFormatChoice } from "@/lib/types/custom-guide"
 import { EditorBlock, blocksToCustomContent } from "@/lib/types/editor-blocks"
 import { Segmented, fieldLabel } from "./editor-ui"
 import { Switch } from "@/components/ui/switch"
 import VisualsInfo from "@/components/visuals-info"
 import { visualsRelevant } from "@/lib/formats/figures"
+import CodeEditorInfo from "@/components/code-editor-info"
+import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
@@ -77,6 +79,7 @@ export function AIAssistant({
   const [controls, setControls] = useState<GuideControls>(defaultControls)
   const [mode, setMode] = useState<'replace' | 'add'>('add')
   const [visuals, setVisuals] = useState(true)
+  const [codeEditor, setCodeEditor] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -156,6 +159,7 @@ export function AIAssistant({
           // Structured directives only in "specific" mode; omitted = AI decides.
           controls: directMode === 'specific' ? controls : undefined,
           visuals,
+          codeEditor,
         })
       })
 
@@ -416,6 +420,15 @@ export function AIAssistant({
               Include visuals <VisualsInfo />
             </span>
             <Switch checked={visuals} onCheckedChange={setVisuals} disabled={busy} aria-label="Include visuals" />
+          </label>
+        )}
+
+        {codeEditorRelevant({ subject: subject && subject !== 'general' ? subject : null, text: [description, ...(sourceFiles ?? []).map((f) => f.name)].join('\n'), format: 'custom' }) && (
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              Include code editor <CodeEditorInfo />
+            </span>
+            <Switch checked={codeEditor} onCheckedChange={setCodeEditor} disabled={busy} aria-label="Include code editor" />
           </label>
         )}
 

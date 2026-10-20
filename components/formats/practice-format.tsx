@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Terminal, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -19,6 +19,7 @@ import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-pr
 import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
+import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
 import { useAssignmentFinish } from '@/components/assign/assignment-context'
 import { useRouter } from 'next/navigation'
@@ -41,6 +42,7 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
   sort: { label: 'Sort it out', icon: Columns2 },
   choice: { label: 'Question', icon: HelpCircle },
   bug: { label: 'Find the bug', icon: Bug },
+  write: { label: 'Write the code', icon: Terminal },
 }
 
 type Outcome = { correct: boolean; note?: string }
@@ -172,7 +174,7 @@ export function PracticeSession({
   const onEnter = (e: { key: string; target: EventTarget | null; preventDefault: () => void }) => {
     if (e.key !== 'Enter' || !checked || done) return
     const t = e.target as HTMLElement | null
-    if (t?.tagName === 'INPUT') return // the fill input handles its own Enter
+    if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA') return // the fill input and code editor handle their own Enter
     e.preventDefault()
     advance()
   }
@@ -381,13 +383,14 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
         </p>
       )}
       {activity.figure && <GraphFence text={activity.figure} compact allowExplain={!!checked} />}
-      {activity.code && activity.kind !== 'bug' && <CodeBlock lang={activity.code.lang} text={activity.code.text} compact className="mb-5 mt-0" />}
+      {activity.code && activity.kind !== 'bug' && activity.kind !== 'write' && <CodeBlock lang={activity.code.lang} text={activity.code.text} compact className="mb-5 mt-0" />}
       {activity.kind === 'match' && <MatchBoard activity={activity} onDone={onDone} />}
       {activity.kind === 'fill' && <FillBlank activity={activity} onDone={onDone} checked={checked} onContinue={onContinue} compact={compact} autoFocus={autoFocus} />}
       {activity.kind === 'order' && <OrderList activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'sort' && <SortBoard activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'choice' && <Choice activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'bug' && <BugHunt activity={activity} onDone={onDone} checked={checked} />}
+      {activity.kind === 'write' && <CodeExerciseView exercise={activity.exercise} checked={checked} onDone={onDone} compact={compact} showPrompt={false} />}
       {!checked && (activity.kind === 'choice' || activity.kind === 'fill') && (
         <HintLadder key={activity.id} hint={activity.hint} question={activityQuestion(activity)} />
       )}

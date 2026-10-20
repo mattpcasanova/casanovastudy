@@ -60,8 +60,13 @@ export function activityAsk(a: PracticeActivity): ExplainRequest {
     case 'order': lines.push(`Correct order: ${a.items.join(' → ')}`); break
     case 'sort': a.buckets.forEach((b) => lines.push(`${b.name}: ${b.items.join(', ')}`)); break
     case 'bug': lines.push(a.code.text, `Bug on line ${a.bugLines.join(', ')}${a.fix ? `; fix: ${a.fix}` : ''}`); break
+    case 'write':
+      lines.push(`Language: ${a.exercise.lang}`, `Starter code:\n${a.exercise.starter}`, `Tests: ${a.exercise.tests.join('; ')}`)
+      if (a.exercise.output) lines.push(`Expected output:\n${a.exercise.output}`)
+      if (a.exercise.solution) lines.push(`Model solution:\n${a.exercise.solution}`)
+      break
   }
-  if (a.code && a.kind !== 'bug') lines.push(a.code.text)
+  if (a.code && a.kind !== 'bug' && a.kind !== 'write') lines.push(a.code.text)
   if (a.figure) lines.push('(Figure spec:)', a.figure)
   if (a.explanation) lines.push(`The guide's explanation: ${a.explanation}`)
   const title = a.kind === 'fill' ? a.parts.map((p) => (typeof p === 'string' ? p : '___')).join('') : a.prompt

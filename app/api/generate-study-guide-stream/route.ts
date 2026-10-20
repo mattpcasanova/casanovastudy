@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
           sourcePolicy: body.sourcePolicy === 'expand' ? 'expand' : 'strict',
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
           visuals: body.visuals !== false,
+          codeEditor: body.codeEditor !== false,
           length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
           images,
           learnerNote,

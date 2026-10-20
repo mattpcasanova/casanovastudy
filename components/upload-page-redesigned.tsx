@@ -38,9 +38,10 @@ import {
   PenSquare,
   ArrowRight,
   LineChart,
+  Terminal,
   Target,
-  ScanText,
   BookOpen,
+  ScanText,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -67,8 +68,11 @@ import { formatReset, usePlan } from "@/components/plan/plan-provider"
 import { PremiumBadge, PremiumMark } from "@/components/plan/premium-mark"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
 import VisualsInfo from "@/components/visuals-info"
+import CodeEditorInfo from "@/components/code-editor-info"
+import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
+const CODE_EDITOR_PREF_KEY = "cs:pref:code-editor"
 
 type GuideLength = "short" | "medium" | "long"
 const LENGTH_OPTIONS: { value: GuideLength; label: string }[] = [
@@ -325,6 +329,15 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   useEffect(() => {
     try { if (localStorage.getItem(VISUALS_PREF_KEY) === "off") setVisualsState(false) } catch { /* storage unavailable */ }
   }, [])
+  // Runnable code exercises for programming topics; same remember-the-choice rule.
+  const [codeEditor, setCodeEditorState] = useState(true)
+  const setCodeEditor = (on: boolean) => {
+    setCodeEditorState(on)
+    try { localStorage.setItem(CODE_EDITOR_PREF_KEY, on ? "on" : "off") } catch { /* storage unavailable */ }
+  }
+  useEffect(() => {
+    try { if (localStorage.getItem(CODE_EDITOR_PREF_KEY) === "off") setCodeEditorState(false) } catch { /* storage unavailable */ }
+  }, [])
   const [materialsKind, setMaterialsKind] = useState<MaterialsKind | null>(null)
   // Set when arriving from a study plan's "Create this guide" (/?plan=…&unit=…).
   const [planLink, setPlanLink] = useState<{ planId: string; unitKey: string; planTitle: string; unitNumber: number; unitTitle: string } | null>(null)
@@ -549,6 +562,13 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     text: [studyRequest, topicFocus, studyGuideName, ...files.map((f) => f.name)].join("\n"),
     format: format || null,
   })
+  // And the code editor switch only for programming topics in a runnable language.
+  const showCodeEditorSwitch = codeEditorRelevant({
+    subject: subject && subject !== "general" ? subject : null,
+    goal,
+    text: [studyRequest, topicFocus, studyGuideName, ...files.map((f) => f.name)].join("\n"),
+    format: format || null,
+  })
   const isFormValid = hasSource && !!format
 
   const handleSubmit = () => {
@@ -589,6 +609,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
+      codeEditor,
       length: format === "adaptive" ? "medium" : length,
       difficultyLevel: !format || format === "adaptive" || DIFFICULTY_FORMATS.includes(format) ? difficulty : undefined,
     })
@@ -1062,6 +1083,23 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </span>
                 </span>
                 <Switch checked={visuals} onCheckedChange={setVisuals} disabled={isGenerating} className="mt-0.5" aria-label="Include visuals" />
+              </label>
+            )}
+
+            {showCodeEditorSwitch && (
+              <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+                <span className="text-sm">
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <Terminal className="h-4 w-4 text-orange-600" /> Include code editor
+                    <CodeEditorInfo />
+                  </span>
+                  <span className="text-slate-500">
+                    {codeEditor
+                      ? "Write-the-code exercises you run and check right in the guide."
+                      : "Code examples and code questions only, nothing to run."}
+                  </span>
+                </span>
+                <Switch checked={codeEditor} onCheckedChange={setCodeEditor} disabled={isGenerating} className="mt-0.5" aria-label="Include code editor" />
               </label>
             )}
 

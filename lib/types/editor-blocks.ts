@@ -160,6 +160,8 @@ export function createEmptyActivity(kind: PracticeActivity['kind'] | 'tf'): Prac
       return { ...base, kind: 'choice', options: ['True', 'False'], correct: 0 }
     case 'bug':
       return { ...base, kind: 'bug', prompt: 'Find the bug', code: { lang: 'python', text: '' }, bugLines: [] }
+    case 'write':
+      return { ...base, kind: 'write', exercise: { lang: 'python', prompt: '', starter: '', tests: [''] } }
     default:
       return { ...base, kind: 'choice', options: ['', '', '', ''], correct: 0 }
   }

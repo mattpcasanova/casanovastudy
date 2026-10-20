@@ -1,16 +1,18 @@
 "use client"
 
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, Copy, X, Plus, Puzzle, PencilLine, ListOrdered, Columns2, HelpCircle, ToggleLeft, CheckCircle2, Circle, AlertTriangle, Brackets, Bug, Code2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Copy, X, Plus, Puzzle, PencilLine, ListOrdered, Columns2, HelpCircle, ToggleLeft, CheckCircle2, Circle, AlertTriangle, Brackets, Bug, Code2, Terminal, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   EditorBlock, PracticeBlockData, createEmptyActivity, generateActivityId,
 } from "@/lib/types/editor-blocks"
 import {
-  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity, type CodeSnippet,
+  type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity, type WriteActivity, type CodeSnippet,
   parseFillSentence, fillToSentence, isPlayable, isTrueFalse,
 } from "@/lib/formats/practice"
 import { CodeLines } from "@/components/formats/code-view"
+import { outputMatches } from "@/lib/code-exercise/format"
+import { runCode, type RunResult } from "@/lib/code-runner/client"
 import { AddRowButton, AutoTextarea, InlineInput, Segmented, fieldLabel, focusLater } from "../editor-ui"
 
 interface PracticeBlockProps {
@@ -28,6 +30,7 @@ const KINDS: { value: KindChoice; label: string; icon: React.ComponentType<{ cla
   { value: "choice", label: "Multiple choice", icon: HelpCircle },
   { value: "tf", label: "True / false", icon: ToggleLeft },
   { value: "bug", label: "Find the bug", icon: Bug },
+  { value: "write", label: "Write code", icon: Terminal },
 ]
 
 const LANGUAGES = [
@@ -53,6 +56,7 @@ function missingHint(a: PracticeActivity): string | null {
     case "sort": return "Add 2 named groups with at least one item each"
     case "choice": return isTrueFalse(a) ? "Write the statement" : "Write the question and at least 2 options"
     case "bug": return "Add at least 2 lines of code, then click the line with the bug"
+    case "write": return "Write the task and at least one test (or the expected output)"
   }
 }
 
@@ -172,6 +176,9 @@ const ActivityEditor = memo(function ActivityEditor({
     const code = activity.code?.text.trim() ? activity.code : undefined
     if (fresh.kind === "bug") {
       set({ ...fresh, id, explanation: activity.explanation, code: code ?? fresh.code } as PracticeActivity)
+    } else if (fresh.kind === "write") {
+      const lang = code?.lang === "javascript" || code?.lang === "js" ? "javascript" : "python"
+      set({ ...fresh, id, explanation: activity.explanation, exercise: { ...fresh.exercise, lang, starter: code?.text ?? "" } })
     } else {
       set({ ...fresh, id, explanation: activity.explanation, ...(code ? { code } : {}) } as PracticeActivity)
     }
@@ -197,7 +204,8 @@ const ActivityEditor = memo(function ActivityEditor({
         {activity.kind === "sort" && <SortFields a={activity} set={set} bindFirst={bindFirst} />}
         {activity.kind === "choice" && <ChoiceFields a={activity} set={set} bindFirst={bindFirst} />}
         {activity.kind === "bug" && <BugFields a={activity} set={set} bindFirst={bindFirst} />}
-        {activity.kind !== "bug" && (
+        {activity.kind === "write" && <WriteFields a={activity} set={set} bindFirst={bindFirst} />}
+        {activity.kind !== "bug" && activity.kind !== "write" && (
           <CodeSnippetField
             code={activity.code}
             onChange={(code) => {
@@ -569,6 +577,86 @@ function BugFields({ a, set, bindFirst }: FieldProps<BugActivity>) {
         onChange={(e) => set({ ...a, fix: e.target.value })}
         placeholder="Fixed line (optional), e.g. best = nums[0]"
       />
+    </>
+  )
+}
+
+// ── Write the code ──────────────────────────────────────────────────────────
+
+function WriteFields({ a, set, bindFirst }: FieldProps<WriteActivity>) {
+  const ex = a.exercise
+  const setEx = (patch: Partial<WriteActivity["exercise"]>) => {
+    const exercise = { ...ex, ...patch }
+    set({ ...a, prompt: exercise.prompt, exercise })
+  }
+  const [check, setCheck] = useState<{ busy: boolean; run?: RunResult }>({ busy: false })
+  const tests = ex.tests.map((t) => t.trim()).filter(Boolean)
+  const testSolution = async () => {
+    if (!ex.solution?.trim()) return
+    setCheck({ busy: true })
+    setCheck({ busy: false, run: await runCode({ lang: ex.lang, code: ex.solution, tests }) })
+  }
+  const run = check.run
+  const ok = run && !run.error && run.tests.every((t) => t.pass) && (!ex.output || outputMatches(run.stdout, ex.output))
+  const isPy = ex.lang === "python"
+  return (
+    <>
+      <PromptInput value={ex.prompt} onChange={(prompt) => setEx({ prompt })} placeholder="Task, e.g. Write is_even(n) that returns True when n is even." bindFirst={bindFirst} />
+      <div className="flex items-center gap-2 px-2">
+        <span className={fieldLabel}>Language</span>
+        <Segmented
+          size="xs"
+          value={ex.lang}
+          options={[{ value: "python", label: "Python" }, { value: "javascript", label: "JavaScript" }]}
+          onChange={(lang) => setEx({ lang: lang as WriteActivity["exercise"]["lang"] })}
+        />
+      </div>
+      <div className="space-y-1">
+        <p className={cn(fieldLabel, "px-2")}>Starter code (what students begin with)</p>
+        <CodeTextarea value={ex.starter} onChange={(starter) => setEx({ starter })} placeholder={isPy ? "def is_even(n):\n    # your code here\n    pass" : "function isEven(n) {\n  // your code here\n}"} />
+      </div>
+      <div className="space-y-1">
+        <p className={cn(fieldLabel, "px-2")}>Tests (one per line; each must be true)</p>
+        <AutoTextarea
+          value={ex.tests.join("\n")}
+          onChange={(e) => setEx({ tests: e.target.value.split("\n") })}
+          spellCheck={false}
+          minRows={2}
+          placeholder={isPy ? "is_even(4) == True\nis_even(7) == False" : "isEven(4) === true\nisEven(7) === false"}
+          className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-[0.82rem]"
+        />
+      </div>
+      <div className="space-y-1">
+        <p className={cn(fieldLabel, "px-2")}>Expected printed output (optional)</p>
+        <AutoTextarea
+          value={ex.output ?? ""}
+          onChange={(e) => setEx({ output: e.target.value || undefined })}
+          spellCheck={false}
+          minRows={1}
+          placeholder="Only for tasks that print, e.g. 1 2 3"
+          className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-[0.82rem]"
+        />
+      </div>
+      <div className="space-y-1">
+        <p className={cn(fieldLabel, "px-2")}>Solution (shown if a student gives up)</p>
+        <CodeTextarea value={ex.solution ?? ""} onChange={(solution) => { setEx({ solution: solution || undefined }); setCheck({ busy: false }) }} placeholder={isPy ? "def is_even(n):\n    return n % 2 == 0" : "function isEven(n) {\n  return n % 2 === 0\n}"} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-2">
+        <button
+          type="button"
+          onClick={testSolution}
+          disabled={check.busy || !ex.solution?.trim() || (!tests.length && !ex.output)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-orange-300 hover:text-orange-700 disabled:opacity-40"
+        >
+          {check.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Terminal className="h-3.5 w-3.5" />} Run the tests on the solution
+        </button>
+        {run && (
+          <span className={cn("text-xs font-medium", ok ? "text-emerald-700" : "text-rose-700")}>
+            {run.error ? run.error.message : ok ? "The solution passes every test." : `${run.tests.filter((t) => t.pass).length} of ${run.tests.length} tests pass${ex.output && !outputMatches(run.stdout, ex.output) ? "; output differs" : ""}.`}
+          </span>
+        )}
+      </div>
+      <InlineInput value={ex.hint ?? ""} onChange={(e) => setEx({ hint: e.target.value || undefined })} placeholder="Hint (optional), a nudge that doesn't give the answer" />
     </>
   )
 }

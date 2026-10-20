@@ -27,6 +27,7 @@ function activityText(a: PracticeActivity): MissedQuestion | null {
     case 'order': return { question: a.prompt, answer: a.items.join(' → ') }
     case 'sort': return { question: a.prompt, answer: a.buckets.map((b) => `${b.name}: ${b.items.join(', ')}`).join('; ') }
     case 'bug': return { question: a.prompt, answer: a.fix ?? 'the buggy line' }
+    case 'write': return { question: a.prompt, answer: a.exercise.solution ?? `code that passes: ${a.exercise.tests.join('; ')}` }
   }
 }
 

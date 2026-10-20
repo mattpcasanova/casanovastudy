@@ -19,6 +19,8 @@ import { AlertTriangle, BookMarked, Brain, Eye, EyeOff, HelpCircle, Info, Lightb
 import { cn } from '@/lib/utils'
 import { CHECK_ANSWER_SEPARATOR, FIGURE_GROUP_SEPARATOR, type CalloutKind } from '@/lib/formats/normalize'
 import { AsciiDiagram, StepsDiagram, TreeDiagram, looksLikeAsciiDiagram, parseSteps, parseTree } from './diagrams'
+import { parseExercise } from '@/lib/code-exercise/format'
+import { CodeExerciseView } from './code-exercise'
 import { CodeBlock } from './code-view'
 import { GraphFence } from './graph-figure'
 import { DesmosSteps } from './desmos-steps'
@@ -148,6 +150,10 @@ function PreBlock({ node }: { node?: HastNode }) {
   if (l === 'cycle') return <StepsDiagram steps={parseSteps(text)} cycle />
   if (l === 'tree' || l === 'hierarchy') return <TreeDiagram roots={parseTree(text)} />
   if (l === 'desmos') return <DesmosSteps text={text} />
+  if (l === 'exercise' || l === 'code-exercise') {
+    const exercise = parseExercise(text, { lang: meta.trim() })
+    return exercise ? <CodeExerciseView exercise={exercise} standalone /> : <CodeBlock lang="" text={text} />
+  }
   if (GRAPH_FENCE_LANGS.test(l)) return <GraphFence text={text} />
   if (l === 'graph-group') {
     const bodies = text.split(new RegExp(`^${FIGURE_GROUP_SEPARATOR}$`, 'm')).map((b) => b.trim()).filter(Boolean)

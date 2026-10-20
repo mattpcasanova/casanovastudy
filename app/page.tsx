@@ -84,6 +84,7 @@ export default function Home() {
         planId: data.planId,
         planUnit: data.planUnit,
         visuals: data.visuals,
+        codeEditor: data.codeEditor,
         length: data.length,
       }
 

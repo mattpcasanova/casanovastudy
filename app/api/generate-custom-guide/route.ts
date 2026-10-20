@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls, visuals } = body
+  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls, visuals, codeEditor } = body
   // Prepared in the browser (lib/uploads/prepare.ts): text from files, and uploaded photos/scanned pages.
   const directContent: Array<{ name: string; content: string }> = Array.isArray(body.directContent)
     ? body.directContent.filter((d: { content?: unknown }) => typeof d?.content === 'string').map((d: { name?: unknown; content: string }) => ({ name: String(d.name ?? 'file').slice(0, 120), content: d.content.slice(0, 200000) }))
@@ -262,6 +262,7 @@ export async function POST(request: NextRequest) {
           mode,
           controls,
           visuals: visuals !== false,
+          codeEditor: codeEditor !== false,
           // Pass PDF documents for Claude's native PDF reading when text extraction failed
           pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined,
           images: images.length > 0 ? images : undefined,
