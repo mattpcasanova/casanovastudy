@@ -227,7 +227,7 @@ export function CodeExerciseView({ exercise, checked = false, onDone, compact = 
               <Play className="h-3.5 w-3.5" /> Run
             </Button>
             {!done && (
-              <Button type="button" size="sm" onClick={() => execute(true)} disabled={phase !== 'idle'} onPointerEnter={warm} className="gap-1.5 bg-orange-500 text-white hover:bg-orange-600">
+              <Button type="button" size="sm" onClick={() => execute(true)} disabled={phase !== 'idle'} onPointerEnter={warm} className="gap-1.5 bg-orange-700 text-white hover:bg-orange-800">
                 <CheckCircle2 className="h-3.5 w-3.5" /> Check
               </Button>
             )}

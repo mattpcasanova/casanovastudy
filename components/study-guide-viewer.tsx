@@ -429,6 +429,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         {/* Toggle Button */}
         <Button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label={isMenuOpen ? 'Close guide menu' : 'Open guide menu'}
+          aria-expanded={isMenuOpen}
           className={cn('pointer-events-auto h-14 w-14 rounded-full shadow-xl transition-all duration-300', isMenuOpen ? 'bg-slate-700 hover:bg-slate-800' : cn(fmt.accent.solid, fmt.accent.hover))}
           size="icon"
         >

@@ -437,7 +437,7 @@ export default function GradedExamsPage() {
               <div className="grid grid-cols-2 gap-3 sm:flex">
                 {availableExamTitles.length > 0 && (
                   <Select value={examTitleFilter} onValueChange={setExamTitleFilter}>
-                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-44"><SelectValue placeholder="All exams" /></SelectTrigger>
+                    <SelectTrigger aria-label="Filter by exam" className="h-11 w-full rounded-xl bg-white sm:w-44"><SelectValue placeholder="All exams" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All exams</SelectItem>
                       {availableExamTitles.map(title => <SelectItem key={title} value={title}>{title}</SelectItem>)}
@@ -446,7 +446,7 @@ export default function GradedExamsPage() {
                 )}
                 {availableClasses.length > 0 && (
                   <Select value={classFilter} onValueChange={setClassFilter}>
-                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40"><SelectValue placeholder="All classes" /></SelectTrigger>
+                    <SelectTrigger aria-label="Filter by class" className="h-11 w-full rounded-xl bg-white sm:w-40"><SelectValue placeholder="All classes" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All classes</SelectItem>
                       {availableClasses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -455,7 +455,7 @@ export default function GradedExamsPage() {
                 )}
                 {availablePeriods.length > 0 && (
                   <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                    <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-36"><SelectValue placeholder="All periods" /></SelectTrigger>
+                    <SelectTrigger aria-label="Filter by period" className="h-11 w-full rounded-xl bg-white sm:w-36"><SelectValue placeholder="All periods" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All periods</SelectItem>
                       {availablePeriods.map(p => <SelectItem key={p} value={p}>Period {p}</SelectItem>)}
@@ -463,7 +463,7 @@ export default function GradedExamsPage() {
                   </Select>
                 )}
                 <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40">
+                  <SelectTrigger aria-label="Sort reports" className="h-11 w-full rounded-xl bg-white sm:w-40">
                     <ArrowUpDown className="mr-1 h-4 w-4 text-slate-400" />
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>

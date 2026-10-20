@@ -287,7 +287,7 @@ export default function MyGuidesPage() {
               <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search your guides…" />
               <div className="flex gap-3">
                 <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-44">
+                  <SelectTrigger aria-label="Filter by subject" className="h-11 w-full rounded-xl bg-white sm:w-44">
                     <SelectValue placeholder="All subjects" />
                   </SelectTrigger>
                   <SelectContent>
@@ -298,7 +298,7 @@ export default function MyGuidesPage() {
                   </SelectContent>
                 </Select>
                 <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                  <SelectTrigger className="h-11 w-full rounded-xl bg-white sm:w-40">
+                  <SelectTrigger aria-label="Sort guides" className="h-11 w-full rounded-xl bg-white sm:w-40">
                     <ArrowUpDown className="mr-1 h-4 w-4 text-slate-400" />
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>

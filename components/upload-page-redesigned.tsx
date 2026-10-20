@@ -954,7 +954,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <div>
                 <Label className="mb-2 block text-base font-semibold text-slate-800">Subject <span className="font-normal text-slate-400">(optional)</span></Label>
                 <Select value={subject} onValueChange={setSubject} disabled={isGenerating}>
-                  <SelectTrigger className="h-12 w-full bg-white text-base">
+                  <SelectTrigger aria-label="Subject" className="h-12 w-full bg-white text-base">
                     <SelectValue placeholder="Figure it out for me" />
                   </SelectTrigger>
                   <SelectContent>
@@ -966,7 +966,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <div>
                 <Label className="mb-2 block text-base font-semibold text-slate-800">Your level <span className="font-normal text-slate-400">(optional)</span></Label>
                 <Select value={gradeLevel} onValueChange={setGradeLevel} disabled={isGenerating}>
-                  <SelectTrigger className="h-12 w-full bg-white text-base">
+                  <SelectTrigger aria-label="Your level" className="h-12 w-full bg-white text-base">
                     <SelectValue placeholder="Figure it out for me" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1020,7 +1020,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                       )}
                     >
                       <span className="inline-flex items-center gap-1 font-semibold">{o.label}{plan && !isPremium && o.value === "long" && <PremiumMark className="h-3.5 w-3.5" />}</span>
-                      <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
+                      <span className={cn("text-[0.7rem] leading-tight", on ? "text-white" : "text-slate-400")}>
                         {(format && LENGTH_HINTS[format]?.[o.value]) || LENGTH_GENERIC[o.value]}
                       </span>
                     </button>
@@ -1059,7 +1059,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                         )}
                       >
                         <span className="inline-flex items-center gap-1 font-semibold">{format === "adaptive" ? ADAPTIVE_START[o.value].label : o.label}{plan && !isPremium && format !== "adaptive" && o.value === "hard" && <PremiumMark className="h-3.5 w-3.5" />}</span>
-                        <span className={cn("text-[0.7rem] leading-tight", on ? "text-white/85" : "text-slate-400")}>
+                        <span className={cn("text-[0.7rem] leading-tight", on ? "text-white" : "text-slate-400")}>
                           {format === "adaptive" ? ADAPTIVE_START[o.value].hint : goal === "exam" ? o.examHint : o.hint}
                         </span>
                       </button>

@@ -240,6 +240,7 @@ export function StudentLinkSelector({
             <Button
               variant="outline"
               role="combobox"
+              aria-label="Link to a student"
               aria-expanded={open}
               className="w-full justify-between"
               disabled={disabled}

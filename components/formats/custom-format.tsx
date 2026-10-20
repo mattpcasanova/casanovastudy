@@ -781,7 +781,7 @@ function QuizBlock({ questions, title }: { questions: QuizQuestion[]; title?: st
                   <Markdown text={String(q.correctAnswer)} className="text-sm" />
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
                     <span className="text-xs text-slate-500">How did you do?</span>
-                    <button type="button" onClick={() => setState({ result: 'correct' })} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => setState({ result: 'correct' })} className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-800">
                       <Check className="h-3 w-3" /> Got it
                     </button>
                     <button type="button" onClick={() => setState({ result: 'incorrect' })} className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">

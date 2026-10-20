@@ -233,7 +233,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
               Stop
             </button>
           ) : (
-            <button type="button" onClick={() => setConfirmAll(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
+            <button type="button" onClick={() => setConfirmAll(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
               <BookOpen className="h-4 w-4" /> Create all {missing.length} guides
             </button>
           )}
@@ -266,7 +266,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
       {plan.phases.map((phase, pi) => (
         <section key={phase.title + pi}>
           <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-bold text-white shadow-sm">{pi + 1}</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-700 text-sm font-bold text-white shadow-sm">{pi + 1}</span>
             <h2 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900')}>{phase.title.replace(/^phase\s*\d+\s*[:.\-–—]\s*/i, '')}</h2>
             <span className="text-sm text-slate-400">{phase.units.length} unit{phase.units.length === 1 ? '' : 's'}</span>
           </div>
@@ -455,7 +455,7 @@ function ScheduleCard({ schedule, onChange, paced, remaining }: {
                 {DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <div className="flex gap-2">
-                <button type="submit" className="h-10 rounded-lg bg-teal-600 px-4 text-sm font-semibold text-white transition hover:bg-teal-700">Set schedule</button>
+                <button type="submit" className="h-10 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white transition hover:bg-teal-800">Set schedule</button>
                 {editing && (
                   <button type="button" onClick={() => setEditing(false)} className="h-10 rounded-lg px-3 text-sm font-medium text-slate-500 hover:bg-slate-100">Cancel</button>
                 )}

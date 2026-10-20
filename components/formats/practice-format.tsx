@@ -280,7 +280,7 @@ export function PracticeSession({
           </div>
         ) : <span />}
         {checked && (
-          <Button onClick={advance} size={inline ? 'sm' : 'default'} className="bg-orange-500 text-white hover:bg-orange-600">
+          <Button onClick={advance} size={inline ? 'sm' : 'default'} className="bg-orange-700 text-white hover:bg-orange-800">
             {index === activities.length - 1 ? 'See results' : 'Continue'} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
@@ -528,7 +528,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
       </p>
       {!checked && (
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-500 text-white hover:bg-orange-600">Check</Button>
+          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">Check</Button>
           <span className="text-xs text-slate-400">or press Enter · spelling slips are OK</span>
         </div>
       )}
@@ -581,7 +581,7 @@ function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onD
           </ol>
         </div>
       )}
-      {!checked && <Button onClick={() => onDone(items.every((_, i) => correctAt(i)))} className="mt-5 bg-orange-500 text-white hover:bg-orange-600">Check order</Button>}
+      {!checked && <Button onClick={() => onDone(items.every((_, i) => correctAt(i)))} className="mt-5 bg-orange-700 text-white hover:bg-orange-800">Check order</Button>}
     </div>
   )
 }
@@ -660,7 +660,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
         <Button
           onClick={() => onDone(all.every((x) => placed[x.key] === x.bucket))}
           disabled={pool.length > 0}
-          className="mt-5 bg-orange-500 text-white hover:bg-orange-600"
+          className="mt-5 bg-orange-700 text-white hover:bg-orange-800"
         >
           Check
         </Button>
@@ -778,7 +778,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
           <p className="mt-1 text-sm text-slate-500">{message}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {missed.length > 0 && (
-              <Button size="sm" onClick={() => onRestart(missed.map((a) => a.id))} className="bg-orange-500 text-white hover:bg-orange-600">
+              <Button size="sm" onClick={() => onRestart(missed.map((a) => a.id))} className="bg-orange-700 text-white hover:bg-orange-800">
                 <RotateCcw className="mr-1.5 h-4 w-4" /> Practice {missed.length} missed
               </Button>
             )}
@@ -799,7 +799,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
         <p className={cn(fontDisplay, 'mt-3 text-xl text-slate-800')}>{message}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           {missed.length > 0 && (
-            <Button onClick={() => onRestart(missed.map((a) => a.id))} className="bg-orange-500 text-white hover:bg-orange-600">
+            <Button onClick={() => onRestart(missed.map((a) => a.id))} className="bg-orange-700 text-white hover:bg-orange-800">
               <RotateCcw className="mr-2 h-4 w-4" /> Practice {missed.length} missed
             </Button>
           )}

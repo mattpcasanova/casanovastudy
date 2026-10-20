@@ -231,7 +231,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
               touchSelection
                 ? 'bg-slate-900 text-white ring-4 ring-blue-500/30'
                 : 'border border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:text-blue-700',
-              showTip && !touchSelection && 'ring-4 ring-blue-400/40 motion-safe:animate-pulse',
+              showTip && !touchSelection && 'ring-4 ring-blue-400/50',
             )}
           >
             <MessageCircleQuestion className={cn('h-4 w-4', touchSelection ? 'text-sky-300' : 'text-blue-600')} />

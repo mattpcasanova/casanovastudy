@@ -28,7 +28,7 @@ export function WeakSpotBanner({ count, topics, noun, onRetry, onNewQuiz }: {
           <p className="font-semibold text-slate-900">Last time you missed {count} {plural} here{about ? <>, mostly on {about}</> : null}.</p>
           <p className="text-sm text-slate-600">Go back over them now while they&apos;re fresh.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"><RotateCcw className="h-4 w-4" />Retry those {count}</button>
+            <button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-800"><RotateCcw className="h-4 w-4" />Retry those {count}</button>
             <button type="button" onClick={onNewQuiz} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:ring-amber-300"><ListChecks className="h-4 w-4 text-amber-500" />New quiz on them</button>
           </div>
         </div>

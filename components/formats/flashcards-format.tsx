@@ -445,9 +445,10 @@ function StudyCard({
       <div
         className={cn('relative h-full w-full cursor-pointer transition-transform duration-500 transform-style-3d motion-reduce:transition-none', isFlipped && 'rotate-y-180')}
         onClick={() => setIsFlipped(!isFlipped)}
-        role="button"
-        tabIndex={0}
-        aria-label={isFlipped ? 'Show question' : 'Show answer'}
+        // Not role="button": the card holds its own buttons. Space/Enter flip it (page key handler).
+        role="group"
+        aria-roledescription="flashcard"
+        aria-label={isFlipped ? 'Answer side. Press Space to show the question.' : 'Question side. Press Space to show the answer.'}
       >
         {/* Front */}
         <div className={cn(face, 'bg-white', ringCls)}>

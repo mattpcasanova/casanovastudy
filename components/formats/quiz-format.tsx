@@ -390,7 +390,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
           <ChevronLeft className="mr-1 h-4 w-4" /> Previous
         </Button>
         {isLast ? (
-          <Button onClick={finish} disabled={answeredCount === 0 || submitting} size="lg" className="bg-emerald-600 text-white hover:bg-emerald-700">
+          <Button onClick={finish} disabled={answeredCount === 0 || submitting} size="lg" className="bg-emerald-700 text-white hover:bg-emerald-800">
             {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scoring…</> : mode === 'practice' ? 'See results' : 'Submit quiz'}
           </Button>
         ) : (

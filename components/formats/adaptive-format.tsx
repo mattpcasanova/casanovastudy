@@ -339,7 +339,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
 
             {result && (
               <div className="flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3 sm:px-7">
-                <Button onClick={advance} autoFocus className="bg-sky-600 text-white hover:bg-sky-700">
+                <Button onClick={advance} autoFocus className="bg-sky-700 text-white hover:bg-sky-800">
                   Continue <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
@@ -395,7 +395,7 @@ function ChoiceAnswer({ q, result, onPick }: { q: AdaptiveQuestion; result: { gi
             )}
           >
             {!isTF && (
-              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold", correct ? "bg-emerald-500 text-white" : wrong ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-500")}>
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold", correct ? "bg-emerald-700 text-white" : wrong ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-500")}>
                 {String.fromCharCode(65 + i)}
               </span>
             )}
@@ -427,7 +427,7 @@ function NumberAnswer({ result, onSubmit }: { result: { given: string; correct: 
         className={cn("w-48 rounded-xl border-2 px-4 py-2.5 text-lg tabular-nums outline-none transition focus:border-sky-400",
           result ? (result.correct ? "border-emerald-400 bg-emerald-50" : "border-rose-400 bg-rose-50") : "border-slate-200")}
       />
-      {!result && <Button type="submit" disabled={!value.trim()} className="bg-sky-600 text-white hover:bg-sky-700">Check</Button>}
+      {!result && <Button type="submit" disabled={!value.trim()} className="bg-sky-700 text-white hover:bg-sky-800">Check</Button>}
     </form>
   )
 }
@@ -490,7 +490,7 @@ function ExplainAnswer({ q, guideId, result, onChecked, onBlocked }: {
       />
       {!result && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button onClick={check} disabled={!value.trim() || busy} className="bg-sky-600 text-white hover:bg-sky-700">
+          <Button onClick={check} disabled={!value.trim() || busy} className="bg-sky-700 text-white hover:bg-sky-800">
             {busy ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Checking…</> : "Check my answer"}
           </Button>
           <button type="button" disabled={busy} onClick={() => onChecked("", { correct: false })} className="text-sm font-medium text-slate-500 hover:text-slate-800">
@@ -555,7 +555,7 @@ function StartCard({ concepts, description, onStart }: { concepts: string[]; des
       <ul className="mt-5 flex flex-wrap gap-2">
         {concepts.map((c) => <li key={c} className="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-800 ring-1 ring-inset ring-sky-200">{c}</li>)}
       </ul>
-      <Button onClick={onStart} size="lg" className="mt-6 bg-sky-600 text-white hover:bg-sky-700">
+      <Button onClick={onStart} size="lg" className="mt-6 bg-sky-700 text-white hover:bg-sky-800">
         Start practicing <ChevronRight className="ml-1 h-4 w-4" />
       </Button>
     </div>
@@ -597,7 +597,7 @@ function DoneCard({ progress, summary, next, onNext, onRestart }: {
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-700">Recommended next</p>
         <p className="mt-1.5 flex items-center gap-2 text-lg font-semibold text-slate-900"><rec.Icon className="h-5 w-5 text-sky-600" /> {rec.title}</p>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">A new adaptive session with {nextDetail(next.recommended)}.</p>
-        <Button onClick={() => onNext(next.recommended)} className="mt-4 bg-sky-600 text-white hover:bg-sky-700">
+        <Button onClick={() => onNext(next.recommended)} className="mt-4 bg-sky-700 text-white hover:bg-sky-800">
           <ArrowRight className="mr-1.5 h-4 w-4" /> {rec.button}
         </Button>
       </div>

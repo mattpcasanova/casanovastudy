@@ -877,7 +877,7 @@ function BatchGrading() {
                         ) : state === "check" && row ? (
                           <span className="inline-flex items-center gap-2 font-medium">
                             Is this {fullName(row)}?
-                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="inline-flex h-10 items-center rounded-xl bg-amber-600 px-3 text-sm font-semibold text-white hover:bg-amber-700">Yes</button>
+                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="inline-flex h-10 items-center rounded-xl bg-amber-700 px-3 text-sm font-semibold text-white hover:bg-amber-800">Yes</button>
                           </span>
                         ) : state === "none" && roster.length > 0 ? (
                           <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
@@ -1110,8 +1110,8 @@ function paperMatchState(paper: { match: ReturnType<typeof matchRoster>; stamp?:
 }
 
 const STATE_TONE: Record<MatchState, { border: string; edge: string; bg: string; avatar: string; text: string }> = {
-  sure: { border: "border-emerald-200", edge: "border-l-emerald-500", bg: "bg-emerald-50/50", avatar: "bg-emerald-600 text-white", text: "text-emerald-800" },
-  check: { border: "border-amber-200", edge: "border-l-amber-500", bg: "bg-amber-50/60", avatar: "bg-amber-500 text-white", text: "text-amber-900" },
+  sure: { border: "border-emerald-200", edge: "border-l-emerald-500", bg: "bg-emerald-50/50", avatar: "bg-emerald-700 text-white", text: "text-emerald-800" },
+  check: { border: "border-amber-200", edge: "border-l-amber-500", bg: "bg-amber-50/60", avatar: "bg-amber-700 text-white", text: "text-amber-900" },
   none: { border: "border-slate-200", edge: "border-l-rose-400", bg: "bg-rose-50/40", avatar: "bg-slate-200 text-slate-700", text: "text-rose-800" },
 }
 

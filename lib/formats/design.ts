@@ -128,7 +128,7 @@ export type FormatKey = "outline" | "summary" | "quiz" | "flashcards" | "practic
 export interface FormatAccent {
   text: string // eyebrows, progress %, small accents
   edge: string // left accent rule (border-l-*)
-  solid: string // primary button / filled label bg
+  solid: string // primary button / filled label bg (white text on it must reach 4.5:1)
   hover: string // primary button hover
   ring: string // focus / card ring
   soft: string // chip (bg + text + ring)
@@ -156,8 +156,8 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
   summary: {
     text: "text-green-700",
     edge: "border-l-green-500",
-    solid: "bg-green-600",
-    hover: "hover:bg-green-700",
+    solid: "bg-green-700",
+    hover: "hover:bg-green-800",
     ring: "ring-green-500",
     soft: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200",
     iconBadge: "bg-white/15 text-white",
@@ -192,8 +192,8 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
   practice: {
     text: "text-orange-700",
     edge: "border-l-orange-500",
-    solid: "bg-orange-500",
-    hover: "hover:bg-orange-600",
+    solid: "bg-orange-700",
+    hover: "hover:bg-orange-800",
     ring: "ring-orange-500",
     soft: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200",
     iconBadge: "bg-white/15 text-white",
@@ -204,8 +204,8 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
   plan: {
     text: "text-teal-700",
     edge: "border-l-teal-500",
-    solid: "bg-teal-600",
-    hover: "hover:bg-teal-700",
+    solid: "bg-teal-700",
+    hover: "hover:bg-teal-800",
     ring: "ring-teal-500",
     soft: "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200",
     iconBadge: "bg-white/15 text-white",
@@ -240,8 +240,8 @@ export const formatAccent: Record<FormatKey, FormatAccent> = {
   adaptive: {
     text: "text-sky-700",
     edge: "border-l-sky-500",
-    solid: "bg-sky-600",
-    hover: "hover:bg-sky-700",
+    solid: "bg-sky-700",
+    hover: "hover:bg-sky-800",
     ring: "ring-sky-500",
     soft: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200",
     iconBadge: "bg-white/15 text-white",

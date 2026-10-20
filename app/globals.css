@@ -313,3 +313,15 @@
   background-size: 18px;
   padding-right: 2.5rem;
 }
+
+/* Readable grey text (WCAG AA, 4.5:1). Tailwind's slate-400 text is ~2.6:1 on
+   white and slate-500 is 4.3:1 on slate-100, and both are used for small
+   secondary text everywhere. Text only: borders, backgrounds and hover
+   variants keep the stock colors. Checked by scripts/a11y-audit.mjs. */
+@layer utilities {
+  .text-slate-400 { color: #5e6e85; }
+  .text-slate-500 { color: #55657b; }
+  /* On dark panels (code blocks, dark bars) the stock light greys are the readable ones. */
+  :is(.bg-slate-800, .bg-slate-900, .bg-slate-950, .bg-gray-900) :is(.text-slate-400, .text-slate-500),
+  :is(.bg-slate-800, .bg-slate-900, .bg-slate-950, .bg-gray-900):is(.text-slate-400, .text-slate-500) { color: #90a1b9; }
+}
