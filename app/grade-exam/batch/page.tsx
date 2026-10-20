@@ -112,6 +112,8 @@ function BatchGrading() {
   // Adding to an existing set: its mark scheme is reused unless a new one is dropped in.
   const [inheritedScheme, setInheritedScheme] = useState(false)
   const [alreadyGraded, setAlreadyGraded] = useState<string[]>([])
+  // Class-list ids already graded in the set being added to (not "no paper yet").
+  const [gradedIds, setGradedIds] = useState<Set<string>>(new Set())
 
   const [phase, setPhase] = useState<Phase>("setup")
   const [status, setStatus] = useState("")
@@ -171,7 +173,9 @@ function BatchGrading() {
     if (first.class_period) setClassPeriod(first.class_period)
     if (first.grade_scale) setGradeScale(first.grade_scale)
     if (first.class_id) setClassId((c) => c || first.class_id)
-    setAlreadyGraded((data.results as Array<{ student_name: string | null }>).map((r) => r.student_name ?? "").filter(Boolean))
+    const earlier = data.results as Array<{ student_name: string | null; roster_id: string | null }>
+    setAlreadyGraded(earlier.map((r) => r.student_name ?? "").filter(Boolean))
+    setGradedIds(new Set(earlier.map((r) => r.roster_id).filter((x): x is string => !!x)))
     const setup = data.setup
     if (setup?.markScheme && (setup.markScheme.texts?.length || setup.markScheme.images?.length)) {
       setMarkScheme({ texts: setup.markScheme.texts ?? [], images: setup.markScheme.images ?? [] })
@@ -250,10 +254,12 @@ function BatchGrading() {
         if (prev !== undefined && prev !== p.key) { duplicates.add(prev); duplicates.add(p.key) } else seen.set(m.rosterId, p.key)
       }
     })
-    const missing = roster.filter((r) => !seen.has(r.id))
+    // Students graded earlier in this set have handed in (by class-list id, or a sure name match).
+    const gradedBefore = (r: RosterRow) => gradedIds.has(r.id) || alreadyGraded.some((n) => { const m = matchRoster(n, [r]); return m.confidence === "sure" && m.rosterId === r.id })
+    const missing = roster.filter((r) => !seen.has(r.id) && !gradedBefore(r))
     const unknown = papers.filter((p) => p.match.confidence === "none" && !/^Student \d+$/.test(p.name))
     return { duplicates, missing, unknown }
-  }, [papers, roster])
+  }, [papers, roster, gradedIds, alreadyGraded])
 
   // Names being added right now: shown as on the list at once (temp ids),
   // grading waits until the real rows are back.
