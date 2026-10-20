@@ -4,6 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { schoolYearFor } from '@/lib/classes/years'
 import { emailOnDomain, schoolOverview, type SchoolOverview } from './overview'
+import { agreement, type Agreement, type MarkRow } from '@/lib/grading/agreement'
 
 export interface AdminSchool { domain: string; schoolName: string | null }
 
@@ -43,7 +44,9 @@ export function schoolYearStart(now = new Date()): string {
   return `${schoolYearFor(now).slice(0, 4)}-07-01T04:00:00Z`
 }
 
-export async function loadSchoolOverview(supabase: SupabaseClient, domain: string, now = new Date()): Promise<SchoolOverview & { year: string; since: string }> {
+export type SchoolAgreement = { overall: Agreement; byTeacher: Record<string, Agreement> }
+
+export async function loadSchoolOverview(supabase: SupabaseClient, domain: string, now = new Date()): Promise<SchoolOverview & { year: string; since: string; agreement: SchoolAgreement }> {
   const year = schoolYearFor(now)
   const since = schoolYearStart(now)
 
@@ -52,14 +55,16 @@ export async function loadSchoolOverview(supabase: SupabaseClient, domain: strin
     supabase.from('teacher_verifications').select('user_id, school_email').eq('status', 'approved').ilike('school_email', `%${domain}`).range(f, t))
   const ids = verified.filter((v) => emailOnDomain(v.school_email, domain)).map((v) => v.user_id)
   const emailOf = new Map(verified.map((v) => [v.user_id, v.school_email]))
-  if (!ids.length) return { ...schoolOverview({ teachers: [], gradings: [], guides: [], practice: [], classes: [], now: now.getTime() }), year, since }
+  if (!ids.length) return { ...schoolOverview({ teachers: [], gradings: [], guides: [], practice: [], classes: [], now: now.getTime() }), year, since, agreement: { overall: agreement([]), byTeacher: {} } }
 
-  const [profiles, gradings, guides, assignments, classes] = await Promise.all([
+  const [profiles, gradings, guides, assignments, classes, reviewed] = await Promise.all([
     fetchByIds<{ id: string; first_name: string | null; last_name: string | null }>(ids, (c, f, t) => supabase.from('user_profiles').select('id, first_name, last_name').in('id', c).range(f, t)),
     fetchByIds<{ user_id: string; batch_id: string | null; created_at: string }>(ids, (c, f, t) => supabase.from('grading_results').select('user_id, batch_id, created_at').in('user_id', c).gte('created_at', since).order('created_at').range(f, t)),
     fetchByIds<{ user_id: string; created_at: string }>(ids, (c, f, t) => supabase.from('study_guides').select('user_id, created_at').in('user_id', c).gte('created_at', since).order('created_at').range(f, t)),
     fetchByIds<{ id: string; teacher_id: string; created_at: string }>(ids, (c, f, t) => supabase.from('practice_assignments').select('id, teacher_id, created_at').in('teacher_id', c).gte('created_at', since).order('created_at').range(f, t)),
     fetchByIds<{ id: string; teacher_id: string }>(ids, (c, f, t) => supabase.from('classes').select('id, teacher_id').in('teacher_id', c).eq('school_year', year).order('id').range(f, t)),
+    // Reports the teacher checked, graded since agreement tracking began (migration 065).
+    fetchByIds<{ user_id: string; group_id: string | null; ai_breakdown: MarkRow[]; grade_breakdown: MarkRow[] | null }>(ids, (c, f, t) => supabase.from('grading_results').select('user_id, group_id, ai_breakdown, grade_breakdown').in('user_id', c).gte('created_at', since).not('reviewed_at', 'is', null).not('ai_breakdown', 'is', null).order('id').range(f, t)),
   ])
 
   const assignmentIds = assignments.map((a) => a.id)
@@ -86,5 +91,11 @@ export async function loadSchoolOverview(supabase: SupabaseClient, domain: strin
     practice: assignments.map((a) => ({ teacherId: a.teacher_id, id: a.id, createdAt: a.created_at, students: studentsPer.get(a.id) ?? 0, finished: finishedPer.get(a.id)?.size ?? 0 })),
     classes: classes.map((c) => ({ teacherId: c.teacher_id, id: c.id, students: rosterPer.get(c.id) ?? 0 })),
   })
-  return { ...overview, year, since }
+  const papersOf = (rows: typeof reviewed) => rows.map((r) => ({ ai: r.ai_breakdown ?? [], final: r.grade_breakdown ?? [], groupId: r.group_id }))
+  const byTeacher: Record<string, Agreement> = {}
+  for (const id of ids) {
+    const mine = reviewed.filter((r) => r.user_id === id)
+    if (mine.length) byTeacher[id] = agreement(papersOf(mine))
+  }
+  return { ...overview, year, since, agreement: { overall: agreement(papersOf(reviewed)), byTeacher } }
 }

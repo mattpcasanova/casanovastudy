@@ -176,7 +176,9 @@ export default function GradeReportPage() {
     // Close right away; the last save finishes in the background (status shows in the toolbar).
     setEditing(false)
     if (draft) await saveDraft(draft)
-  }, [draft, saveDraft])
+    // Counts as checked even with no changes (teacher agreement, lib/grading/agreement.ts).
+    void authFetch(`/api/grade-exam/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }) })
+  }, [draft, saveDraft, id])
 
   useEffect(() => {
     if (!editing) return

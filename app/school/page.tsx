@@ -5,7 +5,7 @@
 // per teacher only, never student names. Admins are set with scripts/teachers.ts.
 
 import { useEffect, useState } from "react"
-import { ClipboardCheck, FileCheck, Loader2, NotebookPen, School, Target, Users } from "lucide-react"
+import { BadgeCheck, ClipboardCheck, FileCheck, Loader2, NotebookPen, School, Target, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { authFetch } from "@/lib/auth-fetch"
@@ -14,11 +14,13 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { selectBox } from "@/components/grading/grading-ui"
 import type { SchoolOverview, TeacherStats } from "@/lib/school/overview"
+import { share, type Agreement } from "@/lib/grading/agreement"
 
 interface Data extends SchoolOverview {
   school: { domain: string; schoolName: string | null }
   schools: Array<{ domain: string; schoolName: string | null }>
   year: string
+  agreement: { overall: Agreement; byTeacher: Record<string, Agreement> }
 }
 
 export default function SchoolPage() {
@@ -101,6 +103,8 @@ function SchoolOverviewPage() {
 
             <WeeklyChart weeks={data.weeks} />
 
+            <AgreementCard a={data.agreement.overall} />
+
             <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
                 <h2 className="font-semibold text-slate-900">Teachers</h2>
@@ -110,7 +114,7 @@ function SchoolOverviewPage() {
                 <p className="p-8 text-center text-sm text-slate-600">No verified teachers from {data.school.domain} yet. Teachers are added when they confirm their school email.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-sm">
+                  <table className="w-full min-w-[860px] text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <th scope="col" className="px-5 py-3">Teacher</th>
@@ -121,11 +125,12 @@ function SchoolOverviewPage() {
                         <th scope="col" className="px-3 py-3 text-right">Practice assigned</th>
                         <th scope="col" className="px-3 py-3 text-right">Finished</th>
                         <th scope="col" className="px-3 py-3 text-right">Guides made</th>
+                        <th scope="col" className="px-3 py-3 text-right">AI marks kept</th>
                         <th scope="col" className="px-5 py-3 text-right">Last active</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {data.teachers.map((t) => <TeacherRow key={t.id} t={t} />)}
+                      {data.teachers.map((t) => <TeacherRow key={t.id} t={t} agreement={data.agreement.byTeacher[t.id]} />)}
                     </tbody>
                   </table>
                 </div>
@@ -134,6 +139,42 @@ function SchoolOverviewPage() {
           </>
         )}
       </main>
+    </div>
+  )
+}
+
+/** How often teachers kept the AI's marks on reports they checked. */
+function AgreementCard({ a }: { a: Agreement }) {
+  const kept = share(a.questionsKept, a.questions)
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><BadgeCheck className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-slate-900">How often teachers keep the AI&apos;s marks</h2>
+          {!a.questions ? (
+            <p className="mt-1 text-sm text-slate-600">Shows once teachers check reports graded from October 20, 2026 on. A report counts as checked when the teacher edits it or opens Edit and presses Done.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-slate-600">On {n(a.papers)} report{a.papers === 1 ? "" : "s"} teachers checked ({n(a.questions)} question marks).</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Figure value={`${kept}%`} label="question marks kept exactly" />
+                <Figure value={`${share(a.questionsWithin1, a.questions)}%`} label="within 1 mark of the teacher" />
+                <Figure value={`${a.meanTotalShift.toFixed(1)} pts`} label={`average change to a paper's score (${share(a.papersUnchanged, a.papers)}% not changed at all)`} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Figure({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>{value}</p>
+      <p className="mt-0.5 text-xs text-slate-600">{label}</p>
     </div>
   )
 }
@@ -149,7 +190,7 @@ function Stat({ icon: Icon, label, value, note }: { icon: typeof Users; label: s
   )
 }
 
-function TeacherRow({ t }: { t: TeacherStats }) {
+function TeacherRow({ t, agreement }: { t: TeacherStats; agreement?: Agreement }) {
   const idle = !t.lastActive
   return (
     <tr className={cn(idle && "text-slate-500")}>
@@ -164,7 +205,10 @@ function TeacherRow({ t }: { t: TeacherStats }) {
       <td className="px-3 py-3 text-right tabular-nums">{n(t.practiceAssigned)}</td>
       <td className="px-3 py-3 text-right tabular-nums">{t.practiceStudents ? pct(t.practiceFinished, t.practiceStudents) : "–"}</td>
       <td className="px-3 py-3 text-right tabular-nums">{n(t.guides)}</td>
-      <td className="px-5 py-3 text-right">{ago(t.lastActive)}</td>
+      <td className="px-3 py-3 text-right tabular-nums" title={agreement ? `${agreement.papers} checked report${agreement.papers === 1 ? "" : "s"}` : undefined}>
+        {agreement?.questions ? `${share(agreement.questionsKept, agreement.questions)}%` : "–"}
+      </td>
+      <td className="whitespace-nowrap px-5 py-3 text-right">{ago(t.lastActive)}</td>
     </tr>
   )
 }

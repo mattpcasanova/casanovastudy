@@ -52,8 +52,9 @@ async function main() {
   const { data: cls } = await admin.from('classes').insert({ teacher_id: ada.id, name: 'E2E SCHOOL CLASS (safe to delete)', period: '1', enrollment_code: 'S' + Math.random().toString(36).slice(2, 7).toUpperCase().replace(/[^A-Z2-9]/g, 'X') }).select('id').single()
   created.classIds.push(cls.id)
   await admin.from('class_roster').insert([{ class_id: cls.id, first_name: 'Sam', last_name: 'One' }, { class_id: cls.id, first_name: 'Kim', last_name: 'Two' }])
-  const papers = [ada, ada, ada, other].map((t, i) => ({ user_id: t.id, batch_id: created.batchId, student_name: `S${i}`, student_exam_filename: 'e2e', total_marks: 5, total_possible_marks: 10, percentage: 50, grade: 'C', content: 'e2e', grade_breakdown: [], released: false, exam_title: 'E2E' }))
-  await admin.from('grading_results').insert(papers)
+  const marks = [{ questionNumber: '1', marksAwarded: 3, marksPossible: 5 }, { questionNumber: '2', marksAwarded: 2, marksPossible: 5 }]
+  const papers = [ada, ada, ada, other].map((t, i) => ({ user_id: t.id, batch_id: created.batchId, student_name: `S${i}`, student_exam_filename: 'e2e', total_marks: 5, total_possible_marks: 10, percentage: 50, grade: 'C', content: 'e2e', grade_breakdown: marks, ai_breakdown: marks, released: false, exam_title: 'E2E' }))
+  const { data: paperRows } = await admin.from('grading_results').insert(papers).select('id, user_id')
   const { data: guide } = await admin.from('study_guides').insert({ user_id: ben.id, title: 'E2E school guide', subject: 'mathematics', grade_level: '9th', format: 'quiz', content: '## Q\n', file_count: 0 }).select('id').single()
   created.guideIds.push(guide.id)
 
@@ -79,6 +80,24 @@ async function main() {
   check('guides per teacher', o.teachers.find((t) => t.name === 'Ben Quiet')?.guides === 1)
   check('totals', o.totals.papers === 3 && o.totals.activeTeachers === 2 && o.totals.teachers === 2, JSON.stringify(o.totals))
   check('this week in the chart', o.weeks.length === 12 && o.weeks[11].papers === 3 && o.weeks[11].guides === 1, JSON.stringify(o.weeks[11]))
+  check('no checked reports yet', o.agreement.overall.papers === 0, JSON.stringify(o.agreement))
+
+  console.log('\n== Teacher agreement ==')
+  const adaPapers = paperRows.filter((p) => p.user_id === ada.id)
+  const patch = (id, body) => fetch(`${BASE}/api/grade-exam/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ada.token}` }, body: JSON.stringify(body) })
+  let res = await patch(adaPapers[0].id, { gradeBreakdown: [{ ...marks[0] }, { ...marks[1], marksAwarded: 4 }] })
+  check('teacher changes one mark', res.status === 200, `got ${res.status}`)
+  res = await patch(adaPapers[1].id, { reviewed: true })
+  check('teacher checks another without changes', res.status === 200, `got ${res.status}`)
+  const { data: after } = await admin.from('grading_results').select('id, reviewed_at, ai_breakdown, total_marks').in('id', adaPapers.map((p) => p.id))
+  const byId = Object.fromEntries(after.map((x) => [x.id, x]))
+  check('edited report: reviewed, AI marks kept as graded, total updated', !!byId[adaPapers[0].id].reviewed_at && byId[adaPapers[0].id].ai_breakdown[1].marksAwarded === 2 && Number(byId[adaPapers[0].id].total_marks) === 7, JSON.stringify(byId[adaPapers[0].id]))
+  check('unopened report is not counted', !byId[adaPapers[2].id].reviewed_at)
+  r = await get(principal.token, '/api/school/overview')
+  const ag = r.json.agreement
+  check('school agreement: 2 reports, 3 of 4 question marks kept (one moved 2 marks)', ag.overall.papers === 2 && ag.overall.questions === 4 && ag.overall.questionsKept === 3 && ag.overall.questionsWithin1 === 3 && ag.overall.papersUnchanged === 1, JSON.stringify(ag.overall))
+  check('per teacher too', ag.byTeacher[ada.id]?.papers === 2 && !ag.byTeacher[ben.id], JSON.stringify(Object.keys(ag.byTeacher)))
+
   check('no student names in the response', !JSON.stringify(o).includes('Sam') && !JSON.stringify(o).includes('"S0"'))
 }
 

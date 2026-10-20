@@ -74,7 +74,10 @@ export async function PATCH(
     }
     breakdown = cleaned
     update.grade_breakdown = cleaned
+    update.reviewed_at = update.updated_at // editing marks = the teacher checked them
   }
+  // "Done" on the report: checked, even with nothing changed.
+  if (body.reviewed === true) update.reviewed_at = update.updated_at
 
   let scale = normalizeScale(row.grade_scale)
   if (body.gradeScale !== undefined) {
@@ -123,7 +126,7 @@ export async function PATCH(
   // Group work: marks, feedback, comment and exam details go to every member (names stay their own).
   if (body.applyToGroup === true && row.group_id) {
     const shared: Record<string, unknown> = {}
-    for (const k of ['grade_breakdown', 'grade_scale', 'marking_style', 'teacher_comment', 'exam_title', 'class_name', 'class_period', 'total_marks', 'total_possible_marks', 'percentage', 'grade', 'updated_at']) {
+    for (const k of ['grade_breakdown', 'grade_scale', 'marking_style', 'teacher_comment', 'exam_title', 'class_name', 'class_period', 'total_marks', 'total_possible_marks', 'percentage', 'grade', 'updated_at', 'reviewed_at']) {
       if (k in update) shared[k] = update[k]
     }
     await supabase.from('grading_results').update(shared).eq('group_id', row.group_id).eq('user_id', user.id).neq('id', id)

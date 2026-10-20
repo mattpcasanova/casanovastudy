@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
             grade: graded.grade,
             content: graded.content,
             grade_breakdown: graded.breakdown,
+            ai_breakdown: graded.breakdown, // the AI's marks as graded, kept to measure teacher agreement
             additional_comments: str(body.additionalComments, 4000),
             class_name: str(body.className, 120),
             class_period: str(body.classPeriod, 40),

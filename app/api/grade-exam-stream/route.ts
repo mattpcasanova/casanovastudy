@@ -214,6 +214,7 @@ export async function POST(request: NextRequest) {
             marking_style: markingStyle,
             content: fullContent,
             grade_breakdown: breakdown,
+            ai_breakdown: breakdown, // the AI's marks as graded, kept to measure teacher agreement
             additional_comments: additionalComments || null,
             class_name: className || null,
             class_period: classPeriod || null,
