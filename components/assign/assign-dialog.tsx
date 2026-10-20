@@ -4,7 +4,7 @@
 // students of a class: pick the class and students, optional due date, and
 // attempts (quiz/practice). Then share the link (copy or QR code).
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import QRCode from "qrcode"
 import { Check, Copy, Loader2 } from "lucide-react"
@@ -41,6 +41,9 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [title, setTitle] = useState(preset?.title ?? guide.title)
   const [dueOn, setDueOn] = useState(false)
   const [dueDay, setDueDay] = useState(() => inDays(2))
+  // "Pick a date" is its own choice, so it lights up even when the day still matches a quick pick
+  const [customDay, setCustomDay] = useState(false)
+  const dateInput = useRef<HTMLInputElement>(null)
   const [dueTime, setDueTime] = useState("23:59")
   const [attempts, setAttempts] = useState("1")
   const [busy, setBusy] = useState(false)
@@ -76,6 +79,17 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   }, [created])
 
   const chosen = useMemo(() => (roster ?? []).filter((r) => picked.has(r.id)), [roster, picked])
+  const pickDate = () => {
+    setDueOn(true)
+    setCustomDay(true)
+    // The date box only mounts once a due date is on, so open its calendar after this render
+    setTimeout(() => {
+      const input = dateInput.current
+      if (!input) return
+      input.focus()
+      try { input.showPicker() } catch { /* older browsers: the focused, highlighted box is the cue */ }
+    }, 0)
+  }
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   const submit = async () => {
@@ -190,15 +204,15 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
               <div>
                 <p className="mb-1.5 text-sm font-medium text-slate-700">Due</p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(!dueOn)} onClick={() => setDueOn(false)}>No due date</button>
+                  <button type="button" className={chip(!dueOn)} onClick={() => { setDueOn(false); setCustomDay(false) }}>No due date</button>
                   {([["Tomorrow", inDays(1)], ["Friday", friday()], ["In a week", inDays(7)]] as const).map(([label, day]) => (
-                    <button key={label} type="button" className={chip(dueOn && dueDay === day)} onClick={() => { setDueOn(true); setDueDay(day) }}>{label}</button>
+                    <button key={label} type="button" className={chip(dueOn && !customDay && dueDay === day)} onClick={() => { setDueOn(true); setCustomDay(false); setDueDay(day) }}>{label}</button>
                   ))}
-                  <button type="button" className={chip(dueOn && ![inDays(1), friday(), inDays(7)].includes(dueDay))} onClick={() => setDueOn(true)}>Pick a date</button>
+                  <button type="button" className={chip(dueOn && (customDay || ![inDays(1), friday(), inDays(7)].includes(dueDay)))} onClick={pickDate}>Pick a date</button>
                 </div>
                 {dueOn && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                    <input type="date" value={dueDay} min={inDays(0)} onChange={(e) => setDueDay(e.target.value)} aria-label="Due date" className="h-10 rounded-xl border border-slate-300 bg-white px-3" />
+                    <input ref={dateInput} type="date" value={dueDay} min={inDays(0)} onChange={(e) => { setDueDay(e.target.value); setCustomDay(true) }} aria-label="Due date" className={cn("h-10 rounded-xl border bg-white px-3", customDay ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-300")} />
                     <span>at</span>
                     <select value={dueTime} onChange={(e) => setDueTime(e.target.value)} aria-label="Due time" className="h-10 appearance-none rounded-xl border border-slate-300 bg-white bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pl-3 pr-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}>
                       {TIMES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
