@@ -1,5 +1,6 @@
 import type React from "react"
 import { ReturnToResume } from '@/components/return-to-resume'
+import { ErrorReporter } from '@/components/monitoring/error-reporter'
 import type { Metadata, Viewport } from "next"
 import { DM_Sans } from "next/font/google"
 import { GeistMono } from "geist/font/mono"
@@ -50,6 +51,7 @@ export default function RootLayout({
           <PlanProvider>
             <Suspense fallback={null}>{children}</Suspense>
             <ReturnToResume />
+            <ErrorReporter />
           </PlanProvider>
         </AuthProvider>
         <ServiceWorkerRegistrar />

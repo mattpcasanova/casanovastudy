@@ -23,7 +23,7 @@ const sections: LegalSection[] = [
         <li><strong>Questions to the AI tutor:</strong> what you ask the Explain helper, so it can answer.</li>
         <li><strong>Teachers&apos; grading:</strong> exams, mark schemes and student names that teachers upload, and the grades and feedback produced.</li>
         <li><strong>Google Classroom (teachers who connect it):</strong> the teacher&apos;s course list, class rosters (student names and school emails), and, for an assignment the teacher picks, who turned it in and the files the teacher selects in Google&apos;s file picker. We only open files the teacher picks, never the rest of their Google Drive. Access lasts one hour and is not stored after that. Scanned work emailed to a teacher&apos;s grading address is kept for 30 days.</li>
-        <li><strong>Usage and device information:</strong> how many guides and explanations you use (to run fair-use limits), basic technical logs, and privacy-friendly page analytics from our host that do not use advertising cookies.</li>
+        <li><strong>Usage and device information:</strong> how many guides and explanations you use (to run fair-use limits), basic technical logs (including error reports: the page, the error message and your browser type, with names, emails and links removed, kept 30 days to fix problems), and privacy-friendly page analytics from our host that do not use advertising cookies.</li>
       </ul>
       <p>We use cookies and similar browser storage only to keep you signed in and to remember settings on your device (for example, your last calculator). We do not use advertising or cross-site tracking cookies.</p>
     </>,

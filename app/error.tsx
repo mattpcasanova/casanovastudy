@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { reportError } from "@/lib/monitoring/report"
 import { Home, RotateCcw } from "lucide-react"
 import { StatusPage } from "@/components/status-page"
 
@@ -13,6 +14,8 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error)
+    // Errors with a digest came from the server and are already in the log (instrumentation.ts).
+    if (!error.digest) reportError(error)
   }, [error])
 
   return (

@@ -328,3 +328,25 @@ export function teacherApprovedEmail(e: { firstName: string | null; link: string
     text: [`Your Casanova Study teacher account is verified. Students can now join your classes. ${e.link}`, '', 'Casanova Study'].join('\n'),
   }
 }
+
+// ── Error digest ────────────────────────────────────────────────────────────
+// Daily summary of app_errors for the site owner (/api/cron/error-digest).
+
+export function errorDigestEmail(e: { groups: Array<{ message: string; source: string; count: number; users: number; paths: string[]; stackTop: string | null }>; total: number; hours: number; siteUrl: string }): Mail {
+  const rows = e.groups.slice(0, 15).map((g) => [
+    `<strong>${escapeHtml(g.message)}</strong>`,
+    `${g.count} time${g.count === 1 ? '' : 's'}, ${g.users} signed-in user${g.users === 1 ? '' : 's'} · ${g.source}${g.paths.length ? ` · ${g.paths.map(escapeHtml).join(', ')}` : ''}`,
+    g.stackTop ? `<span style="font-family:monospace;font-size:12px;">${escapeHtml(g.stackTop)}</span>` : '',
+  ].filter(Boolean).join('<br>'))
+  const body = [
+    heading(`${e.total} error${e.total === 1 ? '' : 's'} in the last ${e.hours} hours`),
+    paragraph(`${e.groups.length} different problem${e.groups.length === 1 ? '' : 's'}, most widespread first.`, { muted: true }),
+    ...rows.map((r) => paragraph(r, { small: true })),
+    e.groups.length > 15 ? paragraph(`And ${e.groups.length - 15} more. Run scripts/errors.ts for the full list.`, { muted: true, small: true }) : '',
+  ].filter(Boolean).join('\n')
+  return {
+    subject: `Casanova Study: ${e.total} error${e.total === 1 ? '' : 's'} (${e.groups.length} kind${e.groups.length === 1 ? '' : 's'}) in the last day`,
+    html: emailLayout({ preheader: e.groups[0]?.message ?? '', body, footer: 'Daily error digest, sent to ADMIN_EMAIL. Errors are kept 30 days.', siteUrl: e.siteUrl }),
+    text: [`${e.total} errors in the last ${e.hours} hours.`, '', ...e.groups.slice(0, 15).map((g) => `- ${g.message} (${g.count}x, ${g.users} users, ${g.source}) ${g.paths.join(', ')}`)].join('\n'),
+  }
+}

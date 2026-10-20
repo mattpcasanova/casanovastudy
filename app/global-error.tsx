@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { reportError } from "@/lib/monitoring/report"
 
 export default function GlobalError({
   error,
@@ -11,6 +12,8 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error(error)
+    // Errors with a digest came from the server and are already in the log (instrumentation.ts).
+    if (!error.digest) reportError(error)
   }, [error])
 
   return (
