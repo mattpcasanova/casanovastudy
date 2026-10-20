@@ -35,6 +35,22 @@ const buttonVariants = cva(
   }
 )
 
+// outline/ghost turn the text white on hover to match their blue hover
+// background. When a caller sets its own hover background (e.g. actionButton's
+// light grey) but no hover text color, keep the text color instead of going
+// white on white.
+function buttonClassName(
+  variant: VariantProps<typeof buttonVariants>["variant"],
+  size: VariantProps<typeof buttonVariants>["size"],
+  className?: string
+) {
+  let base = buttonVariants({ variant, size })
+  if (className && /(^|\s)hover:bg-/.test(className) && !/(^|\s)hover:text-/.test(className)) {
+    base = base.replace(/(^|\s)(dark:)?hover:text-accent-foreground(?=\s|$)/g, "")
+  }
+  return cn(base, className)
+}
+
 function Button({
   className,
   variant,
@@ -50,10 +66,10 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonClassName(variant, size, className)}
       {...props}
     />
   )
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants, buttonClassName }
