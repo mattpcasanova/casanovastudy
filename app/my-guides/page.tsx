@@ -43,6 +43,7 @@ import {
   History,
   Target,
   Blocks,
+  LayoutGrid,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -55,16 +56,16 @@ import { signInPath } from '@/lib/sign-in-path'
 
 // Cover styling per format. Class strings are literal so Tailwind keeps them.
 const FORMAT_CARD = {
-  outline: { label: 'Outline', icon: List, cover: 'from-blue-100 via-blue-50 to-white', text: 'text-blue-700', watermark: 'text-blue-200/80' },
-  flashcards: { label: 'Flashcards', icon: CreditCard, cover: 'from-indigo-100 via-indigo-50 to-white', text: 'text-indigo-700', watermark: 'text-indigo-200/80' },
-  quiz: { label: 'Quiz', icon: HelpCircle, cover: 'from-purple-100 via-purple-50 to-white', text: 'text-purple-700', watermark: 'text-purple-200/80' },
-  summary: { label: 'Summary', icon: ScrollText, cover: 'from-green-100 via-green-50 to-white', text: 'text-green-700', watermark: 'text-green-200/80' },
-  practice: { label: 'Practice', icon: Puzzle, cover: 'from-orange-100 via-orange-50 to-white', text: 'text-orange-700', watermark: 'text-orange-200/80' },
-  plan: { label: 'Study plan', icon: MapIcon, cover: 'from-teal-100 via-teal-50 to-white', text: 'text-teal-700', watermark: 'text-teal-200/80' },
-  cheatsheet: { label: 'Cheat sheet', icon: FileText, cover: 'from-slate-200 via-slate-100 to-white', text: 'text-slate-700', watermark: 'text-slate-300/80' },
-  timeline: { label: 'Timeline', icon: History, cover: 'from-fuchsia-100 via-fuchsia-50 to-white', text: 'text-fuchsia-700', watermark: 'text-fuchsia-200/80' },
-  adaptive: { label: 'Adaptive', icon: Target, cover: 'from-sky-100 via-sky-50 to-white', text: 'text-sky-700', watermark: 'text-sky-200/80' },
-  custom: { label: 'Custom', icon: Blocks, cover: 'from-cyan-100 via-sky-50 to-white', text: 'text-cyan-700', watermark: 'text-cyan-200/80' },
+  outline: { label: 'Outline', icon: List, cover: 'from-blue-100 via-blue-50 to-white', text: 'text-blue-700', tile: 'bg-blue-50 text-blue-700', watermark: 'text-blue-200/80' },
+  flashcards: { label: 'Flashcards', icon: CreditCard, cover: 'from-indigo-100 via-indigo-50 to-white', text: 'text-indigo-700', tile: 'bg-indigo-50 text-indigo-700', watermark: 'text-indigo-200/80' },
+  quiz: { label: 'Quiz', icon: HelpCircle, cover: 'from-purple-100 via-purple-50 to-white', text: 'text-purple-700', tile: 'bg-purple-50 text-purple-700', watermark: 'text-purple-200/80' },
+  summary: { label: 'Summary', icon: ScrollText, cover: 'from-green-100 via-green-50 to-white', text: 'text-green-700', tile: 'bg-green-50 text-green-700', watermark: 'text-green-200/80' },
+  practice: { label: 'Practice', icon: Puzzle, cover: 'from-orange-100 via-orange-50 to-white', text: 'text-orange-700', tile: 'bg-orange-50 text-orange-700', watermark: 'text-orange-200/80' },
+  plan: { label: 'Study plan', icon: MapIcon, cover: 'from-teal-100 via-teal-50 to-white', text: 'text-teal-700', tile: 'bg-teal-50 text-teal-700', watermark: 'text-teal-200/80' },
+  cheatsheet: { label: 'Cheat sheet', icon: FileText, cover: 'from-slate-200 via-slate-100 to-white', text: 'text-slate-700', tile: 'bg-slate-100 text-slate-700', watermark: 'text-slate-300/80' },
+  timeline: { label: 'Timeline', icon: History, cover: 'from-fuchsia-100 via-fuchsia-50 to-white', text: 'text-fuchsia-700', tile: 'bg-fuchsia-50 text-fuchsia-700', watermark: 'text-fuchsia-200/80' },
+  adaptive: { label: 'Adaptive', icon: Target, cover: 'from-sky-100 via-sky-50 to-white', text: 'text-sky-700', tile: 'bg-sky-50 text-sky-700', watermark: 'text-sky-200/80' },
+  custom: { label: 'Custom', icon: Blocks, cover: 'from-cyan-100 via-sky-50 to-white', text: 'text-cyan-700', tile: 'bg-cyan-50 text-cyan-700', watermark: 'text-cyan-200/80' },
 } as const
 
 // Skip the topic snippet when it just repeats the title (guides made from a typed topic).
@@ -310,19 +311,19 @@ export default function MyGuidesPage() {
                 </Select>
               </div>
             </div>
-            <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-              <FilterChip active={formatFilter === 'all'} onClick={() => setFormatFilter('all')} count={studyGuides.length}>All</FilterChip>
+            <div className="-mx-4 flex items-center gap-2.5 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
+              <FilterChip active={formatFilter === 'all'} onClick={() => setFormatFilter('all')} count={studyGuides.length} icon={<LayoutGrid />}>All</FilterChip>
               {(Object.keys(FORMAT_CARD) as Array<keyof typeof FORMAT_CARD>).filter((f) => formatCounts[f]).map((f) => {
                 const Icon = FORMAT_CARD[f].icon
                 return (
-                  <FilterChip key={f} active={formatFilter === f} onClick={() => setFormatFilter(formatFilter === f ? 'all' : f)} count={formatCounts[f]}>
-                    <Icon className="h-3.5 w-3.5" /> {FORMAT_CARD[f].label}
+                  <FilterChip key={f} active={formatFilter === f} onClick={() => setFormatFilter(formatFilter === f ? 'all' : f)} count={formatCounts[f]} icon={<Icon />} tile={FORMAT_CARD[f].tile}>
+                    {FORMAT_CARD[f].label}
                   </FilterChip>
                 )
               })}
               <span className="ml-auto hidden text-sm text-slate-500 sm:block">
                 {filteredAndSortedGuides.length !== studyGuides.length && `${filteredAndSortedGuides.length} shown · `}
-                <button type="button" onClick={toggleSelectAll} className="font-medium text-blue-700 hover:underline">
+                <button type="button" onClick={toggleSelectAll} className="ml-2 inline-flex h-11 items-center rounded-2xl bg-white px-4 font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 transition hover:text-slate-900 hover:shadow-md hover:ring-slate-300">
                   {selectedIds.size === filteredAndSortedGuides.length && selecting ? 'Deselect all' : 'Select'}
                 </button>
               </span>

@@ -59,18 +59,32 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   )
 }
 
-export function FilterChip({ active, onClick, children, count }: { active: boolean; onClick: () => void; children: ReactNode; count?: number }) {
+export function FilterChip({ active, onClick, children, count, icon, tile }: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+  count?: number
+  /** Optional icon shown in a small tinted tile. */
+  icon?: ReactNode
+  /** Tile colors when not active, e.g. "bg-blue-50 text-blue-700". */
+  tile?: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition',
-        active ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:text-slate-900'
+        'inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl text-sm font-semibold transition',
+        icon ? 'pl-1.5 pr-3' : 'px-4',
+        active
+          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+          : 'bg-white text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:-translate-y-px hover:text-slate-900 hover:shadow-md hover:ring-slate-300'
       )}
     >
+      {icon && <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl [&_svg]:h-4 [&_svg]:w-4', active ? 'bg-white/20 text-white' : tile ?? 'bg-slate-100 text-slate-600')}>{icon}</span>}
       {children}
-      {typeof count === 'number' && <span className={cn('text-xs tabular-nums', active ? 'text-white/70' : 'text-slate-400')}>{count}</span>}
+      {typeof count === 'number' && <span className={cn('min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums', active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>{count}</span>}
     </button>
   )
 }
