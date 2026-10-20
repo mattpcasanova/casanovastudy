@@ -4,6 +4,7 @@ import { getConsentState } from '@/lib/consent'
 import { createAdminClient } from '@/lib/supabase-server'
 import { pickerName, sameStudentId } from '@/lib/practice/assignments'
 import { ASSIGNMENT_COLUMNS, myAssignedRow, type AssignmentRow } from '@/lib/practice/server'
+import { isVerifiedTeacher, UNVERIFIED_TEACHER_MESSAGE } from '@/lib/teachers/verification'
 
 // A student opening a share link (/practice/<code>). Signed in only.
 // GET: who they are on this assignment -> { state: 'ready' | 'pick' | 'not_assigned' | 'teacher', ... }
@@ -43,6 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!a) return NextResponse.json({ error: 'This link doesn\'t work. Ask your teacher for a new one.' }, { status: 404 })
   const info = await summary(a)
   if (a.teacher_id === user.id) return NextResponse.json({ state: 'teacher', assignment: info })
+  // Students only connect to verified teachers.
+  if (!(await isVerifiedTeacher(createAdminClient(), a.teacher_id))) return NextResponse.json({ state: 'unverified', assignment: info, message: UNVERIFIED_TEACHER_MESSAGE })
   // Birth date / parent approval first (same rules as the rest of the site).
   if ((await getConsentState(user.id)).step !== 'ok') return NextResponse.json({ state: 'consent', assignment: info })
   const supabase = createAdminClient()
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { code } = await params
   const a = await load(code)
   if (!a) return NextResponse.json({ error: 'This link doesn\'t work' }, { status: 404 })
+  if (!(await isVerifiedTeacher(createAdminClient(), a.teacher_id))) return NextResponse.json({ error: UNVERIFIED_TEACHER_MESSAGE }, { status: 403 })
   const tries = wrongTries.get(user.id)
   if (tries && tries.n >= 5 && Date.now() - tries.at < 60 * 60 * 1000) return NextResponse.json({ error: 'Too many tries. Ask your teacher to check your name on the class list.' }, { status: 429 })
   let body: Record<string, unknown>

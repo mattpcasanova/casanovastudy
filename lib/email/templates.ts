@@ -265,3 +265,66 @@ export function scanArrivedEmail(e: { firstName: string | null; files: string[];
     text: [`We got ${count} from your scanner: ${e.files.join(', ')}.`, e.skipped.length ? `Skipped: ${e.skipped.join(', ')}.` : '', '', `Sort and grade them: ${e.link}`, '', 'Casanova Study'].filter((l) => l !== undefined).join('\n'),
   }
 }
+
+// ── Teacher verification ────────────────────────────────────────────────────
+// lib/teachers/verification.ts: confirm a school email, the site owner's
+// review request, and the "you're approved" note.
+
+type Mail = { subject: string; html: string; text: string }
+
+export function teacherVerifyEmail(e: { firstName: string | null; link: string; siteUrl: string }): Mail {
+  const hi = e.firstName ? `Hi ${escapeHtml(e.firstName)}, c` : 'C'
+  const body = [
+    heading('Confirm your school email'),
+    paragraph(`${hi}lick below to confirm this is your school email. Once your teacher account is verified, students can join your classes and open the practice you assign.`),
+    button(e.link, 'Confirm my school email'),
+    '<div style="height:24px;line-height:24px;">&nbsp;</div>',
+    paragraph('The link works for 7 days.', { muted: true, small: true }),
+    linkFallback(e.link),
+  ].join('\n')
+  return {
+    subject: 'Confirm your school email for Casanova Study',
+    html: emailLayout({
+      preheader: 'One click to verify your teacher account.',
+      body,
+      footer: "You got this because someone entered this address to verify a Casanova Study teacher account. If that wasn't you, ignore this email.",
+      siteUrl: e.siteUrl,
+    }),
+    text: [`Confirm your school email for Casanova Study: ${e.link}`, '', 'The link works for 7 days. If you did not ask for this, ignore this email.', '', 'Casanova Study'].join('\n'),
+  }
+}
+
+export function teacherReviewEmail(e: { name: string; loginEmail: string; schoolEmail: string; schoolName: string; link: string; siteUrl: string }): Mail {
+  const rows = [
+    ['Name', e.name],
+    ['Sign-in email', e.loginEmail],
+    ['School email (confirmed)', e.schoolEmail],
+    ['School', e.schoolName || 'Not given'],
+  ]
+  const body = [
+    heading('A teacher is waiting for verification'),
+    paragraph(rows.map(([k, v]) => `<strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}`).join('<br>')),
+    paragraph("Their school email isn't on your verified domains, so they need a quick check before students can connect to them.", { muted: true }),
+    button(e.link, 'Review this teacher'),
+    linkFallback(e.link),
+  ].join('\n')
+  return {
+    subject: `Verify teacher: ${e.name}${e.schoolName ? ` (${e.schoolName})` : ''}`,
+    html: emailLayout({ preheader: `${e.name} confirmed ${e.schoolEmail}.`, body, footer: 'Sent to the Casanova Study admin address (ADMIN_EMAIL).', siteUrl: e.siteUrl }),
+    text: [...rows.map(([k, v]) => `${k}: ${v}`), '', `Review: ${e.link}`].join('\n'),
+  }
+}
+
+export function teacherApprovedEmail(e: { firstName: string | null; link: string; siteUrl: string }): Mail {
+  const body = [
+    heading("You're verified"),
+    paragraph(`${e.firstName ? `Hi ${escapeHtml(e.firstName)}, y` : 'Y'}our Casanova Study teacher account is verified. Students can now join your classes with the class code and open the practice you assign them.`),
+    button(e.link, 'Go to my classes'),
+    linkFallback(e.link),
+  ].join('\n')
+  return {
+    subject: 'Your Casanova Study teacher account is verified',
+    html: emailLayout({ preheader: 'Students can now join your classes.', body, footer: 'You got this because you asked to verify your Casanova Study teacher account.', siteUrl: e.siteUrl }),
+    text: [`Your Casanova Study teacher account is verified. Students can now join your classes. ${e.link}`, '', 'Casanova Study'].join('\n'),
+  }
+}

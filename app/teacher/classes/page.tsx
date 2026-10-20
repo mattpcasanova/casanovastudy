@@ -24,6 +24,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 
 interface ClassRecord {
   id: string
@@ -115,6 +116,7 @@ function Classes() {
           <Button onClick={() => setCreateOpen(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Plus className="mr-2 h-4 w-4" />New class</Button>
         </div>
       </div>
+      <TeacherVerificationCard className="mt-6" />
       {notice && <p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm text-slate-800" aria-live="polite">{notice}</p>}
 
       {error ? (

@@ -1,6 +1,7 @@
 // Server helpers for light classes (rosters). Service-role only: callers must
 // have verified the teacher owns the class (ownedClass) first.
 
+import { classTeacherVerified } from '@/lib/teachers/verification'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { rosterRowForStudent } from './roster'
 import { normalizeName } from '@/lib/grading/names'
@@ -122,6 +123,8 @@ export async function addRosterNames(
  * for the name follow (still only visible once released).
  */
 export async function linkRosterByEmail(supabase: SupabaseClient, classId: string): Promise<number> {
+  // Only a verified teacher's class list connects to student accounts.
+  if (!(await classTeacherVerified(supabase, classId))) return 0
   const { data: rows } = await supabase.from('class_roster').select('id, email').eq('class_id', classId).is('student_user_id', null).not('email', 'is', null)
   if (!rows?.length) return 0
   const { data: profiles } = await supabase.from('user_profiles').select('id, email').eq('user_type', 'student').in('email', rows.map((r) => r.email as string))

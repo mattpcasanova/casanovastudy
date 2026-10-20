@@ -66,6 +66,8 @@ const client = (session) => async (method, path, body) => {
 
 async function main() {
   const teacher = await makeUser('teacher', 'E2E', 'Teacher')
+  // Verified teachers only can connect to students (migration 063).
+  await admin.from('teacher_verifications').upsert({ user_id: teacher.id, status: 'approved', method: 'manual', decided_at: new Date().toISOString() })
   const stuA = await makeUser('student', 'Lianna', 'Wysocki')
   const stuB = await makeUser('student', 'Sam', 'Other')
   const t = client(teacher.session)

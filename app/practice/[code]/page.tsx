@@ -46,6 +46,7 @@ export default function PracticeLinkPage() {
       if (!res.ok) { setS({ state: "error", error: data.error || "This link doesn't work." }); return }
       takeReturnTo() // made it here; nothing left to resume (consent puts it back)
       if (data.state === "ready") { go(data.assignment); return }
+      if (data.state === "unverified") { setS({ state: "error", error: data.message }); return }
       if (data.state === "consent") { rememberReturnTo(`/practice/${code}`); router.replace("/consent"); return }
       setS(data)
     })()

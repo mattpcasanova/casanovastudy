@@ -114,6 +114,15 @@ async function main() {
   const { data: renamed } = await admin.from('grading_results').select('student_first_name, student_last_name, roster_id').eq('id', idOf('Sean Millr')).single()
   check('rename splits first/last and keeps the roster link', renamed.student_first_name === 'Sean' && renamed.student_last_name === 'Miller' && !!renamed.roster_id, JSON.stringify(renamed))
 
+  console.log('\n== Teacher verification ==')
+  r = await t('GET', '/api/teacher/verification')
+  check('a new teacher starts unverified', r.status === 200 && r.json.status === 'none', JSON.stringify(r.json))
+  r = await s('POST', '/api/classes/join', { code: cls.enrollment_code })
+  check("students can't join an unverified teacher's class", r.status === 403, `got ${r.status} ${JSON.stringify(r.json)}`)
+  await admin.from('teacher_verifications').upsert({ user_id: teacher.id, status: 'approved', method: 'manual', decided_at: new Date().toISOString() })
+  r = await t('GET', '/api/teacher/verification')
+  check('approved shows as approved', r.json.status === 'approved', JSON.stringify(r.json))
+
   console.log('\n== Student joins with the code ==')
   r = await s('POST', '/api/classes/join', { code: cls.enrollment_code })
   check('joined', r.status === 201, `got ${r.status} ${JSON.stringify(r.json)}`)

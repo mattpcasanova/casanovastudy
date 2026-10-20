@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 import { syncRosterWithEnrollments } from '@/lib/classes/server'
+import { isVerifiedTeacher, UNVERIFIED_TEACHER_MESSAGE } from '@/lib/teachers/verification'
 
 // POST - Student joins a class by enrollment code.
 // If a previous (class, student) row exists with status='removed', reactivate it.
@@ -54,6 +55,10 @@ export async function POST(request: NextRequest) {
     }
     if (cls.teacher_id === user.id) {
       return NextResponse.json({ error: 'You cannot enroll in your own class' }, { status: 400 })
+    }
+    // Students only connect to verified teachers.
+    if (!(await isVerifiedTeacher(supabase, cls.teacher_id))) {
+      return NextResponse.json({ error: UNVERIFIED_TEACHER_MESSAGE }, { status: 403 })
     }
 
     // If an enrollment row already exists, either reactivate or report duplicate

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ownedClass } from '@/lib/classes/server'
+import { isVerifiedTeacher } from '@/lib/teachers/verification'
 import { ASSIGNABLE_FORMATS, gradingFor, makeCode } from '@/lib/practice/assignments'
 import { ASSIGNMENT_COLUMNS, assignmentProgress, shareUrl, type AssignmentRow } from '@/lib/practice/server'
 
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
   let body: Record<string, unknown>
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
   const supabase = createAdminClient()
+  if (!(await isVerifiedTeacher(supabase, user.id))) return NextResponse.json({ error: 'Verify your teacher account first (on your home page), so students can open what you assign.', code: 'unverified' }, { status: 403 })
   const guideId = String(body.guideId ?? '')
   const classId = String(body.classId ?? '')
   if (!/^[0-9a-f-]{36}$/i.test(guideId)) return NextResponse.json({ error: 'Pick a practice set' }, { status: 400 })

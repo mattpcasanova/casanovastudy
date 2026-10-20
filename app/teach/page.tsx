@@ -17,6 +17,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
+import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 
 interface HomeData {
   firstName: string | null
@@ -93,6 +94,8 @@ function TeacherHome() {
             </Link>
           </div>
         </div>
+
+        <TeacherVerificationCard />
 
         {data && data.scansWaiting > 0 && (
           <Link href="/grade-exam/batch" className="flex items-center gap-3 rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200 hover:bg-amber-100">

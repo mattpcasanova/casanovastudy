@@ -27,6 +27,7 @@ import { parseRosterPaste } from "@/lib/classes/roster"
 import { ClassGradebook } from "@/components/classes/class-gradebook"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { courseKey, courseName, nextSchoolYear, schoolYearFor } from "@/lib/classes/years"
+import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 
 interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string; school_year: string; course: string | null }
 interface BatchSummary { id: string; title: string | null; createdAt: string; papers: number; average: number; released: boolean }
@@ -262,6 +263,7 @@ function ClassView({ id }: { id: string }) {
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-slate-900">Join code</h2>
             <p className="mt-1 text-xs text-slate-500">Optional. Students who join are linked to their name, so you can release reports to them and see their weak spots.</p>
+            <TeacherVerificationCard compact className="mt-3" />
             <p className="my-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">{cls.enrollment_code}</p>
             <div className="flex gap-2">
               <Button variant="ghost" className={cn(actionButton, "flex-1")} onClick={copyLink}>{copied ? <><Check className="mr-1.5 h-4 w-4" />Copied</> : <><Copy className="mr-1.5 h-4 w-4" />Copy link</>}</Button>
