@@ -16,6 +16,12 @@ export interface OutgoingEmail {
   replyTo?: string
   /** Extra headers, e.g. List-Unsubscribe on reminders. */
   headers?: Record<string, string>
+  /** Sender override (must be on our verified domain), e.g. the forwarded-mail sender. */
+  from?: string
+  /** Files fetched by Resend from these URLs (Resend only). */
+  attachments?: Array<{ filename: string; path: string }>
+  /** Resend drops a repeat send with the same key for 24 h (webhook retries). */
+  idempotencyKey?: string
 }
 
 const DEFAULT_FROM = 'Casanova Study <hello@casanovastudy.com>'
@@ -24,9 +30,14 @@ export async function sendEmail(mail: OutgoingEmail): Promise<void> {
   if (process.env.RESEND_API_KEY) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        ...(mail.idempotencyKey ? { 'Idempotency-Key': mail.idempotencyKey } : {}),
+      },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || DEFAULT_FROM,
+        from: mail.from || process.env.EMAIL_FROM || DEFAULT_FROM,
+        attachments: mail.attachments?.length ? mail.attachments : undefined,
         to: [mail.to],
         subject: mail.subject,
         html: mail.html,

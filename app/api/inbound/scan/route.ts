@@ -3,8 +3,11 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { INBOX_LIMITS, tokenFromRecipients, usableAttachment, verifyWebhook } from '@/lib/scan-inbox/inbox'
 import { sendEmail } from '@/lib/email/send'
 import { scanArrivedEmail } from '@/lib/email/templates'
+import { forwardedAliases } from '@/lib/inbound/forward'
+import { MAIN_DOMAIN, forwardReceivedEmail } from '@/lib/inbound/forward-server'
 
-// Resend inbound webhook (event email.received) for the scanner inbox: a
+// Resend inbound webhook (event email.received). Mail to hello@/privacy@ on the
+// main domain is forwarded to the site owner (lib/inbound). Otherwise it's the scanner inbox: a
 // teacher's copier emails a scan to grade-<token>@INBOUND_EMAIL_DOMAIN; we
 // save the PDF/photo attachments to the private scan-inbox bucket and email
 // the teacher a link. Needs RESEND_INBOUND_SECRET (the webhook's signing
@@ -43,7 +46,18 @@ export async function POST(request: NextRequest) {
   if (event.type !== 'email.received' || !event.data?.email_id) return ok('ignored event')
   const { email_id: emailId, from, subject } = event.data
 
-  const token = tokenFromRecipients([...(event.data.to ?? []), ...(event.data.cc ?? []), ...(event.data.received_for ?? [])], domain)
+  const recipients = [...(event.data.to ?? []), ...(event.data.cc ?? []), ...(event.data.received_for ?? [])]
+  const aliases = forwardedAliases(recipients, MAIN_DOMAIN)
+  if (aliases.length) {
+    const result = await forwardReceivedEmail(emailId, aliases, apiKey)
+    if (result.status === 'retry') {
+      console.error('Forwarding failed:', result.error)
+      return NextResponse.json({ error: 'Could not forward' }, { status: 502 }) // Resend retries; the idempotency key stops doubles
+    }
+    return ok(result.status === 'sent' ? `forwarded (${aliases.join(', ')})` : 'no forward address set')
+  }
+
+  const token = tokenFromRecipients(recipients, domain)
   if (!token) return ok('no inbox address')
   const supabase = createAdminClient()
   const { data: inbox } = await supabase.from('grading_inboxes').select('user_id').eq('token', token).maybeSingle()
