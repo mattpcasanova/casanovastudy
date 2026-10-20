@@ -7,6 +7,10 @@
 //   npx tsx --env-file=.env.local scripts/teachers.ts domain add school.org "School name"
 //   npx tsx --env-file=.env.local scripts/teachers.ts domain remove school.org
 //   npx tsx --env-file=.env.local scripts/teachers.ts domain list
+//   npx tsx --env-file=.env.local scripts/teachers.ts set-school someone@gmail.com them@school.org   # their confirmed school email
+//   npx tsx --env-file=.env.local scripts/teachers.ts admin add principal@school.org school.org     # can open /school
+//   npx tsx --env-file=.env.local scripts/teachers.ts admin remove principal@school.org school.org
+//   npx tsx --env-file=.env.local scripts/teachers.ts admin list
 //
 // approve/reject here don't email the teacher; the review link in the
 // ADMIN_EMAIL message does.
@@ -17,6 +21,13 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
   auth: { persistSession: false, autoRefreshToken: false },
 })
 const args = process.argv.slice(2)
+
+async function accountByEmail(email: string) {
+  const { data, error } = await supabase.from('user_profiles').select('id, email, first_name, last_name, user_type').ilike('email', email.trim()).maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error(`No account with email ${email}`)
+  return data
+}
 
 async function teacherByEmail(email: string) {
   const { data, error } = await supabase.from('user_profiles').select('id, email, first_name, last_name, user_type').ilike('email', email.trim()).maybeSingle()
@@ -77,7 +88,40 @@ async function main() {
     return
   }
 
-  console.log('Commands: list | pending | approve <email> | reject <email> | domain add|remove|list')
+  if (cmd === 'set-school') {
+    if (!sub || !a) throw new Error('Usage: set-school <account email> <school email>')
+    const t = await teacherByEmail(sub)
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('teacher_verifications').upsert({ user_id: t.id, school_email: a.toLowerCase(), email_confirmed_at: now, updated_at: now }, { onConflict: 'user_id' })
+    if (error) throw error
+    console.log(`${t.email}: school email set to ${a.toLowerCase()}`)
+    return
+  }
+
+  if (cmd === 'admin' && (sub === 'add' || sub === 'remove')) {
+    if (!a || !b) throw new Error(`Usage: admin ${sub} <email> <domain>`)
+    const u = await accountByEmail(a)
+    const domain = b.toLowerCase().replace(/^@/, '')
+    if (sub === 'add') {
+      const { error } = await supabase.from('school_admins').upsert({ user_id: u.id, domain })
+      if (error) throw new Error(error.message.includes('foreign key') ? `${domain} isn't a verified domain yet: run "domain add ${domain} \"School name\"" first` : error.message)
+      console.log(`${u.email} can now open /school for ${domain}`)
+    } else {
+      await supabase.from('school_admins').delete().eq('user_id', u.id).eq('domain', domain)
+      console.log(`Removed ${u.email} as admin of ${domain}`)
+    }
+    return
+  }
+  if (cmd === 'admin' && sub === 'list') {
+    const { data } = await supabase.from('school_admins').select('domain, user_id')
+    for (const r of data ?? []) {
+      const { data: p } = await supabase.from('user_profiles').select('email').eq('id', r.user_id).maybeSingle()
+      console.log(`${r.domain}  ${p?.email ?? r.user_id}`)
+    }
+    return
+  }
+
+  console.log('Commands: list | pending | approve <email> | reject <email> | set-school <email> <school email> | domain add|remove|list | admin add|remove|list')
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1) })

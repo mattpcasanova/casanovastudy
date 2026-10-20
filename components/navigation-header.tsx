@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth'
 import { CLASSES_ENABLED } from '@/lib/features'
 import { IosSteps, useInstall } from '@/components/pwa/pwa'
 import { PlanMenuItems } from '@/components/plan/plan-menu'
+import { SchoolMenuItem } from "@/components/school/school-menu-item"
 
 // Get user initials from name or email
 function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
@@ -307,6 +308,7 @@ export default function NavigationHeader() {
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
                   <PlanMenuItems />
+                  <SchoolMenuItem />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
@@ -343,6 +345,7 @@ export default function NavigationHeader() {
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
                   <PlanMenuItems />
+                  <SchoolMenuItem />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
