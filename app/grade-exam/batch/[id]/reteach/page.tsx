@@ -5,7 +5,7 @@
 // student. Each section copies cleanly into a lesson planner (Planbook,
 // Planboard, Common Planner, Google Docs); also Word download and print.
 
-import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
 import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -154,7 +154,7 @@ function Reteach({ id }: { id: string }) {
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50 print:bg-white")}>
       <div className="print:hidden"><NavigationHeader /></div>
       <main className="container mx-auto max-w-4xl px-4 py-10 print:max-w-none print:py-0">
-        <Link href={`/grade-exam/batch/${id}`} className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline print:hidden"><ArrowLeft className="h-4 w-4" />Class results</Link>
+        <Link href={`/grade-exam/batch/${id}`} className={cn(backLink, "print:hidden")}><ArrowLeft />Class results</Link>
 
         {loading ? (
           <p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
@@ -187,10 +187,10 @@ function Reteach({ id }: { id: string }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 print:hidden">
-                <Button variant="outline" onClick={() => void copy("all", planHtml(saved), planText(saved))}>{copied === "all" ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><ClipboardCopy className="mr-2 h-4 w-4" />Copy all</>}</Button>
-                <Button variant="outline" onClick={() => void downloadWord()}><Download className="mr-2 h-4 w-4" />Word</Button>
-                <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
-                <Button variant="outline" onClick={() => setOptionsOpen((o) => !o)}><RefreshCw className="mr-2 h-4 w-4" />Rewrite</Button>
+                <Button variant="ghost" onClick={() => void copy("all", planHtml(saved), planText(saved))} className={actionButton}>{copied === "all" ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><ClipboardCopy className="mr-2 h-4 w-4" />Copy all</>}</Button>
+                <Button variant="ghost" onClick={() => void downloadWord()} className={actionButton}><Download className="mr-2 h-4 w-4" />Word</Button>
+                <Button variant="ghost" onClick={() => window.print()} className={actionButton}><Printer className="mr-2 h-4 w-4" />Print</Button>
+                <Button variant="ghost" onClick={() => setOptionsOpen((o) => !o)} className={actionButton}><RefreshCw className="mr-2 h-4 w-4" />Rewrite</Button>
               </div>
             </div>
 
@@ -202,7 +202,7 @@ function Reteach({ id }: { id: string }) {
               <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 print:hidden">
                 <PlanOptions topics={topics} minutes={minutes} setMinutes={setMinutes} focus={focus} setFocus={setFocus} detail={detail} setDetail={setDetail} />
                 {error && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
-                <Button onClick={() => void write()} disabled={busy} className="mt-4 bg-indigo-600 hover:bg-indigo-700">{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Rewriting…</> : "Write a new plan"}</Button>
+                <Button onClick={() => void write()} disabled={busy} className={cn(actionButtonPrimary, "mt-4 bg-indigo-600 hover:bg-indigo-700")}>{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Rewriting…</> : "Write a new plan"}</Button>
               </section>
             )}
 

@@ -5,7 +5,7 @@
 // Deliberately nothing else (no assignments, calendar or gradebook).
 
 import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
-import { backLink } from "@/components/grading/grading-ui"
+import { backLink, actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
@@ -176,9 +176,9 @@ function ClassView({ id }: { id: string }) {
           {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setEditOpen(true)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
-          <Button variant="outline" onClick={() => setStampOpen(true)} disabled={!roster.length} title={roster.length ? undefined : "Add names first"}><QrCode className="mr-2 h-4 w-4" />Print stamped copies</Button>
-          <Button asChild className="bg-blue-600 hover:bg-blue-700"><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>
+          <Button variant="ghost" onClick={() => setEditOpen(true)} className={actionButton}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
+          <Button variant="ghost" onClick={() => setStampOpen(true)} disabled={!roster.length} title={roster.length ? undefined : "Add names first"} className={actionButton}><QrCode className="mr-2 h-4 w-4" />Print stamped copies</Button>
+          <Button asChild className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>
         </div>
       </div>
 
@@ -195,7 +195,7 @@ function ClassView({ id }: { id: string }) {
                   </span>
                 : <button type="button" onClick={() => setClearing(true)} className="ml-auto mr-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700">Remove all names</button>
             )}
-            {!pasteOpen && <Button variant="outline" onClick={() => setPasteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
+            {!pasteOpen && <Button variant="ghost" onClick={() => setPasteOpen(true)} className={actionButton}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
           </div>
 
           {pasteOpen && (
@@ -222,8 +222,8 @@ function ClassView({ id }: { id: string }) {
                   Choose a CSV
                   <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPaste(await f.text()) }} />
                 </label>
-                <Button onClick={addNames} disabled={busy || !paste.trim() || pastePreview?.length === 0} className="bg-blue-600 hover:bg-blue-700"><ClipboardPaste className="mr-2 h-4 w-4" />{busy ? "Adding…" : pastePreview?.length ? `Add ${pastePreview.length} student${pastePreview.length === 1 ? "" : "s"}` : "Add to roster"}</Button>
-                {roster.length > 0 && <Button variant="ghost" onClick={() => setPasteOpen(false)}>Cancel</Button>}
+                <Button onClick={addNames} disabled={busy || !paste.trim() || pastePreview?.length === 0} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><ClipboardPaste className="mr-2 h-4 w-4" />{busy ? "Adding…" : pastePreview?.length ? `Add ${pastePreview.length} student${pastePreview.length === 1 ? "" : "s"}` : "Add to roster"}</Button>
+                {roster.length > 0 && <Button variant="ghost" onClick={() => setPasteOpen(false)} className={actionButton}>Cancel</Button>}
               </div>
             </div>
           )}
@@ -251,7 +251,7 @@ function ClassView({ id }: { id: string }) {
             </ul>
           )}
           {roster.some((r) => r.left) && (
-            <button type="button" onClick={() => setShowLeft((v) => !v)} className="mt-2 text-xs font-medium text-slate-500 hover:text-slate-800">
+            <button type="button" onClick={() => setShowLeft((v) => !v)} className={cn(actionButton, "mt-3")}>
               {showLeft ? "Hide students who left" : `Show ${roster.filter((r) => r.left).length} who left`}
             </button>
           )}
@@ -264,8 +264,8 @@ function ClassView({ id }: { id: string }) {
             <p className="mt-1 text-xs text-slate-500">Optional. Students who join are linked to their name, so you can release reports to them and see their weak spots.</p>
             <p className="my-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">{cls.enrollment_code}</p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1" onClick={copyLink}>{copied ? <><Check className="mr-1.5 h-4 w-4" />Copied</> : <><Copy className="mr-1.5 h-4 w-4" />Copy link</>}</Button>
-              <Button variant="ghost" size="sm" onClick={newCode} title="Make a new code (the old one stops working)"><RefreshCw className="h-4 w-4" /></Button>
+              <Button variant="ghost" className={cn(actionButton, "flex-1")} onClick={copyLink}>{copied ? <><Check className="mr-1.5 h-4 w-4" />Copied</> : <><Copy className="mr-1.5 h-4 w-4" />Copy link</>}</Button>
+              <Button variant="ghost" onClick={newCode} title="Make a new code (the old one stops working)" className={actionButton}><RefreshCw className="h-4 w-4" /></Button>
             </div>
           </section>
 
@@ -359,8 +359,8 @@ function DetailsForm({ cls, onSave, onCancel }: { cls: ClassInfo; onSave: (year:
         <span className="mb-1 block text-xs font-medium text-slate-600">Course (links this class with other periods and years)</span>
         <input value={course} onChange={(e) => setCourse(e.target.value)} className="w-64 rounded-lg border border-slate-200 bg-white px-2 py-1.5" />
       </label>
-      <Button size="sm" onClick={() => onSave(year, course.trim())}>Save</Button>
-      <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+      <Button onClick={() => onSave(year, course.trim())} className={actionButtonPrimary}>Save</Button>
+      <Button variant="ghost" onClick={onCancel} className={actionButton}>Cancel</Button>
     </div>
   )
 }
@@ -389,8 +389,8 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
         <div className="flex flex-wrap items-center gap-2">
           <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="w-60 rounded-md border px-2 py-1 text-sm" aria-label="School email" placeholder="School email (links their account)" />
           <input value={number} onChange={(e) => setNumber(e.target.value)} className="w-32 rounded-md border px-2 py-1 text-sm" aria-label="Student ID" placeholder="Student ID" />
-          <Button size="sm" onClick={() => { onSave({ firstName: first.trim(), lastName: last.trim(), email: email.trim(), studentNumber: number.trim() }); setEditing(false) }}>Save</Button>
-          <Button size="sm" variant="ghost" onClick={() => { setFirst(row.firstName); setLast(row.lastName); setEmail(row.email ?? ""); setNumber(row.studentNumber ?? ""); setEditing(false) }}>Cancel</Button>
+          <Button onClick={() => { onSave({ firstName: first.trim(), lastName: last.trim(), email: email.trim(), studentNumber: number.trim() }); setEditing(false) }} className={actionButtonPrimary}>Save</Button>
+          <Button variant="ghost" onClick={() => { setFirst(row.firstName); setLast(row.lastName); setEmail(row.email ?? ""); setNumber(row.studentNumber ?? ""); setEditing(false) }} className={actionButton}>Cancel</Button>
         </div>
       </li>
     )

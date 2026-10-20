@@ -11,6 +11,7 @@ import { Loader2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
+import { cn } from "@/lib/utils"
 
 export interface BatchClassRow {
   id: string
@@ -202,7 +203,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
               <p className="font-semibold text-slate-900">Save these names as a class</p>
               <p className="text-sm text-slate-600">Next time, grading matches each paper to a name on the class list, and students who join can see the reports you release.</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button onClick={saveAsClass} disabled={busy} className="bg-blue-600 hover:bg-blue-700">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save as a new class</Button>
+                <Button onClick={saveAsClass} disabled={busy} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save as a new class</Button>
                 {classes && classes.length > 0 && (
                   <>
                     <span className="text-sm text-slate-500">or add to</span>
@@ -210,7 +211,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                       <option value="">Pick a class…</option>
                       {classes.map((c) => <option key={c.id} value={c.id}>{c.name}{c.period ? ` (P${c.period})` : ""}</option>)}
                     </select>
-                    <Button variant="outline" disabled={!picked || busy} onClick={() => void attach(picked)}>Add</Button>
+                    <Button variant="ghost" disabled={!picked || busy} onClick={() => void attach(picked)} className={actionButton}>Add</Button>
                   </>
                 )}
               </div>

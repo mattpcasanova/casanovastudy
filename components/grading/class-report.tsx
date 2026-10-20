@@ -16,6 +16,7 @@ import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { actionButton } from "@/components/grading/grading-ui"
 
 export interface SavedInsights {
   insights: ClassInsightsAI
@@ -90,7 +91,7 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 font-semibold text-slate-900"><ClipboardList className="h-4 w-4 text-blue-600" />Class summary</p>
           {report && !loading && (
-            <Button variant="outline" size="sm" onClick={() => void generate()}>
+            <Button variant="ghost" onClick={() => void generate()} className={actionButton}>
               <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : "Update for the new marks"}
             </Button>
           )}
@@ -101,7 +102,7 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
         {error && !loading && (
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-rose-800">
             {error}
-            <Button variant="outline" size="sm" onClick={() => void generate()}>Try again</Button>
+            <Button variant="ghost" onClick={() => void generate()} className={actionButton}>Try again</Button>
           </div>
         )}
 
@@ -220,11 +221,11 @@ function QuestionBreakdown({ papers, stats, report, open, onToggle, hardestFirst
         </div>
         <div className="flex gap-1">
           {open && (
-            <Button variant="ghost" size="sm" onClick={() => setHardestFirst(!hardestFirst)}>
+            <Button variant="ghost" onClick={() => setHardestFirst(!hardestFirst)} className={actionButton}>
               <ArrowUpDown className="mr-2 h-3.5 w-3.5" />{hardestFirst ? "Question order" : "Hardest first"}
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onToggle}>{open ? "Hide" : "Show"}</Button>
+          <Button variant="ghost" onClick={onToggle} className={actionButton}>{open ? "Hide" : "Show"}</Button>
         </div>
       </div>
 

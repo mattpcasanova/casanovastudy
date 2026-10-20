@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react"
 import { GraduationCap, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { selectBox } from "@/components/grading/grading-ui"
+import { selectBox, actionButton } from "@/components/grading/grading-ui"
 import { cn } from "@/lib/utils"
 import { authFetch } from "@/lib/auth-fetch"
 import { connectGoogleClassroom } from "@/components/classes/google-classroom-dialog"
@@ -219,7 +219,7 @@ export function ClassroomWorkPanel({ onFiles, disabled, initial, alreadyGraded =
           {state === "disconnected" ? (
             <>
               <p className="text-sm text-slate-600">Bring in the photos students uploaded to an assignment, already sorted by student.</p>
-              <Button variant="outline" className="mt-2 h-10 rounded-xl px-4 font-semibold" disabled={disabled} onClick={async () => { const err = await connectGoogleClassroom("/grade-exam/batch?classroom=1"); if (err) setError(err) }}>Connect Google Classroom</Button>
+              <Button variant="ghost" className={cn(actionButton, "mt-2 h-10 rounded-xl px-4 font-semibold")} disabled={disabled} onClick={async () => { const err = await connectGoogleClassroom("/grade-exam/batch?classroom=1"); if (err) setError(err) }}>Connect Google Classroom</Button>
             </>
           ) : (
             <div className="mt-2 space-y-2">

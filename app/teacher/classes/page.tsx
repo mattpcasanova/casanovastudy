@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 
 interface ClassRecord {
   id: string
@@ -109,9 +110,9 @@ function Classes() {
           <p className="mt-1 max-w-xl text-slate-600">A class is your list of names. Grading matches each paper to a name on it, and students can join with the class code to see the reports you release.</p>
         </div>
         <div className="flex gap-2">
-          {googleReady && <Button variant="outline" onClick={async () => { const err = await connectGoogleClassroom(); if (err) setNotice(err) }}>Import from Google Classroom</Button>}
-          <Button variant="outline" onClick={() => setImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
-          <Button onClick={() => setCreateOpen(true)} className="bg-blue-600 hover:bg-blue-700"><Plus className="mr-2 h-4 w-4" />New class</Button>
+          {googleReady && <Button variant="ghost" onClick={async () => { const err = await connectGoogleClassroom(); if (err) setNotice(err) }} className={actionButton}>Import from Google Classroom</Button>}
+          <Button variant="ghost" onClick={() => setImportOpen(true)} className={actionButton}><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
+          <Button onClick={() => setCreateOpen(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Plus className="mr-2 h-4 w-4" />New class</Button>
         </div>
       </div>
       {notice && <p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm text-slate-800" aria-live="polite">{notice}</p>}
@@ -126,8 +127,8 @@ function Classes() {
           <p className="mt-3 font-semibold text-slate-900">No classes yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">Import all your classes at once from a gradebook CSV, or make one and paste the names. You can also save the names from a graded class set on its results page.</p>
           <div className="mt-5 flex justify-center gap-2">
-            <Button onClick={() => setImportOpen(true)} className="bg-blue-600 hover:bg-blue-700"><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
-            <Button variant="outline" onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />New class</Button>
+            <Button onClick={() => setImportOpen(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
+            <Button variant="ghost" onClick={() => setCreateOpen(true)} className={actionButton}><Plus className="mr-2 h-4 w-4" />New class</Button>
           </div>
         </div>
       ) : (
@@ -183,7 +184,7 @@ function YearSections({ classes: unsorted, onRolledOver }: { classes: ClassRecor
                 {CLASS_SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
-            <Button variant="outline" size="sm" onClick={() => setRollOpen(true)} disabled={!classes.some((c) => c.school_year === latest)}><CalendarPlus className="mr-1.5 h-4 w-4" />Start next year</Button>
+            <Button variant="ghost" onClick={() => setRollOpen(true)} disabled={!classes.some((c) => c.school_year === latest)} className={actionButton}><CalendarPlus className="mr-1.5 h-4 w-4" />Start next year</Button>
           </div>
         </div>
         {thisYear.length ? <ul className="grid gap-4 sm:grid-cols-2">{thisYear.map((c) => <ClassCard key={c.id} c={c} />)}</ul> : <p className="text-sm text-slate-500">No classes for {current} yet.</p>}
@@ -259,8 +260,8 @@ function RollOverDialog({ open, onOpenChange, fromYear, classes, onDone }: { ope
         </ul>
         {error && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{error}</p>}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={go} disabled={busy || !picked.size} className="bg-blue-600 hover:bg-blue-700">{busy ? "Copying…" : `Copy ${picked.size} class${picked.size === 1 ? "" : "es"}`}</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className={actionButton}>Cancel</Button>
+          <Button onClick={go} disabled={busy || !picked.size} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>{busy ? "Copying…" : `Copy ${picked.size} class${picked.size === 1 ? "" : "es"}`}</Button>
         </div>
       </DialogContent>
     </Dialog>

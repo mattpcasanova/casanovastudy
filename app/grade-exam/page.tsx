@@ -14,7 +14,7 @@ import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
 import { processFile, compressImageFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
-import { DropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta } from "@/components/grading/grading-ui"
+import { DropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta, actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
@@ -771,13 +771,13 @@ export default function GradeExamPage() {
                     <div className="flex items-center justify-between">
                       <h3 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>Question breakdown</h3>
                       {isTeacher && !isEditing && (
-                        <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="border-gray-300">
+                        <Button variant="ghost" onClick={() => setIsEditing(true)} className={actionButton}>
                           <Edit2 className="h-4 w-4 mr-2" />
                           Edit Feedback
                         </Button>
                       )}
                       {isTeacher && isEditing && (
-                        <Button onClick={() => setIsEditing(false)} variant="outline" size="sm" className="border-gray-300">
+                        <Button variant="ghost" onClick={() => setIsEditing(false)} className={actionButton}>
                           Cancel Editing
                         </Button>
                       )}
@@ -830,7 +830,7 @@ export default function GradeExamPage() {
                             </span>
                           </div>
                         </div>
-                        <Button
+                        <Button variant="ghost"
                           onClick={async () => {
                             if (!gradingResult?.id || !editedBreakdown) {
                               toast({ title: "Cannot save", description: "Grading result ID is missing. Please try grading again.", variant: "destructive" })
@@ -862,7 +862,7 @@ export default function GradeExamPage() {
                               setIsSaving(false)
                             }
                           }}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
+                          className={cn(actionButtonPrimary, "w-full bg-blue-600 hover:bg-blue-700")}
                           disabled={isSaving}
                         >
                           {isSaving ? "Saving..." : "Save Edits"}

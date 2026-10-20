@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { authFetch } from "@/lib/auth-fetch"
 import { parseClassImport } from "@/lib/classes/import"
 import { RosterFileHelp } from "./roster-file-help"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 const SPREADSHEET = /\.(xlsx|xls|numbers|ods)$/i
 
@@ -72,7 +74,7 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
         <div className="space-y-3">
           <RosterFileHelp />
           <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={(e) => void pickFile(e.target.files?.[0])} />
-          <Button variant="outline" onClick={() => fileRef.current?.click()} className="w-full border-dashed py-6">
+          <Button variant="ghost" onClick={() => fileRef.current?.click()} className={cn(actionButton, "w-full border-dashed py-6")}>
             <FileUp className="mr-2 h-5 w-5" />{fileName ? `Chosen: ${fileName}` : "Choose a CSV file"}
           </Button>
           <details className="text-sm text-slate-600">
@@ -113,8 +115,8 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={doImport} disabled={busy || !preview?.classes.length} className="bg-blue-600 hover:bg-blue-700">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className={actionButton}>Cancel</Button>
+            <Button onClick={doImport} disabled={busy || !preview?.classes.length} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : `Import ${preview?.classes.length ?? 0} class${preview?.classes.length === 1 ? "" : "es"}`}
             </Button>
           </div>

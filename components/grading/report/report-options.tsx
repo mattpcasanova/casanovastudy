@@ -5,6 +5,8 @@ import type { MarkingStyle } from "@/lib/grading/marking-style"
 import type { ReportSettings } from "@/lib/grading/report-settings"
 import type { GradeScale } from "@/lib/grading/scale"
 import { ScaleEditor } from "./scale-editor"
+import { actionButton } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -46,7 +48,7 @@ export function ReportOptions({ settings, onSettings, scale, onScale, onScaleDef
     <div className="space-y-4">
       <Section title="Grade scale" note="For this report.">
         <ScaleEditor value={scale} onChange={onScale} possible={possible} />
-        <button type="button" onClick={onScaleDefault} className="mt-1 text-xs font-medium text-blue-700 hover:underline">
+        <button type="button" onClick={onScaleDefault} className={cn(actionButton, "mt-2")}>
           Use this scale for my future gradings
         </button>
       </Section>

@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay } from '@/lib/formats/design'
 import { LibraryHeader, SearchBox, SelectToggle, relativeDate, CardSkeletonGrid } from '@/components/library/library-parts'
+import { actionButton } from "@/components/grading/grading-ui"
 
 // Score colour bands (literal classes so Tailwind keeps them).
 function scoreBand(pct: number) {
@@ -495,7 +496,7 @@ export default function GradedExamsPage() {
               )}
               <span className="ml-auto text-slate-500">
                 {filteredAndSortedResults.length !== gradingResults.length && `${filteredAndSortedResults.length} shown · `}
-                <button type="button" onClick={toggleSelectAll} className="font-medium text-blue-700 hover:underline">
+                <button type="button" onClick={toggleSelectAll} className={cn(actionButton, "ml-2")}>
                   {selecting && selectedIds.size === filteredAndSortedResults.length ? 'Deselect all' : 'Select'}
                 </button>
               </span>
@@ -524,7 +525,7 @@ export default function GradedExamsPage() {
               <Filter className="mb-3 h-10 w-10 text-slate-300" />
               <h3 className="text-lg font-semibold text-slate-800">No reports match</h3>
               <p className="mb-4 mt-1 text-slate-500">Try a different search or filter.</p>
-              <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
+              <Button variant="ghost" onClick={clearFilters} className={actionButton}>Clear filters</Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -621,10 +622,8 @@ export default function GradedExamsPage() {
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-400 hover:bg-red-900/50 hover:text-red-300"
+            <Button variant="ghost"
+              className={cn(actionButton, "text-red-400 hover:bg-red-900/50 hover:text-red-300")}
               onClick={() => setShowBulkDeleteDialog(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" />

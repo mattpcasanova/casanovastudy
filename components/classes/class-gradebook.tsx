@@ -11,6 +11,7 @@ import { ArrowDown, ArrowUp, Download } from "lucide-react"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { resultsCsvTable } from "@/lib/classes/gradebook-csv"
 import { cn } from "@/lib/utils"
+import { actionButton } from "@/components/grading/grading-ui"
 
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-50 text-emerald-900" : pct >= 65 ? "bg-blue-50 text-blue-900" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900")
 const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late" }
@@ -69,7 +70,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
               Show {leftCount} who left
             </label>
           )}
-          <button type="button" onClick={downloadCsv} className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline"><Download className="h-4 w-4" />CSV</button>
+          <button type="button" onClick={downloadCsv} className={actionButton}><Download />Download CSV</button>
         </div>
       </div>
       <div className="overflow-x-auto">

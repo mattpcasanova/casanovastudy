@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EXPORT_PRESETS, PRESET_ORDER, buildExport, toCsv, toTsv, type ExportPreset, type ExportRow } from "@/lib/grading/exports"
 import { toXlsx } from "@/lib/grading/xlsx"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 const PREF = "cs:pref:gradebook"
 
@@ -111,11 +113,11 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className={actionButton}>Close</Button>
           {info.file === "copy" ? (
-            <Button onClick={copy} className="bg-blue-600 hover:bg-blue-700">{copied ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy scores</>}</Button>
+            <Button onClick={copy} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>{copied ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy scores</>}</Button>
           ) : (
-            <Button onClick={() => void download()} className="bg-blue-600 hover:bg-blue-700"><Download className="mr-2 h-4 w-4" />Download {info.file === "xlsx" ? "Excel file" : "CSV"}</Button>
+            <Button onClick={() => void download()} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Download className="mr-2 h-4 w-4" />Download {info.file === "xlsx" ? "Excel file" : "CSV"}</Button>
           )}
         </div>
       </DialogContent>

@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { authFetch } from "@/lib/auth-fetch"
 import { stampTest, type StampCorner } from "@/lib/stamped/stamp-pdf"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 interface ClassOption { id: string; name: string; period: string | null; roster_count?: number }
 
@@ -102,7 +104,7 @@ export function StampTestDialog({ open, onOpenChange, defaultClassId }: { open: 
 
         <div className="space-y-4">
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => void choose(e.target.files?.[0])} />
-          <Button variant="outline" onClick={() => fileRef.current?.click()} className="w-full border-dashed py-6" disabled={busy}>
+          <Button variant="ghost" onClick={() => fileRef.current?.click()} className={cn(actionButton, "w-full border-dashed py-6")} disabled={busy}>
             <FileUp className="mr-2 h-5 w-5" />{file ? `${file.name} (${pages} page${pages === 1 ? "" : "s"})` : "Choose the blank test (PDF)"}
           </Button>
 
@@ -153,8 +155,8 @@ export function StampTestDialog({ open, onOpenChange, defaultClassId }: { open: 
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
-            <Button onClick={generate} disabled={busy || !file || !picked.size} className="bg-blue-600 hover:bg-blue-700">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className={actionButton}>Close</Button>
+            <Button onClick={generate} disabled={busy || !file || !picked.size} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Working…</> : `Make ${picked.size} PDF${picked.size === 1 ? "" : "s"}`}
             </Button>
           </div>

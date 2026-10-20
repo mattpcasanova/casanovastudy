@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DEFAULT_SCALE, SCALE_PRESETS, hasGrades, presetScale, type GradeScale, type ScalePreset } from "@/lib/grading/scale"
 import { cn } from "@/lib/utils"
+import { actionButton } from "@/components/grading/grading-ui"
 
 /**
  * Grade scale picker: a preset (US letters, Cambridge A*-E, IB...) and, for
@@ -94,7 +95,7 @@ export function ScaleEditor({ value, onChange, possible, compact = false }: {
               <button
                 type="button"
                 onClick={() => onChange({ ...scale, preset: 'custom', bands: [...scale.bands, { grade: '', min: 0 }] })}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-700 hover:bg-white"
+                className={cn(actionButton, "ml-auto")}
               >
                 <Plus className="h-3.5 w-3.5" /> Add grade
               </button>

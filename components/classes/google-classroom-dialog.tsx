@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { authFetch } from "@/lib/auth-fetch"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 interface Course { id: string; name: string; section: string | null; period: string | null; importedClassId: string | null }
 
@@ -89,8 +91,8 @@ export function GoogleClassroomDialog({ open, onOpenChange, onImported }: { open
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={doImport} disabled={busy || !picked.size} className="bg-blue-600 hover:bg-blue-700">
+              <Button variant="ghost" onClick={() => onOpenChange(false)} className={actionButton}>Cancel</Button>
+              <Button onClick={doImport} disabled={busy || !picked.size} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
                 {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : `Import ${picked.size} course${picked.size === 1 ? "" : "s"}`}
               </Button>
             </div>

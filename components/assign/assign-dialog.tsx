@@ -164,8 +164,8 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   <div className="mb-1.5 flex items-center justify-between text-sm">
                     <span className="font-medium text-slate-700">Students ({chosen.length} picked)</span>
                     {roster && <span className="flex gap-2">
-                      <button type="button" className="font-semibold text-blue-700 hover:underline" onClick={() => setPicked(new Set(roster.map((r) => r.id)))}>Whole class</button>
-                      <button type="button" className="font-semibold text-slate-600 hover:underline" onClick={() => setPicked(new Set())}>None</button>
+                      <button type="button" className={actionButton.replace("h-10", "h-9")} onClick={() => setPicked(new Set(roster.map((r) => r.id)))}>Whole class</button>
+                      <button type="button" className={actionButton.replace("h-10", "h-9")} onClick={() => setPicked(new Set())}>None</button>
                     </span>}
                   </div>
                   {!roster ? (

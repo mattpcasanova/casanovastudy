@@ -8,6 +8,8 @@ import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { authFetch } from "@/lib/auth-fetch"
+import { actionButtonPrimary } from "@/components/grading/grading-ui"
+import { cn } from "@/lib/utils"
 
 export function GoogleClassroomSync({ batchId, title }: { batchId: string; title: string }) {
   const [connected, setConnected] = useState(false)
@@ -59,8 +61,8 @@ export function GoogleClassroomSync({ batchId, title }: { batchId: string; title
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {connected
-          ? <Button size="sm" onClick={() => void send()} disabled={busy} className="bg-emerald-700 hover:bg-emerald-800">{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : synced ? "Update scores in Classroom" : "Send scores to Classroom"}</Button>
-          : <Button size="sm" onClick={() => void connect()} className="bg-emerald-700 hover:bg-emerald-800">Connect Google Classroom</Button>}
+          ? <Button onClick={() => void send()} disabled={busy} className={cn(actionButtonPrimary, "bg-emerald-700 hover:bg-emerald-800")}>{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : synced ? "Update scores in Classroom" : "Send scores to Classroom"}</Button>
+          : <Button onClick={() => void connect()} className={cn(actionButtonPrimary, "bg-emerald-700 hover:bg-emerald-800")}>Connect Google Classroom</Button>}
       </div>
       {result && <p className="mt-2 text-emerald-900">{result}</p>}
       {error && <p className="mt-2 text-rose-800">{error}</p>}

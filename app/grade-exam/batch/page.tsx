@@ -611,7 +611,7 @@ function BatchGrading() {
               </select>
               {classId
                 ? <span className="text-slate-500">{roster.length} name{roster.length === 1 ? "" : "s"} on the roster; papers are matched to them.</span>
-                : <Link href="/teacher/classes" className="text-blue-700 hover:underline">{classes.length ? "Manage classes" : "Add a class list"}</Link>}
+                : <Link href="/teacher/classes" className={actionButton}>{classes.length ? "Manage classes" : "Add a class list"}</Link>}
             </div>
             <ClassroomWorkPanel
               disabled={phase === "preparing"}
@@ -706,7 +706,7 @@ function BatchGrading() {
                 Grading: <span className="font-medium text-slate-800">{SCALE_PRESETS[(gradeScale ?? DEFAULT_SCALE).preset].label}</span>
                 {usesMarkingStyle(markingStyle) && <> · {[markingStyle.codes && "mark types", markingStyle.levels && "levels", markingStyle.ao && "AOs"].filter(Boolean).join(", ")}</>}
               </span>
-              {phase === "review" && <button type="button" onClick={() => setOptionsOpen((o) => !o)} className="font-semibold text-blue-700 hover:underline">{optionsOpen ? "Done" : "Change"}</button>}
+              {phase === "review" && <button type="button" onClick={() => setOptionsOpen((o) => !o)} className={actionButton}>{optionsOpen ? "Done" : "Change"}</button>}
             </div>
             {optionsOpen && phase === "review" && (
               <div className="mt-3 grid gap-4 rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:grid-cols-2">
@@ -834,7 +834,7 @@ function BatchGrading() {
           {lastRemoved && phase === "review" && (
             <p className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-700" aria-live="polite">
               Left {lastRemoved.name || "that paper"} out of this grading.
-              <button type="button" onClick={() => { setRemoved((s) => { const next = new Set(s); lastRemoved.pages.forEach((i) => next.delete(i)); return next }); setLastRemoved(null) }} className="font-semibold text-blue-700 hover:underline">Undo</button>
+              <button type="button" onClick={() => { setRemoved((s) => { const next = new Set(s); lastRemoved.pages.forEach((i) => next.delete(i)); return next }); setLastRemoved(null) }} className={actionButton}><RotateCcw />Undo</button>
             </p>
           )}
           <ul className="space-y-3">
@@ -877,7 +877,7 @@ function BatchGrading() {
                         ) : state === "check" && row ? (
                           <span className="inline-flex items-center gap-2 font-medium">
                             Is this {fullName(row)}?
-                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="inline-flex h-8 items-center rounded-lg bg-amber-600 px-3 text-sm font-semibold text-white hover:bg-amber-700">Yes</button>
+                            <button type="button" disabled={phase === "grading"} onClick={() => setNames((m) => ({ ...m, [paper.key]: fullName(row) }))} className="inline-flex h-10 items-center rounded-xl bg-amber-600 px-3 text-sm font-semibold text-white hover:bg-amber-700">Yes</button>
                           </span>
                         ) : state === "none" && roster.length > 0 ? (
                           <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
@@ -887,7 +887,7 @@ function BatchGrading() {
                               <>
                                 <span className="text-slate-500">· No paper yet:</span>
                                 {rosterCheck.missing.map((m) => (
-                                  <button key={m.id} type="button" onClick={() => setNames((x) => ({ ...x, [paper.key]: fullName(m) }))} className="inline-flex h-8 items-center rounded-lg bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-blue-50 hover:text-blue-800">{fullName(m)}</button>
+                                  <button key={m.id} type="button" onClick={() => setNames((x) => ({ ...x, [paper.key]: fullName(m) }))} className="inline-flex h-10 items-center rounded-xl bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-blue-50 hover:text-blue-800">{fullName(m)}</button>
                                 ))}
                               </>
                             )}
@@ -900,7 +900,7 @@ function BatchGrading() {
                         {headers[paper.key]?.fromFile && !paper.stamp && <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-sm font-semibold text-sky-700 ring-1 ring-sky-200">{headers[paper.key]?.fromClassroom ? "From Google Classroom" : "From file name"}</span>}
                         {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
                         {phase === "review" && !groupOpen.has(paper.key) && !paper.others.length && (
-                          <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:text-blue-700 hover:ring-blue-300"><UsersRound className="h-4 w-4" />Group work?</button>
+                          <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className={actionButton}><UsersRound className="h-4 w-4" />Group work?</button>
                         )}
                       </p>
                       {detailsFor === paper.key && row && !row.id.startsWith("temp-") && classId && (
@@ -1038,8 +1038,8 @@ function RosterDetailsForm({ row, onSave, onClose }: { row: RosterRow; onSave: (
         School email (optional)
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="links their account" className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-400" />
       </label>
-      <Button type="submit" size="sm" disabled={busy} className="bg-blue-600 hover:bg-blue-700">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
-      <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+      <Button type="submit" disabled={busy} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
+      <Button variant="ghost" type="button" onClick={onClose} className={actionButton}>Cancel</Button>
       <span className="w-full text-xs text-slate-500">Saved to {fullName(row)} on the class list.</span>
       {error && <span className="w-full text-xs text-rose-700">{error}</span>}
     </form>
@@ -1175,7 +1175,7 @@ function AnswerKeyPanel({ answerKey, editable, onChange, onRedo }: { answerKey: 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-semibold text-amber-900"><KeyRound className="h-4 w-4" />No mark scheme, so here&apos;s an answer key from the first paper</p>
         {editable && onRedo && answerKey.status !== "drafting" && (
-          <button type="button" onClick={onRedo} className="text-sm font-semibold text-amber-900 underline-offset-2 hover:underline">Write it again</button>
+          <button type="button" onClick={onRedo} className={actionButton}><RotateCcw />Write it again</button>
         )}
       </div>
       <p className="mt-1 text-sm text-amber-800">Every student is marked against this key, so totals match across the class. Check the answers and marks, and fix anything that&apos;s wrong before grading.</p>
@@ -1351,8 +1351,8 @@ function PageViewer({ index, pages, order, paper, paperNumber, startsPaper, edit
             </div>
           )}
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" disabled={prev === null} onClick={() => prev !== null && onGo(prev)}>← Previous</Button>
-            <Button variant="outline" className="flex-1" disabled={next === null} onClick={() => next !== null && onGo(next)}>Next →</Button>
+            <Button variant="ghost" className={cn(actionButton, "flex-1")} disabled={prev === null} onClick={() => prev !== null && onGo(prev)}>← Previous</Button>
+            <Button variant="ghost" className={cn(actionButton, "flex-1")} disabled={next === null} onClick={() => next !== null && onGo(next)}>Next →</Button>
           </div>
           <p className="text-xs text-slate-500">Click the page to zoom. Arrow keys move between pages.</p>
         </div>

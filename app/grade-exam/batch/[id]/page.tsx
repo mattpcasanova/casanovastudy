@@ -183,8 +183,8 @@ function BatchResults({ id }: { id: string }) {
                 <p className="mb-3 text-xs text-slate-500">For Cambridge papers, switch to raw marks and type this paper&apos;s boundaries.</p>
                 <ScaleEditor value={scale} onChange={setScale} possible={Number(first?.total_possible_marks) || undefined} />
                 <div className="mt-4 flex gap-2">
-                  <Button onClick={applyScale} disabled={busy} className="bg-blue-600 hover:bg-blue-700">{busy ? "Applying…" : `Apply to all ${rows.length} papers`}</Button>
-                  <Button variant="ghost" onClick={() => setScaleOpen(false)}>Cancel</Button>
+                  <Button onClick={applyScale} disabled={busy} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>{busy ? "Applying…" : `Apply to all ${rows.length} papers`}</Button>
+                  <Button variant="ghost" onClick={() => setScaleOpen(false)} className={actionButton}>Cancel</Button>
                 </div>
               </div>
             )}

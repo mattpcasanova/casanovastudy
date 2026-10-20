@@ -19,6 +19,7 @@ import type { GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/report-settings"
 import type { GradeScale } from "@/lib/grading/scale"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 
 interface GradingResult {
   id: string
@@ -205,7 +206,7 @@ export default function GradeReportPage() {
         <NavigationHeader />
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <p className="mb-4 text-destructive">{error || 'Report not found'}</p>
-          <Button onClick={() => router.push('/grade-exam')}>
+          <Button onClick={() => router.push('/grade-exam')} className={actionButtonPrimary}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to grading
           </Button>
         </div>
@@ -235,12 +236,12 @@ export default function GradeReportPage() {
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg shadow-blue-900/10 ring-1 ring-slate-200 print:hidden">
               {result.batchId && (
-                <Button asChild variant="ghost" size="sm">
+                <Button variant="ghost" asChild className={actionButton}>
                   <Link href={`/grade-exam/batch/${result.batchId}`}><Users className="mr-1.5 h-4 w-4" /> Class results</Link>
                 </Button>
               )}
               {canEdit && !editing && (
-                <Button size="sm" onClick={() => setEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => setEditing(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
                   <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
                 </Button>
               )}
@@ -249,11 +250,11 @@ export default function GradeReportPage() {
                   <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Customize
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Button variant="ghost" onClick={() => window.print()} className={actionButton}>
                 <Printer className="mr-1.5 h-4 w-4" /> Print
               </Button>
               {result.pdfUrl && (
-                <Button variant="outline" size="sm" onClick={() => window.open(result.pdfUrl!, '_blank')}>
+                <Button variant="ghost" onClick={() => window.open(result.pdfUrl!, '_blank')} className={actionButton}>
                   <Download className="mr-1.5 h-4 w-4" /> Graded PDF
                 </Button>
               )}
