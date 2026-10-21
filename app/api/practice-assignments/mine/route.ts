@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
-import { bestAttempt, practiceStatus } from '@/lib/practice/assignments'
+import { bestAttempt, practiceDaysLate, practiceStatus } from '@/lib/practice/assignments'
 
 // Practice assigned to the signed-in student (through any roster name linked to them).
 export async function GET(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     assignments: list.map(({ a }) => {
       const mine = (tries ?? []).filter((t) => t.assignment_id === a.id).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
-      return { id: a.id, title: a.title, grading: a.grading, dueAt: a.due_at, guideId: a.study_guide_id, createdAt: a.created_at, status: practiceStatus(mine, a.due_at), best: bestAttempt(mine) }
+      return { id: a.id, title: a.title, grading: a.grading, dueAt: a.due_at, guideId: a.study_guide_id, createdAt: a.created_at, status: practiceStatus(mine, a.due_at), daysLate: practiceDaysLate(mine, a.due_at), best: bestAttempt(mine) }
     }).sort((x, y) => (x.status === 'done' ? 1 : 0) - (y.status === 'done' ? 1 : 0) || (x.dueAt ?? '9').localeCompare(y.dueAt ?? '9')),
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

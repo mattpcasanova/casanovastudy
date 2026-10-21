@@ -1,6 +1,8 @@
 // A class's gradebook: students × graded sets (tests), from grading_results
 // linked to the class plus the "no paper" statuses. Pure; unit-tested.
 
+import { daysLate } from '@/lib/practice/assignments'
+
 export interface GradebookPaper {
   id: string
   batchId: string
@@ -33,12 +35,14 @@ export interface GradebookPractice {
   rosterId: string
   status: string
   best: { correct: number; total: number; pct: number } | null
+  /** Days past the due date (late or missing); 0 otherwise. */
+  daysLate?: number
 }
 
 export type GradebookCell =
-  | { kind: 'paper'; gradingId: string; marks: number; possible: number; pct: number; grade: string }
-  | { kind: 'status'; status: string }
-  | { kind: 'practice'; assignmentId: string; marks: number; possible: number; pct: number; late: boolean }
+  | { kind: 'paper'; gradingId: string; marks: number; possible: number; pct: number; grade: string; /** Set when the paper came in late (0 = same day as the set). */ daysLate?: number }
+  | { kind: 'status'; status: string; daysLate?: number }
+  | { kind: 'practice'; assignmentId: string; marks: number; possible: number; pct: number; late: boolean; daysLate?: number }
 
 export interface GradebookRow {
   key: string
@@ -72,10 +76,14 @@ export function buildGradebook(
   for (const r of roster) {
     rows.set(r.id, { key: r.id, rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), studentNumber: r.studentNumber, left: r.left, cells: {}, average: null, practiceAverage: null })
   }
+  // A late paper (the student was marked absent/missing first): days after the set was first graded.
+  const lateKeys = new Set(statuses.filter((s) => s.status === 'late').map((s) => `${s.batchId}|${s.rosterId}`))
   for (const p of papers) {
     const key = p.rosterId && rows.has(p.rosterId) ? p.rosterId : `name:${p.studentName.trim().toLowerCase()}`
     const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, studentNumber: null, left: false, cells: {}, average: null, practiceAverage: null }
-    row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade }
+    const isLate = !!p.rosterId && lateKeys.has(`${p.batchId}|${p.rosterId}`)
+    // daysLate present = late; 0 = graded the same day as the set.
+    row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade, ...(isLate ? { daysLate: daysLate(tests.get(p.batchId)?.date, p.createdAt) } : {}) }
     rows.set(key, row)
   }
   for (const s of statuses) {
@@ -91,9 +99,9 @@ export function buildGradebook(
     if (p.best) {
       t.papers += 1
       t.total += p.best.pct
-      row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late' }
+      row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
     } else if (p.status === 'missing') {
-      row.cells[p.assignmentId] = { kind: 'status', status: 'missing' }
+      row.cells[p.assignmentId] = { kind: 'status', status: 'missing', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
     }
   }
   for (const row of rows.values()) {

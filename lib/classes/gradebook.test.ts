@@ -23,6 +23,17 @@ describe('buildGradebook', () => {
     expect(sean.cells.b1).toMatchObject({ kind: 'paper', pct: 70 }) // a paper wins over its "late" status
     expect(rows[0]).toMatchObject({ left: true, average: null, cells: { b2: { kind: 'status', status: 'absent' } } })
     expect(rows[2]).toMatchObject({ rosterId: null, average: 50 })
+    expect(sean.cells.b1).toMatchObject({ daysLate: 0 }) // late, but graded the day the set was
+    expect(sean.cells.b2).not.toHaveProperty('daysLate')
+  })
+
+  it('counts days late from the day the set was first graded', () => {
+    const { rows } = buildGradebook(
+      [paper('g1', 'b1', 'r2', 'Ava Kim', 80, '2026-09-01T15:00:00Z'), paper('g2', 'b1', 'r1', 'Sean Miller', 70, '2026-09-04T12:00:00Z')],
+      [{ id: 'r1', firstName: 'Sean', lastName: 'Miller', studentNumber: null, left: false }, { id: 'r2', firstName: 'Ava', lastName: 'Kim', studentNumber: null, left: false }],
+      [{ batchId: 'b1', rosterId: 'r1', status: 'late' }],
+    )
+    expect(rows.find((r) => r.rosterId === 'r1')!.cells.b1).toMatchObject({ kind: 'paper', daysLate: 3 })
   })
 })
 

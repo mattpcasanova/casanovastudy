@@ -3,6 +3,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { areaBatchesFor, loadRoster, ownedClass } from '@/lib/classes/server'
 import { classAreas } from '@/lib/classes/areas'
+import { daysLate } from '@/lib/practice/assignments'
 
 // One student in a class: graded work (with "no paper" statuses), how they do
 // by area next to the class, and, only if they joined the class with its
@@ -34,8 +35,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const s = sets.get(p.batch_id) ?? { title: p.exam_title, date: p.created_at, total: 0, n: 0 }
     s.total += Number(p.percentage)
     s.n += 1
+    if (p.created_at < s.date) s.date = p.created_at
     sets.set(p.batch_id, s)
   }
+  const lateSets = new Set((statuses ?? []).filter((s) => s.status === 'late').map((s) => s.batch_id))
   const work = (papers ?? []).map((p) => ({
     kind: 'paper' as const,
     id: p.id,
@@ -49,6 +52,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     released: p.released,
     group: Array.isArray(p.group_members) && p.group_members.length > 1 ? (p.group_members as Array<{ name: string }>).map((m) => m.name) : null,
     classAverage: p.batch_id && sets.get(p.batch_id)?.n ? sets.get(p.batch_id)!.total / sets.get(p.batch_id)!.n : null,
+    // Came in after being marked absent/missing: days after the set was first graded (0 = same day).
+    daysLate: p.batch_id && lateSets.has(p.batch_id) ? daysLate(sets.get(p.batch_id)?.date, p.created_at) : null,
   }))
   const gradedBatches = new Set(work.map((w) => w.batchId))
   const missing = (statuses ?? []).filter((s) => !gradedBatches.has(s.batch_id) && sets.has(s.batch_id)).map((s) => ({

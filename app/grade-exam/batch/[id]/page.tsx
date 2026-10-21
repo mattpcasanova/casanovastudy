@@ -25,6 +25,7 @@ import { DEFAULT_SCALE, gradeFor, normalizeScale, type GradeScale } from "@/lib/
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { dayCount } from "@/lib/practice/assignments"
 
 interface Row {
   id: string
@@ -141,7 +142,7 @@ function BatchResults({ id }: { id: string }) {
     const csv = resultsCsv([
       ...sorted.map((r) => {
         const entry = r.roster_id ? byRoster.get(r.roster_id) : undefined
-        return { name: r.student_name, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), percentage: Number(r.percentage), grade: r.grade, studentNumber: entry?.studentNumber, status: entry?.status === "late" ? "Late" : undefined }
+        return { name: r.student_name, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), percentage: Number(r.percentage), grade: r.grade, studentNumber: entry?.studentNumber, status: entry?.status === "late" ? (entry.daysLate ? `Late (${dayCount(entry.daysLate)})` : "Late") : undefined }
       }),
       ...roster.filter((e) => !e.hasPaper).map((e) => ({ name: e.name, marks: null, possible: null, percentage: null, grade: "", studentNumber: e.studentNumber, status: label(e.status) ?? "No paper" })),
     ])
@@ -205,6 +206,11 @@ function BatchResults({ id }: { id: string }) {
                           aria-label="Student name"
                           className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 font-medium text-slate-900 hover:border-slate-200 focus:border-blue-400 focus:bg-white focus:outline-none"
                         />
+                        {(() => {
+                          const e = r.roster_id ? roster.find((x) => x.rosterId === r.roster_id) : undefined
+                          if (e?.status !== "late") return null
+                          return <span className="ml-2 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>
+                        })()}
                         {r.group_id && r.group_members && r.group_members.length > 1 && (
                           <span className="ml-2 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700" title={`Group work: ${r.group_members.map((m) => m.name).join(", ")}`}>Group of {r.group_members.length}</span>
                         )}

@@ -12,6 +12,7 @@ import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { resultsCsvTable } from "@/lib/classes/gradebook-csv"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
+import { dayCount } from "@/lib/practice/assignments"
 
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-50 text-emerald-900" : pct >= 65 ? "bg-blue-50 text-blue-900" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900")
 const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late" }
@@ -104,9 +105,9 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
                   return (
                     <td key={t.batchId} className="px-1 py-1">
                       {!c ? <span className="block px-2 text-slate-300">-</span>
-                        : c.kind === "status" ? <span className="block rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{STATUS_LABEL[c.status] ?? c.status}</span>
-                        : c.kind === "practice" ? <Link href={`/teacher/practice/${c.assignmentId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.late && <span className="ml-1 text-xs opacity-70">late</span>}</Link>
-                        : <Link href={`/grade-report/${c.gradingId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.grade && <span className="ml-1 text-xs opacity-70">{c.grade}</span>}</Link>}
+                        : c.kind === "status" ? <span className="block rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600" title={c.daysLate ? `${dayCount(c.daysLate)} past the due date` : undefined}>{STATUS_LABEL[c.status] ?? c.status}{c.daysLate ? <span className="ml-1 opacity-80">· {c.daysLate}d</span> : null}</span>
+                        : c.kind === "practice" ? <Link href={`/teacher/practice/${c.assignmentId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.late && <LateMark days={c.daysLate} />}</Link>
+                        : <Link href={`/grade-report/${c.gradingId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.grade && <span className="ml-1 text-xs opacity-70">{c.grade}</span>}{c.daysLate !== undefined && <LateMark days={c.daysLate} />}</Link>}
                     </td>
                   )
                 })}
@@ -116,5 +117,14 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
         </table>
       </div>
     </section>
+  )
+}
+
+/** "late" / "3d late" in a gradebook cell, with the full wording on hover. */
+function LateMark({ days }: { days?: number }) {
+  return (
+    <span className="ml-1 text-xs font-semibold text-amber-800" title={days ? `Turned in ${dayCount(days)} late` : "Turned in late"}>
+      {days ? `${days}d late` : "late"}
+    </span>
   )
 }

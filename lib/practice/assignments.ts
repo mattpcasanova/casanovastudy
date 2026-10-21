@@ -37,6 +37,28 @@ export function practiceStatus(attempts: Attempt[], dueAt: string | null, now = 
   return due != null && now > due ? 'missing' : 'not_started'
 }
 
+const DAY = 24 * 60 * 60 * 1000
+
+/** Whole days past a deadline, rounded up (3 hours late is 1 day); 0 when on time or no deadline. */
+export function daysLate(dueAt: string | null | undefined, at: string | number | null | undefined): number {
+  if (!dueAt || at == null) return 0
+  const over = (typeof at === 'number' ? at : Date.parse(at)) - Date.parse(dueAt)
+  return Number.isFinite(over) && over > 0 ? Math.ceil(over / DAY) : 0
+}
+
+/** Days late for practiceStatus: late = first finished run vs the due date, missing = now vs the due date. */
+export function practiceDaysLate(attempts: Attempt[], dueAt: string | null, now = Date.now()): number {
+  const status = practiceStatus(attempts, dueAt, now)
+  if (status === 'late') return daysLate(dueAt, attempts.filter((a) => a.counted).map((a) => a.finishedAt).sort()[0])
+  if (status === 'missing') return daysLate(dueAt, now)
+  return 0
+}
+
+/** "1 day" / "4 days". */
+export function dayCount(days: number): string {
+  return `${days} day${days === 1 ? '' : 's'}`
+}
+
 const digits = (s: string | null | undefined) => (s ?? '').replace(/\D+/g, '').replace(/^0+/, '')
 const alnum = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 

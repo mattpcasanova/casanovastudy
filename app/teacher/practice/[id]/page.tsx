@@ -17,8 +17,9 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { dayCount } from "@/lib/practice/assignments"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; url: string; created_at: string; class_id: string }
   students: Student[]
@@ -131,7 +132,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                 {s.linkedVia === "picked" && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
                 {!s.linked && <span className="ml-2 text-xs font-normal text-slate-400">hasn&apos;t opened the link</span>}
               </Link>
-              <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", (STATUS[s.status] ?? STATUS.not_started).cls)}>{(STATUS[s.status] ?? STATUS.not_started).label}</span>
+              <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", (STATUS[s.status] ?? STATUS.not_started).cls)}>{(STATUS[s.status] ?? STATUS.not_started).label}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}</span>
               <span className="w-36 text-right font-semibold tabular-nums text-slate-900">{score(s)}</span>
               <span className="w-28 text-right text-xs text-slate-500">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.lastAt ? ` · ${new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span>
               {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <span className="w-full pl-0 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</span> : null}

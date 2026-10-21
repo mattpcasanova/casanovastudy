@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: assignments } = await supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).eq('class_id', id).eq('teacher_id', user.id)
   const progress = await assignmentProgress(supabase, (assignments ?? []) as AssignmentRow[])
   const practice: GradebookPractice[] = ((assignments ?? []) as AssignmentRow[]).flatMap((a) =>
-    (progress.get(a.id) ?? []).map((st) => ({ assignmentId: a.id, title: a.title, date: a.due_at ?? a.created_at, rosterId: st.rosterId, status: st.status, best: st.best ? { correct: st.best.correct, total: st.best.total, pct: st.best.pct } : null })),
+    (progress.get(a.id) ?? []).map((st) => ({ assignmentId: a.id, title: a.title, date: a.due_at ?? a.created_at, rosterId: st.rosterId, status: st.status, daysLate: st.daysLate, best: st.best ? { correct: st.best.correct, total: st.best.total, pct: st.best.pct } : null })),
   )
 
   const gradebook = buildGradebook(

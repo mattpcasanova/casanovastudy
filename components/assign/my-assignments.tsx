@@ -8,8 +8,9 @@ import Link from "next/link"
 import { CalendarClock, ChevronRight, ClipboardCheck } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
+import { dayCount } from "@/lib/practice/assignments"
 
-interface Mine { id: string; title: string; grading: string; dueAt: string | null; guideId: string; status: string; best: { pct: number; correct: number; total: number } | null }
+interface Mine { id: string; title: string; grading: string; dueAt: string | null; guideId: string; status: string; daysLate?: number; best: { pct: number; correct: number; total: number } | null }
 
 const LABEL: Record<string, [string, string]> = {
   done: ["Done", "bg-emerald-50 text-emerald-800 ring-emerald-200"],
@@ -32,7 +33,8 @@ export function MyAssignments() {
       <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><ClipboardCheck className="h-5 w-5 text-emerald-700" />Assigned to you</h2>
       <ul className="space-y-2">
         {list.map((a) => {
-          const [label, cls] = LABEL[a.status] ?? LABEL.not_started
+          const [base, cls] = LABEL[a.status] ?? LABEL.not_started
+          const label = a.daysLate ? (a.status === "late" ? `Turned in ${dayCount(a.daysLate)} late` : `Missing · ${dayCount(a.daysLate)} overdue`) : base
           return (
             <li key={a.id}>
               <Link href={`/study-guide/${a.guideId}?assignment=${a.id}`} className="group flex items-center gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50/40">

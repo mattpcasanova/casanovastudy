@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
+import { dayCount } from "@/lib/practice/assignments"
 
 export interface BatchClassRow {
   id: string
@@ -35,6 +36,8 @@ export interface BatchRosterEntry {
   studentNumber: string | null
   status: "absent" | "missing" | "exempt" | "late" | null
   hasPaper: boolean
+  /** Late papers: days after the set was first graded (0 = same day). */
+  daysLate?: number
 }
 
 const STATUSES = [["absent", "Absent"], ["missing", "Missing"], ["exempt", "Exempt"]] as const
@@ -185,7 +188,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                   <p className="mt-2 text-xs text-slate-500">Statuses go into the CSV. Exempt students are left out; a paper graded later for a missing student is marked late.</p>
                 </div>
               )}
-              {late.length > 0 && <p className="mt-2 text-xs text-slate-600">Late: {late.map((e) => e.name).join(", ")}</p>}
+              {late.length > 0 && <p className="mt-2 text-sm text-slate-700">Late: {late.map((e) => `${e.name}${e.daysLate ? ` (${dayCount(e.daysLate)})` : ""}`).join(", ")}</p>}
               <label className="mt-3 flex items-center gap-3">
                 <Switch checked={released} onCheckedChange={(v) => void setReleased(v)} disabled={busy} />
                 <span className="text-sm text-slate-800">

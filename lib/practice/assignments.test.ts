@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attemptsLeft, bestAttempt, gradingFor, makeCode, pickerName, practiceStatus, sameStudentId } from './assignments'
+import { attemptsLeft, bestAttempt, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
 
 const at = (pct: number, finishedAt: string, counted = true) => ({ pct, correct: pct, total: 100, counted, finishedAt })
 
@@ -36,5 +36,26 @@ describe('assigned practice', () => {
   it('picker names show first name and last initial', () => {
     expect(pickerName('Lianna Christine', 'Wysocki')).toBe('Lianna W.')
     expect(pickerName('Mya', '')).toBe('Mya')
+  })
+})
+
+describe('days late', () => {
+  const due = '2026-10-20T23:59:00Z'
+  it('rounds up and is 0 when on time', () => {
+    expect(daysLate(due, '2026-10-20T20:00:00Z')).toBe(0)
+    expect(daysLate(due, '2026-10-21T02:00:00Z')).toBe(1)
+    expect(daysLate(due, '2026-10-23T23:00:00Z')).toBe(3)
+    expect(daysLate(null, '2026-10-23T23:00:00Z')).toBe(0)
+  })
+  it('counts from the first counted run for late work, and to now for missing work', () => {
+    const run = (finishedAt: string, counted = true) => ({ pct: 80, correct: 8, total: 10, counted, finishedAt })
+    expect(practiceDaysLate([run('2026-10-22T10:00:00Z'), run('2026-10-25T10:00:00Z')], due)).toBe(2)
+    expect(practiceDaysLate([], due, Date.parse('2026-10-24T12:00:00Z'))).toBe(4)
+    expect(practiceDaysLate([run('2026-10-20T10:00:00Z')], due)).toBe(0)
+    expect(practiceDaysLate([], null)).toBe(0)
+  })
+  it('labels', () => {
+    expect(dayCount(1)).toBe('1 day')
+    expect(dayCount(3)).toBe('3 days')
   })
 })

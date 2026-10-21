@@ -16,9 +16,12 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { dayCount } from "@/lib/practice/assignments"
 
 interface Work {
   kind: "paper" | "status"
+  /** Late paper: days after the set was first graded (0 = same day). */
+  daysLate?: number | null
   id?: string
   batchId: string
   title: string
@@ -128,6 +131,7 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                         </span>
                         {w.kind === "paper" ? (
                           <>
+                            {w.daysLate != null && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{w.daysLate ? ` · ${dayCount(w.daysLate)}` : ""}</span>}
                             <span className={cn("text-right text-sm font-semibold tabular-nums", tone(w.pct ?? 0))}>{w.marks}/{w.possible} · {Math.round(w.pct ?? 0)}%{w.grade ? ` · ${w.grade}` : ""}</span>
                             <Link href={`/grade-report/${w.id}`} className="inline-flex h-9 items-center rounded-xl px-3.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>
                           </>

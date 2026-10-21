@@ -248,7 +248,7 @@ export default function GradeReportPage() {
                 </Button>
               )}
               {canEdit && (
-                <Button variant={showOptions ? "secondary" : "outline"} size="sm" onClick={() => setShowOptions((o) => !o)}>
+                <Button variant="ghost" aria-pressed={showOptions} onClick={() => setShowOptions((o) => !o)} className={cn(actionButton, showOptions && "bg-blue-50 text-blue-800 ring-blue-300 hover:bg-blue-50")}>
                   <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Customize
                 </Button>
               )}

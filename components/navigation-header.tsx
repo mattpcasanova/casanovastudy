@@ -77,7 +77,7 @@ export default function NavigationHeader() {
           {/* Logo lockup — the brand mark is a dim neon-on-dark image, so we show
               the (brightened) icon on a dark chip and set the wordmark as crisp
               white text, guaranteeing it reads on the blue bar. */}
-          <Link href={mounted && isTeacher ? '/teach' : '/'} className="group flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]">
+          <Link href={mounted && isTeacher ? '/teach' : '/'} className="group flex shrink-0 items-center gap-2 transition-transform duration-200 hover:scale-[1.02]">
             <Image
               src="/images/casanova-study-icon.png"
               alt="Casanova Study"
@@ -85,14 +85,14 @@ export default function NavigationHeader() {
               height={80}
               className="h-10 w-auto mix-blend-screen [filter:brightness(1.5)_saturate(1.2)]"
             />
-            <span className="text-xl font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+            <span className="whitespace-nowrap text-xl font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               Casanova Study
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-3">
-            <nav className="flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3">
+            <nav className="flex items-center gap-1 xl:gap-2">
               {/* Study guides — the core of the product, so plain top-level links */}
               {[
                 { href: isTeacher ? '/?new=1' : '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
@@ -103,7 +103,7 @@ export default function NavigationHeader() {
                 <Button
                   key={href}
                   variant={active ? 'secondary' : 'ghost'}
-                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                  className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                     active
                       ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                       : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -123,7 +123,7 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isGradingActive ? 'secondary' : 'ghost'}
-                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                      className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                         isGradingActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -169,7 +169,7 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isStudentClassesActive || isJoinClassActive || isCalendarActive ? 'secondary' : 'ghost'}
-                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                      className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                         isStudentClassesActive || isJoinClassActive || isCalendarActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -207,7 +207,7 @@ export default function NavigationHeader() {
               {CLASSES_ENABLED && mounted && user && !isTeacher && (
                 <Button
                   variant={isMyTeachersActive ? 'secondary' : 'ghost'}
-                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                  className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                     isMyTeachersActive
                       ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                       : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -227,7 +227,7 @@ export default function NavigationHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant={isMyClassesActive || isCalendarActive || isQuizzesActive || isQuestionBankActive ? 'secondary' : 'ghost'}
-                      className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                      className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                         isMyClassesActive || isCalendarActive || isQuizzesActive || isQuestionBankActive
                           ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                           : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -271,7 +271,7 @@ export default function NavigationHeader() {
               {CLASSES_ENABLED && mounted && user && isTeacher && (
                 <Button
                   variant={isMyStudentsActive ? 'secondary' : 'ghost'}
-                  className={`h-10 rounded-full px-4 transition-all duration-200 ${
+                  className={`h-10 whitespace-nowrap rounded-full px-3 xl:px-4 transition-all duration-200 ${
                     isMyStudentsActive
                       ? 'bg-white/20 text-white shadow-sm ring-1 ring-inset ring-white/25 hover:bg-white/25'
                       : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -323,7 +323,7 @@ export default function NavigationHeader() {
           </div>
 
           {/* Mobile: user avatar + hamburger */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex lg:hidden items-center gap-2">
             {mounted && user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -370,7 +370,7 @@ export default function NavigationHeader() {
 
       {/* Mobile menu panel */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-white/20 bg-white/10 backdrop-blur-sm">
+        <div className="lg:hidden border-t border-white/20 bg-white/10 backdrop-blur-sm">
           <nav className="container mx-auto px-4 py-3 flex flex-col gap-1">
             {/* Study Guides section */}
             <p className="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 pt-2 pb-1">Study Guides</p>
