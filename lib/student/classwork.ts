@@ -1,4 +1,4 @@
-// Server side of "My Class" for students (service role; callers pass the
+// Server side of "My Classes" for students (service role; callers pass the
 // signed-in user's id from the session). Classes come from roster names linked
 // to them and classes they joined with a code; reports only once released.
 
@@ -7,6 +7,7 @@ import { bestAttempt, practiceDaysLate, practiceStatus } from '@/lib/practice/as
 import { firstGradedBySet, lateDaysByPaper } from '@/lib/grading/late'
 import { missingTests } from './classwork-rules'
 import { schoolYearFor } from '@/lib/classes/years'
+import { classroomWorkUrl } from '@/lib/google/links'
 
 export interface StudentClass { id: string; name: string; period: string | null; teacherName: string | null }
 export interface StudentPractice {
@@ -42,7 +43,7 @@ export async function assignedPracticeFor(supabase: SupabaseClient, userId: stri
   }).sort((x, y) => (x.status === 'done' ? 1 : 0) - (y.status === 'done' ? 1 : 0) || (x.dueAt ?? '9').localeCompare(y.dueAt ?? '9'))
 }
 
-/** Everything for the student's My Class page and homepage strip. */
+/** Everything for the student's My Classes page and homepage strip. */
 export async function loadClasswork(supabase: SupabaseClient, userId: string) {
   const [{ data: rosterRows }, { data: enrollments }, { data: reportRows }] = await Promise.all([
     supabase.from('class_roster').select('id, class_id, left_at').eq('student_user_id', userId),
@@ -86,11 +87,17 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
         supabase.from('batch_student_status').select('batch_id, status').in('roster_id', myRoster.map((r) => r.id as string)),
       ])
     : [{ data: [] }, { data: [] }]
-  const tests = missingTests(
+  const found = missingTests(
     (classPapers ?? []).map((p) => ({ batchId: p.batch_id as string, classId: p.class_id as string, title: p.exam_title, createdAt: p.created_at, rosterId: p.roster_id })),
     new Set(myRoster.map((r) => r.id as string)),
     (myStatuses ?? []).map((s) => ({ batchId: s.batch_id as string, status: s.status as string })),
   )
+  // Sets graded from a Classroom assignment link back to it, so they can turn it in there.
+  const { data: setups } = found.length
+    ? await supabase.from('grading_batches').select('batch_id, classroom_course_id, classroom_work_id').in('batch_id', found.map((t) => t.batchId))
+    : { data: [] }
+  const linkOf = new Map((setups ?? []).map((g) => [g.batch_id as string, classroomWorkUrl(g.classroom_course_id, g.classroom_work_id)]))
+  const tests = found.map((t) => ({ ...t, classroomUrl: linkOf.get(t.batchId) ?? null }))
 
   const openIds = new Set(classes.map((c) => c.id))
   return {

@@ -173,8 +173,9 @@ async function main() {
   check('no "not turned in" for sets she has a paper in', Array.isArray(r.json?.missingTests) && r.json.missingTests.length === 0, JSON.stringify(r.json?.missingTests))
   const batch3 = crypto.randomUUID()
   await admin.from('grading_results').insert(paper(batch3, mya.id, null, new Date(base).toISOString(), false, 'E2E Missed test'))
+  await admin.from('grading_batches').insert({ batch_id: batch3, user_id: teacher.id, classroom_course_id: '871738965408', classroom_work_id: '893532706582' })
   r = await a('GET', '/api/student/classwork')
-  check('a graded set with no paper from her shows as not turned in', r.json?.missingTests?.length === 1 && r.json.missingTests[0].title === 'E2E Missed test', JSON.stringify(r.json?.missingTests))
+  check('a graded set with no paper from her shows as not turned in, linked to Classroom', r.json?.missingTests?.length === 1 && r.json.missingTests[0].title === 'E2E Missed test' && r.json.missingTests[0].classroomUrl === 'https://classroom.google.com/c/ODcxNzM4OTY1NDA4/a/ODkzNTMyNzA2NTgy/details', JSON.stringify(r.json?.missingTests))
   await admin.from('batch_student_status').insert({ user_id: teacher.id, batch_id: batch3, roster_id: lianna.id, status: 'exempt' })
   r = await a('GET', '/api/student/classwork')
   check('exempt hides it', r.json?.missingTests?.length === 0)
@@ -194,6 +195,7 @@ async function main() {
 async function cleanup() {
   if (created.teacherId) await admin.from('grading_results').delete().eq('user_id', created.teacherId)
   if (created.teacherId) await admin.from('batch_student_status').delete().eq('user_id', created.teacherId)
+  if (created.teacherId) await admin.from('grading_batches').delete().eq('user_id', created.teacherId)
   if (created.classId) await admin.from('classes').delete().eq('id', created.classId)
   if (created.guideId) await admin.from('study_guides').delete().eq('id', created.guideId)
   for (const id of created.users) await admin.auth.admin.deleteUser(id)

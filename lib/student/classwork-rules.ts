@@ -52,7 +52,7 @@ export function homeStrip<A extends StudentAssignment, R extends StudentReport>(
   return { next: items.slice(0, max), moreOpen: Math.max(0, items.length - max), openCount: items.length, newReports: fresh }
 }
 
-export interface MissingTest { batchId: string; title: string; classId: string; firstGraded: string; status: string | null }
+export interface MissingTest { batchId: string; title: string; classId: string; firstGraded: string; status: string | null; /** Set when the set came from a Google Classroom assignment. */ classroomUrl?: string | null }
 
 /**
  * Graded tests in the student's classes they have no paper for. Shown once the

@@ -1,6 +1,6 @@
 "use client"
 
-// My Class (2026-10-21): the student side of classes, in the nav spot where
+// My Classes (2026-10-21): the student side of classes, in the nav spot where
 // teachers have Grading. Work their teacher assigned (to do first), reports
 // the teacher released, and their classes. The guide maker stays their home.
 
@@ -55,7 +55,7 @@ function MyClass() {
           <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }} />
         </div>
         <div className="container relative mx-auto max-w-5xl px-4">
-          <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight sm:text-5xl")}>{many ? "My Classes" : "My Class"}</h1>
+          <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight sm:text-5xl")}>My Classes</h1>
           <p className="mt-2 text-lg text-blue-50">
             {!data ? " " : open.length ? `You have ${open.length} thing${open.length === 1 ? "" : "s"} to do.` : "You're all caught up."}
           </p>
@@ -111,7 +111,7 @@ function MyClass() {
             </div>
 
             <section className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><Users className="h-5 w-5 text-blue-700" />{many ? "Your classes" : "Your class"}</h2>
+              <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><Users className="h-5 w-5 text-blue-700" />Your classes</h2>
               {data.classes.length === 0 ? (
                 <p className="mb-3 text-sm text-slate-600">You&apos;re not in a class yet. Ask your teacher for the class code.</p>
               ) : (
