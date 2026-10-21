@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         grade
       `)
       .eq('student_user_id', user.id)
+      .eq('released', true) // the teacher hasn't released the rest yet
       .order('created_at', { ascending: false })
 
     if (reportsError) {

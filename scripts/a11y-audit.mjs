@@ -73,7 +73,8 @@ async function seed() {
   const { data: cls } = await admin.from('classes').insert({ teacher_id: teacher.id, name: 'A11Y AUDIT CLASS (safe to delete)', period: '3', enrollment_code: 'A' + Math.random().toString(36).slice(2, 7).toUpperCase().replace(/[^A-Z2-9]/g, 'X') }).select('id, enrollment_code').single()
   created.classId = cls.id
   await t('POST', `/api/classes/${cls.id}/roster`, { text: 'Sean Miller\nLee, Mary Ann\nAva Kim\nNoah Park' })
-  await api(student.session)('POST', '/api/classes/join', { code: cls.enrollment_code })
+  const joined = await api(student.session)('POST', '/api/classes/join', { code: cls.enrollment_code })
+  if (joined.status >= 300) console.warn('Student could not join the class:', joined.status, JSON.stringify(joined.json))
   const roster = (await t('GET', `/api/classes/${cls.id}/roster`)).json.roster
   const breakdown = (a, b) => [
     { questionNumber: '1', marksAwarded: a, marksPossible: 5, explanation: 'Method fine.', feedback: 'Good start.' },
@@ -83,6 +84,7 @@ async function seed() {
     user_id: teacher.id, batch_id: created.batchId, student_name: name, student_exam_filename: 'a11y', total_marks: a + b, total_possible_marks: 10,
     percentage: (a + b) * 10, grade: 'B', content: 'a11y', grade_breakdown: breakdown(a, b), released: true, exam_title: 'A11y Quiz',
     class_id: cls.id, roster_id: roster.find((r) => `${r.firstName} ${r.lastName}` === name)?.id ?? null,
+    student_user_id: name === 'Sean Miller' ? student.id : null,
   }))
   const { data: results } = await admin.from('grading_results').insert(rows).select('id, student_name')
   const quizId = await copyGuide(teacher.id, 'quiz')
@@ -118,7 +120,7 @@ async function main() {
       `/study-guide/${s.quizId}`,
     ],
     student: [
-      '/', '/progress', s.assignment ? `/practice/${s.assignment.code}` : null, `/study-guide/${s.quizId}`, `/study-guide/${s.practiceId}`,
+      '/', '/progress', '/my-class', s.assignment ? `/practice/${s.assignment.code}` : null, `/study-guide/${s.quizId}`, `/study-guide/${s.practiceId}`,
       `/study-guide/${s.adaptiveId}`, `/study-guide/${s.flashId}`, `/study-guide/${s.outlineId}`, `/study-guide/${s.quizId}/learn`,
     ],
     signedOut: ['/auth/signin', '/auth/signup', '/privacy'],
@@ -135,6 +137,8 @@ async function main() {
         if (only && !url.startsWith(only)) continue
         try {
           const v = await audit(page, url)
+          const shots = flag('shots') // --shots <dir>: a full-page screenshot per page
+          if (shots) await page.screenshot({ path: `${shots}/${who}${url.replace(/[^a-z0-9]+/gi, '_').slice(0, 60)}.png`, fullPage: true })
           report.push({ who, url, violations: v })
           console.log(`${who.padEnd(9)} ${url.padEnd(70)} ${v.length ? v.map((x) => `${x.id}(${x.nodes.length})`).join(' ') : 'clean'}`)
         } catch (e) {

@@ -1,7 +1,7 @@
 // A class's gradebook: students × graded sets (tests), from grading_results
 // linked to the class plus the "no paper" statuses. Pure; unit-tested.
 
-import { daysLate } from '@/lib/practice/assignments'
+import { paperDaysLate } from '@/lib/grading/late'
 
 export interface GradebookPaper {
   id: string
@@ -83,7 +83,7 @@ export function buildGradebook(
     const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, studentNumber: null, left: false, cells: {}, average: null, practiceAverage: null }
     const isLate = !!p.rosterId && lateKeys.has(`${p.batchId}|${p.rosterId}`)
     // daysLate present = late; 0 = graded the same day as the set.
-    row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade, ...(isLate ? { daysLate: daysLate(tests.get(p.batchId)?.date, p.createdAt) } : {}) }
+    row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade, ...(isLate ? { daysLate: paperDaysLate(tests.get(p.batchId)?.date, p.createdAt) } : {}) }
     rows.set(key, row)
   }
   for (const s of statuses) {

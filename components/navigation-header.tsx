@@ -18,6 +18,7 @@ import { CLASSES_ENABLED } from '@/lib/features'
 import { IosSteps, useInstall } from '@/components/pwa/pwa'
 import { PlanMenuItems } from '@/components/plan/plan-menu'
 import { SchoolMenuItem } from "@/components/school/school-menu-item"
+import { useInClass } from "@/components/student/classwork"
 
 // Get user initials from name or email
 function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
@@ -63,6 +64,9 @@ export default function NavigationHeader() {
   const isQuestionBankActive = pathname?.startsWith('/teacher/question-bank')
   const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report') || pathname?.startsWith('/teacher/classes')
   const isTeacher = user?.user_type === 'teacher'
+  // Students in a class get My Class where teachers have Grading.
+  const inClass = useInClass()
+  const myClassLabel = inClass.many ? 'My Classes' : 'My Class'
 
   return (
     <header className="relative bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 text-white shadow-lg sticky top-0 z-50">
@@ -99,6 +103,7 @@ export default function NavigationHeader() {
                 { href: '/create-guide', label: 'Custom Builder', icon: PenSquare, active: !!pathname?.startsWith('/create-guide'), show: mounted && !!user },
                 { href: '/my-guides', label: 'My Guides', icon: FileText, active: !!(pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')), show: mounted && !!user },
                 { href: '/progress', label: 'Progress', icon: TrendingUp, active: !!pathname?.startsWith('/progress'), show: mounted && !!user },
+                { href: '/my-class', label: myClassLabel, icon: Users, active: !!pathname?.startsWith('/my-class'), show: mounted && !!user && !isTeacher && inClass.show },
               ].filter((l) => l.show).map(({ href, label, icon: Icon, active }) => (
                 <Button
                   key={href}
@@ -412,6 +417,17 @@ export default function NavigationHeader() {
                   <TrendingUp className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">Progress</span>
                 </Link>
+                {!isTeacher && inClass.show && (
+                  <Link
+                    href="/my-class"
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                      pathname?.startsWith('/my-class') ? 'bg-white/20' : 'hover:bg-white/10'
+                    }`}
+                  >
+                    <Users className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-sm font-medium">{myClassLabel}</span>
+                  </Link>
+                )}
               </>
             )}
 

@@ -6,7 +6,7 @@ import { parseName } from '@/lib/grading/names'
 import { gradeFor, normalizeScale } from '@/lib/grading/scale'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 import { matchRoster } from '@/lib/grading/names'
-import { daysLate } from '@/lib/practice/assignments'
+import { paperDaysLate } from '@/lib/grading/late'
 
 // A batch's results (the class results page): every paper with its per-question
 // breakdown, plus the saved class report and whether it still matches the marks. Owner only.
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const paperAt = new Map(results.filter((r) => r.roster_id).map((r) => [r.roster_id as string, r.created_at as string]))
     roster = rows.map((r) => {
       const status = statusOf.get(r.id) ?? null
-      const late = status === 'late' && paperAt.has(r.id) ? { daysLate: daysLate(firstGraded, paperAt.get(r.id)) } : {}
+      const late = status === 'late' && paperAt.has(r.id) ? { daysLate: paperDaysLate(firstGraded, paperAt.get(r.id)) } : {}
       return { rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), firstName: r.firstName, lastName: r.lastName, studentNumber: r.studentNumber, email: r.email, status, hasPaper: withPaper.has(r.id), ...late }
     })
   }

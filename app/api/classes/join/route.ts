@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
+import { getRequestUser } from '@/lib/request-user'
 import { syncRosterWithEnrollments } from '@/lib/classes/server'
 import { isVerifiedTeacher, UNVERIFIED_TEACHER_MESSAGE } from '@/lib/teachers/verification'
 
@@ -7,7 +8,7 @@ import { isVerifiedTeacher, UNVERIFIED_TEACHER_MESSAGE } from '@/lib/teachers/ve
 // If a previous (class, student) row exists with status='removed', reactivate it.
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request)
+    const user = await getRequestUser(request)
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in' }, { status: 401 })
     }

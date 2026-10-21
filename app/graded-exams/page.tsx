@@ -36,8 +36,10 @@ import {
   Pencil,
   Eye,
   EyeOff,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from 'lucide-react'
+import { lateDaysByPaper, lateLabel } from '@/lib/grading/late'
 import { EditReportDialog } from '@/components/edit-report-dialog'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -73,6 +75,10 @@ interface GradingResult {
   class_period: string | null
   exam_title: string | null
   assignment_submission_id: string | null
+  batch_id: string | null
+  roster_id: string | null
+  /** Set for late papers (handed in after being marked absent/missing). */
+  daysLate?: number
   grade_breakdown?: Array<{
     questionNumber: string
     marksAwarded: number
@@ -304,13 +310,17 @@ export default function GradedExamsPage() {
         setResultsLoading(true)
         const { data, error: fetchError } = await supabase
           .from('grading_results')
-          .select('id, student_name, student_first_name, student_last_name, student_user_id, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title, assignment_submission_id')
+          .select('id, student_name, student_first_name, student_last_name, student_user_id, answer_sheet_filename, student_exam_filename, original_filename, total_marks, total_possible_marks, percentage, grade, created_at, user_id, class_name, class_period, exam_title, assignment_submission_id, batch_id, roster_id')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 
         if (fetchError) throw fetchError
 
-        setGradingResults(data || [])
+        const rows = (data || []) as GradingResult[]
+        // Late papers: the set's status for that student says 'late'.
+        const { data: statuses } = await supabase.from('batch_student_status').select('batch_id, roster_id, status').eq('user_id', user.id).eq('status', 'late')
+        const late = lateDaysByPaper(rows, statuses ?? [])
+        setGradingResults(rows.map((r) => (late.has(r.id) ? { ...r, daysLate: late.get(r.id) } : r)))
       } catch (err) {
         console.error('Error fetching grading results:', err)
         setError(err instanceof Error ? err.message : 'Failed to load grading results')
@@ -570,8 +580,9 @@ export default function GradedExamsPage() {
                         <div className={cn('h-full rounded-full', band.bar)} style={{ width: `${Math.min(100, Math.max(0, result.percentage))}%` }} />
                       </div>
 
-                      {(result.class_name || result.class_period) && (
+                      {(result.class_name || result.class_period || result.daysLate != null) && (
                         <div className="mt-4 flex flex-wrap gap-1.5">
+                          {result.daysLate != null && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200"><Clock className="h-3 w-3" />{lateLabel(result.daysLate)}</span>}
                           {result.class_name && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{result.class_name}</span>}
                           {result.class_period && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">Period {result.class_period}</span>}
                         </div>

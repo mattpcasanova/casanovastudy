@@ -3,7 +3,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { areaBatchesFor, loadRoster, ownedClass } from '@/lib/classes/server'
 import { classAreas } from '@/lib/classes/areas'
-import { daysLate } from '@/lib/practice/assignments'
+import { paperDaysLate } from '@/lib/grading/late'
 
 // One student in a class: graded work (with "no paper" statuses), how they do
 // by area next to the class, and, only if they joined the class with its
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     group: Array.isArray(p.group_members) && p.group_members.length > 1 ? (p.group_members as Array<{ name: string }>).map((m) => m.name) : null,
     classAverage: p.batch_id && sets.get(p.batch_id)?.n ? sets.get(p.batch_id)!.total / sets.get(p.batch_id)!.n : null,
     // Came in after being marked absent/missing: days after the set was first graded (0 = same day).
-    daysLate: p.batch_id && lateSets.has(p.batch_id) ? daysLate(sets.get(p.batch_id)?.date, p.created_at) : null,
+    daysLate: p.batch_id && lateSets.has(p.batch_id) ? paperDaysLate(sets.get(p.batch_id)?.date, p.created_at) : null,
   }))
   const gradedBatches = new Set(work.map((w) => w.batchId))
   const missing = (statuses ?? []).filter((s) => !gradedBatches.has(s.batch_id) && sets.has(s.batch_id)).map((s) => ({

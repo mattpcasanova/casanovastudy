@@ -6,6 +6,7 @@ import type { GradedQuestion } from '@/lib/grading/parse'
 import { gradeFor, normalizeScale, percentOf } from '@/lib/grading/scale'
 import { normalizeMarkingStyle } from '@/lib/grading/marking-style'
 import { settingsFromRow } from '@/lib/grading/report-settings'
+import { paperDaysLate } from '@/lib/grading/late'
 
 const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' ? v.trim().slice(0, max) : undefined
@@ -177,6 +178,18 @@ export async function GET(
       .eq('user_id', gradingResult.user_id)
       .maybeSingle()
 
+    // Handed in after being marked absent/missing: days after the set was first graded.
+    let daysLate: number | null = null
+    if (gradingResult.batch_id && gradingResult.roster_id) {
+      const { data: status } = await supabase.from('batch_student_status').select('status')
+        .eq('batch_id', gradingResult.batch_id).eq('roster_id', gradingResult.roster_id).eq('user_id', gradingResult.user_id).maybeSingle()
+      if (status?.status === 'late') {
+        const { data: first } = await supabase.from('grading_results').select('created_at')
+          .eq('batch_id', gradingResult.batch_id).eq('user_id', gradingResult.user_id).order('created_at', { ascending: true }).limit(1).maybeSingle()
+        daysLate = paperDaysLate(first?.created_at, gradingResult.created_at)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -209,6 +222,7 @@ export async function GET(
         linkedStudent: !!gradingResult.student_user_id,
         released: gradingResult.released !== false,
         reportSettings: settingsFromRow(settingsRow),
+        daysLate,
       }
     })
 

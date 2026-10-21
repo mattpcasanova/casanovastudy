@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Check, Download, Edit2, FileCheck, Loader2, Printer, SlidersHorizontal, Users } from "lucide-react"
+import { ArrowLeft, Check, Clock, Download, Edit2, FileCheck, Loader2, Printer, SlidersHorizontal, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import NavigationHeader from "@/components/navigation-header"
@@ -20,6 +20,7 @@ import type { MarkingStyle } from "@/lib/grading/marking-style"
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/report-settings"
 import type { GradeScale } from "@/lib/grading/scale"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { lateLabel } from "@/lib/grading/late"
 
 interface GradingResult {
   id: string
@@ -42,6 +43,8 @@ interface GradingResult {
   groupMembers: string[]
   released: boolean
   reportSettings: ReportSettings
+  /** Handed in after being marked absent/missing; days after the set was first graded. */
+  daysLate: number | null
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -285,10 +288,19 @@ export default function GradeReportPage() {
               </p>
             )}
             <div className={cn("rounded-3xl border bg-white p-6 shadow-2xl shadow-blue-900/10 sm:p-8 print:rounded-none print:border-0 print:p-0 print:shadow-none", editing && canEdit ? "border-blue-300 ring-4 ring-blue-100" : "border-slate-200")}>
-              {result.groupId && result.groupMembers.length > 1 && (
-                <p className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-800 ring-1 ring-inset ring-indigo-200">
-                  <Users className="h-4 w-4" />Group work: {result.groupMembers.join(', ')}
-                </p>
+              {((result.groupId && result.groupMembers.length > 1) || result.daysLate != null) && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {result.groupId && result.groupMembers.length > 1 && (
+                    <p className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-800 ring-1 ring-inset ring-indigo-200">
+                      <Users className="h-4 w-4" />Group work: {result.groupMembers.join(', ')}
+                    </p>
+                  )}
+                  {result.daysLate != null && (
+                    <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800 ring-1 ring-inset ring-amber-200" title="Handed in after the class set was graded">
+                      <Clock className="h-4 w-4" />{lateLabel(result.daysLate)}
+                    </p>
+                  )}
+                </div>
               )}
               <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} />
             </div>

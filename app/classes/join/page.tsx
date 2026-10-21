@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/lib/auth"
 import { signInPath } from "@/lib/sign-in-path"
+import { forgetClassworkFlag } from "@/components/student/classwork"
 import { CLASSES_ENABLED } from "@/lib/features"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, School } from "lucide-react"
@@ -66,7 +67,8 @@ function JoinClassInner() {
         return
       }
       toast({ title: json.rejoined ? `Rejoined ${json.class.name}` : `Joined ${json.class.name}` })
-      router.push(CLASSES_ENABLED ? "/my-classes" : "/progress")
+      if (user) forgetClassworkFlag(user.id)
+      router.push(CLASSES_ENABLED ? "/my-classes" : "/my-class")
     } catch (err) {
       console.error(err)
       toast({ title: "Network error", variant: "destructive" })

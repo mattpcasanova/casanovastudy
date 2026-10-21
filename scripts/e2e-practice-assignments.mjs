@@ -66,6 +66,7 @@ const client = (session) => async (method, path, body) => {
 
 async function main() {
   const teacher = await makeUser('teacher', 'E2E', 'Teacher')
+  created.teacherId = teacher.id
   // Verified teachers only can connect to students (migration 063).
   await admin.from('teacher_verifications').upsert({ user_id: teacher.id, status: 'approved', method: 'manual', decided_at: new Date().toISOString() })
   const stuA = await makeUser('student', 'Lianna', 'Wysocki')
@@ -154,12 +155,37 @@ async function main() {
   check('past due: Mya missing, Noah added', r.json?.students?.find((x) => x.rosterId === mya.id)?.status === 'missing' && r.json.students.some((x) => x.rosterId === noah.id))
   r = await t('GET', `/api/classes/${cls.id}/gradebook`)
   check('past due shows Missing in the gradebook', r.json?.rows?.find((x) => x.rosterId === mya.id)?.cells?.[asg.id]?.status === 'missing')
+  console.log('\n== My Class (student side) ==')
+  // A graded set: Mya on time, Lianna 3 days later after being marked absent; a second set not released yet.
+  const batch1 = crypto.randomUUID(), batch2 = crypto.randomUUID()
+  const paper = (batch, rosterId, studentId, at, released, title) => ({ user_id: teacher.id, batch_id: batch, class_id: cls.id, roster_id: rosterId, student_user_id: studentId, student_name: 'x', student_exam_filename: 'e2e', total_marks: 8, total_possible_marks: 10, percentage: 80, grade: 'B', content: 'e2e', grade_breakdown: [], released, exam_title: title, created_at: at })
+  const day = 86400000, base = Date.now() - 5 * day
+  await admin.from('grading_results').insert([
+    paper(batch1, mya.id, null, new Date(base).toISOString(), true, 'E2E Unit test'),
+    paper(batch1, lianna.id, stuA.id, new Date(base + 3 * day).toISOString(), true, 'E2E Unit test'),
+    paper(batch2, lianna.id, stuA.id, new Date(base).toISOString(), false, 'E2E Hidden test'),
+  ])
+  await admin.from('batch_student_status').insert({ user_id: teacher.id, batch_id: batch1, roster_id: lianna.id, status: 'late' })
+  r = await a('GET', '/api/student/classwork')
+  check('student sees their class with the teacher name', r.status === 200 && r.json?.classes?.length === 1 && r.json.classes[0].name === 'E2E Stats' && r.json.classes[0].teacherName === 'E2E Teacher', JSON.stringify(r.json?.classes))
+  check('student sees the assigned practice', r.json?.assignments?.length === 1 && r.json.assignments[0].classId === cls.id)
+  check('only released reports, with days late', r.json?.reports?.length === 1 && r.json.reports[0].title === 'E2E Unit test' && r.json.reports[0].daysLate === 3, JSON.stringify(r.json?.reports))
+  r = await b('GET', '/api/student/classwork')
+  check('a student in no class sees nothing', r.status === 200 && !r.json.classes.length && !r.json.assignments.length && !r.json.reports.length)
+  const late = await admin.from('grading_results').select('id').eq('batch_id', batch1).eq('roster_id', lianna.id).single()
+  r = await t('GET', `/api/grade-exam/${late.data.id}`)
+  check('the report itself says 3 days late', r.json?.data?.daysLate === 3, JSON.stringify(r.json?.data?.daysLate))
+  r = await t('GET', `/api/grade-batch/${batch1}`)
+  check('class results show her 3 days late', r.json?.roster?.find((x) => x.rosterId === lianna.id)?.daysLate === 3, JSON.stringify(r.json?.roster))
+
   r = await t('DELETE', `/api/practice-assignments/${asg.id}`)
   const { count } = await admin.from('practice_attempts').select('id', { count: 'exact', head: true }).eq('assignment_id', asg.id)
   check('delete removes it and its attempts', r.status === 200 && count === 0)
 }
 
 async function cleanup() {
+  if (created.teacherId) await admin.from('grading_results').delete().eq('user_id', created.teacherId)
+  if (created.teacherId) await admin.from('batch_student_status').delete().eq('user_id', created.teacherId)
   if (created.classId) await admin.from('classes').delete().eq('id', created.classId)
   if (created.guideId) await admin.from('study_guides').delete().eq('id', created.guideId)
   for (const id of created.users) await admin.auth.admin.deleteUser(id)

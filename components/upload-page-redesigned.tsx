@@ -69,6 +69,7 @@ import { PremiumBadge, PremiumMark } from "@/components/plan/premium-mark"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
 import VisualsInfo from "@/components/visuals-info"
 import CodeEditorInfo from "@/components/code-editor-info"
+import { ClassworkStrip } from "@/components/student/classwork"
 import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
@@ -685,6 +686,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       </section>
 
       <div className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">
+        {/* Students in a class: what's due next, above the guide maker */}
+        {user && user.user_type !== "teacher" && !arrival && <ClassworkStrip />}
+
         {/* 1 — Source */}
         <section
           onDragEnter={onDragEnter}
