@@ -31,7 +31,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   done: { label: "Done", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
   late: { label: "Late", cls: "bg-amber-50 text-amber-900 ring-amber-200" },
   missing: { label: "Missing", cls: "bg-rose-50 text-rose-800 ring-rose-200" },
-  not_started: { label: "Not yet", cls: "bg-slate-50 text-slate-600 ring-slate-200" },
+  not_started: { label: "Not turned in yet", cls: "bg-slate-100 text-slate-700 ring-slate-300" },
 }
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
 

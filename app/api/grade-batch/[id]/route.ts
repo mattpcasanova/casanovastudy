@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // In a class: roster students with no paper (and what the teacher marked
   // them as), plus student numbers for the CSV.
   const classId = results.find((r) => r.class_id)?.class_id as string | undefined
-  let roster: Array<{ rosterId: string; name: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; status: string | null; hasPaper: boolean; daysLate?: number }> = []
+  let roster: Array<{ rosterId: string; name: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; status: string | null; hasPaper: boolean; left: boolean; daysLate?: number }> = []
   if (classId) {
     const [rows, { data: statuses }] = await Promise.all([
       loadRoster(createAdminClient(), classId),
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     roster = rows.map((r) => {
       const status = statusOf.get(r.id) ?? null
       const late = status === 'late' && paperAt.has(r.id) ? { daysLate: paperDaysLate(firstGraded, paperAt.get(r.id)) } : {}
-      return { rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), firstName: r.firstName, lastName: r.lastName, studentNumber: r.studentNumber, email: r.email, status, hasPaper: withPaper.has(r.id), ...late }
+      return { rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), firstName: r.firstName, lastName: r.lastName, studentNumber: r.studentNumber, email: r.email, status, hasPaper: withPaper.has(r.id), left: r.left, ...late }
     })
   }
   const { data: cls } = classId ? await createAdminClient().from('classes').select('id, google_course_id').eq('id', classId).maybeSingle() : { data: null }

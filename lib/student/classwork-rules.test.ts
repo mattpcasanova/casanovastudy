@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueLabel, homeStrip, openWork } from './classwork-rules'
+import { dueLabel, homeStrip, missingTests, openWork } from './classwork-rules'
 
 const now = new Date(2026, 9, 21, 10, 0) // Wed Oct 21, 10am local
 const at = (d: number, h = 23, m = 59) => new Date(2026, 9, d, h, m).toISOString()
@@ -30,9 +30,30 @@ describe('homeStrip', () => {
     const list = [a('x', 'not_started', at(22)), a('y', 'not_started', at(23)), a('z', 'not_started', at(24)), a('d', 'done', at(20))]
     const reports = [{ id: 'r1', title: 'Unit 3', createdAt: new Date(2026, 9, 18).toISOString() }, { id: 'r2', title: 'Unit 1', createdAt: new Date(2026, 8, 30).toISOString() }]
     const s = homeStrip(list, reports, now)
-    expect(s.next.map((x) => x.id)).toEqual(['x', 'y'])
+    expect(s.next.map((x) => (x.kind === 'practice' ? x.a.id : x.t.batchId))).toEqual(['x', 'y'])
     expect(s.moreOpen).toBe(1)
     expect(s.openCount).toBe(3)
     expect(s.newReports.map((r) => r.id)).toEqual(['r1'])
+  })
+  it('puts overdue work first, then tests not turned in, then upcoming', () => {
+    const list = [a('up', 'not_started', at(22)), a('late', 'missing', at(19))]
+    const tests = [{ batchId: 't1', title: 'Unit 2', classId: 'c', firstGraded: at(18), status: null }]
+    const s = homeStrip(list, [], now, 3, tests)
+    expect(s.next.map((x) => (x.kind === 'practice' ? x.a.id : x.t.batchId))).toEqual(['late', 't1', 'up'])
+    expect(s.openCount).toBe(3)
+  })
+})
+
+describe('missingTests', () => {
+  const p = (batchId: string, rosterId: string | null, hoursAgo: number, title = 'Unit test') => ({ batchId, classId: 'c', title, createdAt: new Date(now.getTime() - hoursAgo * 3600000).toISOString(), rosterId })
+  const me = new Set(['me'])
+  it('lists settled sets with no paper from me, newest first', () => {
+    const papers = [p('old', 'x', 72, 'Old'), p('new', 'x', 24, 'New'), p('mine', 'me', 48), p('mine', 'x', 50), p('fresh', 'x', 1)]
+    expect(missingTests(papers, me, [], now).map((t) => t.batchId)).toEqual(['new', 'old'])
+  })
+  it('shows a fresh set right away when marked missing or absent, never when exempt', () => {
+    const papers = [p('fresh', 'x', 1), p('ex', 'x', 48)]
+    const out = missingTests(papers, me, [{ batchId: 'fresh', status: 'missing' }, { batchId: 'ex', status: 'exempt' }], now)
+    expect(out.map((t) => [t.batchId, t.status])).toEqual([['fresh', 'missing']])
   })
 })

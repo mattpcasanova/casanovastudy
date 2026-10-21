@@ -36,6 +36,8 @@ export interface BatchRosterEntry {
   studentNumber: string | null
   status: "absent" | "missing" | "exempt" | "late" | null
   hasPaper: boolean
+  /** Left the class (hidden from the no-paper rows). */
+  left?: boolean
   /** Late papers: days after the set was first graded (0 = same day). */
   daysLate?: number
 }

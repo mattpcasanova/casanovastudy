@@ -5,6 +5,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { bestAttempt, practiceDaysLate, practiceStatus } from '@/lib/practice/assignments'
 import { firstGradedBySet, lateDaysByPaper } from '@/lib/grading/late'
+import { missingTests } from './classwork-rules'
+import { schoolYearFor } from '@/lib/classes/years'
 
 export interface StudentClass { id: string; name: string; period: string | null; teacherName: string | null }
 export interface StudentPractice {
@@ -54,10 +56,12 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
   const reports = reportRows ?? []
 
   const [{ data: classRows }, practice] = await Promise.all([
-    classIds.length ? supabase.from('classes').select('id, name, period, teacher_id, is_archived').in('id', classIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; period: string | null; teacher_id: string; is_archived: boolean | null }> }),
+    classIds.length ? supabase.from('classes').select('id, name, period, teacher_id, is_archived, school_year').in('id', classIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; period: string | null; teacher_id: string; is_archived: boolean | null; school_year: string | null }> }),
     assignedPracticeFor(supabase, userId, roster.map((r) => r.id as string)),
   ])
-  const classes = (classRows ?? []).filter((c) => !c.is_archived)
+  // This school year's classes only; reports from earlier years stay listed.
+  const year = schoolYearFor()
+  const classes = (classRows ?? []).filter((c) => !c.is_archived && (!c.school_year || c.school_year === year))
   const teacherIds = [...new Set([...classes.map((c) => c.teacher_id as string), ...reports.map((r) => r.user_id as string)])]
   const { data: teachers } = teacherIds.length ? await supabase.from('user_profiles').select('id, first_name, last_name').in('id', teacherIds) : { data: [] }
   const teacherName = new Map((teachers ?? []).map((t) => [t.id as string, fullName(t)]))
@@ -73,11 +77,27 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
     : [{ data: [] }, { data: [] }]
   const late = lateDaysByPaper(reports as Array<{ id: string; batch_id: string | null; roster_id: string | null; created_at: string }>, statuses ?? [], firstGradedBySet(setPapers ?? []))
 
+  // Graded tests in their classes with no paper from them (teacher sees "No paper").
+  const myRoster = roster.filter((r) => !r.left_at)
+  const rosterClassIds = [...new Set(myRoster.map((r) => r.class_id as string))].filter((id) => classes.some((c) => c.id === id))
+  const [{ data: classPapers }, { data: myStatuses }] = rosterClassIds.length
+    ? await Promise.all([
+        supabase.from('grading_results').select('batch_id, class_id, exam_title, created_at, roster_id').in('class_id', rosterClassIds).not('batch_id', 'is', null).limit(10000),
+        supabase.from('batch_student_status').select('batch_id, status').in('roster_id', myRoster.map((r) => r.id as string)),
+      ])
+    : [{ data: [] }, { data: [] }]
+  const tests = missingTests(
+    (classPapers ?? []).map((p) => ({ batchId: p.batch_id as string, classId: p.class_id as string, title: p.exam_title, createdAt: p.created_at, rosterId: p.roster_id })),
+    new Set(myRoster.map((r) => r.id as string)),
+    (myStatuses ?? []).map((s) => ({ batchId: s.batch_id as string, status: s.status as string })),
+  )
+
   const openIds = new Set(classes.map((c) => c.id))
   return {
     classes: classes.map((c): StudentClass => ({ id: c.id, name: c.name, period: c.period, teacherName: teacherName.get(c.teacher_id) ?? null })),
     // Work from a class they've since left stays listed (it's still theirs).
     assignments: practice,
+    missingTests: tests,
     reports: reports.map((r): StudentReportRow => ({
       id: r.id, title: r.exam_title || 'Graded work', classId: r.class_id && openIds.has(r.class_id) ? r.class_id : null,
       className: r.class_name, teacherName: teacherName.get(r.user_id) ?? null,

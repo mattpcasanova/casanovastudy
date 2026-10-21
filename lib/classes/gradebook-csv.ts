@@ -14,7 +14,7 @@ export function resultsCsvTable(tests: GradebookTest[], rows: GradebookRow[]): s
     ...(practice ? [r.practiceAverage === null ? '' : r.practiceAverage.toFixed(1)] : []),
     ...tests.map((t) => {
       const c = r.cells[t.batchId]
-      if (!c) return ''
+      if (!c || (c.kind === 'status' && c.status === 'not_started')) return ''
       return c.kind === 'status' ? c.status[0].toUpperCase() + c.status.slice(1) : c.pct.toFixed(1)
     }),
   ])

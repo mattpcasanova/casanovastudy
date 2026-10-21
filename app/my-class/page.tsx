@@ -15,7 +15,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
-import { AssignmentRow, ReportRow, useClasswork } from "@/components/student/classwork"
+import { AssignmentRow, MissingTestRow, ReportRow, useClasswork } from "@/components/student/classwork"
 import { openWork } from "@/lib/student/classwork-rules"
 
 export default function MyClassPage() {
@@ -41,6 +41,8 @@ function MyClass() {
     return c ? c.name : null
   }
   const open = data ? openWork(data.assignments) : []
+  const tests = data?.missingTests ?? []
+  const todo = open.length + tests.length
   const done = data ? data.assignments.filter((a) => a.status === "done" || a.status === "late") : []
   const many = (data?.classes.length ?? 0) > 1
 
@@ -68,7 +70,12 @@ function MyClass() {
             <div className="space-y-6">
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-blue-900/10">
                 <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><ClipboardCheck className="h-5 w-5 text-emerald-700" />Assigned to you</h2>
-                {open.length === 0 ? (
+                {tests.length > 0 && (
+                  <ul className="mb-2 space-y-2">
+                    {tests.map((t) => <li key={t.batchId}><MissingTestRow t={t} className={many ? classNameOf(t.classId) : null} /></li>)}
+                  </ul>
+                )}
+                {open.length === 0 && tests.length > 0 ? null : open.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-600">
                     {data.assignments.length ? "Nothing left to do. Nice work." : "Nothing assigned yet. When your teacher assigns practice, it shows up here and on your home page."}
                   </p>

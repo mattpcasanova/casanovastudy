@@ -48,6 +48,14 @@ interface Row {
   grade_breakdown: GradedQuestion[] | null
 }
 
+const NO_PAPER_LABEL: Record<string, string> = { none: "No paper yet", missing: "Missing", absent: "Absent", exempt: "Exempt" }
+const NO_PAPER_TONE: Record<string, string> = {
+  none: "bg-slate-100 text-slate-700 ring-slate-200",
+  missing: "bg-rose-50 text-rose-800 ring-rose-200",
+  absent: "bg-slate-100 text-slate-700 ring-slate-300",
+  exempt: "bg-white text-slate-500 ring-slate-200",
+}
+
 export default function BatchResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   return (
@@ -114,6 +122,9 @@ function BatchResults({ id }: { id: string }) {
     if (!rows) return []
     return [...rows].sort((a, b) => (sort === "name" ? a.student_name.localeCompare(b.student_name) : Number(b.percentage) - Number(a.percentage)))
   }, [rows, sort])
+
+  // Class-list students with nothing in this set: listed under the papers so it's clear who's still out.
+  const noPaperRows = useMemo(() => roster.filter((e) => !e.hasPaper && !e.left).sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)), [roster])
 
   // One row per student for gradebook files: graded papers (names/IDs from the
   // roster when matched) plus roster students with no paper and their status.
@@ -219,6 +230,20 @@ function BatchResults({ id }: { id: string }) {
                       <td className="px-4 py-3"><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span></td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.grade}</td>
                       <td className="px-4 py-2 text-right"><Link href={`/grade-report/${r.id}`} className={cn(actionButton, "text-blue-700")}><FileText />Open report</Link></td>
+                    </tr>
+                  ))}
+                  {noPaperRows.map((e) => (
+                    <tr key={e.rosterId} className="bg-slate-50/60">
+                      <td className="px-4 py-3">
+                        {classInfo ? <Link href={`/teacher/classes/${classInfo.id}/students/${e.rosterId}`} className="font-medium text-slate-700 hover:text-blue-700">{e.name}</Link> : <span className="font-medium text-slate-700">{e.name}</span>}
+                        <span className={cn("ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset", NO_PAPER_TONE[e.status ?? "none"] ?? NO_PAPER_TONE.none)}>{NO_PAPER_LABEL[e.status ?? "none"] ?? "No paper yet"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">-</td>
+                      <td className="px-4 py-3 text-slate-400">-</td>
+                      <td className="px-4 py-3 text-slate-400">-</td>
+                      <td className="px-4 py-2 text-right">
+                        {e.status !== "exempt" && classInfo && <Link href={`/grade-exam/batch?batch=${id}&class=${classInfo.id}`} className={actionButton}><Plus />Grade their paper</Link>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

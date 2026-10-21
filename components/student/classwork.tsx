@@ -12,12 +12,12 @@ import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { lateLabel } from "@/lib/grading/late"
-import { dueLabel, homeStrip } from "@/lib/student/classwork-rules"
+import { dueLabel, homeStrip, type MissingTest } from "@/lib/student/classwork-rules"
 import type { StudentClass, StudentPractice, StudentReportRow } from "@/lib/student/classwork"
 
-export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[] }
+export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[] }
 
-const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0
+const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0
 const flagKey = (userId: string) => `cs:classwork:${userId}`
 
 /** Forget the cached "in a class" answer (after joining a class). */
@@ -127,11 +127,33 @@ export function ReportRow({ r }: { r: StudentReportRow }) {
   )
 }
 
+/** "Not turned in · graded Oct 19" (or Missing / Absent when the teacher marked it). */
+export function testStatusText(t: MissingTest): string {
+  const word = t.status === "absent" ? "Absent" : t.status === "missing" ? "Missing" : "Not turned in"
+  return `${word} · graded ${new Date(t.firstGraded).toLocaleDateString([], { month: "short", day: "numeric" })}`
+}
+
+/** A graded test the student has no paper for (My Class page). Nothing to open: it goes to their teacher. */
+export function MissingTestRow({ t, className }: { t: MissingTest; className?: string | null }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/40 p-3.5">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base font-semibold text-slate-900">{t.title}</span>
+        <span className="flex flex-wrap items-center gap-x-2 text-sm text-slate-600">
+          {className && <span>{className}</span>}
+          <span>Your teacher has graded this and has no paper from you. Hand it in or ask them about it.</span>
+        </span>
+      </span>
+      <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 ring-1 ring-inset ring-rose-200">{testStatusText(t).split(" · ")[0]}</span>
+    </div>
+  )
+}
+
 /** Top of the guide maker for students in a class: what's due next and new reports. */
 export function ClassworkStrip() {
   const data = useClasswork()
   if (!data) return null
-  const { next, moreOpen, openCount, newReports } = homeStrip(data.assignments, data.reports)
+  const { next, moreOpen, openCount, newReports } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [])
   if (!next.length && !newReports.length) return null
   const shownReports = newReports.slice(0, 2 - next.length)
   const moreReports = newReports.length - shownReports.length
@@ -148,12 +170,19 @@ export function ClassworkStrip() {
         </Link>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        {next.map((a) => (
-          <Link key={a.id} href={practiceHref(a)} className={cn("group flex items-center gap-3 rounded-2xl p-3.5 ring-1 ring-inset transition", a.status === "missing" ? "bg-rose-50/60 ring-rose-200 hover:bg-rose-50" : "bg-blue-50/50 ring-blue-200 hover:bg-blue-50")}>
+        {next.map((item) => item.kind === "test" ? (
+          <div key={item.t.batchId} className="flex items-center gap-3 rounded-2xl bg-rose-50/60 p-3.5 ring-1 ring-inset ring-rose-200">
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{a.title}</span>
-              <span className={cn("flex items-center gap-1 text-sm", a.status === "missing" ? "font-medium text-rose-700" : "text-slate-600")}>
-                <CalendarClock className="h-3.5 w-3.5" />{dueLabel(a.dueAt)}
+              <span className="block truncate font-semibold text-slate-900">{item.t.title}</span>
+              <span className="text-sm font-medium text-rose-700">{testStatusText(item.t)}</span>
+            </span>
+          </div>
+        ) : (
+          <Link key={item.a.id} href={practiceHref(item.a)} className={cn("group flex items-center gap-3 rounded-2xl p-3.5 ring-1 ring-inset transition", item.a.status === "missing" ? "bg-rose-50/60 ring-rose-200 hover:bg-rose-50" : "bg-blue-50/50 ring-blue-200 hover:bg-blue-50")}>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{item.a.title}</span>
+              <span className={cn("flex items-center gap-1 text-sm", item.a.status === "missing" ? "font-medium text-rose-700" : "text-slate-600")}>
+                <CalendarClock className="h-3.5 w-3.5" />{dueLabel(item.a.dueAt)}
               </span>
             </span>
             <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-700">Start <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>

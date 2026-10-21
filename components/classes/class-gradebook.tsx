@@ -15,7 +15,7 @@ import { actionButton } from "@/components/grading/grading-ui"
 import { dayCount } from "@/lib/practice/assignments"
 
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-50 text-emerald-900" : pct >= 65 ? "bg-blue-50 text-blue-900" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900")
-const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late" }
+const STATUS_LABEL: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late", not_started: "Not done" }
 
 type Sort = { by: "name" | "average" | "practiceAverage" | string; dir: 1 | -1 }
 
@@ -104,8 +104,10 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
                   const c = r.cells[t.batchId]
                   return (
                     <td key={t.batchId} className="px-1 py-1">
-                      {!c ? <span className="block px-2 text-slate-300">-</span>
-                        : c.kind === "status" ? <span className="block rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600" title={c.daysLate ? `${dayCount(c.daysLate)} past the due date` : undefined}>{STATUS_LABEL[c.status] ?? c.status}{c.daysLate ? <span className="ml-1 opacity-80">· {c.daysLate}d</span> : null}</span>
+                      {!c ? (r.rosterId && !r.left && t.kind !== "practice"
+                          ? <span className="block whitespace-nowrap rounded-md px-2 py-1 text-xs text-slate-500 border border-dashed border-slate-300" title="Nothing graded for this student yet">No paper</span>
+                          : <span className="block px-2 text-slate-300">-</span>)
+                        : c.kind === "status" ? <span className={cn("block whitespace-nowrap rounded-md px-2 py-1 text-xs", c.status === "missing" ? "bg-rose-50 text-rose-800" : "bg-slate-100 text-slate-600")} title={c.daysLate ? `${dayCount(c.daysLate)} past the due date` : undefined}>{STATUS_LABEL[c.status] ?? c.status}{c.daysLate ? <span className="ml-1 opacity-80">· {c.daysLate}d</span> : null}</span>
                         : c.kind === "practice" ? <Link href={`/teacher/practice/${c.assignmentId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.late && <LateMark days={c.daysLate} />}</Link>
                         : <Link href={`/grade-report/${c.gradingId}`} className={cn("block rounded-md px-2 py-1 hover:ring-2 hover:ring-blue-300", tone(c.pct))}>{Math.round(c.pct)}%{c.grade && <span className="ml-1 text-xs opacity-70">{c.grade}</span>}{c.daysLate !== undefined && <LateMark days={c.daysLate} />}</Link>}
                     </td>

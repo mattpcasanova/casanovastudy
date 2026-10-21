@@ -102,6 +102,9 @@ export function buildGradebook(
       row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
     } else if (p.status === 'missing') {
       row.cells[p.assignmentId] = { kind: 'status', status: 'missing', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
+    } else if (p.status === 'not_started') {
+      // Assigned, nothing turned in, not due yet (or no due date).
+      row.cells[p.assignmentId] = { kind: 'status', status: 'not_started' }
     }
   }
   for (const row of rows.values()) {

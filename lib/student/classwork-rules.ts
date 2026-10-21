@@ -38,9 +38,50 @@ export function dueLabel(dueAt: string | null, now = new Date()): string {
 
 export const NEW_REPORT_DAYS = 7
 
-/** The homepage strip: the next open work (up to `max`) and reports from the last week. */
-export function homeStrip<A extends StudentAssignment, R extends StudentReport>(assignments: A[], reports: R[], now = new Date(), max = 2) {
+export type StripItem<A> = { kind: 'practice'; a: A } | { kind: 'test'; t: MissingTest }
+
+/** The homepage strip: overdue practice, then tests not turned in, then upcoming practice (up to `max`), plus reports from the last week. */
+export function homeStrip<A extends StudentAssignment, R extends StudentReport>(assignments: A[], reports: R[], now = new Date(), max = 2, tests: MissingTest[] = []) {
   const open = openWork(assignments)
+  const items: StripItem<A>[] = [
+    ...open.filter((a) => a.status === 'missing').map((a) => ({ kind: 'practice' as const, a })),
+    ...tests.map((t) => ({ kind: 'test' as const, t })),
+    ...open.filter((a) => a.status !== 'missing').map((a) => ({ kind: 'practice' as const, a })),
+  ]
   const fresh = reports.filter((r) => now.getTime() - Date.parse(r.createdAt) < NEW_REPORT_DAYS * DAY)
-  return { next: open.slice(0, max), moreOpen: Math.max(0, open.length - max), openCount: open.length, newReports: fresh }
+  return { next: items.slice(0, max), moreOpen: Math.max(0, items.length - max), openCount: items.length, newReports: fresh }
+}
+
+export interface MissingTest { batchId: string; title: string; classId: string; firstGraded: string; status: string | null }
+
+/**
+ * Graded tests in the student's classes they have no paper for. Shown once the
+ * set's first paper is 12+ hours old (so a stack still being graded doesn't
+ * flag everyone), or straight away when the teacher marked them missing/absent.
+ * Exempt never shows; a paper (even late) means it's handed in.
+ */
+export function missingTests(
+  papers: Array<{ batchId: string; classId: string; title: string | null; createdAt: string; rosterId: string | null }>,
+  myRosterIds: Set<string>,
+  statuses: Array<{ batchId: string; status: string }>,
+  now = new Date(),
+): MissingTest[] {
+  const sets = new Map<string, { title: string | null; classId: string; first: string; mine: boolean }>()
+  for (const p of papers) {
+    const s = sets.get(p.batchId) ?? { title: p.title, classId: p.classId, first: p.createdAt, mine: false }
+    if (p.createdAt < s.first) s.first = p.createdAt
+    if (!s.title && p.title) s.title = p.title
+    if (p.rosterId && myRosterIds.has(p.rosterId)) s.mine = true
+    sets.set(p.batchId, s)
+  }
+  const statusOf = new Map(statuses.map((s) => [s.batchId, s.status]))
+  const out: MissingTest[] = []
+  for (const [batchId, s] of sets) {
+    const status = statusOf.get(batchId) ?? null
+    if (s.mine || status === 'exempt' || status === 'late') continue
+    const settled = now.getTime() - Date.parse(s.first) >= 12 * 60 * 60 * 1000
+    if (!settled && status !== 'missing' && status !== 'absent') continue
+    out.push({ batchId, title: s.title || 'Graded test', classId: s.classId, firstGraded: s.first, status })
+  }
+  return out.sort((a, b) => b.firstGraded.localeCompare(a.firstGraded))
 }
