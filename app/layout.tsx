@@ -2,7 +2,7 @@ import type React from "react"
 import { ReturnToResume } from '@/components/return-to-resume'
 import { ErrorReporter } from '@/components/monitoring/error-reporter'
 import type { Metadata, Viewport } from "next"
-import { DM_Sans } from "next/font/google"
+import localFont from "next/font/local"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
@@ -11,10 +11,12 @@ import { PlanProvider } from "@/components/plan/plan-provider"
 import { ServiceWorkerRegistrar } from "@/components/pwa/pwa"
 import "./globals.css"
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
+// Self-hosted (see lib/formats/fonts.ts): builds no longer download fonts from Google.
+const dmSans = localFont({
+  src: "./fonts/dm-sans-latin-wght-normal.woff2",
   variable: "--font-dm-sans",
   display: "swap",
+  weight: "100 1000",
 })
 
 export const metadata: Metadata = {
