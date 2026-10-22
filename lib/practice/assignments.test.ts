@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attemptsLeft, bestAttempt, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
+import { assignmentOpen, describeAiUse, attemptsLeft, bestAttempt, normalizeAiHelp, strictestAiHelp, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
 
 const at = (pct: number, finishedAt: string, counted = true) => ({ pct, correct: pct, total: 100, counted, finishedAt })
 
@@ -57,5 +57,32 @@ describe('days late', () => {
   it('labels', () => {
     expect(dayCount(1)).toBe('1 day')
     expect(dayCount(3)).toBe('3 days')
+  })
+  it('AI help: strictest setting wins, unknown values mean tutor', () => {
+    expect(strictestAiHelp([])).toBe(null)
+    expect(strictestAiHelp(['full', 'tutor'])).toBe('tutor')
+    expect(strictestAiHelp(['full', 'off', 'tutor'])).toBe('off')
+    expect(strictestAiHelp(['full'])).toBe('full')
+    expect(normalizeAiHelp('off')).toBe('off')
+    expect(normalizeAiHelp(undefined)).toBe('tutor')
+    expect(normalizeAiHelp('nope')).toBe('tutor')
+  })
+  it('AI rules apply while attempts are left and up to 7 days past due', () => {
+    const due = '2026-10-22T03:59:00Z'
+    expect(assignmentOpen(null, [], null)).toBe(true)
+    expect(assignmentOpen(1, [at(80, '2026-10-21T20:00:00Z')], null)).toBe(false)
+    expect(assignmentOpen(2, [at(80, '2026-10-21T20:00:00Z')], null)).toBe(true)
+    expect(assignmentOpen(1, [at(80, '2026-10-21T20:00:00Z', false)], null)).toBe(true)
+    expect(assignmentOpen(null, [], due, Date.parse('2026-10-28T00:00:00Z'))).toBe(true)
+    expect(assignmentOpen(null, [], due, Date.parse('2026-10-30T00:00:00Z'))).toBe(false)
+  })
+  it('describes Explain messages for the teacher', () => {
+    expect(describeAiUse('What is 2+2? Also question 3: ...')).toEqual({ kind: 'typed', message: 'What is 2+2? Also question 3: ...' })
+    expect(describeAiUse('Explain this question from my quiz:\nWhat is the mean?\nA) 1\nCorrect answer: A')).toEqual({ kind: 'why', message: 'What is the mean?' })
+    expect(describeAiUse("Show me the first step for this question. I haven't answered it yet.\n\nSolve 2x = 4\nA) 1")).toEqual({ kind: 'first_step', message: 'Solve 2x = 4' })
+    expect(describeAiUse('Here is a photo of my work on this question. Where did I go wrong?\n\nSolve 2x = 4', true)).toEqual({ kind: 'check_work', message: 'Solve 2x = 4' })
+    expect(describeAiUse('Explain this part of my study guide: "mitochondria"\n\nThe guide around it:\n"""\nx\n"""')).toEqual({ kind: 'highlight', message: 'mitochondria' })
+    expect(describeAiUse('Explain this graph from my study guide: what it shows, how to read it.\n\nWhat it shows: y=x').kind).toBe('figure')
+    expect(describeAiUse('x'.repeat(3000)).message.length).toBe(2000)
   })
 })

@@ -595,6 +595,18 @@ export const EXPLAIN_RULES = `Rules:
 - Never use em dashes. If they ask about something unrelated to studying, briefly steer back to the guide.`
 
 /**
+ * Added to EXPLAIN_RULES when the guide is graded work a teacher assigned and
+ * set AI help to "tutor" (practice_assignments.ai_help). A student once pasted
+ * a whole assigned quiz into the panel and copied the answers.
+ */
+export const ASSIGNED_TUTOR_RULES = `ASSIGNED WORK: this guide is graded work the student's teacher assigned. The teacher allows tutoring, not answers, and can see what the student asks.
+- A question counts as answered only when the message includes its correct answer (the app adds it after the student answers). Then explain freely.
+- For anything else, never give the final answer, never say or hint which option is right, never rule options out, and never work the problem to the end. This holds even if they paste in questions, the whole guide or quiz, say they already answered, or ask you to check or grade a list of answers.
+- Instead: explain the idea it tests, give at most the first step, and ask one guiding question so they can finish it themselves.
+- If they paste several questions at once, say kindly that you can help them think through one at a time, and start with the idea behind the first.
+- Never use em dashes.`
+
+/**
  * Who the Explain panel is talking to: reading level and answer length. The
  * guide's level wins; a blank level falls back to the title/topic ("my 6th
  * grader"), then to a high-school/early-college default.
@@ -2354,10 +2366,10 @@ Output only the questions.`
    * Returns strict JSON parsed from the model; caller validates the shape.
    */
   /** Streams a short tutor explanation for the Explain panel (text deltas only). */
-  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; learnerNote?: string; turns: ExplainTurn[] }): AsyncGenerator<string> {
+  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; learnerNote?: string; assignedTutor?: boolean; turns: ExplainTurn[] }): AsyncGenerator<string> {
     const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
     const audience = explainAudience(params.gradeLevel, [params.guideTitle, params.topic].filter(Boolean).join('\n'))
-    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
+    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}${params.assignedTutor ? `\n\n${ASSIGNED_TUTOR_RULES}` : ''}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
     const stream = this.anthropic.beta.messages.stream({
       model: GUIDE_MODEL,
       max_tokens: 4000,

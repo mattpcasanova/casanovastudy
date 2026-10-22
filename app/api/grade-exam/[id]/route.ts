@@ -3,10 +3,11 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { requireTeacher } from '@/lib/api-auth'
 import type { GradedQuestion } from '@/lib/grading/parse'
-import { gradeFor, normalizeScale, percentOf } from '@/lib/grading/scale'
+import { normalizeScale } from '@/lib/grading/scale'
 import { normalizeMarkingStyle } from '@/lib/grading/marking-style'
 import { settingsFromRow } from '@/lib/grading/report-settings'
 import { paperDaysLate } from '@/lib/grading/late'
+import { adjustedTotals, normalizeAdjustments } from '@/lib/grading/adjustments'
 
 const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' ? v.trim().slice(0, max) : undefined
@@ -38,8 +39,8 @@ function cleanQuestion(raw: unknown): GradedQuestion | string {
 }
 
 // Teacher edits on a report: marks/feedback, name, exam details, overall
-// comment, grade scale. Any subset may be sent; totals and the grade are
-// recomputed from the breakdown with the report's scale.
+// comment, grade scale, extra credit / deductions. Any subset may be sent;
+// totals and the grade are recomputed from the breakdown plus adjustments.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -54,7 +55,7 @@ export async function PATCH(
   const supabase = createAdminClient()
   const { data: row } = await supabase
     .from('grading_results')
-    .select('user_id, grade_breakdown, grade_scale, student_first_name, student_last_name, group_id')
+    .select('user_id, grade_breakdown, grade_scale, student_first_name, student_last_name, group_id, adjustments')
     .eq('id', id)
     .single()
   if (!row) return NextResponse.json({ success: false, error: 'Grading result not found' }, { status: 404 })
@@ -87,6 +88,12 @@ export async function PATCH(
   }
   if (body.markingStyle !== undefined) update.marking_style = normalizeMarkingStyle(body.markingStyle)
   if (typeof body.released === 'boolean') update.released = body.released
+  // Extra credit and deductions are this student's own (never copied to a group).
+  let adjustments = normalizeAdjustments(row.adjustments)
+  if (body.adjustments !== undefined) {
+    adjustments = normalizeAdjustments(body.adjustments)
+    update.adjustments = adjustments
+  }
 
   // Name: first/last are the source of truth; student_name follows them.
   const first = str(body.studentFirstName, 60)
@@ -109,13 +116,14 @@ export async function PATCH(
     if (v !== undefined) update[column] = v || null
   }
 
-  const totalMarks = breakdown.reduce((s, q) => s + q.marksAwarded, 0)
+  const rawMarks = breakdown.reduce((s, q) => s + q.marksAwarded, 0)
   const totalPossible = breakdown.reduce((s, q) => s + q.marksPossible, 0)
+  const totals = adjustedTotals(rawMarks, totalPossible, adjustments, scale)
   Object.assign(update, {
-    total_marks: totalMarks,
+    total_marks: totals.marks,
     total_possible_marks: totalPossible,
-    percentage: percentOf(totalMarks, totalPossible),
-    grade: gradeFor(scale, totalMarks, totalPossible),
+    percentage: totals.percentage,
+    grade: totals.grade,
   })
 
   const { error: updateError } = await supabase.from('grading_results').update(update).eq('id', id).eq('user_id', user.id)
@@ -127,15 +135,22 @@ export async function PATCH(
   // Group work: marks, feedback, comment and exam details go to every member (names stay their own).
   if (body.applyToGroup === true && row.group_id) {
     const shared: Record<string, unknown> = {}
-    for (const k of ['grade_breakdown', 'grade_scale', 'marking_style', 'teacher_comment', 'exam_title', 'class_name', 'class_period', 'total_marks', 'total_possible_marks', 'percentage', 'grade', 'updated_at', 'reviewed_at']) {
+    for (const k of ['grade_breakdown', 'grade_scale', 'marking_style', 'teacher_comment', 'exam_title', 'class_name', 'class_period', 'updated_at', 'reviewed_at']) {
       if (k in update) shared[k] = update[k]
     }
-    await supabase.from('grading_results').update(shared).eq('group_id', row.group_id).eq('user_id', user.id).neq('id', id)
+    // Totals per member: each keeps their own extra credit / deductions.
+    const { data: members } = await supabase.from('grading_results').select('id, adjustments').eq('group_id', row.group_id).eq('user_id', user.id).neq('id', id)
+    for (const m of members ?? []) {
+      const t = adjustedTotals(rawMarks, totalPossible, normalizeAdjustments(m.adjustments), scale)
+      await supabase.from('grading_results')
+        .update({ ...shared, total_marks: t.marks, total_possible_marks: totalPossible, percentage: t.percentage, grade: t.grade })
+        .eq('id', m.id).eq('user_id', user.id)
+    }
   }
 
   return NextResponse.json({
     success: true,
-    data: { totalMarks, totalPossibleMarks: totalPossible, percentage: percentOf(totalMarks, totalPossible), grade: update.grade },
+    data: { totalMarks: totals.marks, rawMarks, totalPossibleMarks: totalPossible, percentage: totals.percentage, grade: totals.grade },
   })
 }
 
@@ -213,6 +228,7 @@ export async function GET(
         gradeBreakdown: gradingResult.grade_breakdown,
         additionalComments: gradingResult.additional_comments,
         teacherComment: gradingResult.teacher_comment,
+        adjustments: normalizeAdjustments(gradingResult.adjustments),
         pdfUrl: gradingResult.pdf_url,
         createdAt: gradingResult.created_at,
         updatedAt: gradingResult.updated_at,

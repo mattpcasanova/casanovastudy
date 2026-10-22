@@ -3,7 +3,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ownedClass } from '@/lib/classes/server'
 import { isVerifiedTeacher } from '@/lib/teachers/verification'
-import { ASSIGNABLE_FORMATS, gradingFor, makeCode } from '@/lib/practice/assignments'
+import { ASSIGNABLE_FORMATS, gradingFor, makeCode, normalizeAiHelp } from '@/lib/practice/assignments'
 import { ASSIGNMENT_COLUMNS, assignmentProgress, shareUrl, type AssignmentRow } from '@/lib/practice/server'
 
 const origin = (request: NextRequest) => (process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin)
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   })
 }
 
-// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, source? } -> { assignment }
+// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, aiHelp?, source? } -> { assignment }
 export async function POST(request: NextRequest) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   let created: AssignmentRow | null = null
   for (let i = 0; i < 4 && !created; i++) {
     const { data, error: dbError } = await supabase.from('practice_assignments').insert({
-      teacher_id: user.id, class_id: cls.id, study_guide_id: guide.id, title, grading: gradingFor(guide.format), max_attempts: maxAttempts, due_at: dueAt, code: makeCode(), source,
+      teacher_id: user.id, class_id: cls.id, study_guide_id: guide.id, title, grading: gradingFor(guide.format), max_attempts: maxAttempts, due_at: dueAt, code: makeCode(), source, ai_help: normalizeAiHelp(body.aiHelp),
     }).select(ASSIGNMENT_COLUMNS).single()
     if (data) created = data as AssignmentRow
     else if (dbError?.code !== '23505') { console.error('Assignment insert failed:', dbError); return NextResponse.json({ error: 'Could not assign it' }, { status: 500 }) }

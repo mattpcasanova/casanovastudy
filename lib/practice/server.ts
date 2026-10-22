@@ -1,7 +1,7 @@
 // Server helpers for assigned practice (service role; callers check who's asking).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { bestAttempt, practiceDaysLate, practiceStatus, type Attempt } from './assignments'
+import { assignmentOpen, bestAttempt, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
 
 export interface AssignmentRow {
   id: string
@@ -14,10 +14,11 @@ export interface AssignmentRow {
   due_at: string | null
   code: string
   source: { batchId?: string; groupKey?: string } | null
+  ai_help: AiHelp
   created_at: string
 }
 
-export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, created_at'
+export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, created_at'
 
 export const shareUrl = (origin: string, code: string) => `${origin.replace(/\/$/, '')}/practice/${code}`
 
@@ -67,4 +68,48 @@ export async function myAssignedRow(supabase: SupabaseClient, assignmentId: stri
     .limit(1)
     .maybeSingle()
   return data ? (data.roster_id as string) : null
+}
+
+/**
+ * The AI rule for this student on this guide: the strictest setting among
+ * their open assignments on it (assignmentOpen), wherever they opened the
+ * guide from, so a second tab without ?assignment= gets the same rule.
+ * Null when nothing assigned to them is open. `uses` lists where to log.
+ */
+export async function aiRuleForGuide(supabase: SupabaseClient, userId: string, guideId: string): Promise<{ aiHelp: AiHelp; uses: Array<{ assignmentId: string; rosterId: string }> } | null> {
+  const { data: rows } = await supabase
+    .from('practice_assignment_students')
+    .select('assignment_id, roster_id, class_roster!inner(student_user_id), practice_assignments!inner(study_guide_id, max_attempts, due_at, ai_help)')
+    .eq('class_roster.student_user_id', userId)
+    .eq('practice_assignments.study_guide_id', guideId)
+  if (!rows?.length) return null
+  const { data: tries } = await supabase
+    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at')
+    .in('assignment_id', [...new Set(rows.map((r) => r.assignment_id as string))])
+    .eq('student_user_id', userId)
+  const open = rows.filter((r) => {
+    const a = (Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as { max_attempts: number | null; due_at: string | null }
+    const list: Attempt[] = (tries ?? []).filter((t) => t.assignment_id === r.assignment_id && t.roster_id === r.roster_id)
+      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+    return assignmentOpen(a.max_attempts, list, a.due_at)
+  })
+  const aiHelp = strictestAiHelp(open.map((r) => normalizeAiHelp(((Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as { ai_help: string }).ai_help)))
+  if (!aiHelp) return null
+  return { aiHelp, uses: open.map((r) => ({ assignmentId: r.assignment_id as string, rosterId: r.roster_id as string })) }
+}
+
+export interface AiUse { at: string; kind: string; message: string }
+
+/** Each assigned student's AI messages (teacher view), newest first: rosterId -> uses. */
+export async function aiUsesFor(supabase: SupabaseClient, assignmentId: string): Promise<Map<string, AiUse[]>> {
+  const { data } = await supabase
+    .from('assignment_ai_uses').select('roster_id, kind, message, created_at')
+    .eq('assignment_id', assignmentId).order('created_at', { ascending: false }).limit(2000)
+  const out = new Map<string, AiUse[]>()
+  for (const r of data ?? []) {
+    const list = out.get(r.roster_id as string) ?? []
+    list.push({ at: r.created_at as string, kind: r.kind as string, message: r.message as string })
+    out.set(r.roster_id as string, list)
+  }
+  return out
 }

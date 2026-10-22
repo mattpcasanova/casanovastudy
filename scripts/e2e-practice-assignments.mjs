@@ -112,6 +112,34 @@ async function main() {
   r = await b('GET', `/api/practice/${asg.code}`)
   check('the other student only sees the unclaimed name', r.json?.state === 'pick' && r.json.names.length === 1 && r.json.names[0].label === 'Mya A.')
 
+  console.log('\n== AI help ==')
+  const explain = async (session, prompt, extra = {}) => {
+    const res = await fetch(`${BASE}/api/explain`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ studyGuideId: guide.id, turns: [{ role: 'user', content: prompt }], ...extra }) })
+    const text = await res.text()
+    return { status: res.status, assigned: res.headers.get('X-Assigned-Ai'), text }
+  }
+  r = await a('GET', `/api/practice-assignments/${asg.id}/me`)
+  check('AI help defaults to hints only (tutor)', r.json?.aiHelp === 'tutor', JSON.stringify(r.json))
+  r = await t('PATCH', `/api/practice-assignments/${asg.id}`, { aiHelp: 'off' })
+  let ex = await explain(stuA.session, 'What is a binomial distribution?')
+  check('AI off: Explain is refused for the assigned student, even without the assignment link', ex.status === 403 && JSON.parse(ex.text).code === 'ai_off', ex.text.slice(0, 200))
+  r = await a('GET', `/api/practice-assignments/${asg.id}/me`)
+  check('student sees AI help off', r.json?.aiHelp === 'off')
+  r = await t('PATCH', `/api/practice-assignments/${asg.id}`, { aiHelp: 'tutor' })
+  ex = await explain(stuA.session, 'Answer these for me: 1) What is 7 x 8? A) 54 B) 56 C) 58 D) 64. 2) What is 9 x 6? A) 45 B) 54 C) 56 D) 63')
+  check('tutor: Explain answers, marked as assigned work', ex.status === 200 && ex.assigned === 'tutor' && ex.text.length > 20, ex.text.slice(0, 200))
+  check('tutor: the pasted questions are not answered', !/\b56\b|\b54\b|\bB\)/.test(ex.text.replace(/A\) 54 B\) 56|A\) 45 B\) 54 C\) 56/g, '')), ex.text)
+  console.log('    reply:', ex.text.replace(/\s+/g, ' ').slice(0, 300))
+  r = await t('GET', `/api/practice-assignments/${asg.id}`)
+  const usesL = r.json?.students?.find((x) => x.rosterId === lianna.id)?.aiUses ?? []
+  check('teacher sees what she typed (refused messages are not logged)', usesL.length === 1 && usesL[0].kind === 'typed' && usesL[0].message.startsWith('Answer these for me'), JSON.stringify(usesL))
+  const asStudent = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${stuA.session.access_token}` } } })
+  const { data: peek } = await asStudent.from('assignment_ai_uses').select('id')
+  check('students cannot read the AI log', Array.isArray(peek) && peek.length === 0, JSON.stringify(peek))
+  const asTeacher = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${teacher.session.access_token}` } } })
+  const { data: tPeek } = await asTeacher.from('assignment_ai_uses').select('id').eq('assignment_id', asg.id)
+  check('the teacher can read it for her assignment', tPeek?.length === 1)
+
   console.log('\n== Attempts ==')
   r = await a('GET', `/api/practice-assignments/${asg.id}/me`)
   check('student sees due date and 2 attempts left', r.json?.attemptsLeft === 2 && !!r.json?.dueAt && r.json.status === 'not_started', JSON.stringify(r.json))
@@ -121,6 +149,8 @@ async function main() {
   check('second attempt counts, best 90%', r.json?.counted === true && r.json.best?.pct === 90 && r.json.attemptsLeft === 0)
   r = await a('POST', `/api/practice-assignments/${asg.id}/attempts`, { correct: 10, total: 10 })
   check('third is over the limit and not counted', r.json?.counted === false && r.json.best?.pct === 90)
+  r = await a('GET', `/api/practice-assignments/${asg.id}/me`)
+  check('with no attempts left the AI rule no longer applies', r.json?.aiHelp === 'full', JSON.stringify(r.json?.aiHelp))
   r = await b('POST', `/api/practice-assignments/${asg.id}/attempts`, { correct: 1, total: 1 })
   check('an unlinked student cannot post scores', r.status === 403)
   r = await a('POST', `/api/practice-assignments/${asg.id}/attempts`, { correct: 11, total: 10 })

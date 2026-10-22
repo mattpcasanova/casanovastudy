@@ -1,13 +1,14 @@
 "use client"
 
-// One assigned practice: share link + QR, due date and attempts, and every
-// assigned student's status and best score.
+// One assigned practice: share link + QR, due date, attempts and AI help, and
+// every assigned student's status, best score and what they asked the AI.
 
 import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, QrCode, Trash2 } from "lucide-react"
+import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -17,11 +18,12 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { dayCount } from "@/lib/practice/assignments"
+import { AI_HELP_OPTIONS, dayCount, type AiHelp } from "@/lib/practice/assignments"
+import type { AiUse } from "@/lib/practice/server"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[] }
 interface Data {
-  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; url: string; created_at: string; class_id: string }
+  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; url: string; created_at: string; class_id: string }
   students: Student[]
   guide: { id: string; title: string; format: string } | null
   class: { id: string; name: string; period: string | null } | null
@@ -32,6 +34,15 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   late: { label: "Late", cls: "bg-amber-50 text-amber-900 ring-amber-200" },
   missing: { label: "Missing", cls: "bg-rose-50 text-rose-800 ring-rose-200" },
   not_started: { label: "Not turned in yet", cls: "bg-slate-100 text-slate-700 ring-slate-300" },
+}
+const AI_KIND: Record<string, string> = {
+  typed: "Typed",
+  highlight: "Highlighted",
+  why: "Why? (after answering)",
+  first_step: "First step",
+  check_work: "Check my work (photo)",
+  figure: "Explain a figure",
+  desmos: "Desmos steps",
 }
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
 
@@ -47,6 +58,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [due, setDue] = useState("")
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [aiFor, setAiFor] = useState<Student | null>(null)
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/practice-assignments/${id}`, { cache: "no-store" })
@@ -79,6 +91,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           <p className="text-slate-600">
             {students.length} student{students.length === 1 ? "" : "s"} · {students.filter((s) => s.status === "done" || s.status === "late").length} done
             {avg != null && <> · average {a.grading === "mastery" ? `${Math.round(avg)}% of topics mastered` : `${Math.round(avg)}%`}</>}
+            {students.some((s) => s.aiUses.length) && <> · {students.filter((s) => s.aiUses.length).length} used AI help</>}
             {data.guide && <> · <Link href={`/study-guide/${data.guide.id}`} className="font-medium text-blue-700 hover:underline">open the practice</Link></>}
           </p>
         </div>
@@ -120,6 +133,12 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             <span className="text-slate-500">best one counts</span>
           </label>
         ) : <span className="text-slate-700">Graded on topics mastered</span>}
+        <label className="inline-flex items-center gap-2 text-slate-800"><MessageCircleQuestion className="h-4 w-4 text-slate-500" />AI help
+          <select value={a.ai_help} onChange={(e) => void patch({ aiHelp: e.target.value })} className="h-10 rounded-xl border border-slate-300 bg-white px-3">
+            {AI_HELP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <p className="w-full text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.hint} You see every question a student asks the AI while doing it.</p>
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -133,6 +152,9 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                 {!s.linked && <span className="ml-2 text-xs font-normal text-slate-400">hasn&apos;t opened the link</span>}
               </Link>
               <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", (STATUS[s.status] ?? STATUS.not_started).cls)}>{(STATUS[s.status] ?? STATUS.not_started).label}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}</span>
+              {s.aiUses.length > 0
+                ? <button type="button" onClick={() => setAiFor(s)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200 hover:bg-violet-100"><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
+                : null}
               <span className="w-36 text-right font-semibold tabular-nums text-slate-900">{score(s)}</span>
               <span className="w-28 text-right text-xs text-slate-500">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.lastAt ? ` · ${new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span>
               {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <span className="w-full pl-0 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</span> : null}
@@ -156,6 +178,23 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           status: s.best ? (s.status === "late" ? "late" : null) : s.status === "missing" ? "missing" : null,
         }))}
       />
+
+      <Dialog open={!!aiFor} onOpenChange={(o) => { if (!o) setAiFor(null) }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>What {aiFor?.firstName || aiFor?.name} asked the AI</DialogTitle>
+            <DialogDescription>{aiFor?.aiUses.length} message{aiFor?.aiUses.length === 1 ? "" : "s"} while doing this assignment, newest first. Buttons like Why? show the question they were on.</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-3">
+            {aiFor?.aiUses.map((u, i) => (
+              <li key={i} className="rounded-xl border border-slate-200 p-3 text-sm">
+                <p className="mb-1 text-xs text-slate-500">{new Date(u.at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {AI_KIND[u.kind] ?? u.kind}</p>
+                <p className="whitespace-pre-wrap break-words text-slate-900">{u.message}</p>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-8 flex justify-end">
         {confirmDelete ? (

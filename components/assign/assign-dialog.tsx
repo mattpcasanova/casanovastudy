@@ -2,7 +2,8 @@
 
 // Assign one of the teacher's practice sets (quiz, practice, adaptive) to some
 // students of a class: pick the class and students, optional due date, and
-// attempts (quiz/practice). Then share the link (copy or QR code).
+// attempts (quiz/practice) and AI help (hints only / off / full; every use is
+// shown to the teacher). Then share the link (copy or QR code).
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
@@ -10,6 +11,7 @@ import QRCode from "qrcode"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { AI_HELP_OPTIONS, type AiHelp } from "@/lib/practice/assignments"
 import { authFetch } from "@/lib/auth-fetch"
 import { ClassroomPracticePanel } from "./classroom-practice-panel"
 import { sortClasses } from "@/lib/classes/sort"
@@ -46,6 +48,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const dateInput = useRef<HTMLInputElement>(null)
   const [dueTime, setDueTime] = useState("23:59")
   const [attempts, setAttempts] = useState("1")
+  const [aiHelp, setAiHelp] = useState<AiHelp>("tutor")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<CreatedAssignment | null>(null)
@@ -106,6 +109,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
           title,
           dueAt: dueOn ? new Date(`${dueDay}T${dueTime}`).toISOString() : null,
           maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
+          aiHelp,
           source: preset?.source,
         }),
       })
@@ -231,6 +235,15 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   </div>
                 </div>
               )}
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-slate-700">AI help <span className="font-normal text-slate-500">(you&apos;ll see what each student asks)</span></p>
+                <div className="flex flex-wrap gap-2">
+                  {AI_HELP_OPTIONS.map((o) => (
+                    <button key={o.value} type="button" aria-pressed={aiHelp === o.value} className={chip(aiHelp === o.value)} onClick={() => setAiHelp(o.value)}>{o.label}</button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-sm text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === aiHelp)?.hint}</p>
+              </div>
               {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">

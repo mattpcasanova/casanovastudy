@@ -9,6 +9,10 @@
 // Answers stream from /api/explain into a side panel (desktop) or bottom
 // sheet (phone), with quick follow-ups. The thread lives in memory only.
 // The dock also hosts the Desmos calculator button when that is enabled.
+// On assigned work the teacher's AI help setting applies (useAssignmentAi):
+// off = no panel or Explain buttons at all (context is null), otherwise the
+// panel says the teacher can see what they ask. The route enforces it too
+// (403 code 'ai_off'), e.g. for the same guide opened without ?assignment=.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -24,6 +28,7 @@ import { DesmosStepsStreaming } from '@/components/formats/desmos-steps'
 import { formatReset, usePlan } from '@/components/plan/plan-provider'
 import { isPlanBlock } from '@/lib/plan-rules'
 import { PLANS_ENABLED } from '@/lib/features'
+import { useAssignmentAi } from '@/components/assign/assignment-context'
 
 import { ExplainContext, useExplain, type ExplainApi, type ExplainRequest } from './explain-context'
 
@@ -90,6 +95,12 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   }, [])
   const turnsRef = useRef<Turn[]>([])
   turnsRef.current = turns
+  const assignedAi = useAssignmentAi()
+  // Set when the route says the teacher turned AI off (guide opened outside the assignment link).
+  const [blockedByTeacher, setBlockedByTeacher] = useState(false)
+  // Set when the route says this guide is assigned to them (header), wherever it was opened.
+  const [assignedByRoute, setAssignedByRoute] = useState(false)
+  const aiOff = assignedAi === 'off' || blockedByTeacher
 
   // Track highlighted text inside the guide.
   useEffect(() => {
@@ -127,6 +138,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
       })
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}))
+        if (data.code === 'ai_off') setBlockedByTeacher(true)
         if (isPlanBlock(data)) {
           const reset = formatReset(data.resetsAt)
           setLimited(true)
@@ -135,6 +147,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
         throw new Error(data.error || 'Could not get an explanation. Please try again.')
       }
       setLimited(false)
+      if (res.headers.get('X-Assigned-Ai')) setAssignedByRoute(true)
       const left = Number(res.headers.get('X-Usage-Remaining'))
       const limit = Number(res.headers.get('X-Usage-Limit'))
       setFreeLeft(res.headers.get('X-Plan') === 'free' && Number.isFinite(left) && limit ? { left, limit } : null)
@@ -167,6 +180,29 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   }, [selection, send])
 
   const api = useMemo<ExplainApi>(() => ({ ask: (req) => void send(req) }), [send])
+
+  // Teacher turned AI help off for this assigned work: no Explain anywhere, calculator stays.
+  if (aiOff && !open) {
+    return (
+      <ExplainContext.Provider value={null}>
+        <div ref={rootRef}>{children}</div>
+        <div aria-hidden className={cn('print:hidden', desmos ? 'h-20' : 'h-0')} />
+        {desmos && (
+          <div className="fixed bottom-4 left-4 z-40 sm:bottom-6 sm:left-6 print:hidden">
+            <button
+              type="button"
+              onClick={desmos.open}
+              onPointerEnter={desmos.preload}
+              onFocus={desmos.preload}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:border-blue-300 hover:text-blue-700"
+            >
+              <Calculator className="h-4 w-4 text-blue-600" /> Calculator
+            </button>
+          </div>
+        )}
+      </ExplainContext.Provider>
+    )
+  }
 
   // Desktop: pill above (or below) the highlighted text.
   const pill = selection && finePointer && !busy ? (() => {
@@ -250,6 +286,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
           onClear={() => { setTurns([]); setError(null) }}
           onClose={() => setOpen(false)}
           desmosFollowUp={!!desmos?.graphing}
+          watched={!!assignedAi || assignedByRoute}
           freeLeft={freeLeft}
           limited={limited}
           onPremium={() => openPremium()}
@@ -261,8 +298,10 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
 
 const DESMOS_FOLLOW_UP: ExplainRequest = { label: 'Show me in Desmos', prompt: 'Solve it in Desmos: show me step by step how to do this with the Desmos graphing calculator.' }
 
-function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, desmosFollowUp, freeLeft, limited, onPremium }: {
+function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, desmosFollowUp, watched, freeLeft, limited, onPremium }: {
   signedIn: boolean; turns: Turn[]; busy: boolean; error: string | null
+  /** Assigned work: the teacher sees what's asked here. */
+  watched: boolean
   onSend: (req: ExplainRequest) => void; onClear: () => void; onClose: () => void
   desmosFollowUp: boolean
   freeLeft: { left: number; limit: number } | null
@@ -324,6 +363,11 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
         </div>
       </div>
 
+      {watched && (
+        <p className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-900">
+          This is assigned work: your teacher can see what you ask here.
+        </p>
+      )}
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {!signedIn ? (
           <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">

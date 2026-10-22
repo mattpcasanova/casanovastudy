@@ -5,6 +5,8 @@ import { ClaudeService, type ExplainTurn } from '@/lib/claude-api'
 import { hasPremiumFeatures, meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { consentBlockResponse } from '@/lib/consent'
+import { aiRuleForGuide } from '@/lib/practice/server'
+import { describeAiUse } from '@/lib/practice/assignments'
 
 // The Explain panel (components/explain/): a short tutor reply about a
 // highlighted passage, a question the student typed, or a quiz question.
@@ -12,6 +14,9 @@ import { consentBlockResponse } from '@/lib/consent'
 // Replies stream back as plain text. Every message (follow-ups too) counts
 // toward the plan's rolling daily limit (lib/plan-rules.ts); the
 // X-Usage-Remaining header tells the panel how many are left.
+// On a guide assigned to the student (still open), the teacher's AI help
+// setting applies however the guide was opened: off = 403 code 'ai_off',
+// tutor = ASSIGNED_TUTOR_RULES; every message is logged for the teacher.
 
 const MAX_TURNS = 12
 const MAX_CHARS = 6000
@@ -54,7 +59,20 @@ export async function POST(request: NextRequest) {
     .from('study_guides').select('title, subject, grade_level, topic_focus').eq('id', body.studyGuideId).maybeSingle()
   if (!guide) return NextResponse.json({ error: 'Study guide not found' }, { status: 404 })
 
+  const rule = await aiRuleForGuide(createAdminClient(), user.id, body.studyGuideId)
+  if (rule?.aiHelp === 'off') {
+    return NextResponse.json({ error: 'Your teacher turned off AI help for this assignment.', code: 'ai_off' }, { status: 403 })
+  }
+
   const meter = await meterExplain(user.id)
+  if (!meter.block && rule) {
+    const last = turns[turns.length - 1]
+    const use = describeAiUse(last.content, !!last.image)
+    const { error: logError } = await createAdminClient().from('assignment_ai_uses').insert(rule.uses.map((u) => ({
+      assignment_id: u.assignmentId, roster_id: u.rosterId, student_user_id: user.id, kind: use.kind, message: use.message, ai_help: rule.aiHelp,
+    })))
+    if (logError) console.error('AI use log failed:', logError)
+  }
   if (meter.block) return planBlockResponse(meter.block)
 
   // Premium: let the tutor know which topics this student keeps missing.
@@ -73,7 +91,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       try {
         const claude = new ClaudeService()
-        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, learnerNote, turns })) {
+        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, learnerNote, assignedTutor: rule?.aiHelp === 'tutor', turns })) {
           controller.enqueue(encoder.encode(text))
         }
       } catch (error) {
@@ -92,6 +110,7 @@ export async function POST(request: NextRequest) {
       'X-Usage-Remaining': String(meter.remaining),
       'X-Usage-Limit': String(meter.limit),
       'X-Plan': meter.plan,
+      ...(rule ? { 'X-Assigned-Ai': rule.aiHelp } : {}),
     },
   })
 }
