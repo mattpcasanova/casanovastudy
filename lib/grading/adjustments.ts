@@ -1,4 +1,4 @@
-// Extra credit and deductions on graded papers (migration 068): "+5% for the
+// Extra credit and deductions on graded papers (migration 069): "+5% for the
 // study guide packet", "-10% per day late", accommodations. Stored per paper
 // in grading_results.adjustments; one applied to several students shares an
 // id, so the class results page can edit or remove it for all of them.
