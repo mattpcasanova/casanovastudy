@@ -6,12 +6,13 @@
 // the stack like a dropped file.
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Check, Copy, Inbox, Loader2, Printer, Trash2 } from "lucide-react"
+import { Check, Copy, Inbox, Loader2, Printer, Smartphone, Trash2 } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
 
 interface InboxItem {
   id: string
   from: string | null
+  source?: 'email' | 'phone'
   subject: string | null
   receivedAt: string
   usedAt: string | null
@@ -41,7 +42,8 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
     if (!res.ok) return
     const data = await res.json()
     setAddress(data.address)
-    setItems(data.items)
+    // Phone sends are added by the phone dialog; once used they're not news here.
+    setItems((data.items as InboxItem[]).filter((i) => i.source !== "phone" || !i.usedAt))
   }, [])
 
   useEffect(() => {
@@ -141,9 +143,9 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
             const isAdded = added.has(item.id)
             return (
               <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
-                <Inbox className="h-4 w-4 shrink-0 text-slate-400" />
+                {item.source === "phone" ? <Smartphone className="h-4 w-4 shrink-0 text-slate-400" /> : <Inbox className="h-4 w-4 shrink-0 text-slate-400" />}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-slate-900">{item.files.map((f) => f.name).join(", ") || item.subject || "No usable files"}</span>
+                  <span className="block truncate font-medium text-slate-900">{item.source === "phone" ? `From your phone: ${item.files.length} page${item.files.length === 1 ? "" : "s"}` : item.files.map((f) => f.name).join(", ") || item.subject || "No usable files"}</span>
                   <span className="block text-xs text-slate-500">
                     {when(item.receivedAt)} · {item.files.length} file{item.files.length === 1 ? "" : "s"}, {mb(size)}{item.usedAt && !isAdded ? " · used before" : ""}
                     {item.skipped.length > 0 && item.files.length > 0 && ` · skipped ${item.skipped.map((s) => s.name).join(", ")}`}

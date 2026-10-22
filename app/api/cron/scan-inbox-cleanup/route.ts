@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
+import { cleanupPhoneSessions } from '@/lib/scan-inbox/phone-server'
 
 // Daily (vercel.json cron): scans in teachers' scanner inboxes are student
 // work, so they're deleted 30 days after they arrive. Vercel sends
-// `Authorization: Bearer $CRON_SECRET`; anything else is refused.
+// `Authorization: Bearer $CRON_SECRET`; anything else is refused. Also clears
+// pages from phone links that were never finished sending.
 export const maxDuration = 300
 
 export async function GET(request: NextRequest) {
@@ -21,5 +23,6 @@ export async function GET(request: NextRequest) {
     await supabase.from('scan_inbox_items').delete().eq('id', item.id)
     files += paths.length
   }
-  return NextResponse.json({ deleted: old?.length ?? 0, files })
+  const phone = await cleanupPhoneSessions(supabase)
+  return NextResponse.json({ deleted: old?.length ?? 0, files, phone })
 }

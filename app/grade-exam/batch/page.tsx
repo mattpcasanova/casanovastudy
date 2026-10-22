@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ScaleEditor } from "@/components/grading/report/scale-editor"
 import { ScanInboxPanel } from "@/components/grading/scan-inbox-panel"
+import { PhoneUploadButton } from "@/components/grading/phone-upload"
 import { ClassroomWorkPanel } from "@/components/grading/classroom-work-panel"
 import { placeStampedPages } from "@/lib/stamped/place"
 import { missingPages } from "@/lib/stamped/codes"
@@ -630,6 +631,7 @@ function BatchGrading() {
             />
             <ScanInboxPanel onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} openItemId={inboxItem} disabled={phase === "preparing"} />
             <DropZone files={paperFiles} onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} onRemove={(i) => setPaperFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} big />
+            <PhoneUploadButton label="the papers" onFiles={(f) => setPaperFiles((prev) => [...prev, ...f])} disabled={phase === "preparing"} />
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={sortByName} onChange={(e) => setSortByName(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               Put pages in file-name order (keeps phone photos in the order you took them)

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
   const { data } = await createAdminClient()
     .from('scan_inbox_items')
-    .select('id, from_address, subject, files, skipped, used_at, received_at')
+    .select('id, from_address, subject, files, skipped, used_at, received_at, source')
     .eq('user_id', user.id)
     .gte('received_at', since)
     .order('received_at', { ascending: false })
@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
   const items = (data ?? []).map((r) => ({
     id: r.id,
     from: r.from_address,
+    source: r.source as 'email' | 'phone',
     subject: r.subject,
     receivedAt: r.received_at,
     usedAt: r.used_at,

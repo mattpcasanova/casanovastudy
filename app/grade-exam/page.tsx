@@ -14,6 +14,7 @@ import { StudentLinkSelector } from "@/components/student-link-selector"
 import { useAuth } from "@/lib/auth"
 import { processFile, compressImageFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
+import { PhoneUploadButton } from "@/components/grading/phone-upload"
 import { DropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, primaryCta, actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { authFetch } from "@/lib/auth-fetch"
@@ -580,6 +581,17 @@ export default function GradeExamPage() {
                 <input ref={studentInputRef} type="file" id="studentExam" accept={UPLOAD_ACCEPT} onChange={handleStudentExamUpload} className="hidden" disabled={isGrading} multiple />
                 {errors.studentExam && <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-rose-600"><AlertCircle className="h-4 w-4" /> {errors.studentExam}</p>}
                 <FileList files={studentExamFiles} onRemove={(i) => removeStudentExam(i)} disabled={isGrading} />
+                {isTeacher && (
+                  <PhoneUploadButton
+                    label="the student's pages"
+                    disabled={isGrading}
+                    onFiles={(files) => {
+                      if (!studentExamFiles.length && files[0]) void autofillFromPaper(files[0])
+                      setStudentExamFiles((prev) => [...prev, ...files])
+                      setErrors((prev) => ({ ...prev, studentExam: "" }))
+                    }}
+                  />
+                )}
               </StepCard>
             </div>
 

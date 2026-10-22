@@ -5,6 +5,7 @@
 // study_guide_assignments.assigned_by would block the delete, so it goes first.
 
 import { createAdminClient } from '@/lib/supabase-server'
+import { removePhoneFiles } from '@/lib/scan-inbox/phone-server'
 
 export async function deleteAccount(userId: string): Promise<void> {
   const supabase = createAdminClient()
@@ -21,6 +22,8 @@ export async function deleteAccount(userId: string): Promise<void> {
   const { data: scans } = await supabase.from('scan_inbox_items').select('files').eq('user_id', userId)
   const paths = (scans ?? []).flatMap((r) => (r.files as Array<{ path: string }>).map((f) => f.path))
   for (let i = 0; i < paths.length; i += 100) await supabase.storage.from('scan-inbox').remove(paths.slice(i, i + 100))
+  const { data: phoneLinks } = await supabase.from('phone_upload_sessions').select('id, user_id').eq('user_id', userId)
+  for (const s of phoneLinks ?? []) await removePhoneFiles(supabase, s, true)
   const { error } = await supabase.auth.admin.deleteUser(userId)
   if (error) throw new Error(`Could not delete the account: ${error.message}`)
 }
