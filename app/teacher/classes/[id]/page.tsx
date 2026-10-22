@@ -28,6 +28,7 @@ import { ClassGradebook } from "@/components/classes/class-gradebook"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { courseKey, courseName, nextSchoolYear, schoolYearFor } from "@/lib/classes/years"
 import { TeacherVerificationCard } from "@/components/teacher/verification-card"
+import { DeleteClassDialog } from "@/components/classes/delete-class-dialog"
 
 interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string; school_year: string; course: string | null }
 interface BatchSummary { id: string; title: string | null; createdAt: string; papers: number; average: number; released: boolean }
@@ -53,6 +54,7 @@ function ClassView({ id }: { id: string }) {
   const [areaTest, setAreaTest] = useState("")
   const [showLeft, setShowLeft] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paste, setPaste] = useState("")
   const [pasteOpen, setPasteOpen] = useState(false)
@@ -122,7 +124,7 @@ function ClassView({ id }: { id: string }) {
       setRoster(data.roster)
       setPaste("")
       setPasteOpen(false)
-      setNotice(`Added ${data.added} name${data.added === 1 ? "" : "s"}${data.skipped ? `, ${data.skipped} already on the list` : ""}.`)
+      setNotice(`Added ${data.added} name${data.added === 1 ? "" : "s"}${data.skipped ? `, ${data.skipped} already on the list` : ""}.${data.filled ? ` Filled in the student ID or email for ${data.filled}.` : ""}`)
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Could not add those names")
     } finally {
@@ -163,6 +165,7 @@ function ClassView({ id }: { id: string }) {
 
   return (
     <Shell>
+      <DeleteClassDialog classId={cls.id} label={`${cls.name}${cls.period ? ` (Period ${cls.period})` : ""}`} open={deleteOpen} onOpenChange={setDeleteOpen} />
       <Link href="/teacher/classes" className={backLink}><ArrowLeft />My classes</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -173,6 +176,7 @@ function ClassView({ id }: { id: string }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className={backLink}>{courseName(cls.name, cls.course)} across years</Link>
             <button type="button" onClick={() => setDetailsOpen((o) => !o)} className={backLink}>Year &amp; course</button>
+            <button type="button" onClick={() => setDeleteOpen(true)} className={cn(backLink, "hover:bg-rose-50 hover:text-rose-700")}><Trash2 />Delete class</button>
           </div>
           {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>

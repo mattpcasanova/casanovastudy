@@ -178,6 +178,28 @@ async function main() {
   r = await t('GET', `/api/classes/${created.importedClassIds[0]}/roster`)
   check('student numbers stored', r.json?.roster?.some((x) => x.studentNumber === '9001'), JSON.stringify(r.json?.roster))
 
+  console.log('\n== Classroom class + Focus file: IDs land on the same students ==')
+  const { data: bio } = await admin.from('classes').insert({ teacher_id: teacher.id, name: 'E2E Biology Honors', period: '7', google_course_id: 'e2e-' + Date.now(), enrollment_code: 'G' + Math.random().toString(36).slice(2, 7).toUpperCase().replace(/[^A-Z2-9]/g, 'X') }).select('id').single()
+  created.importedClassIds.push(bio.id)
+  await admin.from('class_roster').insert([
+    { class_id: bio.id, first_name: 'Ayden', last_name: 'Alonso', email: 'e2e.aalonso@example.org' },
+    { class_id: bio.id, first_name: 'Gaby', last_name: 'Amador', email: 'e2e.gamador@example.org' },
+  ])
+  r = await t('POST', '/api/classes/import', { text: 'Student ID,Student,Course Title,Period\n7001,"ALONSO, AYDEN LUCAS",E2E BIOLOGY 1 HON,7\n7002,"AMADOR, GABRIELLA (GABY)",E2E BIOLOGY 1 HON,7\n7003,"BOND, JAMES",E2E BIOLOGY 1 HON,7' })
+  check('Focus file goes into the Classroom class for that period (no copy)', r.json?.classes?.length === 1 && r.json.classes[0].id === bio.id && r.json.classes[0].created === false && r.json.classes[0].filled === 2 && r.json.classes[0].added === 1, JSON.stringify(r.json))
+  r = await t('GET', `/api/classes/${bio.id}/roster`)
+  check('one row per student with both the ID and the email', r.json?.roster?.length === 3 && r.json.roster.filter((x) => x.studentNumber && x.email).length === 2, JSON.stringify(r.json?.roster))
+
+  console.log('\n== Delete a class ==')
+  r = await t('DELETE', `/api/classes/${cls.id}?preview=1`)
+  check('preview counts students and graded papers without deleting', r.status === 200 && r.json.students >= 3 && r.json.papers >= 1 && r.json.sets === 1, JSON.stringify(r.json))
+  r = await s('DELETE', `/api/classes/${bio.id}`)
+  check('students cannot delete a class', r.status === 401 || r.status === 403 || r.status === 404, `got ${r.status}`)
+  r = await t('DELETE', `/api/classes/${bio.id}`)
+  const { data: goneClass } = await admin.from('classes').select('id').eq('id', bio.id).maybeSingle()
+  const { count: leftRows } = await admin.from('class_roster').select('id', { count: 'exact', head: true }).eq('class_id', bio.id)
+  check('deleting removes the class and its list', r.status === 200 && !goneClass && leftRows === 0)
+
   console.log('\n== Scanner inbox (storage + signed links; email delivery needs Resend) ==')
   const scanPath = `${teacher.id}/e2e-${Date.now()}/1-stack.pdf`
   const pdfBytes = Buffer.from('%PDF-1.4\n%e2e\n')

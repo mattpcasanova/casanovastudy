@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classroomDue, matchClassroomStudents, matchClassForCourse, periodFromSection, periodIn, signState, studentToRoster, studentWork, uploadAssignments, verifyState } from './classroom'
+import { classroomDue, matchClassroomStudents, matchClassForCourse, periodFromSection, periodIn, signState, studentToRoster, studentWork, uploadAssignments, verifyState, classFromCourse } from './classroom'
 
 describe('OAuth state', () => {
   const user = '5e51e47f-d060-493d-b346-40d89595bc96'
@@ -99,5 +99,18 @@ describe('posting practice to Classroom', () => {
     expect([...out.userIdByRoster.entries()]).toEqual([['r1', 'g1'], ['r2', 'g2']])
     expect(out.emailFill).toEqual([{ rosterId: 'r1', email: 'lw@school.org' }])
     expect(out.unmatched).toEqual(['Noah Zed'])
+  })
+})
+
+describe('classFromCourse', () => {
+  it('reads SIS-synced courses named by period (course in the section)', () => {
+    expect(classFromCourse({ name: 'Period 03 (Colegia)', section: 'AP BIO-52212000340G1' })).toEqual({ name: 'AP Bio', period: '3' })
+    expect(classFromCourse({ name: 'Period 02 (Colegia)', section: 'BIOLOGY 1 HON-515120' })).toEqual({ name: 'Biology 1 Honors', period: '2' })
+  })
+  it('keeps a real course name and takes the period from name or section', () => {
+    expect(classFromCourse({ name: 'AP Statistics', section: 'Period 1' })).toEqual({ name: 'AP Statistics', period: '1' })
+    expect(classFromCourse({ name: 'AP Stats - Period 4', section: null })).toEqual({ name: 'AP Stats', period: '4' })
+    expect(classFromCourse({ name: 'Chemistry', section: '6' })).toEqual({ name: 'Chemistry', period: '6' })
+    expect(classFromCourse({ name: 'Marine Science', section: 'Room 204' })).toEqual({ name: 'Marine Science', period: null })
   })
 })

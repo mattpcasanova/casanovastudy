@@ -50,7 +50,8 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
       if (!res.ok) throw new Error(data.error || "Import failed")
       const made = data.classes.filter((c: { created: boolean }) => c.created).length
       const added = data.classes.reduce((s: number, c: { added: number }) => s + c.added, 0)
-      onImported(`Imported ${added} student${added === 1 ? "" : "s"} into ${data.classes.length} class${data.classes.length === 1 ? "" : "es"}${made < data.classes.length ? ` (${data.classes.length - made} already existed, new names added)` : ""}.`)
+      const filled = data.classes.reduce((s: number, c: { filled?: number }) => s + (c.filled ?? 0), 0)
+      onImported(`Imported ${added} student${added === 1 ? "" : "s"} into ${data.classes.length} class${data.classes.length === 1 ? "" : "es"}${made < data.classes.length ? ` (${data.classes.length - made} already existed, new names added)` : ""}.${filled ? ` Filled in student IDs or emails for ${filled} student${filled === 1 ? "" : "s"} already on your lists.` : ""}`)
       setText("")
       setFileName("")
       onOpenChange(false)
@@ -67,7 +68,7 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
         <DialogHeader>
           <DialogTitle>Import your classes</DialogTitle>
           <DialogDescription>
-            Export your class lists from your gradebook (Focus, PowerSchool, Skyward, Google Sheets...) as a CSV. One file can hold all your classes: a Course or Period column splits them up. You only need to do this once.
+            Export your class lists from your gradebook (Focus, PowerSchool, Skyward, Google Sheets...) as a CSV. One file can hold all your classes: a Course or Period column splits them up. You only need to do this once. Classes you already have (for example from Google Classroom) get the student IDs added to the students already there.
           </DialogDescription>
         </DialogHeader>
 

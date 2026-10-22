@@ -909,13 +909,13 @@ function BatchGrading() {
                       {phase === "review" && state !== "sure" && (() => {
                         const { open, taken } = suggestions
                         return (
-                          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white/80 p-2.5 text-sm ring-1 ring-slate-200">
+                          <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/80 p-2.5 text-sm ring-1 ring-slate-200">
                             {classId && state === "none" && elsewhere[paper.name] && (() => {
                               const from = elsewhere[paper.name]!
                               return (
-                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 font-semibold text-white shadow-sm hover:bg-blue-700">
-                                  <UserPlus className="h-4 w-4" />
-                                  <span>Add {from.firstName} {from.lastName} from {from.className}{from.period ? ` (P${from.period})` : ""}{from.studentNumber ? <span className="font-normal opacity-90"> · ID {from.studentNumber}</span> : null}</span>
+                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} aria-label={`Add ${from.firstName} ${from.lastName} from ${from.className}`} title={`Add ${from.firstName} ${from.lastName} from ${from.className}${from.period ? ` (P${from.period})` : ""}${from.studentNumber ? ` · ID ${from.studentNumber}` : ""}`} className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-xl bg-blue-600 px-3 max-sm:shrink-0 font-semibold text-white shadow-sm hover:bg-blue-700">
+                                  <UserPlus className="h-4 w-4 shrink-0" />
+                                  <span className="hidden truncate sm:inline">Add from {from.className}{from.period ? ` P${from.period}` : ""}</span>
                                 </button>
                               )
                             })()}
@@ -924,7 +924,7 @@ function BatchGrading() {
                                 value=""
                                 onChange={(e) => { const row = roster.find((x) => x.id === e.target.value); if (row) setNames((m) => ({ ...m, [paper.key]: fullName(row) })) }}
                                 aria-label={`Match ${paper.name} to a student on the class list`}
-                                className="h-10 max-w-[18rem] rounded-xl border border-slate-300 bg-white px-3 font-semibold text-slate-800 hover:border-blue-400"
+                                className="h-10 min-w-[7rem] flex-1 truncate rounded-xl border border-slate-300 bg-white px-3 font-semibold text-slate-800 hover:border-blue-400"
                               >
                                 <option value="">Match to a student on the list…</option>
                                 {open.length > 0 && <optgroup label="No paper yet">{open.map((r) => <option key={r.id} value={r.id}>{lastFirst(r)}</option>)}</optgroup>}
@@ -932,11 +932,11 @@ function BatchGrading() {
                               </select>
                             )}
                             {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
-                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} className={cn("inline-flex h-10 items-center gap-2 rounded-xl px-4 font-semibold ring-1", elsewhere[paper.name] ? "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50" : "bg-blue-600 text-white ring-blue-600 hover:bg-blue-700")}>
-                                <UserPlus className="h-4 w-4" />{elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`}
+                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} aria-label={elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`} title={elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`} className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 font-semibold ring-1", elsewhere[paper.name] ? "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50" : "bg-blue-600 text-white ring-blue-600 hover:bg-blue-700")}>
+                                <UserPlus className="h-4 w-4" /><span className="hidden sm:inline">{elsewhere[paper.name] ? "New student" : "Add to class"}</span>
                               </button>
                             )}
-                            <button type="button" onClick={() => removePaper(paper)} className="ml-auto inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="h-4 w-4" />Leave out of this grading</button>
+                            <button type="button" onClick={() => removePaper(paper)} aria-label="Leave this paper out of this grading" title="Leave this paper out of this grading" className="ml-auto inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">Leave out</span></button>
                           </div>
                         )
                       })()}

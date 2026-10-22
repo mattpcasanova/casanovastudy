@@ -2,6 +2,7 @@
 // have verified the teacher owns the class (ownedClass) first.
 
 import { classTeacherVerified } from '@/lib/teachers/verification'
+import { planRosterMerge } from './merge'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { rosterRowForStudent } from './roster'
 import { normalizeName } from '@/lib/grading/names'
@@ -90,31 +91,20 @@ export async function addRosterNames(
   supabase: SupabaseClient,
   classId: string,
   names: Array<{ firstName: string; lastName: string; studentNumber?: string; email?: string | null }>,
-): Promise<{ added: number; skipped: number; error?: string }> {
-  const existing = await loadRoster(supabase, classId)
-  const byName = new Set(existing.map((r) => normalizeName(`${r.firstName} ${r.lastName}`)))
-  const byNumber = new Map(existing.filter((r) => r.studentNumber).map((r) => [r.studentNumber!, r]))
-  const byEmail = new Map(existing.filter((r) => r.email).map((r) => [r.email!.toLowerCase(), r]))
-  const fresh: typeof names = []
-  for (const n of names) {
-    const known = (n.studentNumber ? byNumber.get(n.studentNumber) : undefined) ?? (n.email ? byEmail.get(n.email.toLowerCase()) : undefined)
-    if (known || byName.has(normalizeName(`${n.firstName} ${n.lastName}`))) {
-      // Fill in a missing student number or email on a name already there.
-      const row = known ?? existing.find((r) => normalizeName(`${r.firstName} ${r.lastName}`) === normalizeName(`${n.firstName} ${n.lastName}`))
-      const fill: Record<string, string> = {}
-      if (row && !row.studentNumber && n.studentNumber) fill.student_number = n.studentNumber
-      if (row && !row.email && n.email) fill.email = n.email.toLowerCase()
-      if (row && Object.keys(fill).length) await supabase.from('class_roster').update(fill).eq('id', row.id)
-      continue
-    }
-    byName.add(normalizeName(`${n.firstName} ${n.lastName}`))
-    fresh.push(n)
+  opts: { fuzzy?: boolean } = {},
+): Promise<{ added: number; skipped: number; filled: number; error?: string }> {
+  // Names already on the list (same ID, email or name; with `fuzzy`, also a
+  // confident name match) get their missing student ID / email filled in
+  // instead of a second copy. Whole-list imports pass fuzzy.
+  const plan = planRosterMerge(await loadRoster(supabase, classId), names, opts)
+  for (const f of plan.fills) {
+    await supabase.from('class_roster').update({ ...(f.studentNumber ? { student_number: f.studentNumber } : {}), ...(f.email ? { email: f.email } : {}) }).eq('id', f.id)
   }
-  if (fresh.length) {
-    const { error } = await supabase.from('class_roster').insert(fresh.map((n) => ({ class_id: classId, first_name: n.firstName, last_name: n.lastName, student_number: n.studentNumber ?? null, email: n.email?.toLowerCase() ?? null })))
-    if (error) return { added: 0, skipped: names.length, error: error.message }
+  if (plan.fresh.length) {
+    const { error } = await supabase.from('class_roster').insert(plan.fresh.map((n) => ({ class_id: classId, first_name: n.firstName, last_name: n.lastName, student_number: n.studentNumber ?? null, email: n.email?.toLowerCase() ?? null })))
+    if (error) return { added: 0, skipped: names.length, filled: plan.fills.length, error: error.message }
   }
-  return { added: fresh.length, skipped: names.length - fresh.length }
+  return { added: plan.fresh.length, skipped: names.length - plan.fresh.length, filled: plan.fills.length }
 }
 
 /**

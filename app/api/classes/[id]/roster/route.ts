@@ -19,7 +19,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // Add names: { text } (a pasted list) or { names: [{ firstName, lastName }] }.
-// Names already on the roster are skipped.
+// Names already on the roster are skipped (a pasted list also fills in their
+// missing student ID or email, matching names the way imports do).
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -41,13 +42,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       : []
   if (!names.length) return NextResponse.json({ error: 'No names found' }, { status: 400 })
 
-  const result = await addRosterNames(supabase, id, names)
+  const result = await addRosterNames(supabase, id, names, { fuzzy: typeof body.text === 'string' })
   if (result.error) {
     console.error('Roster insert failed:', result.error)
     return NextResponse.json({ error: 'Could not add those names' }, { status: 500 })
   }
   if (names.some((n) => 'email' in n && n.email)) await linkRosterByEmail(supabase, id)
-  return NextResponse.json({ added: result.added, skipped: result.skipped, roster: await loadRoster(supabase, id) })
+  return NextResponse.json({ added: result.added, skipped: result.skipped, filled: result.filled, roster: await loadRoster(supabase, id) })
 }
 
 // Remove every name (e.g. after a bad import). Graded papers keep their

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getAuthenticatedUser } from '@/lib/supabase-server'
 import { isClassColorToken, resolveClassColor } from '@/lib/class-colors'
+import { requireTeacher } from '@/lib/api-auth'
+import { ownedClass } from '@/lib/classes/server'
 
 const MAX_NAME_LEN = 100
 const MAX_PERIOD_LEN = 50
@@ -228,50 +230,40 @@ export async function PATCH(
   }
 }
 
-// DELETE - Teacher hard-deletes a class. Cascades to class_enrollments.
+// DELETE - Teacher deletes a class (a bad or doubled import). The class list,
+// join code, statuses and practice assigned to it go; graded papers stay in My
+// Reports with their scores, just no longer tied to the class. `?preview=1`
+// returns what would go without deleting.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getAuthenticatedUser(request)
-    if (!user) {
-      return NextResponse.json({ error: 'You must be logged in' }, { status: 401 })
-    }
-
+    const { user, error } = await requireTeacher(request)
+    if (error) return error
     const { id } = await params
-    if (!id) {
-      return NextResponse.json({ error: 'Class id required' }, { status: 400 })
-    }
-
     const supabase = createAdminClient()
+    if (!(await ownedClass(supabase, user.id, id))) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
 
-    const { data: cls, error: lookupError } = await supabase
-      .from('classes')
-      .select('id, teacher_id')
-      .eq('id', id)
-      .maybeSingle()
-
-    if (lookupError) {
-      return NextResponse.json({ error: 'Failed to fetch class' }, { status: 500 })
+    if (request.nextUrl.searchParams.get('preview') === '1') {
+      const [students, papers, practice] = await Promise.all([
+        supabase.from('class_roster').select('id', { count: 'exact', head: true }).eq('class_id', id),
+        supabase.from('grading_results').select('batch_id').eq('class_id', id).limit(5000),
+        supabase.from('practice_assignments').select('id', { count: 'exact', head: true }).eq('class_id', id),
+      ])
+      return NextResponse.json({
+        students: students.count ?? 0,
+        papers: papers.data?.length ?? 0,
+        sets: new Set((papers.data ?? []).map((p) => p.batch_id).filter(Boolean)).size,
+        practice: practice.count ?? 0,
+      })
     }
-    if (!cls) {
-      return NextResponse.json({ error: 'Class not found' }, { status: 404 })
-    }
-    if (cls.teacher_id !== user.id) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
-    }
 
-    const { error: deleteError } = await supabase
-      .from('classes')
-      .delete()
-      .eq('id', id)
-
+    const { error: deleteError } = await supabase.from('classes').delete().eq('id', id).eq('teacher_id', user.id)
     if (deleteError) {
       console.error('Error deleting class:', deleteError)
       return NextResponse.json({ error: 'Failed to delete class' }, { status: 500 })
     }
-
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete class error:', error)
