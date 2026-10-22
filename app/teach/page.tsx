@@ -74,7 +74,7 @@ function TeacherHome() {
 
       <main className="container relative mx-auto -mt-28 max-w-5xl space-y-6 px-4 pb-20">
         {/* The main jobs */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Link href="/grade-exam/batch" className="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-2xl shadow-blue-900/15 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-blue-300 md:col-span-2">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-500 text-white"><Users className="h-6 w-6" /></span>
             <h2 className={cn(fontDisplay, "mt-4 text-2xl font-semibold text-slate-900")}>Grade a class</h2>
@@ -108,7 +108,7 @@ function TeacherHome() {
         {!data ? (
           <p className="flex items-center justify-center gap-2 py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Recently graded</h2>

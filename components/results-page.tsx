@@ -291,7 +291,7 @@ export default function ResultsPage({ studyGuideData, studyGuideResponse, onBack
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                       <div className="w-2 h-2 bg-primary rounded-full"></div>

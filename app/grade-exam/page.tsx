@@ -650,7 +650,7 @@ export default function GradeExamPage() {
                         </select>
                       )}
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="studentFirstName" className="text-sm font-medium text-slate-700">Student first name</Label>
                         <AutocompleteInput id="studentFirstName" placeholder="e.g., John" value={studentFirstName} onChange={setStudentFirstName} disabled={isGrading} className="bg-white border-slate-200" fieldName="studentFirstName" userId={user?.id} />
@@ -685,7 +685,7 @@ export default function GradeExamPage() {
                       <Label htmlFor="examTitle" className="text-sm font-medium text-slate-700">Exam title</Label>
                       <AutocompleteInput id="examTitle" placeholder="e.g., Chapter 3 Test, Midterm Exam" value={examTitle} onChange={setExamTitle} disabled={isGrading} className="bg-white border-slate-200" userId={user?.id} fieldName="examTitle" />
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="className" className="text-sm font-medium text-slate-700">Class</Label>
                         <AutocompleteInput id="className" placeholder="e.g., AP Biology, Marine Science" value={className} onChange={setClassName} disabled={isGrading} className="bg-white border-slate-200" fieldName="className" userId={user?.id} />

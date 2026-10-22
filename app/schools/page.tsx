@@ -51,7 +51,7 @@ export default function SchoolsPage() {
       </div>
 
       <main className="relative mx-auto -mt-12 max-w-5xl px-4 pb-20">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {FEATURES.map((f) => (
             <section key={f.title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-100"><f.icon className="h-5 w-5" /></span>

@@ -110,6 +110,36 @@ async function audit(page, url) {
   })
 }
 
+// --layout: things that look broken on small screens. Content wider than the
+// screen (outside sideways-scrolling areas), and buttons/links whose text
+// spills out or wraps inside a fixed-height button.
+async function layoutIssues(page) {
+  return page.evaluate(() => {
+    const W = document.documentElement.clientWidth
+    const out = []
+    const scrollsSideways = (el) => { for (let p = el.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden') return true } return false }
+    const label = (el) => `<${el.tagName.toLowerCase()}> "${(el.innerText || el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 50)}"`
+    if (document.documentElement.scrollWidth > W + 1) out.push(`page scrolls sideways (${document.documentElement.scrollWidth}px wide)`)
+    const seen = new Set()
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect()
+      if (!r.width || getComputedStyle(el).visibility === 'hidden') continue
+      if (r.right > W + 1 && !scrollsSideways(el) && !el.closest('[aria-hidden="true"]')) {
+        const key = label(el)
+        if (!seen.has(key) && el.children.length < 6) { seen.add(key); out.push(`off screen right by ${Math.round(r.right - W)}px: ${key}`) }
+      }
+      if (el.matches('button, a[class*="h-9"], a[class*="h-10"], a[class*="h-11"], a[class*="h-12"], [role="button"]')) {
+        const cs = getComputedStyle(el)
+        const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3
+        const textH = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) || el.querySelector('span') ? el.scrollHeight : 0
+        if (el.scrollWidth > el.clientWidth + 2 && cs.overflow === 'visible') out.push(`text spills out of ${label(el)} (${el.scrollWidth} > ${el.clientWidth}px)`)
+        else if (cs.height !== 'auto' && textH > r.height + 2 && r.height < lh * 2.2) out.push(`text wraps in ${label(el)}`)
+      }
+    }
+    return out.slice(0, 40)
+  })
+}
+
 async function main() {
   const s = await seed()
   const pages = {
@@ -130,13 +160,17 @@ async function main() {
   const report = []
   try {
     for (const [who, urls] of Object.entries(pages)) {
-      const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 } })
+      // --mobile: phone-sized (iPhone 14/15), touch, for checking layouts with --shots.
+      const ctx = await browser.newContext(process.argv.includes('--mobile')
+        ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
+        : { viewport: { width: 1366, height: 900 } })
       if (who !== 'signedOut') await ctx.addCookies(cookiesFor((who === 'teacher' ? s.teacher : s.student).session))
       const page = await ctx.newPage()
       for (const url of urls.filter(Boolean)) {
         if (only && !url.startsWith(only)) continue
         try {
           const v = await audit(page, url)
+          if (process.argv.includes('--layout')) for (const issue of await layoutIssues(page)) console.log(`    layout: ${issue}`)
           const shots = flag('shots') // --shots <dir>: a full-page screenshot per page
           if (shots) await page.screenshot({ path: `${shots}/${who}${url.replace(/[^a-z0-9]+/gi, '_').slice(0, 60)}.png`, fullPage: true })
           report.push({ who, url, violations: v })

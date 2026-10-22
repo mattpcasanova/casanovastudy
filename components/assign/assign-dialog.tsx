@@ -187,7 +187,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   ) : roster.length === 0 ? (
                     <p className="text-sm text-slate-500">This class has no names yet.</p>
                   ) : (
-                    <ul className="grid max-h-64 gap-1.5 overflow-y-auto rounded-xl bg-slate-50 p-2 ring-1 ring-inset ring-slate-200 sm:grid-cols-2">
+                    <ul className="grid grid-cols-1 max-h-64 gap-1.5 overflow-y-auto rounded-xl bg-slate-50 p-2 ring-1 ring-inset ring-slate-200 sm:grid-cols-2">
                       {roster.map((r) => (
                         <li key={r.id}>
                           <label className={cn("flex h-10 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-sm", picked.has(r.id) ? "bg-blue-50 text-blue-900 ring-1 ring-blue-200" : "bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50")}>

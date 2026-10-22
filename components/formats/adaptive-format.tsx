@@ -256,7 +256,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
   const showLesson = !!(result && !result.correct && q?.type !== "explain" && cp && cp.missStreak >= 2 && concept?.lesson)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="min-w-0">
         {waiting || !q ? (
           <div className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-white p-6 text-slate-700 shadow-sm">

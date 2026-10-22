@@ -131,8 +131,14 @@ export function FileList({ files, onRemove, disabled }: { files: File[]; onRemov
 
 /** The gradient call-to-action button from the homepage. */
 /** In-page action buttons (teacher pages): big enough to hit and to notice. */
-export const actionButton = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 transition hover:bg-slate-50 hover:ring-slate-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
-export const actionButtonPrimary = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
+export const actionButton = "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 transition hover:bg-slate-50 hover:ring-slate-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
+export const actionButtonPrimary = "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4"
+
+/**
+ * A row of action buttons. On phones: two even columns of full-width buttons
+ * (an odd last one spans both), instead of a ragged wrap; a normal row from sm up.
+ */
+export const buttonRow = "grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center [&>*]:min-w-0 [&>*:last-child:nth-child(odd)]:col-span-2"
 
 /** Dropdowns on teacher pages: tall, with room around the arrow. */
 export const selectBox = "cs-select h-11 rounded-xl border border-slate-300 bg-white pl-3 text-sm font-medium text-slate-800 outline-none transition hover:border-slate-400 focus:border-blue-500 disabled:opacity-60"
@@ -152,7 +158,7 @@ export function GradingModeSwitch({ mode }: { mode: "class" | "single" }) {
     { key: "single" as const, href: "/grade-exam", icon: User, title: "One student", text: "Grade a single paper and watch the marking as it happens." },
   ]
   return (
-    <nav aria-label="What are you grading?" className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-blue-900/10 sm:grid-cols-2">
+    <nav aria-label="What are you grading?" className="grid grid-cols-1 gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl shadow-blue-900/10 sm:grid-cols-2">
       {options.map((o) => {
         const active = o.key === mode
         const Icon = o.icon

@@ -189,7 +189,7 @@ function YearSections({ classes: unsorted, onRolledOver }: { classes: ClassRecor
             <Button variant="ghost" onClick={() => setRollOpen(true)} disabled={!classes.some((c) => c.school_year === latest)} className={actionButton}><CalendarPlus className="mr-1.5 h-4 w-4" />Start next year</Button>
           </div>
         </div>
-        {thisYear.length ? <ul className="grid gap-4 sm:grid-cols-2">{thisYear.map((c) => <ClassCard key={c.id} c={c} />)}</ul> : <p className="text-sm text-slate-500">No classes for {current} yet.</p>}
+        {thisYear.length ? <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">{thisYear.map((c) => <ClassCard key={c.id} c={c} />)}</ul> : <p className="text-sm text-slate-500">No classes for {current} yet.</p>}
       </div>
       {courses.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -215,7 +215,7 @@ function YearBlock({ title, classes }: { title: string; classes: ClassRecord[] }
   return (
     <div>
       <h2 className={cn(fontDisplay, "mb-3 text-2xl font-semibold text-slate-900")}>{title}</h2>
-      <ul className="grid gap-4 sm:grid-cols-2">{classes.map((c) => <ClassCard key={c.id} c={c} />)}</ul>
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">{classes.map((c) => <ClassCard key={c.id} c={c} />)}</ul>
     </div>
   )
 }

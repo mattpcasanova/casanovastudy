@@ -268,7 +268,7 @@ function QuestionBreakdown({ papers, stats, report, open, onToggle, hardestFirst
                       Worth {q.possible} mark{q.possible === 1 ? "" : "s"}. Class average {fmt(q.avgMarks)} of {q.possible} ({Math.round(q.avgPct)}%).
                       {r.issue && <><br /><span className="font-medium text-slate-900">What went wrong:</span> {r.issue}</>}
                     </p>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       {([["No marks", r.zero, "text-rose-700", "bg-rose-50 ring-rose-200"], ["Some marks", r.part, "text-amber-800", "bg-amber-50 ring-amber-200"], ["Full marks", r.full, "text-emerald-700", "bg-emerald-50 ring-emerald-200"]] as const).map(([label, list, text, box]) => (
                         <div key={label} className={cn("rounded-xl p-3 ring-1 ring-inset", box)}>
                           <p className={cn("text-xs font-semibold uppercase tracking-wide", text)}>{label} ({list.length})</p>

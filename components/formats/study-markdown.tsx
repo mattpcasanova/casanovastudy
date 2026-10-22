@@ -214,7 +214,8 @@ function buildComponents(compact: boolean): Components {
       <input type="checkbox" defaultChecked={!!checked} className="mr-2 h-4 w-4 translate-y-0.5 rounded border-slate-300 accent-blue-600" />
     ),
     table: ({ children }) => (
-      <div className="not-prose my-5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      // Focusable so a table wider than a phone can be scrolled with the keyboard too.
+      <div tabIndex={0} role="region" aria-label="Table" className="not-prose my-5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
         <table className="w-full border-collapse text-left text-sm">{children}</table>
       </div>
     ),

@@ -31,7 +31,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { ClientCompression } from "@/lib/client-compression"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
-import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox } from "@/components/grading/grading-ui"
+import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox, buttonRow } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
@@ -68,7 +68,8 @@ type Scheme = { texts: Array<{ name: string; content: string }>; images: Array<{
 
 const ANSWER_KEY_NAME = "Answer key (drafted from the papers, checked by the teacher)"
 
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
+// Clamped: a paper that just started can be a moment ahead of the page's 1 s ticker ("-1:-1").
+const clock = (seconds: number) => { const t = Math.max(0, seconds); return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}` }
 
 const minutes = (seconds: number) => (seconds < 60 ? "under a minute" : seconds < 90 ? "about a minute" : `about ${Math.round(seconds / 60)} minutes`)
 
@@ -674,14 +675,14 @@ function BatchGrading() {
                 {pages.length - removed.size} pages. {phase === "review" ? "Check the names and pages, then grade. Use the scissors on a page that starts a new student." : `${done.length} of ${papers.length} graded${failed.length ? `, ${failed.length} failed` : ""}.`}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className={buttonRow}>
               {phase === "review" && <button type="button" onClick={() => setPhase("setup")} className={bigButton}><RotateCcw />Start over</button>}
               {phase === "review" && (
                 <button type="button" onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0} className={bigButtonPrimary}>
                   {answerKey.status === "drafting" ? <><Loader2 className="animate-spin" />Writing answer key…</> : <><CheckCircle2 />Grade {papers.length} paper{papers.length === 1 ? "" : "s"}</>}
                 </button>
               )}
-              {phase === "grading" && running && <button type="button" onClick={() => { stopRef.current = true }} className={bigButton}><Pause />Pause after current papers</button>}
+              {phase === "grading" && running && <button type="button" onClick={() => { stopRef.current = true }} className={bigButton} title="Pause after current papers"><Pause /><span className="sm:hidden">Pause</span><span className="hidden sm:inline">Pause after current papers</span></button>}
               {phase === "grading" && !running && failed.length > 0 && <button type="button" onClick={() => void gradeAll(failed.map((p) => p.key))} className={bigButton}><RotateCcw />Retry {failed.length} failed</button>}
               {done.length > 0 && <button type="button" onClick={downloadCsv} className={bigButton}><Download />Download CSV</button>}
               {done.length > 0 && !running && paperClasses.size <= 1 && <Link href={`/grade-exam/batch/${batchId.current}`} className={bigButtonPrimary}>See class results<ArrowRight /></Link>}
@@ -696,7 +697,7 @@ function BatchGrading() {
               Exam details
               {autoFilled && <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800"><ScanText className="h-3 w-3" />Filled in from the papers, check them</span>}
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <TextInput label="Exam title" value={examTitle} onChange={setExamTitle} placeholder="Unit 4 quiz" disabled={phase === "grading"} />
               <TextInput label="Class" value={className} onChange={setClassName} placeholder="AP Chemistry" disabled={phase === "grading"} />
               <TextInput label="Period" value={classPeriod} onChange={setClassPeriod} placeholder="3" disabled={phase === "grading"} />
@@ -847,14 +848,15 @@ function BatchGrading() {
               const tone = duplicate ? STATE_TONE.check : STATE_TONE[state]
               return (
                 <li key={paper.key} className={cn("overflow-hidden rounded-2xl border bg-white shadow-sm", tone.border)}>
-                  <div className={cn("flex flex-wrap items-center gap-3 border-l-4 px-4 py-3", tone.edge, tone.bg)}>
+                  <div className={cn("flex flex-wrap items-start gap-2 border-l-4 px-3 py-3 sm:items-center sm:gap-3 sm:px-4", tone.edge, tone.bg)}>
                     {phase === "review" && papers.length > 1 && (
-                      <input type="checkbox" aria-label={`Select ${paper.name}`} checked={selected.has(paper.key)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(paper.key); else next.delete(paper.key); return next })} className="h-5 w-5 shrink-0 rounded border-slate-300" />
+                      <input type="checkbox" aria-label={`Select ${paper.name}`} checked={selected.has(paper.key)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(paper.key); else next.delete(paper.key); return next })} className="mt-1.5 h-5 w-5 shrink-0 rounded border-slate-300 sm:mt-0" />
                     )}
-                    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold", tone.avatar)} aria-hidden>
+                    <span className={cn("hidden h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:flex", tone.avatar)} aria-hidden>
                       {state === "sure" && paper.name ? initials(paper.name) : n + 1}
                     </span>
-                    <div className="min-w-0 flex-1">
+                    {/* min width: on a phone the status / Report column wraps to its own line instead of squeezing this one */}
+                    <div className="min-w-[11.5rem] flex-1">
                       <input
                         value={paper.name}
                         onChange={(e) => setNames((m) => ({ ...m, [paper.key]: e.target.value }))}
@@ -951,7 +953,7 @@ function BatchGrading() {
                         />
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 max-sm:w-full max-sm:justify-between max-sm:empty:hidden">
                       <PaperBadge status={r} now={now} />
                       {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>}
                       {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Retry</button>}
@@ -1234,7 +1236,7 @@ function PaperBadge({ status, now }: { status?: PaperStatus; now: number }) {
       ?? (marking ? (status.total ? `Marking question ${Math.min(status.graded! + 1, status.total)} of ${status.total}` : `${status.graded} questions marked`) : "Grading")
     const pct = status.total ? Math.round((Math.min(status.graded ?? 0, status.total) / status.total) * 100) : null
     return (
-      <span className="inline-flex min-w-[12rem] flex-col gap-1">
+      <span className="inline-flex min-w-0 flex-1 flex-col gap-1 sm:min-w-[12rem] sm:flex-none">
         <span className="inline-flex items-center gap-1.5 text-sm text-blue-700">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           <span className="truncate">{label}</span>

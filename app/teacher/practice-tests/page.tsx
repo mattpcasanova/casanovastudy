@@ -155,7 +155,7 @@ export default function TeacherPracticeTestsPage() {
         <NavigationHeader />
         <div className="container mx-auto px-4 py-8">
           <Skeleton className="h-8 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
               <Skeleton key={i} className="h-40" />
             ))}
@@ -184,7 +184,7 @@ export default function TeacherPracticeTestsPage() {
         </div>
 
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[...Array(2)].map((_, i) => (
               <Skeleton key={i} className="h-44" />
             ))}
@@ -201,7 +201,7 @@ export default function TeacherPracticeTestsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {tests.map((t) => {
               const studentUrl = `${originUrl()}/p/${t.share_token}`
               const resultsUrl = `${originUrl()}/p/results/${t.results_share_token}`

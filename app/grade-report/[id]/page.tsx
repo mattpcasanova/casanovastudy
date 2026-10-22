@@ -19,7 +19,7 @@ import type { GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
 import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/report-settings"
 import type { GradeScale } from "@/lib/grading/scale"
-import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { lateLabel } from "@/lib/grading/late"
 
 interface GradingResult {
@@ -239,7 +239,7 @@ export default function GradeReportPage() {
         <div className={cn("mx-auto grid gap-6", showOptions && canEdit ? "max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-4xl")}>
           <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg shadow-blue-900/10 ring-1 ring-slate-200 print:hidden">
+            <div className={cn(buttonRow, "rounded-2xl bg-white/95 p-2 shadow-lg shadow-blue-900/10 ring-1 ring-slate-200 print:hidden")}>
               {result.batchId && (
                 <Button variant="ghost" asChild className={actionButton}>
                   <Link href={`/grade-exam/batch/${result.batchId}`}><Users className="mr-1.5 h-4 w-4" /> Class results</Link>

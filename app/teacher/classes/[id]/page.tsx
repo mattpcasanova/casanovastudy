@@ -5,7 +5,7 @@
 // Deliberately nothing else (no assignments, calendar or gradebook).
 
 import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
-import { backLink, actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
@@ -180,7 +180,7 @@ function ClassView({ id }: { id: string }) {
           </div>
           {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>
-        <div className="flex gap-2">
+        <div className={buttonRow}>
           <Button variant="ghost" onClick={() => setEditOpen(true)} className={actionButton}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
           <Button variant="ghost" onClick={() => setStampOpen(true)} disabled={!roster.length} title={roster.length ? undefined : "Add names first"} className={actionButton}><QrCode className="mr-2 h-4 w-4" />Print stamped copies</Button>
           <Button asChild className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>

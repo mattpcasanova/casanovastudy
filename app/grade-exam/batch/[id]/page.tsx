@@ -4,7 +4,7 @@
 // class average, links to each report (where marks can be adjusted), CSV, and
 // the class report (components/grading/class-report.tsx).
 
-import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Plus, FileText } from "lucide-react"
@@ -180,7 +180,7 @@ function BatchResults({ id }: { id: string }) {
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
                 <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}%</p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className={buttonRow}>
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
                 <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
                 <button type="button" className={actionButton} onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown />Sort by {sort === "name" ? "score" : "name"}</button>
@@ -200,7 +200,44 @@ function BatchResults({ id }: { id: string }) {
                 </div>
               </div>
             )}
-            <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-blue-900/10">
+            {/* Phones: one card per student (the table needs ~600px). */}
+            <ul className="mt-6 space-y-2 sm:hidden">
+              {sorted.map((r) => {
+                const e = r.roster_id ? roster.find((x) => x.rosterId === r.roster_id) : undefined
+                const pct = Number(r.percentage)
+                return (
+                  <li key={r.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        key={r.student_name}
+                        defaultValue={r.student_name}
+                        onBlur={(ev) => rename(r, ev.target.value)}
+                        onKeyDown={(ev) => { if (ev.key === "Enter") ev.currentTarget.blur() }}
+                        aria-label="Student name"
+                        className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-base font-semibold text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none"
+                      />
+                      <span className={cn("shrink-0 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", pct >= 80 ? "bg-emerald-50 text-emerald-800" : pct >= 65 ? "bg-blue-50 text-blue-800" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 pl-1.5">
+                      <span className="text-sm text-slate-600">{r.total_marks}/{r.total_possible_marks} marks{r.grade ? <> · <strong className="text-slate-900">{r.grade}</strong></> : null}</span>
+                      {e?.status === "late" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>}
+                      {r.group_id && r.group_members && r.group_members.length > 1 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Group of {r.group_members.length}</span>}
+                      <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "ml-auto text-blue-700")}><FileText />Report</Link>
+                    </div>
+                  </li>
+                )
+              })}
+              {noPaperRows.map((e) => (
+                <li key={e.rosterId} className="flex items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-slate-700">{e.name}</span>
+                    <span className={cn("mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset", NO_PAPER_TONE[e.status ?? "none"] ?? NO_PAPER_TONE.none)}>{NO_PAPER_LABEL[e.status ?? "none"] ?? "No paper yet"}</span>
+                  </span>
+                  {e.status !== "exempt" && classInfo && <Link href={`/grade-exam/batch?batch=${id}&class=${classInfo.id}`} className={actionButton}><Plus />Grade it</Link>}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-blue-900/10 sm:block">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr><th className="px-4 py-3">Student</th><th className="px-4 py-3">Marks</th><th className="px-4 py-3">Percent</th><th className="px-4 py-3">Grade</th><th className="px-4 py-3" /></tr>
@@ -236,13 +273,13 @@ function BatchResults({ id }: { id: string }) {
                     <tr key={e.rosterId} className="bg-slate-50/60">
                       <td className="px-4 py-3">
                         {classInfo ? <Link href={`/teacher/classes/${classInfo.id}/students/${e.rosterId}`} className="font-medium text-slate-700 hover:text-blue-700">{e.name}</Link> : <span className="font-medium text-slate-700">{e.name}</span>}
-                        <span className={cn("ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset", NO_PAPER_TONE[e.status ?? "none"] ?? NO_PAPER_TONE.none)}>{NO_PAPER_LABEL[e.status ?? "none"] ?? "No paper yet"}</span>
+                        <span className={cn("ml-2 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset", NO_PAPER_TONE[e.status ?? "none"] ?? NO_PAPER_TONE.none)}>{NO_PAPER_LABEL[e.status ?? "none"] ?? "No paper yet"}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-400">-</td>
                       <td className="px-4 py-3 text-slate-400">-</td>
                       <td className="px-4 py-3 text-slate-400">-</td>
                       <td className="px-4 py-2 text-right">
-                        {e.status !== "exempt" && classInfo && <Link href={`/grade-exam/batch?batch=${id}&class=${classInfo.id}`} className={actionButton}><Plus />Grade their paper</Link>}
+                        {e.status !== "exempt" && classInfo && <Link href={`/grade-exam/batch?batch=${id}&class=${classInfo.id}`} className={actionButton}><Plus /><span className="whitespace-nowrap">Grade their paper</span></Link>}
                       </td>
                     </tr>
                   ))}

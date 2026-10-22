@@ -143,7 +143,7 @@ export default function QuestionBankHome({ concepts }: { concepts: ConceptWithCo
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                 {unit}
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {unitConcepts.map(concept => (
                   <Link key={concept.id} href={`/teacher/question-bank/${concept.id}`}>
                     <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">

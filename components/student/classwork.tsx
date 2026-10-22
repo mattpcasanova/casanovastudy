@@ -177,7 +177,7 @@ export function ClassworkStrip() {
           See all in My Classes <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {next.map((item) => item.kind === "test" ? (
           <div key={item.t.batchId} className="flex items-center gap-3 rounded-2xl bg-rose-50/60 p-3.5 ring-1 ring-inset ring-rose-200">
             <span className="min-w-0 flex-1">

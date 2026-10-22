@@ -8,7 +8,7 @@ export default function Loading() {
       <div className="container mx-auto px-4 py-8">
         <Skeleton className="h-9 w-64 mb-6" />
         <Skeleton className="h-8 w-48 mb-6" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-36" />
           ))}

@@ -52,7 +52,7 @@ export default function PricingPage() {
       </div>
 
       <main className="relative mx-auto -mt-28 max-w-4xl px-4 pb-20">
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {/* Free */}
           <section className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5 sm:p-8">
             <h2 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900")}>Free</h2>

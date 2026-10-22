@@ -86,7 +86,7 @@ export default function MyClassesPage() {
         <NavigationHeader />
         <div className="container mx-auto px-4 py-8">
           <Skeleton className="h-8 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
               <Skeleton key={i} className="h-40" />
             ))}
@@ -109,7 +109,7 @@ export default function MyClassesPage() {
         </div>
 
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
               <Skeleton key={i} className="h-40" />
             ))}
@@ -130,7 +130,7 @@ export default function MyClassesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {classes.map((cls) => (
               <Link key={cls.id} href={`/classes/${cls.id}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">

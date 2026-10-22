@@ -66,7 +66,7 @@ function MyClass() {
         {!data ? (
           <div className="flex items-center justify-center gap-2 rounded-3xl bg-white py-16 text-slate-500 shadow-2xl shadow-blue-900/10 ring-1 ring-slate-200"><Loader2 className="h-5 w-5 animate-spin" />Loading…</div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-blue-900/10">
                 <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><ClipboardCheck className="h-5 w-5 text-emerald-700" />Assigned to you</h2>

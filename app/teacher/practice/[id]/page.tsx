@@ -12,7 +12,7 @@ import { GradebookExportDialog } from "@/components/grading/gradebook-export-dia
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
-import { actionButton, actionButtonPrimary, backLink } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -82,7 +82,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             {data.guide && <> · <Link href={`/study-guide/${data.guide.id}`} className="font-medium text-blue-700 hover:underline">open the practice</Link></>}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className={buttonRow}>
           <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
           <button type="button" className={actionButton} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
           <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp />Send to gradebook</button>

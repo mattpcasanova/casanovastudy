@@ -191,7 +191,7 @@ export default function PlanFormat({ content, studyGuideId, title, subject, grad
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-4xl space-y-8')}>
       {/* Progress summary */}
-      <div className="grid gap-4 md:grid-cols-[1fr_1.2fr] print:hidden">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1.2fr] print:hidden">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className={cn(eyebrow, 'text-teal-700')}>Your progress</p>
           <p className={cn(fontDisplay, 'mt-2 text-4xl font-semibold text-slate-900')}>

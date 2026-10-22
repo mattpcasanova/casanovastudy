@@ -127,7 +127,7 @@ export function GoogleClassroomDialog({ open, onOpenChange, onImported }: { open
                             ))}
                           </select>
                           {plan.target === NEW ? (
-                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,0.8fr)]">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,0.8fr)]">
                               <label className="block"><span className="mb-1 block text-xs font-medium text-slate-600">Class name</span><input value={plan.name} onChange={(e) => setPlan(c.id, { name: e.target.value })} maxLength={100} className={fieldBox} /></label>
                               <label className="block"><span className="mb-1 block text-xs font-medium text-slate-600">Period</span><input value={plan.period} onChange={(e) => setPlan(c.id, { period: e.target.value })} maxLength={20} className={fieldBox} /></label>
                               <label className="block"><span className="mb-1 block text-xs font-medium text-slate-600">Subject (optional)</span><input value={plan.subject} onChange={(e) => setPlan(c.id, { subject: e.target.value })} maxLength={60} className={fieldBox} /></label>

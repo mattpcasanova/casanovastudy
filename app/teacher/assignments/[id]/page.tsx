@@ -411,7 +411,7 @@ export default function TeacherAssignmentDetailPage() {
         </div>
 
         {/* Stats strip — at-a-glance roster / due / status */}
-        <div className="grid gap-3 sm:grid-cols-3 mb-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-6">
           <StatTile
             icon={Users}
             label="Submitted"

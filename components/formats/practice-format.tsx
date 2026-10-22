@@ -807,7 +807,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
         </div>
       </div>
       {topics.length > 1 && (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 sm:p-6">
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 sm:p-6">
           {topics.map((t) => {
             const p = Math.round((t.right / t.total) * 100)
             return (

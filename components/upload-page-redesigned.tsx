@@ -727,7 +727,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
           )}
           <StepHeading n={1} title="Your topic and materials" hint="Type, upload, or both" />
 
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
             {/* Type */}
             <div className="flex flex-col rounded-2xl border-2 border-slate-200 bg-white transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3.5">
@@ -954,7 +954,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 })}
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label className="mb-2 block text-base font-semibold text-slate-800">Subject <span className="font-normal text-slate-400">(optional)</span></Label>
                 <Select value={subject} onValueChange={setSubject} disabled={isGenerating}>
@@ -1119,7 +1119,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
 
             <div className={cn("grid transition-all duration-300 ease-out", showMore ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
               <div className="overflow-hidden">
-                <div className="grid gap-4 pb-1 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 pb-1 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <Label htmlFor="topic-focus" className="mb-1.5 block text-sm font-medium text-slate-700">Focus on</Label>
                     <Input

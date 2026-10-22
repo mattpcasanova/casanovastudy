@@ -85,6 +85,7 @@ export default function OutlineFormat({ content, studyGuideId }: OutlineFormatPr
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
+                  aria-label={allCollapsed ? 'Expand all' : 'Collapse all'}
                   onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(allCards.map((c) => c.id)))}
                   className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 >

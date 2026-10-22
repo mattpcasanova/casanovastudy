@@ -94,7 +94,7 @@ function SchoolOverviewPage() {
           <div className="flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white p-10 text-slate-600 shadow-xl"><Loader2 className="h-5 w-5 animate-spin" />Loading…</div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Stat icon={Users} label="Teachers using it" value={`${data.totals.activeTeachers} of ${data.totals.teachers}`} note="active in the last 30 days" />
               <Stat icon={FileCheck} label="Papers graded" value={n(data.totals.papers)} note={`${n(data.totals.sets)} class set${data.totals.sets === 1 ? "" : "s"} this year`} />
               <Stat icon={Target} label="Practice assigned" value={n(data.totals.practiceAssigned)} note={data.totals.practiceStudents ? `${pct(data.totals.practiceFinished, data.totals.practiceStudents)} of students finished` : "none yet"} />

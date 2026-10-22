@@ -97,7 +97,7 @@ export default function PracticeLinkPage() {
             {s.state === "pick" && (
               <div className="mt-6 space-y-4">
                 <p className="font-medium text-slate-900">Which one is you?</p>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {s.names.map((n) => (
                     <button key={n.rosterId} type="button" onClick={() => { setPicked(n.rosterId); setError("") }} className={cn("h-12 rounded-xl px-4 text-left font-semibold ring-1 transition", picked === n.rosterId ? "bg-blue-600 text-white ring-blue-600" : "bg-white text-slate-800 ring-slate-300 hover:bg-slate-50")}>
                       {n.label}

@@ -508,7 +508,7 @@ function CardList({ cards, mastered, difficult }: { cards: Flashcard[]; mastered
       {groups.map((g, gi) => (
         <section key={`${g.deck}-${gi}`}>
           {g.deck && <h3 className={cn(fontDisplay, 'mb-3 text-lg font-semibold text-slate-900')}>{g.deck}</h3>}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {g.cards.map((c) => (
               <div
                 key={c.id}
