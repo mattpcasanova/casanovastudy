@@ -23,6 +23,12 @@ describe('buildExport', () => {
     expect(presetSteps('focus', { title: 'Unit 3', scoreAs: 'percent' }).join(' ')).toContain('Choose Percent')
     expect(presetSteps('focus', { title: 'Unit 3' }).join(' ')).toContain('Choose Points')
   })
+  it('Focus adds a Comment column only when someone has extra credit or a deduction', () => {
+    const withComment = rows.map((r, i) => (i === 0 ? { ...r, comment: 'Study guide packet (+5%)' } : r))
+    expect(buildExport(withComment, 'focus', { title: 'Unit 3' }).table).toEqual([['Student ID', 'Score', 'Comment'], ['01001', '8.5', 'Study guide packet (+5%)'], ['', '6', '']])
+    expect(buildExport(withComment, 'generic', { title: 'Unit 3' }).table[0].at(-1)).toBe('Comment')
+    expect(buildExport(withComment, 'powerschool', { title: 'Unit 3' }).table[0]).toEqual(['01001', '8.5'])
+  })
   it('missing can count as zero', () => {
     const out = buildExport(rows, 'powerschool', { title: 'Unit 3', missingAsZero: true })
     expect(out.table).toEqual([['01001', '8.5'], ['', '6'], ['1003', '0']])

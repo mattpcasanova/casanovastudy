@@ -5,7 +5,8 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react"
 import { applyTags, type GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
 import type { ReportSettings } from "@/lib/grading/report-settings"
-import { gradeFor, hasGrades, percentOf, type GradeScale } from "@/lib/grading/scale"
+import { hasGrades, percentOf, type GradeScale } from "@/lib/grading/scale"
+import { adjustedTotals, adjustmentLine, MAX_ADJUSTMENTS, type GradeAdjustment } from "@/lib/grading/adjustments"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 
@@ -19,12 +20,48 @@ export interface ReportDraft {
   breakdown: GradedQuestion[]
   scale: GradeScale | null
   markingStyle: MarkingStyle
+  /** Extra credit / points off for this student (lib/grading/adjustments.ts). */
+  adjustments: GradeAdjustment[]
 }
 
+/** Final totals: the question marks plus extra credit / points off. */
 export function reportTotals(draft: ReportDraft) {
-  const marks = draft.breakdown.reduce((s, q) => s + q.marksAwarded, 0)
+  const raw = draft.breakdown.reduce((s, q) => s + q.marksAwarded, 0)
   const possible = draft.breakdown.reduce((s, q) => s + q.marksPossible, 0)
-  return { marks, possible, percentage: percentOf(marks, possible), grade: gradeFor(draft.scale, marks, possible) }
+  const t = adjustedTotals(raw, possible, draft.adjustments, draft.scale)
+  return { marks: t.marks, raw, possible, percentage: t.percentage, rawPercentage: percentOf(raw, possible), grade: t.grade }
+}
+
+/** Add one extra credit / points off for just this student (report edit mode). */
+function AddAdjustment({ onAdd }: { onAdd: (a: GradeAdjustment) => void }) {
+  const [kind, setKind] = useState<'extra' | 'deduct'>('extra')
+  const [amount, setAmount] = useState('')
+  const [unit, setUnit] = useState<'percent' | 'marks'>('percent')
+  const [reason, setReason] = useState('')
+  const n = Number(amount)
+  const ready = n > 0 && reason.trim().length > 0
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm">
+      <select value={kind} onChange={(e) => setKind(e.target.value as 'extra' | 'deduct')} aria-label="Extra credit or points off" className="h-9 rounded-lg border border-slate-300 bg-white px-2">
+        <option value="extra">Extra credit</option>
+        <option value="deduct">Take off</option>
+      </select>
+      <input type="number" min={0} step="0.5" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5" aria-label="Amount" className="h-9 w-20 rounded-lg border border-slate-300 px-2" />
+      <select value={unit} onChange={(e) => setUnit(e.target.value as 'percent' | 'marks')} aria-label="Unit" className="h-9 rounded-lg border border-slate-300 bg-white px-2">
+        <option value="percent">% of the test</option>
+        <option value="marks">marks</option>
+      </select>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Reason, e.g. Accommodation: extra time" aria-label="Reason" className="h-9 min-w-[12rem] flex-1 rounded-lg border border-slate-300 px-2" />
+      <button
+        type="button"
+        disabled={!ready}
+        onClick={() => { onAdd({ id: `adj-${Math.random().toString(36).slice(2, 10)}`, kind, amount: Math.round(n * 100) / 100, unit, reason: reason.trim() }); setAmount(''); setReason('') }}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        <Plus className="h-4 w-4" />Add
+      </button>
+    </div>
+  )
 }
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
@@ -165,6 +202,35 @@ export function ReportDocument({ draft, onChange, editing, settings, date }: {
           </div>
         )}
       </div>
+
+      {(draft.adjustments.length > 0 || editing) && (
+        <div className="break-inside-avoid rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+          <h3 className={cn(fontDisplay, "text-lg font-semibold text-slate-900")}>Extra credit and points off</h3>
+          {draft.adjustments.length > 0 && (
+            <p className="mb-2 text-sm text-slate-600">As graded: {fmt(totals.raw)}/{fmt(totals.possible)} ({totals.rawPercentage.toFixed(1)}%). The totals above include these.</p>
+          )}
+          {draft.adjustments.length > 0 ? (
+            <ul className="space-y-1.5">
+              {draft.adjustments.map((a) => (
+                <li key={a.id} className="flex items-center gap-2 text-sm">
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", a.kind === 'extra' ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>{a.kind === 'extra' ? 'Extra credit' : 'Points off'}</span>
+                  <span className="flex-1 text-slate-800">{adjustmentLine(a)}</span>
+                  {editing && (
+                    <button type="button" onClick={() => onChange({ adjustments: draft.adjustments.filter((x) => x.id !== a.id) })} className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700" aria-label={`Remove ${adjustmentLine(a)}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-2 text-sm text-slate-600">None yet. Add extra credit, a late penalty or an accommodation for this student. The reason shows here and in the gradebook comment.</p>
+          )}
+          {editing && draft.adjustments.length < MAX_ADJUSTMENTS && (
+            <div className="mt-3"><AddAdjustment onAdd={(a) => onChange({ adjustments: [...draft.adjustments, a] })} /></div>
+          )}
+        </div>
+      )}
 
       {aos.length > 0 && (
         <div className="flex flex-wrap gap-2">

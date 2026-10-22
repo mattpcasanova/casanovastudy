@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adjustedTotals, adjustmentGroups, adjustmentLine, adjustmentMarks, gradebookComment, lateAdjustment, normalizeAdjustments, withAdjustment, type GradeAdjustment } from './adjustments'
+import { adjustedTotals, adjustmentGroups, keptWith, adjustmentLine, adjustmentMarks, gradebookComment, lateAdjustment, normalizeAdjustments, withAdjustment, type GradeAdjustment } from './adjustments'
 import { DEFAULT_SCALE } from './scale'
 
 const packet: GradeAdjustment = { id: 'adj-packet', kind: 'extra', amount: 5, unit: 'percent', reason: 'Extra credit: study guide packet' }
@@ -61,6 +61,13 @@ describe('applying to a class set', () => {
       { id: 'p2', adjustments: [], changed: true },
       { id: 'p3', adjustments: [], changed: false },
     ])
+  })
+  it('a new late penalty replaces the old one; extra credit stays', () => {
+    const day1 = lateAdjustment('adj-day1', 1, 10)
+    const day2 = lateAdjustment('adj-day2', 2, 10)
+    const out = withAdjustment([{ id: 'p1', adjustments: [packet, day1] }], day2, new Set(['p1']))
+    expect(out[0].adjustments.map((a) => a.id)).toEqual(['adj-packet', 'adj-day2'])
+    expect(keptWith([packet, day1], { ...packet, amount: 3 })).toEqual([day1])
   })
   it('groups shared adjustments', () => {
     expect(adjustmentGroups([...papers, { id: 'p4', adjustments: [packet] }])).toEqual([{ adjustment: packet, paperIds: ['p2', 'p4'] }])

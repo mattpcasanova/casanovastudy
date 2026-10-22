@@ -18,6 +18,8 @@ export interface ExportRow {
   possible: number | null
   pct: number | null
   status: string | null
+  /** Extra credit / deductions as one line ("Study guide packet (+5%)"); gradebooks that take comments get it. */
+  comment?: string | null
 }
 
 export interface ExportOptions {
@@ -44,6 +46,9 @@ interface ScoredRow extends ExportRow { score: number; percent: number; name: st
 const pts = (n: number) => (Math.round(n * 100) / 100).toString()
 const pct1 = (n: number) => (Math.round(n * 10) / 10).toString()
 const asPercent = (o: ExportOptions) => o.scoreAs === 'percent'
+/** A Comment column only when someone has extra credit or a deduction. */
+const withComments = (rows: ScoredRow[], table: string[][]): string[][] =>
+  rows.some((r) => r.comment) ? [[...table[0], 'Comment'], ...table.slice(1).map((line, i) => [...line, rows[i].comment ?? ''])] : table
 
 export const EXPORT_PRESETS: Record<ExportPreset, PresetInfo> = {
   focus: {
@@ -58,10 +63,11 @@ export const EXPORT_PRESETS: Record<ExportPreset, PresetInfo> = {
         ? 'Choose Percent, pick the Student ID column and the Percent column, and import.'
         : 'Choose Points, pick the Student ID column and the Score column, and import.',
       'Student IDs must match Focus exactly. Students with no score are left out (Focus doesn\'t allow blanks).',
+      'Extra credit or deductions? Scores already include them. If the import lets you pick a comment column, pick Comment; if not, copy each comment from the list below into the score\'s comment in Focus.',
     ],
-    build: (rows, o) => asPercent(o)
+    build: (rows, o) => withComments(rows, asPercent(o)
       ? [['Student ID', 'Percent'], ...rows.map((r) => [r.studentNumber ?? '', pct1(r.percent)])]
-      : [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pts(r.score)])],
+      : [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pts(r.score)])]),
   },
   powerschool: {
     label: 'PowerSchool (PowerTeacher Pro)',
@@ -182,7 +188,7 @@ export const EXPORT_PRESETS: Record<ExportPreset, PresetInfo> = {
     needs: 'either',
     file: 'csv',
     steps: ['Most gradebooks import a file with a student ID column and a score column. Points and percent are both included.'],
-    build: (rows) => [['Student ID', 'Last Name', 'First Name', 'Email', 'Points', 'Out of', 'Percent'], ...rows.map((r) => [r.studentNumber ?? '', r.lastName, r.firstName, r.email ?? '', pts(r.score), pts(r.possible ?? 0), r.possible ? pts((r.score / r.possible) * 100) : ''])],
+    build: (rows) => withComments(rows, [['Student ID', 'Last Name', 'First Name', 'Email', 'Points', 'Out of', 'Percent'], ...rows.map((r) => [r.studentNumber ?? '', r.lastName, r.firstName, r.email ?? '', pts(r.score), pts(r.possible ?? 0), r.possible ? pts((r.score / r.possible) * 100) : ''])]),
   },
 }
 

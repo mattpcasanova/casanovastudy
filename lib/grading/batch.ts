@@ -93,6 +93,8 @@ export interface CsvRow {
   /** Absent / Missing / Exempt / Late, for roster students with no graded paper (or a late one). */
   status?: string
   studentNumber?: string | null
+  /** Extra credit / deductions ("Study guide packet (+5%)"); marks and percent already include them. */
+  adjustments?: string
 }
 
 /** Class results as CSV. Student ID and Status columns appear only when some row has them. */
@@ -100,11 +102,13 @@ export function resultsCsv(rows: CsvRow[]): string {
   const q = (v: string | number | null) => `"${String(v ?? '').replace(/"/g, '""')}"`
   const withId = rows.some((r) => r.studentNumber)
   const withStatus = rows.some((r) => r.status)
-  const head = [...(withId ? ['Student ID'] : []), 'Student', 'Marks', 'Out of', 'Percent', 'Grade', ...(withStatus ? ['Status'] : [])]
+  const withAdjustments = rows.some((r) => r.adjustments)
+  const head = [...(withId ? ['Student ID'] : []), 'Student', 'Marks', 'Out of', 'Percent', 'Grade', ...(withStatus ? ['Status'] : []), ...(withAdjustments ? ['Extra credit / deductions'] : [])]
   const body = rows.map((r) => [
     ...(withId ? [r.studentNumber ?? ''] : []),
     r.name, r.marks, r.possible, r.percentage == null ? '' : r.percentage.toFixed(1), r.grade,
     ...(withStatus ? [r.status ?? ''] : []),
+    ...(withAdjustments ? [r.adjustments ?? ''] : []),
   ])
   return [head, ...body].map((row) => row.map(q).join(',')).join('\n')
 }

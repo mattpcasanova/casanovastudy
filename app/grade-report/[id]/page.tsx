@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import NavigationHeader from "@/components/navigation-header"
 import { ReportDocument, reportTotals, type ReportDraft } from "@/components/grading/report/report-document"
+import type { GradeAdjustment } from "@/lib/grading/adjustments"
 import { ReportOptions } from "@/components/grading/report/report-options"
 import { useAuth } from "@/lib/auth"
 import { authFetch } from "@/lib/auth-fetch"
@@ -35,6 +36,7 @@ interface GradingResult {
   gradeScale: GradeScale | null
   markingStyle: MarkingStyle
   teacherComment: string | null
+  adjustments?: GradeAdjustment[]
   pdfUrl: string | null
   createdAt: string
   isOwner: boolean
@@ -62,6 +64,7 @@ function draftFrom(r: GradingResult): ReportDraft {
     breakdown: r.gradeBreakdown ?? [],
     scale: r.gradeScale,
     markingStyle: r.markingStyle ?? {},
+    adjustments: r.adjustments ?? [],
   }
 }
 
@@ -138,6 +141,7 @@ export default function GradeReportPage() {
           teacherComment: d.comment,
           gradeScale: d.scale,
           markingStyle: d.markingStyle,
+          adjustments: d.adjustments,
           applyToGroup: applyToGroupRef.current,
         }),
       })

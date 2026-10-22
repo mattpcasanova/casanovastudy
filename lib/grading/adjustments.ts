@@ -97,15 +97,22 @@ export function lateAdjustment(id: string, days: number, perDay: number, reason?
   }
 }
 
+/** What stays on a paper when `adjustment` goes on it: a paper is only late once, so a new late penalty replaces the old one. */
+export function keptWith(existing: GradeAdjustment[], adjustment: GradeAdjustment): GradeAdjustment[] {
+  return existing.filter((a) => a.id !== adjustment.id && !(adjustment.late && a.late))
+}
+
 /** Put one adjustment on exactly these papers: added or updated where chosen, removed elsewhere. */
 export function withAdjustment<T extends { id: string; adjustments: GradeAdjustment[] }>(papers: T[], adjustment: GradeAdjustment, chosen: Set<string>): Array<{ id: string; adjustments: GradeAdjustment[]; changed: boolean }> {
   return papers.map((p) => {
     const had = p.adjustments.some((a) => a.id === adjustment.id)
-    const rest = p.adjustments.filter((a) => a.id !== adjustment.id)
     if (chosen.has(p.id)) {
-      const next = had ? p.adjustments.map((a) => (a.id === adjustment.id ? adjustment : a)) : [...rest, adjustment].slice(0, MAX_ADJUSTMENTS)
-      return { id: p.id, adjustments: next, changed: true }
+      const kept = keptWith(p.adjustments, adjustment)
+      const at = p.adjustments.findIndex((a) => a.id === adjustment.id)
+      const next = at >= 0 ? [...kept.slice(0, at), adjustment, ...kept.slice(at)] : [...kept, adjustment]
+      return { id: p.id, adjustments: next.slice(0, MAX_ADJUSTMENTS), changed: true }
     }
+    const rest = p.adjustments.filter((a) => a.id !== adjustment.id)
     return { id: p.id, adjustments: rest, changed: had }
   })
 }

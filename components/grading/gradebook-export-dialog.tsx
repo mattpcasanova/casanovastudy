@@ -30,6 +30,7 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
   const [missingAsZero, setMissingAsZero] = useState(false)
   const [scoreAs, setScoreAs] = useState<"points" | "percent">("points")
   const [copied, setCopied] = useState(false)
+  const [copiedComment, setCopiedComment] = useState<number | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem(PREF) as ExportPreset | null
@@ -43,6 +44,12 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
   const chooseScoreAs = (v: "points" | "percent") => {
     setScoreAs(v)
     try { localStorage.setItem(SCORE_AS_PREF, v) } catch {}
+  }
+  const commented = rows.filter((r) => r.marks != null && r.comment)
+  const copyComment = async (i: number, text: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedComment(i)
+    setTimeout(() => setCopiedComment((c) => (c === i ? null : c)), 2000)
   }
   const hasMissing = rows.some((r) => r.marks == null && r.status === "missing")
 
@@ -132,6 +139,26 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
               </tbody>
             </table>
           </div>
+
+          {commented.length > 0 && (
+            <div>
+              <h3 className="mb-1 text-sm font-semibold text-slate-900">Comments for the gradebook ({commented.length})</h3>
+              <p className="mb-2 text-xs text-slate-500">Extra credit and deductions. The scores above already include them.</p>
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {commented.map((r, i) => (
+                  <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium text-slate-900">{r.lastName ? `${r.lastName}, ${r.firstName}` : r.firstName}{r.studentNumber ? <span className="font-normal text-slate-500"> · {r.studentNumber}</span> : null}</span>
+                      <span className="block text-slate-600">{r.comment}</span>
+                    </span>
+                    <button type="button" onClick={() => void copyComment(i, r.comment ?? "")} className={actionButton} aria-label={`Copy the comment for ${r.firstName} ${r.lastName}`}>
+                      {copiedComment === i ? <><Check />Copied</> : <><Copy />Copy</>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">

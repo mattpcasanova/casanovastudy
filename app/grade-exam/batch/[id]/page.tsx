@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Plus, FileText } from "lucide-react"
+import { ArrowUpDown, BookUp, Diff, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -26,6 +26,8 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
+import { AdjustmentDialog, type AdjustablePaper } from "@/components/grading/adjustment-dialog"
+import { adjustedTotals, adjustmentGroups, adjustmentLine, gradebookComment, normalizeAdjustments, type GradeAdjustment } from "@/lib/grading/adjustments"
 
 interface Row {
   id: string
@@ -46,6 +48,28 @@ interface Row {
   class_period: string | null
   created_at: string
   grade_breakdown: GradedQuestion[] | null
+  adjustments: GradeAdjustment[] | null
+}
+
+/** The marks as graded, before extra credit / points off. */
+function rawMarksOf(r: Row): number {
+  const b = r.grade_breakdown ?? []
+  if (b.length) return b.reduce((s, q) => s + Number(q.marksAwarded || 0), 0)
+  return Number(r.total_marks) - adjustedTotals(0, Number(r.total_possible_marks), normalizeAdjustments(r.adjustments)).change
+}
+
+/** "+5%" / "-12.5%": how far adjustments moved this paper. */
+function changeChip(r: Row) {
+  const adj = normalizeAdjustments(r.adjustments)
+  if (!adj.length) return null
+  const raw = rawMarksOf(r)
+  const t = adjustedTotals(raw, Number(r.total_possible_marks), adj)
+  const diff = t.percentage - adjustedTotals(raw, Number(r.total_possible_marks), []).percentage
+  return (
+    <span title={adj.map(adjustmentLine).join("\n")} className={cn("ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold ring-1 ring-inset", diff >= 0 ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-800 ring-rose-200")}>
+      {diff >= 0 ? "+" : ""}{Number.isInteger(diff) ? diff : diff.toFixed(1)}%
+    </span>
+  )
 }
 
 const NO_PAPER_LABEL: Record<string, string> = { none: "No paper yet", missing: "Missing", absent: "Absent", exempt: "Exempt" }
@@ -77,6 +101,9 @@ function BatchResults({ id }: { id: string }) {
   const [scale, setScale] = useState<GradeScale | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState("")
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [editingAdjustment, setEditingAdjustment] = useState<{ adjustment: GradeAdjustment; paperIds: string[] } | null>(null)
 
   const patchBatch = async (body: Record<string, unknown>) => {
     const res = await authFetch(`/api/grade-batch/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -118,6 +145,22 @@ function BatchResults({ id }: { id: string }) {
     if (q.get("send") === "1") { setExportOpen(true); window.history.replaceState(null, "", window.location.pathname) }
   }, [])
 
+  const adjustable: AdjustablePaper[] = useMemo(() => (rows ?? []).map((r) => ({
+    id: r.id, name: r.student_name, createdAt: r.created_at, rawMarks: rawMarksOf(r), possible: Number(r.total_possible_marks), adjustments: normalizeAdjustments(r.adjustments),
+  })), [rows])
+  const groups = useMemo(() => adjustmentGroups(adjustable), [adjustable])
+  const nameOf = useMemo(() => new Map((rows ?? []).map((r) => [r.id, r.student_name])), [rows])
+
+  const saveAdjustment = async (adjustment: GradeAdjustment, paperIds: string[]) => {
+    await patchBatch({ adjustment, paperIds })
+    await load()
+    setNotice(paperIds.length ? `${adjustmentLine(adjustment)} saved for ${paperIds.length} student${paperIds.length === 1 ? "" : "s"}` : "Removed")
+  }
+  const removeAdjustment = async (adjustment: GradeAdjustment) => {
+    setConfirmRemove(null)
+    try { await patchBatch({ removeAdjustment: adjustment.id }); await load(); setNotice("Removed") } catch (e) { setNotice(e instanceof Error ? e.message : "Could not remove") }
+  }
+
   const sorted = useMemo(() => {
     if (!rows) return []
     return [...rows].sort((a, b) => (sort === "name" ? a.student_name.localeCompare(b.student_name) : Number(b.percentage) - Number(a.percentage)))
@@ -134,7 +177,7 @@ function BatchResults({ id }: { id: string }) {
       ...(rows ?? []).map((r) => {
         const e = r.roster_id ? byRoster.get(r.roster_id) : undefined
         const n = e ? { firstName: e.firstName, lastName: e.lastName } : parseName(r.student_name)
-        return { ...n, studentNumber: e?.studentNumber ?? null, email: e?.email ?? null, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), pct: Number(r.percentage), status: e?.status ?? null }
+        return { ...n, studentNumber: e?.studentNumber ?? null, email: e?.email ?? null, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), pct: Number(r.percentage), status: e?.status ?? null, comment: gradebookComment(normalizeAdjustments(r.adjustments)) || null }
       }),
       ...roster.filter((e) => !e.hasPaper).map((e) => ({ firstName: e.firstName, lastName: e.lastName, studentNumber: e.studentNumber, email: e.email, marks: null, possible: null, pct: null, status: e.status })),
     ]
@@ -153,7 +196,7 @@ function BatchResults({ id }: { id: string }) {
     const csv = resultsCsv([
       ...sorted.map((r) => {
         const entry = r.roster_id ? byRoster.get(r.roster_id) : undefined
-        return { name: r.student_name, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), percentage: Number(r.percentage), grade: r.grade, studentNumber: entry?.studentNumber, status: entry?.status === "late" ? (entry.daysLate ? `Late (${dayCount(entry.daysLate)})` : "Late") : undefined }
+        return { name: r.student_name, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), percentage: Number(r.percentage), grade: r.grade, studentNumber: entry?.studentNumber, status: entry?.status === "late" ? (entry.daysLate ? `Late (${dayCount(entry.daysLate)})` : "Late") : undefined, adjustments: gradebookComment(normalizeAdjustments(r.adjustments)) || undefined }
       }),
       ...roster.filter((e) => !e.hasPaper).map((e) => ({ name: e.name, marks: null, possible: null, percentage: null, grade: "", studentNumber: e.studentNumber, status: label(e.status) ?? "No paper" })),
     ])
@@ -183,6 +226,7 @@ function BatchResults({ id }: { id: string }) {
               <div className={buttonRow}>
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
                 <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
+                <button type="button" className={actionButton} onClick={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff />Extra credit / points off</button>
                 <button type="button" className={actionButton} onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown />Sort by {sort === "name" ? "score" : "name"}</button>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />CSV</button>
                 <Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>
@@ -216,7 +260,7 @@ function BatchResults({ id }: { id: string }) {
                         aria-label="Student name"
                         className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-base font-semibold text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none"
                       />
-                      <span className={cn("shrink-0 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", pct >= 80 ? "bg-emerald-50 text-emerald-800" : pct >= 65 ? "bg-blue-50 text-blue-800" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{pct.toFixed(1)}%</span>
+                      <span className={cn("shrink-0 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", pct >= 80 ? "bg-emerald-50 text-emerald-800" : pct >= 65 ? "bg-blue-50 text-blue-800" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{pct.toFixed(1)}%</span>{changeChip(r)}
                     </div>
                     <div className="mt-2 flex items-center gap-2 pl-1.5">
                       <span className="text-sm text-slate-600">{r.total_marks}/{r.total_possible_marks} marks{r.grade ? <> · <strong className="text-slate-900">{r.grade}</strong></> : null}</span>
@@ -264,7 +308,7 @@ function BatchResults({ id }: { id: string }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{r.total_marks}/{r.total_possible_marks}</td>
-                      <td className="px-4 py-3"><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span></td>
+                      <td className="px-4 py-3"><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span>{changeChip(r)}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.grade}</td>
                       <td className="px-4 py-2 text-right"><Link href={`/grade-report/${r.id}`} className={cn(actionButton, "text-blue-700")}><FileText />Open report</Link></td>
                     </tr>
@@ -286,6 +330,35 @@ function BatchResults({ id }: { id: string }) {
                 </tbody>
               </table>
             </div>
+            {groups.length > 0 && (
+              <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-900"><Diff className="h-5 w-5 text-blue-700" />Extra credit and points off</h2>
+                <p className="mb-3 text-sm text-slate-600">Scores above, reports and gradebook files include these. Each reason goes on the student&apos;s report and in the gradebook comment.</p>
+                <ul className="space-y-2">
+                  {groups.map(({ adjustment, paperIds }) => (
+                    <li key={adjustment.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200">
+                      <span className="min-w-[12rem] flex-1">
+                        <span className={cn("block font-semibold", adjustment.kind === "extra" ? "text-emerald-800" : "text-rose-800")}>{adjustmentLine(adjustment)}</span>
+                        <span className="block text-sm text-slate-600">{paperIds.length} student{paperIds.length === 1 ? "" : "s"}: {paperIds.map((p) => nameOf.get(p)).filter(Boolean).slice(0, 8).join(", ")}{paperIds.length > 8 ? "…" : ""}</span>
+                      </span>
+                      {confirmRemove === adjustment.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm text-slate-700">Remove for all {paperIds.length}?</span>
+                          <button type="button" className="inline-flex h-10 items-center rounded-xl bg-red-700 px-3 text-sm font-semibold text-white hover:bg-red-800" onClick={() => void removeAdjustment(adjustment)}>Remove</button>
+                          <button type="button" className={actionButton} onClick={() => setConfirmRemove(null)}>Keep</button>
+                        </span>
+                      ) : (
+                        <span className="flex gap-2">
+                          <button type="button" className={actionButton} onClick={() => { setEditingAdjustment({ adjustment, paperIds }); setAdjustOpen(true) }}><Pencil />Change</button>
+                          <button type="button" className={actionButton} onClick={() => setConfirmRemove(adjustment.id)} aria-label={`Remove ${adjustmentLine(adjustment)}`}><Trash2 /><span className="max-sm:hidden">Remove</span></button>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            <AdjustmentDialog open={adjustOpen} onOpenChange={setAdjustOpen} papers={adjustable} editing={editingAdjustment} onSave={saveAdjustment} />
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
             <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} onChanged={() => void load()} />
             <GradebookExportDialog

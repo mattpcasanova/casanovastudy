@@ -7,6 +7,8 @@ import { gradeFor, normalizeScale } from '@/lib/grading/scale'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 import { matchRoster } from '@/lib/grading/names'
 import { paperDaysLate } from '@/lib/grading/late'
+import { adjustedTotals, normalizeAdjustments, withAdjustment } from '@/lib/grading/adjustments'
+import type { GradedQuestion } from '@/lib/grading/parse'
 
 // A batch's results (the class results page): every paper with its per-question
 // breakdown, plus the saved class report and whether it still matches the marks. Owner only.
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data, error: dbError } = await createAdminClient()
     .from('grading_results')
-    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members')
+    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members, adjustments')
     .eq('batch_id', id)
     .eq('user_id', user.id)
     .order('student_name', { ascending: true })
@@ -61,8 +63,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 // Teacher edits across a batch: rename students, apply one grade scale (e.g.
 // this paper's Cambridge boundaries) to every paper, attach the batch to a
-// class (matching each paper to a roster name), or release it to students.
-// Owner only.
+// class (matching each paper to a roster name), release it to students, or
+// put an extra credit / deduction on exactly the chosen papers
+// ({ adjustment, paperIds }; { removeAdjustment: id } takes it off all). Owner only.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -74,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const supabase = createAdminClient()
   const { data: rows } = await supabase
     .from('grading_results')
-    .select('id, student_name, total_marks, total_possible_marks, class_id')
+    .select('id, student_name, total_marks, total_possible_marks, class_id, grade_breakdown, grade_scale, adjustments')
     .eq('batch_id', id)
     .eq('user_id', user.id)
   if (!rows?.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -101,6 +104,33 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .update({ student_name: name, student_first_name: firstName || null, student_last_name: lastName || null, ...link, updated_at: now })
         .eq('id', rowId).eq('user_id', user.id)
     }
+  }
+
+  if (body.adjustment !== undefined || typeof body.removeAdjustment === 'string') {
+    const [adjustment] = body.adjustment !== undefined ? normalizeAdjustments([body.adjustment]) : []
+    if (body.adjustment !== undefined && !adjustment) return NextResponse.json({ error: 'Give the amount and a reason' }, { status: 400 })
+    const target = adjustment ?? { id: String(body.removeAdjustment) }
+    const chosen = new Set(adjustment && Array.isArray(body.paperIds) ? body.paperIds.map(String) : [])
+    const papers = rows.map((r) => ({ ...r, adjustments: normalizeAdjustments(r.adjustments) }))
+    const plan = adjustment
+      ? withAdjustment(papers, adjustment, chosen)
+      : papers.map((p) => ({ id: p.id, adjustments: p.adjustments.filter((a) => a.id !== target.id), changed: p.adjustments.some((a) => a.id === target.id) }))
+    let changed = 0
+    for (const step of plan) {
+      if (!step.changed) continue
+      const r = papers.find((p) => p.id === step.id)!
+      const breakdown = (Array.isArray(r.grade_breakdown) ? r.grade_breakdown : []) as GradedQuestion[]
+      const raw = breakdown.reduce((s, q) => s + Number(q.marksAwarded || 0), 0)
+      const possible = breakdown.length ? breakdown.reduce((s, q) => s + Number(q.marksPossible || 0), 0) : Number(r.total_possible_marks)
+      // No breakdown (rare): the stored total already includes the old adjustments.
+      const graded = breakdown.length ? raw : Number(r.total_marks) - adjustedTotals(0, possible, r.adjustments).change
+      const t = adjustedTotals(graded, possible, step.adjustments, normalizeScale(r.grade_scale))
+      await supabase.from('grading_results')
+        .update({ adjustments: step.adjustments, total_marks: t.marks, total_possible_marks: possible, percentage: t.percentage, grade: t.grade, updated_at: now })
+        .eq('id', step.id).eq('user_id', user.id)
+      changed++
+    }
+    return NextResponse.json({ ok: true, changed })
   }
 
   if (body.gradeScale !== undefined) {
