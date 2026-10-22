@@ -9,12 +9,14 @@ import { useEffect, useMemo, useState } from "react"
 import { Check, Copy, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { EXPORT_PRESETS, PRESET_ORDER, buildExport, toCsv, toTsv, type ExportPreset, type ExportRow } from "@/lib/grading/exports"
+import { EXPORT_PRESETS, PRESET_ORDER, buildExport, presetSteps, toCsv, toTsv, type ExportPreset, type ExportRow } from "@/lib/grading/exports"
 import { toXlsx } from "@/lib/grading/xlsx"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { cn } from "@/lib/utils"
 
 const PREF = "cs:pref:gradebook"
+
+const SCORE_AS_PREF = "cs:export:score-as"
 
 export function GradebookExportDialog({ open, onOpenChange, title, rows, classroomSync }: {
   open: boolean
@@ -26,15 +28,22 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
 }) {
   const [preset, setPreset] = useState<ExportPreset>("focus")
   const [missingAsZero, setMissingAsZero] = useState(false)
+  const [scoreAs, setScoreAs] = useState<"points" | "percent">("points")
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem(PREF) as ExportPreset | null
     if (saved && saved in EXPORT_PRESETS) setPreset(saved)
+    try { if (localStorage.getItem(SCORE_AS_PREF) === "percent") setScoreAs("percent") } catch {}
   }, [])
 
   const info = EXPORT_PRESETS[preset]
-  const out = useMemo(() => buildExport(rows, preset, { title, missingAsZero }), [rows, preset, title, missingAsZero])
+  const opts = useMemo(() => ({ title, missingAsZero, scoreAs: info.percent ? scoreAs : "points" as const }), [title, missingAsZero, scoreAs, info.percent])
+  const out = useMemo(() => buildExport(rows, preset, opts), [rows, preset, opts])
+  const chooseScoreAs = (v: "points" | "percent") => {
+    setScoreAs(v)
+    try { localStorage.setItem(SCORE_AS_PREF, v) } catch {}
+  }
   const hasMissing = rows.some((r) => r.marks == null && r.status === "missing")
 
   const pick = (p: ExportPreset) => {
@@ -80,8 +89,21 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
           </label>
 
           <ol className="list-decimal space-y-1 rounded-xl bg-slate-50 p-4 pl-8 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
-            {info.steps.map((s, i) => <li key={i}>{s}</li>)}
+            {presetSteps(preset, opts).map((s, i) => <li key={i}>{s}</li>)}
           </ol>
+
+          {info.percent && (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="font-medium text-slate-700">Send scores as</span>
+              <div role="radiogroup" aria-label="Send scores as" className="inline-flex rounded-xl bg-slate-100 p-1">
+                {(["points", "percent"] as const).map((v) => (
+                  <button key={v} type="button" role="radio" aria-checked={scoreAs === v} onClick={() => chooseScoreAs(v)} className={cn("h-9 rounded-lg px-4 font-semibold transition", scoreAs === v ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900")}>
+                    {v === "points" ? "Points" : "Percent"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {hasMissing && (
             <label className="flex items-center gap-2 text-sm text-slate-700">

@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
-import { buildExport, PRESET_ORDER, toCsv, toTsv, type ExportRow } from './exports'
+import { buildExport, presetSteps, PRESET_ORDER, toCsv, toTsv, type ExportRow } from './exports'
 import { toXlsx } from './xlsx'
 
 const rows: ExportRow[] = [
@@ -16,6 +16,12 @@ describe('buildExport', () => {
     expect(out.table).toEqual([['Student ID', 'Score'], ['01001', '8.5'], ['', '6']])
     expect(out.unmatched).toEqual(['Ava Kim'])
     expect(out.skipped).toBe(2)
+  })
+  it('Focus can take a percent instead of points', () => {
+    const out = buildExport([...rows, { firstName: 'Bo', lastName: 'Li', studentNumber: '1005', email: null, marks: 2, possible: 3, pct: 66.7, status: null }], 'focus', { title: 'Unit 3', scoreAs: 'percent', missingAsZero: true })
+    expect(out.table).toEqual([['Student ID', 'Percent'], ['01001', '85'], ['', '60'], ['1003', '0'], ['1005', '66.7']])
+    expect(presetSteps('focus', { title: 'Unit 3', scoreAs: 'percent' }).join(' ')).toContain('Choose Percent')
+    expect(presetSteps('focus', { title: 'Unit 3' }).join(' ')).toContain('Choose Points')
   })
   it('missing can count as zero', () => {
     const out = buildExport(rows, 'powerschool', { title: 'Unit 3', missingAsZero: true })

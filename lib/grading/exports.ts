@@ -24,6 +24,8 @@ export interface ExportOptions {
   title: string
   /** Score students with a "missing" status as 0 instead of leaving them out. */
   missingAsZero?: boolean
+  /** Points (default) or percent, for gradebooks that take either (`percent` on the preset). */
+  scoreAs?: 'points' | 'percent'
 }
 
 interface PresetInfo {
@@ -31,26 +33,35 @@ interface PresetInfo {
   /** What students are matched on. */
   needs: 'studentNumber' | 'email' | 'either'
   file: 'csv' | 'xlsx' | 'copy'
-  steps: string[]
+  /** The gradebook can import a percent instead of points. */
+  percent?: boolean
+  steps: string[] | ((opts: ExportOptions) => string[])
   build: (rows: ScoredRow[], opts: ExportOptions) => string[][]
 }
 
-interface ScoredRow extends ExportRow { score: number; name: string; lastFirst: string }
+interface ScoredRow extends ExportRow { score: number; percent: number; name: string; lastFirst: string }
 
 const pts = (n: number) => (Math.round(n * 100) / 100).toString()
+const pct1 = (n: number) => (Math.round(n * 10) / 10).toString()
+const asPercent = (o: ExportOptions) => o.scoreAs === 'percent'
 
 export const EXPORT_PRESETS: Record<ExportPreset, PresetInfo> = {
   focus: {
     label: 'Focus',
     needs: 'studentNumber',
     file: 'csv',
-    steps: [
+    percent: true,
+    steps: (o) => [
       'In Focus Gradebook, create the assignment (or open it).',
       'Click the assignment\'s info icon, then Import Grades (Focus 7.4+; "Import CSV File").',
-      'Choose Points, pick the Student ID column and the Score column, and import.',
+      asPercent(o)
+        ? 'Choose Percent, pick the Student ID column and the Percent column, and import.'
+        : 'Choose Points, pick the Student ID column and the Score column, and import.',
       'Student IDs must match Focus exactly. Students with no score are left out (Focus doesn\'t allow blanks).',
     ],
-    build: (rows) => [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pts(r.score)])],
+    build: (rows, o) => asPercent(o)
+      ? [['Student ID', 'Percent'], ...rows.map((r) => [r.studentNumber ?? '', pct1(r.percent)])]
+      : [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pts(r.score)])],
   },
   powerschool: {
     label: 'PowerSchool (PowerTeacher Pro)',
@@ -190,12 +201,18 @@ export function exportRows(rows: ExportRow[], preset: ExportPreset, opts: Export
   for (const r of rows) {
     const name = `${r.firstName} ${r.lastName}`.trim()
     const lastFirst = r.lastName ? `${r.lastName}, ${r.firstName}` : r.firstName
-    if (r.marks != null) scored.push({ ...r, score: r.marks, name, lastFirst })
-    else if (opts.missingAsZero && r.status === 'missing') scored.push({ ...r, score: 0, possible: r.possible ?? possible, name, lastFirst })
+    if (r.marks != null) scored.push({ ...r, score: r.marks, percent: r.possible ? (r.marks / r.possible) * 100 : (r.pct ?? 0), name, lastFirst })
+    else if (opts.missingAsZero && r.status === 'missing') scored.push({ ...r, score: 0, percent: 0, possible: r.possible ?? possible, name, lastFirst })
     else skipped++
   }
   const has = (r: ScoredRow) => (info.needs === 'email' ? !!r.email : info.needs === 'either' ? !!(r.studentNumber || r.email) : !!r.studentNumber)
   return { rows: scored, unmatched: scored.filter((r) => !has(r)).map((r) => r.name), skipped }
+}
+
+/** The import steps for a preset (some depend on points vs percent). */
+export function presetSteps(preset: ExportPreset, opts: ExportOptions): string[] {
+  const steps = EXPORT_PRESETS[preset].steps
+  return typeof steps === 'function' ? steps(opts) : steps
 }
 
 export function buildExport(rows: ExportRow[], preset: ExportPreset, opts: ExportOptions): { table: string[][]; unmatched: string[]; skipped: number } {
