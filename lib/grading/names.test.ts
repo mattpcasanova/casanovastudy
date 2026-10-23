@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchRoster, nameScore, parseName, sameStudent, type RosterName } from './names'
+import { matchRoster, nameScore, parseName, sameStudent, type RosterName, compareNames, displayName } from './names'
 
 const roster: RosterName[] = [
   { id: 'r1', firstName: 'Sean', lastName: 'Miller' },
@@ -49,5 +49,20 @@ describe('sameStudent', () => {
   it('uses the roster to separate look-alike names', () => {
     const r: RosterName[] = [{ id: 'a', firstName: 'Sam', lastName: 'Lee' }, { id: 'b', firstName: 'Sam', lastName: 'Lew' }]
     expect(sameStudent('Sam Lee', 'Sam Lew', r)).toBe(false)
+  })
+})
+
+describe('compareNames', () => {
+  const people = [{ firstName: 'Sean', lastName: 'Miller' }, { firstName: 'Ava', lastName: 'Zed' }, { firstName: 'Ben', lastName: 'miller' }, { firstName: 'Cher', lastName: '' }]
+  it('sorts by last name, first name breaking ties, case-insensitive', () => {
+    expect([...people].sort((a, b) => compareNames(a, b, 'last')).map((p) => p.firstName)).toEqual(['Cher', 'Ben', 'Sean', 'Ava'])
+  })
+  it('sorts by first name', () => {
+    expect([...people].sort((a, b) => compareNames(a, b, 'first')).map((p) => p.firstName)).toEqual(['Ava', 'Ben', 'Cher', 'Sean'])
+  })
+  it('shows Last, First only when sorting by last name', () => {
+    expect(displayName({ firstName: 'Mary Ann', lastName: 'Lee' }, 'last')).toBe('Lee, Mary Ann')
+    expect(displayName({ firstName: 'Mary Ann', lastName: 'Lee' }, 'first')).toBe('Mary Ann Lee')
+    expect(displayName({ firstName: 'Cher', lastName: '' }, 'last')).toBe('Cher')
   })
 })

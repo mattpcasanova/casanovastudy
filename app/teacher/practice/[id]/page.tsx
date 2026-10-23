@@ -16,7 +16,9 @@ import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-p
 import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
-import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
+import { compareNames, displayName } from "@/lib/grading/names"
+import { useNameOrder } from "@/lib/use-name-order"
 import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -62,6 +64,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [aiFor, setAiFor] = useState<Student | null>(null)
+  const [nameOrder, setNameOrder] = useNameOrder()
+  const [byScore, setByScore] = useState(false)
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/practice-assignments/${id}`, { cache: "no-store" })
@@ -83,6 +87,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const { assignment: a, students } = data
   const finished = students.filter((s) => s.best)
   const avg = finished.length ? finished.reduce((n, s) => n + s.best!.pct, 0) / finished.length : null
+  // Best score first, students with none last; otherwise by name.
+  const ordered = [...students].sort((x, y) => (byScore ? (y.best?.pct ?? -1) - (x.best?.pct ?? -1) : 0) || compareNames(x, y, nameOrder))
   const score = (s: Student) => !s.best ? "-" : a.grading === "mastery" ? `${s.best.correct}/${s.best.total} topics` : `${s.best.correct}/${s.best.total} · ${Math.round(s.best.pct)}%`
 
   return (
@@ -146,12 +152,24 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 font-semibold text-slate-900">Students</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-slate-900">Students</h2>
+          <select
+            aria-label="Sort students"
+            value={byScore ? "score" : nameOrder}
+            onChange={(e) => { const v = e.target.value; setByScore(v === "score"); if (v !== "score") setNameOrder(v === "first" ? "first" : "last") }}
+            className={cn(selectBox, "pr-9")}
+          >
+            <option value="last">Sort by last name</option>
+            <option value="first">Sort by first name</option>
+            <option value="score">Sort by score</option>
+          </select>
+        </div>
         <ul className="divide-y divide-slate-100">
-          {students.map((s) => (
+          {ordered.map((s) => (
             <li key={s.rosterId} className="flex flex-wrap items-center gap-3 py-3 text-sm">
               <Link href={`/teacher/classes/${a.class_id}/students/${s.rosterId}`} className="min-w-[10rem] flex-1 font-medium text-slate-900 hover:text-blue-700">
-                {s.lastName}{s.lastName && s.firstName ? ", " : ""}{s.firstName}
+                {displayName(s, nameOrder)}
                 {s.linkedVia === "picked" && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
                 {!s.linked && <span className="ml-2 text-xs font-normal text-slate-400">hasn&apos;t opened the link</span>}
               </Link>

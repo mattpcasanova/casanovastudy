@@ -4,14 +4,15 @@
 // class average, links to each report (where marks can be adjusted), CSV, and
 // the class report (components/grading/class-report.tsx).
 
-import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpDown, BookUp, Diff, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
+import { BookUp, Diff, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
-import { parseName } from "@/lib/grading/names"
+import { compareNames, parseName } from "@/lib/grading/names"
+import { useNameOrder } from "@/lib/use-name-order"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -97,6 +98,7 @@ function BatchResults({ id }: { id: string }) {
   const [exportOpen, setExportOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<"name" | "score">("name")
+  const [nameOrder, setNameOrder] = useNameOrder()
   const [scaleOpen, setScaleOpen] = useState(false)
   const [scale, setScale] = useState<GradeScale | null>(null)
   const [busy, setBusy] = useState(false)
@@ -161,13 +163,16 @@ function BatchResults({ id }: { id: string }) {
     try { await patchBatch({ removeAdjustment: adjustment.id }); await load(); setNotice("Removed") } catch (e) { setNotice(e instanceof Error ? e.message : "Could not remove") }
   }
 
+  // Names from the class list when the paper is matched to it, else read from the typed name.
   const sorted = useMemo(() => {
     if (!rows) return []
-    return [...rows].sort((a, b) => (sort === "name" ? a.student_name.localeCompare(b.student_name) : Number(b.percentage) - Number(a.percentage)))
-  }, [rows, sort])
+    const byRoster = new Map(roster.map((e) => [e.rosterId, e]))
+    const nameOf = (r: (typeof rows)[number]) => { const e = r.roster_id ? byRoster.get(r.roster_id) : undefined; return e ? { firstName: e.firstName, lastName: e.lastName } : parseName(r.student_name) }
+    return [...rows].sort((a, b) => (sort === "name" ? compareNames(nameOf(a), nameOf(b), nameOrder) : Number(b.percentage) - Number(a.percentage)))
+  }, [rows, sort, roster, nameOrder])
 
   // Class-list students with nothing in this set: listed under the papers so it's clear who's still out.
-  const noPaperRows = useMemo(() => roster.filter((e) => !e.hasPaper && !e.left).sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)), [roster])
+  const noPaperRows = useMemo(() => roster.filter((e) => !e.hasPaper && !e.left).sort((a, b) => compareNames(a, b, nameOrder)), [roster, nameOrder])
 
   // One row per student for gradebook files: graded papers (names/IDs from the
   // roster when matched) plus roster students with no paper and their status.
@@ -227,7 +232,16 @@ function BatchResults({ id }: { id: string }) {
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
                 <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
                 <button type="button" className={actionButton} onClick={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff />Extra credit / points off</button>
-                <button type="button" className={actionButton} onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown />Sort by {sort === "name" ? "score" : "name"}</button>
+                <select
+                  aria-label="Sort students"
+                  value={sort === "score" ? "score" : nameOrder}
+                  onChange={(e) => { const v = e.target.value; if (v === "score") setSort("score"); else { setSort("name"); setNameOrder(v === "first" ? "first" : "last") } }}
+                  className={cn(selectBox, "pr-9")}
+                >
+                  <option value="last">Sort by last name</option>
+                  <option value="first">Sort by first name</option>
+                  <option value="score">Sort by score</option>
+                </select>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />CSV</button>
                 <button type="button" className={actionButtonPrimary} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
               </div>

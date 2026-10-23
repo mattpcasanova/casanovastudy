@@ -2,6 +2,7 @@
 // linked to the class plus the "no paper" statuses. Pure; unit-tested.
 
 import { paperDaysLate } from '@/lib/grading/late'
+import { compareNames, parseName } from '@/lib/grading/names'
 
 export interface GradebookPaper {
   id: string
@@ -48,6 +49,8 @@ export interface GradebookRow {
   key: string
   rosterId: string | null
   name: string
+  firstName: string
+  lastName: string
   studentNumber: string | null
   left: boolean
   cells: Record<string, GradebookCell>
@@ -74,13 +77,13 @@ export function buildGradebook(
 
   const rows = new Map<string, GradebookRow>()
   for (const r of roster) {
-    rows.set(r.id, { key: r.id, rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), studentNumber: r.studentNumber, left: r.left, cells: {}, average: null, practiceAverage: null })
+    rows.set(r.id, { key: r.id, rosterId: r.id, name: `${r.firstName} ${r.lastName}`.trim(), firstName: r.firstName, lastName: r.lastName, studentNumber: r.studentNumber, left: r.left, cells: {}, average: null, practiceAverage: null })
   }
   // A late paper (the student was marked absent/missing first): days after the set was first graded.
   const lateKeys = new Set(statuses.filter((s) => s.status === 'late').map((s) => `${s.batchId}|${s.rosterId}`))
   for (const p of papers) {
     const key = p.rosterId && rows.has(p.rosterId) ? p.rosterId : `name:${p.studentName.trim().toLowerCase()}`
-    const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, studentNumber: null, left: false, cells: {}, average: null, practiceAverage: null }
+    const row = rows.get(key) ?? { key, rosterId: null, name: p.studentName, ...parseName(p.studentName), studentNumber: null, left: false, cells: {}, average: null, practiceAverage: null }
     const isLate = !!p.rosterId && lateKeys.has(`${p.batchId}|${p.rosterId}`)
     // daysLate present = late; 0 = graded the same day as the set.
     row.cells[p.batchId] = { kind: 'paper', gradingId: p.id, marks: p.marks, possible: p.possible, pct: p.percentage, grade: p.grade, ...(isLate ? { daysLate: paperDaysLate(tests.get(p.batchId)?.date, p.createdAt) } : {}) }
@@ -115,6 +118,6 @@ export function buildGradebook(
 
   return {
     tests: [...tests.values()].map(({ total, ...t }) => ({ ...t, average: t.papers ? total / t.papers : 0 })).sort((a, b) => a.date.localeCompare(b.date)),
-    rows: [...rows.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    rows: [...rows.values()].sort((a, b) => compareNames(a, b, 'last')),
   }
 }

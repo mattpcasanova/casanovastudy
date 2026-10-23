@@ -42,6 +42,25 @@ export function parseName(raw: string): { firstName: string; lastName: string } 
 
 export const fullName = (n: { firstName: string; lastName: string }) => `${n.firstName} ${n.lastName}`.trim()
 
+/** How lists of students are put in order (and shown): by last name ("Lee, Mary Ann") or first name ("Mary Ann Lee"). */
+export type NameOrder = 'last' | 'first'
+
+/** Compares two students by last or first name, the other name breaking ties; a missing last name sorts as the first name. */
+export function compareNames(a: { firstName: string; lastName: string }, b: { firstName: string; lastName: string }, order: NameOrder): number {
+  const key = (n: { firstName: string; lastName: string }) => {
+    const first = n.firstName.trim(), last = n.lastName.trim() || first
+    return order === 'last' ? [last, first] : [first, last]
+  }
+  const [a1, a2] = key(a), [b1, b2] = key(b)
+  const opts = { sensitivity: 'base' } as const
+  return a1.localeCompare(b1, undefined, opts) || a2.localeCompare(b2, undefined, opts)
+}
+
+/** The name as shown for that order: "Lee, Mary Ann" or "Mary Ann Lee". */
+export function displayName(n: { firstName: string; lastName: string }, order: NameOrder): string {
+  return order === 'last' && n.lastName.trim() && n.firstName.trim() ? `${n.lastName.trim()}, ${n.firstName.trim()}` : fullName(n)
+}
+
 // Letter shapes handwriting reads mix up ("Kirn" for "Kim"); applied to both
 // sides, so real names that contain them still match themselves exactly.
 const lookAlikes = (t: string) => t.replace(/rn/g, 'm').replace(/vv/g, 'w').replace(/cl/g, 'd')

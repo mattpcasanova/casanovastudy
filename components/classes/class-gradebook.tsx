@@ -1,8 +1,8 @@
 "use client"
 
 // Class page gradebook: students × graded sets and assigned practice (own
-// average, kept apart from tests), sortable by name, average or
-// any test; a cell opens the student's report. Students who left are hidden
+// average, kept apart from tests), sortable by name (last or first, shared
+// with the other teacher lists via useNameOrder), average or any test; a cell opens the student's report. Students who left are hidden
 // unless asked for. CSV includes student IDs for gradebook imports.
 
 import { useMemo, useState } from "react"
@@ -11,7 +11,9 @@ import { ArrowDown, ArrowUp, Download } from "lucide-react"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { resultsCsvTable } from "@/lib/classes/gradebook-csv"
 import { cn } from "@/lib/utils"
-import { actionButton } from "@/components/grading/grading-ui"
+import { actionButton, selectBox } from "@/components/grading/grading-ui"
+import { compareNames, displayName } from "@/lib/grading/names"
+import { useNameOrder } from "@/lib/use-name-order"
 import { dayCount } from "@/lib/practice/assignments"
 
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-50 text-emerald-900" : pct >= 65 ? "bg-blue-50 text-blue-900" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-900")
@@ -22,12 +24,12 @@ type Sort = { by: "name" | "average" | "practiceAverage" | string; dir: 1 | -1 }
 export function ClassGradebook({ tests, rows, className, classId }: { tests: GradebookTest[]; rows: GradebookRow[]; className: string; classId?: string }) {
   const [sort, setSort] = useState<Sort>({ by: "name", dir: 1 })
   const [showLeft, setShowLeft] = useState(false)
+  const [nameOrder, setNameOrder] = useNameOrder()
   const leftCount = rows.filter((r) => r.left).length
   const hasPractice = tests.some((t) => t.kind === "practice")
 
   const sorted = useMemo(() => {
     const value = (r: GradebookRow): number | string | null => {
-      if (sort.by === "name") return r.name.toLowerCase()
       if (sort.by === "average") return r.average
       if (sort.by === "practiceAverage") return r.practiceAverage
       const c = r.cells[sort.by]
@@ -36,13 +38,14 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
     return rows
       .filter((r) => showLeft || !r.left)
       .sort((a, b) => {
+        if (sort.by === "name") return compareNames(a, b, nameOrder) * sort.dir
         const va = value(a), vb = value(b)
-        if (va === null && vb === null) return a.name.localeCompare(b.name)
+        if (va === null && vb === null) return compareNames(a, b, nameOrder)
         if (va === null) return 1 // blanks last either way
         if (vb === null) return -1
         return (va < vb ? -1 : va > vb ? 1 : 0) * sort.dir
       })
-  }, [rows, sort, showLeft])
+  }, [rows, sort, showLeft, nameOrder])
 
   const toggle = (by: string) => setSort((s) => (s.by === by ? { by, dir: (s.dir * -1) as 1 | -1 } : { by, dir: by === "name" ? 1 : -1 }))
   const arrow = (by: string) => (sort.by === by ? (sort.dir === 1 ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />) : null)
@@ -64,7 +67,11 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
           <h2 className="font-semibold text-slate-900">Gradebook</h2>
           <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report. Practice columns are assigned practice (best attempt), averaged separately from tests.</p>
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <select aria-label="Order names by" value={nameOrder} onChange={(e) => { setNameOrder(e.target.value === "first" ? "first" : "last"); setSort({ by: "name", dir: 1 }) }} className={cn(selectBox, "pr-9")}>
+            <option value="last">Sort by last name</option>
+            <option value="first">Sort by first name</option>
+          </select>
           {leftCount > 0 && (
             <label className="flex items-center gap-1.5 text-slate-600">
               <input type="checkbox" checked={showLeft} onChange={(e) => setShowLeft(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
@@ -96,7 +103,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
             {sorted.map((r) => (
               <tr key={r.key} className={cn(r.left && "text-slate-400")}>
                 <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 py-1.5 font-medium">
-                  {r.rosterId && classId ? <Link href={`/teacher/classes/${classId}/students/${r.rosterId}`} className="hover:text-blue-700 hover:underline">{r.name}</Link> : r.name}{r.left && <span className="ml-1.5 text-xs font-normal">(left)</span>}{!r.rosterId && <span className="ml-1.5 text-xs font-normal text-amber-700" title="Not matched to a roster name">?</span>}
+                  {r.rosterId && classId ? <Link href={`/teacher/classes/${classId}/students/${r.rosterId}`} className="hover:text-blue-700 hover:underline">{displayName(r, nameOrder)}</Link> : displayName(r, nameOrder)}{r.left && <span className="ml-1.5 text-xs font-normal">(left)</span>}{!r.rosterId && <span className="ml-1.5 text-xs font-normal text-amber-700" title="Not matched to a roster name">?</span>}
                 </td>
                 <td className="px-2 py-1.5 font-semibold">{r.average === null ? "-" : `${Math.round(r.average)}%`}</td>
                 {hasPractice && <td className="px-2 py-1.5 font-semibold text-emerald-900">{r.practiceAverage === null ? "-" : `${Math.round(r.practiceAverage)}%`}</td>}
