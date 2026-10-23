@@ -1,7 +1,9 @@
 "use client"
 
-// One assigned practice: share link + QR, due date, attempts and AI help, and
-// every assigned student's status, best score and what they asked the AI.
+// One assigned practice: share link + QR, due date, attempts and AI help,
+// every assigned student's status, best score and what they asked the AI, and
+// the class report (where they went wrong, question by question) with a
+// reteach plan (components/assign/practice-report.tsx).
 
 import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
@@ -11,6 +13,7 @@ import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, MessageCircleQu
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
+import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
 import { actionButton, actionButtonPrimary, backLink, buttonRow } from "@/components/grading/grading-ui"
@@ -162,6 +165,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           ))}
         </ul>
       </section>
+
+      <PracticeReport assignmentId={a.id} classId={a.class_id} />
 
       <GradebookExportDialog
         open={exportOpen}

@@ -4,6 +4,7 @@
 // "Group A: 6 students, weak on limiting reagent". Pure; unit-tested.
 
 import { normalizeQuestionKey, type GradedQuestion } from './parse'
+import { questionStats, type ClassInsightsAI } from './insights'
 
 export interface ReteachPaper {
   id: string
@@ -109,6 +110,46 @@ export function groupsForPrompt(groups: ReteachGroup[]): string {
     if (g.kind === 'extend') return `- ${g.key}: ${n} who scored 80%+ on every focus topic (ready for extension)`
     return `- ${g.key}: ${n} in between (need more practice, not reteaching)`
   }).join('\n')
+}
+
+/**
+ * The evidence ClaudeService.reteachPlan reads: focus topics, the questions
+ * behind them, what students got wrong (feedback, no names), the class
+ * report's notes and the group sizes. `questionText` (practice) adds each
+ * question's wording and phrases scores as right/wrong.
+ */
+export function reteachEvidence(papers: ReteachPaper[], insights: ClassInsightsAI, focus: TopicScore[], groups: ReteachGroup[], opts: { questionText?: Map<string, string> } = {}): string {
+  const focusKeys = new Set(focus.flatMap((t) => t.questions.map(normalizeQuestionKey)))
+  const stats = questionStats(papers.map((p) => ({ id: p.id, name: '', breakdown: p.breakdown }))).filter((s) => focusKeys.has(s.key))
+  const evidence: string[] = []
+  evidence.push(`FOCUS TOPICS (class percent):\n${focus.map((t) => `- ${t.name}: ${Math.round(t.pct)}% (questions ${t.questions.join(', ')})`).join('\n')}`)
+  const text = opts.questionText
+  evidence.push(`QUESTIONS:\n${stats.map((s) => {
+    const wording = text?.get(s.key)
+    return text
+      ? `- ${s.label}${wording ? ` "${wording}"` : ''}: ${s.fullCount} of ${s.n} right (${Math.round(s.avgPct)}%)`
+      : `- ${s.label}: class average ${Math.round(s.avgPct)}% of ${s.possible} marks, ${s.zeroCount} of ${s.n} scored 0`
+  }).join('\n')}`)
+  const snippets: string[] = []
+  for (const s of stats) {
+    const lost = papers
+      .map((p) => p.breakdown.find((q) => normalizeQuestionKey(q.questionNumber) === s.key))
+      .filter((q): q is GradedQuestion => !!q && q.marksAwarded < q.marksPossible && !!q.explanation)
+    lost.slice(0, 4).forEach((q) => snippets.push(`- Q${s.label} (${q.marksAwarded}/${q.marksPossible}): ${q.explanation.slice(0, 240)}`))
+  }
+  if (snippets.length) evidence.push(`${text ? 'WRONG ANSWERS STUDENTS GAVE' : 'MARKING FEEDBACK FROM STUDENTS WHO LOST MARKS'}:\n${snippets.join('\n')}`)
+  const struggles = (insights.struggles ?? []).filter((x) => focusKeys.has(normalizeQuestionKey(x.question)))
+  if (struggles.length) evidence.push(`COMMON MISTAKES (class report):\n${struggles.map((x) => `- Q${x.question}: ${x.issue}`).join('\n')}`)
+  if (insights.reteach?.length) evidence.push(`CLASS REPORT SUGGESTIONS:\n${insights.reteach.map((r) => `- ${r}`).join('\n')}`)
+  evidence.push(`GROUPS FOR THE GROUP-WORK PART:\n${groupsForPrompt(groups)}`)
+  return evidence.join('\n\n')
+}
+
+/** Topic choices for the reteach options: class percent, with the ones reteachGroups would pick marked. */
+export function reteachTopicOptions(papers: ReteachPaper[], topics: Array<{ name: string; questions: string[] }>): Array<{ name: string; pct: number; recommended: boolean }> {
+  if (!topics.length) return []
+  const recommended = new Set(reteachGroups(papers, topics).focus.map((t) => t.name))
+  return topicScores(papers, topics).map((t) => ({ name: t.name, pct: Math.round(t.pct), recommended: recommended.has(t.name) }))
 }
 
 export interface ReteachPlanAI {

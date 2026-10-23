@@ -45,7 +45,7 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
   write: { label: 'Write the code', icon: Terminal },
 }
 
-type Outcome = { correct: boolean; note?: string }
+type Outcome = { correct: boolean; note?: string; given?: string }
 
 export default function PracticeFormat({ content, subject, title, gradeLevel }: PracticeFormatProps) {
   const all = useMemo(() => parsePractice(content), [content])
@@ -114,10 +114,11 @@ export function PracticeSession({
   useEffect(() => {
     if (!done || reported.current || !reportAssignment || variant !== 'page' || subset || !activities.length) return
     reported.current = true
-    reportAssignment({ correct: activities.filter((a) => results[a.id]?.correct).length, total: activities.length })
+    const answers = activities.filter((a) => results[a.id]).map((a) => ({ id: `p:${a.id}`, correct: !!results[a.id].correct, ...(results[a.id].given ? { given: results[a.id].given } : {}) }))
+    reportAssignment({ correct: activities.filter((a) => results[a.id]?.correct).length, total: activities.length, detail: { answers } })
   }, [done, reportAssignment, variant, subset, activities, results])
 
-  const record = (correct: boolean, note?: string) => {
+  const record = (correct: boolean, note?: string, given?: string) => {
     if (!current) return
     if (!logged.current.has(current.id)) {
       logged.current.add(current.id)
@@ -129,7 +130,7 @@ export function PracticeSession({
         correct,
       })
     }
-    setResults((r) => ({ ...r, [current.id]: { correct, note } }))
+    setResults((r) => ({ ...r, [current.id]: { correct, note, ...(given ? { given } : {}) } }))
     setChecked(true)
     const next = correct ? streak + 1 : 0
     setStreak(next)
@@ -370,7 +371,8 @@ export function activityAnswer(a: PracticeActivity): string | undefined {
 export function ActivityBody({ activity, checked, onDone, onContinue, compact = false, autoFocus = true }: {
   activity: PracticeActivity
   checked: boolean
-  onDone: (correct: boolean, note?: string) => void
+  /** `given`: what they picked or typed (choice and fill), for the teacher's report on assigned practice. */
+  onDone: (correct: boolean, note?: string, given?: string) => void
   onContinue: () => void
   compact?: boolean
   autoFocus?: boolean
@@ -473,7 +475,7 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: (co
   )
 }
 
-function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: (c: boolean) => void; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
+function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
   const blanks = activity.parts.filter((p): p is { answers: string[] } => typeof p !== 'string')
   const [values, setValues] = useState<string[]>(() => blanks.map(() => ''))
   const firstInput = useRef<HTMLInputElement>(null)
@@ -485,7 +487,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
   const results = blanks.map((b, k) => isBlankCorrect(values[k], b.answers))
   const check = () => {
     if (checked || values.every((v) => !v.trim())) return
-    onDone(results.every(Boolean))
+    onDone(results.every(Boolean), undefined, values.map((v) => v.trim()).join(' / '))
   }
 
   let k = -1
@@ -669,7 +671,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
   )
 }
 
-function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDone: (c: boolean) => void; checked: boolean }) {
+function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean }) {
   const [picked, setPicked] = useState<number | null>(null)
   const isTF = activity.options.length === 2 && activity.options[0] === 'True'
   return (
@@ -682,7 +684,7 @@ function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDon
             key={i}
             type="button"
             disabled={checked}
-            onClick={() => { setPicked(i); onDone(i === activity.correct) }}
+            onClick={() => { setPicked(i); onDone(i === activity.correct, undefined, opt) }}
             className={cn(
               'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
               isTF && 'justify-center font-semibold',

@@ -189,8 +189,12 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     if (!finished || reported.current || !reportAssignment || !progress.length) return
     reported.current = true
     const mastered = progress.filter((p) => p.status === "mastered")
-    reportAssignment({ correct: mastered.length, total: progress.length, detail: { mastered: mastered.map((p) => p.name), notMastered: progress.filter((p) => p.status !== "mastered").map((p) => p.name) } })
-  }, [finished, progress, reportAssignment])
+    // First answer per question for the teacher's class report (explain answers are feedback only).
+    const explain = new Set(guide.questions.filter((q) => q.type === "explain").map((q) => q.id))
+    const seen = new Set<string>()
+    const firstAnswers = (answers ?? []).filter((a) => !explain.has(a.q) && !seen.has(a.q) && seen.add(a.q)).map((a) => ({ id: `a:${a.q}`, correct: a.correct, ...(a.given != null ? { given: String(a.given) } : {}) }))
+    reportAssignment({ correct: mastered.length, total: progress.length, detail: { mastered: mastered.map((p) => p.name), notMastered: progress.filter((p) => p.status !== "mastered").map((p) => p.name), answers: firstAnswers } })
+  }, [finished, progress, reportAssignment, answers, guide])
 
   const submit = useCallback((given: string, extra?: { correct: boolean; score?: number; feedback?: string }) => {
     if (!current || !answers) return

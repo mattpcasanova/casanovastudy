@@ -5,7 +5,7 @@
 // from every paper's marks (lib/grading/insights.ts). The AI part is written
 // once and saved; it's offered again when a mark changes.
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowUpDown, ChevronDown, Lightbulb, Loader2, RefreshCw, ClipboardList } from "lucide-react"
 import { normalizeQuestionKey, type GradedQuestion } from "@/lib/grading/parse"
@@ -33,7 +33,24 @@ const questionChip = (label: string) => {
 }
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
-export function ClassReport({ batchId, papers, saved }: { batchId: string; papers: PaperForInsights[]; saved: SavedInsights | null }) {
+/**
+ * Also used for assigned practice (`source="practice"`, components/assign/practice-report.tsx):
+ * papers are students' answers scored 1/0, `insightsUrl` points at the
+ * assignment's report route and `renderBreakdown` swaps in a question list
+ * that shows the questions and the wrong answers students gave.
+ */
+export function ClassReport({ batchId, papers, saved, insightsUrl, source = "test", actions, renderBreakdown }: {
+  batchId?: string
+  papers: PaperForInsights[]
+  saved: SavedInsights | null
+  insightsUrl?: string
+  source?: "test" | "practice"
+  /** Buttons beside the heading (e.g. the reteach plan). */
+  actions?: ReactNode
+  renderBreakdown?: (report: ClassInsightsAI | null) => ReactNode
+}) {
+  const practice = source === "practice"
+  const url = insightsUrl ?? `/api/grade-batch/${batchId}/insights`
   const { openPremium } = usePlan()
   const [report, setReport] = useState<SavedInsights | null>(saved)
   const [loading, setLoading] = useState(false)
@@ -42,14 +59,15 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
   const [showQuestions, setShowQuestions] = useState<boolean | null>(null)
 
   const stats = useMemo(() => questionStats(papers), [papers])
-  const consistent = useMemo(() => markedConsistently(papers), [papers])
+  // Practice: adaptive runs differ by design, so there's nothing to warn about.
+  const consistent = useMemo(() => practice || markedConsistently(papers), [papers, practice])
   const topics = useMemo(() => (report ? topicStats(stats, report.insights.topics) : []), [stats, report])
 
   const generate = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await authFetch(`/api/grade-batch/${batchId}/insights`, { method: "POST" })
+      const res = await authFetch(url, { method: "POST" })
       const data = await res.json().catch(() => ({}))
       if (isPlanBlock(data)) { openPremium(data); return }
       if (!res.ok) throw new Error(data.error || "Could not write the class report")
@@ -76,8 +94,13 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
 
   return (
     <section className="mt-10">
-      <h2 className={cn(fontDisplay, "text-3xl font-semibold tracking-tight text-slate-900")}>How the class did</h2>
-      <p className="mt-1 text-slate-600">Where students lost marks, by topic and by question.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className={cn(fontDisplay, "text-3xl font-semibold tracking-tight text-slate-900")}>How the class did</h2>
+          <p className="mt-1 text-slate-600">{practice ? "Where students went wrong, by topic and by question (each student's best attempt)." : "Where students lost marks, by topic and by question."}</p>
+        </div>
+        {actions}
+      </div>
 
       {!consistent && (
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
@@ -92,13 +115,13 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
           <p className="flex items-center gap-2 font-semibold text-slate-900"><ClipboardList className="h-4 w-4 text-blue-600" />Class summary</p>
           {report && !loading && (
             <Button variant="ghost" onClick={() => void generate()} className={actionButton}>
-              <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : "Update for the new marks"}
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : practice ? "Update with the new answers" : "Update for the new marks"}
             </Button>
           )}
         </div>
-        {report && !report.current && !loading && <p className="mt-2 text-sm text-amber-800">Some marks changed since this was written.</p>}
+        {report && !report.current && !loading && <p className="mt-2 text-sm text-amber-800">{practice ? "More students have finished since this was written." : "Some marks changed since this was written."}</p>}
 
-        {loading && <p className="mt-4 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Reading every student&apos;s marks and feedback (about 15 seconds)…</p>}
+        {loading && <p className="mt-4 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Reading every student&apos;s {practice ? "answers" : "marks and feedback"} (about 15 seconds)…</p>}
         {error && !loading && (
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-rose-800">
             {error}
@@ -141,7 +164,7 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
                         <span className="mt-0.5 max-w-[9rem] shrink-0 self-start truncate rounded-lg bg-slate-100 px-2 py-0.5 text-sm font-semibold text-slate-700" title={s.question}>{questionChip(s.question)}</span>
                         <span className="text-slate-700">
                           {s.issue}
-                          {stat && stat.n >= Math.ceil(papers.length / 2) && <span className={cn("ml-1.5 whitespace-nowrap text-sm font-medium", toneText(stat.avgPct))}>(class average {Math.round(stat.avgPct)}%)</span>}
+                          {stat && stat.n >= Math.ceil(papers.length / 2) && <span className={cn("ml-1.5 whitespace-nowrap text-sm font-medium", toneText(stat.avgPct))}>({practice ? `${Math.round(stat.avgPct)}% right` : `class average ${Math.round(stat.avgPct)}%`})</span>}
                         </span>
                       </li>
                     )
@@ -163,7 +186,9 @@ export function ClassReport({ batchId, papers, saved }: { batchId: string; paper
       </div>
 
       {/* Question by question */}
-      <QuestionBreakdown papers={papers} stats={stats} report={report?.insights ?? null} open={questionsOpen} onToggle={() => setShowQuestions(!questionsOpen)} hardestFirst={hardestFirst} setHardestFirst={setHardestFirst} />
+      {renderBreakdown
+        ? renderBreakdown(report?.insights ?? null)
+        : <QuestionBreakdown papers={papers} stats={stats} report={report?.insights ?? null} open={questionsOpen} onToggle={() => setShowQuestions(!questionsOpen)} hardestFirst={hardestFirst} setHardestFirst={setHardestFirst} />}
     </section>
   )
 }

@@ -217,6 +217,43 @@ async function main() {
   r = await t('GET', `/api/grade-batch/${batch1}`)
   check('class results show her 3 days late', r.json?.roster?.find((x) => x.rosterId === lianna.id)?.daysLate === 3, JSON.stringify(r.json?.roster))
 
+  console.log('\n== Class report + reteach plan ==')
+  const QUIZ = `## Mole Conversions\n\nMC_QUESTION: How many moles are in 18 g of water?\nA) 0.5\nB) 1\nC) 2\nD) 18\nCorrect Answer: B\n\nTF_QUESTION: One mole of any gas at STP is 22.4 L.\nCorrect Answer: True\n\n## Limiting Reagent\n\nMC_QUESTION: Which reactant runs out first?\nA) The one with the smaller mass\nB) The one that makes less product\nC) The one with more moles\nD) Neither\nCorrect Answer: B\n\nMC_QUESTION: 2 mol H2 and 2 mol O2 make water. What limits it?\nA) H2\nB) O2\nC) Both\nD) Neither\nCorrect Answer: A\n`
+  const { data: quiz } = await admin.from('study_guides').insert({ user_id: teacher.id, title: 'Stoich check', subject: 'chemistry', grade_level: '11th', format: 'quiz', content: QUIZ, file_count: 0 }).select('id').single()
+  created.quizId = quiz.id
+  r = await t('POST', '/api/practice-assignments', { guideId: quiz.id, classId: cls.id, rosterIds: [lianna.id] })
+  const qa = r.json.assignment
+  r = await t('GET', `/api/practice-assignments/${qa.id}/report`)
+  check('report is empty before anyone finishes', r.status === 200 && r.json.finished === 0 && r.json.results.length === 0, JSON.stringify(r.json).slice(0, 200))
+  r = await a('POST', `/api/practice-assignments/${qa.id}/attempts`, { correct: 2, total: 4, detail: { answers: [
+    { id: 'q:q-0', correct: false, given: '18' }, { id: 'q:q-1', correct: true, given: 'true' }, { id: 'q:q-2', correct: true, given: 'The one that makes less product' }, { id: 'bad', correct: true },
+  ] } })
+  check('attempt with answers is saved', r.status === 200 && r.json.counted === true)
+  const { data: saved } = await admin.from('practice_attempts').select('detail').eq('assignment_id', qa.id).single()
+  check('answers kept, junk dropped', saved.detail?.answers?.length === 3, JSON.stringify(saved.detail))
+  r = await t('GET', `/api/practice-assignments/${qa.id}`)
+  check('progress view does not carry the answers', !r.json.students[0].best?.detail?.answers, JSON.stringify(r.json.students[0].best))
+  r = await t('GET', `/api/practice-assignments/${qa.id}/report`)
+  const q1 = r.json?.results?.find((x) => x.question.label === '1'), q4 = r.json?.results?.find((x) => x.question.label === '4')
+  check('report: 1 finished, 4 questions, guide topics', r.json.finished === 1 && r.json.results.length === 4 && r.json.topics.length === 2, JSON.stringify(r.json).slice(0, 300))
+  check('report groups the wrong answer she gave', q1?.wrong?.[0]?.given === '18' && q1.wrong[0].students[0].rosterId === lianna.id && q1.pct === 0, JSON.stringify(q1))
+  check('a question she left blank counts as blank', q4?.skipped?.length === 1, JSON.stringify(q4))
+  r = await b('GET', `/api/practice-assignments/${qa.id}/report`)
+  check('students cannot read the report', r.status === 401 || r.status === 403)
+  r = await t('POST', `/api/practice-assignments/${qa.id}/report`)
+  check('AI class report is written, with the guide topics', r.status === 200 && !!r.json.insights?.summary && r.json.insights.topics.map((x) => x.name).join('|') === 'Mole Conversions|Limiting Reagent', JSON.stringify(r.json).slice(0, 400))
+  check('the summary never names her', !/Lianna|Wysocki/.test(JSON.stringify(r.json.insights)))
+  r = await t('GET', `/api/practice-assignments/${qa.id}/reteach`)
+  check('reteach options list both topics', r.json?.ready === true && r.json.topics.length === 2 && r.json.classId === cls.id, JSON.stringify(r.json))
+  r = await t('POST', `/api/practice-assignments/${qa.id}/reteach`, { minutes: 30, detail: 'quick' })
+  const groupStudents = (r.json?.saved?.groups ?? []).flatMap((g) => g.students)
+  check('reteach plan written with her in a group', r.status === 200 && !!r.json.saved?.plan?.title && groupStudents.some((x) => x.rosterId === lianna.id) && r.json.saved.source === 'practice', JSON.stringify(r.json).slice(0, 400))
+  r = await t('GET', `/api/practice-assignments/${qa.id}/reteach`)
+  check('reteach plan is saved', !!r.json?.saved?.plan)
+  r = await t('POST', '/api/practice-assignments', { guideId: quiz.id, classId: cls.id, rosterIds: [lianna.id], source: { practiceId: qa.id, groupKey: 'topic-1' } })
+  r = await t('GET', `/api/practice-assignments?practiceId=${qa.id}`)
+  check('practice assigned from a group links back to the plan', r.json?.assignments?.length === 1 && r.json.assignments[0].source?.groupKey === 'topic-1', JSON.stringify(r.json?.assignments?.map((x) => x.source)))
+
   r = await t('DELETE', `/api/practice-assignments/${asg.id}`)
   const { count } = await admin.from('practice_attempts').select('id', { count: 'exact', head: true }).eq('assignment_id', asg.id)
   check('delete removes it and its attempts', r.status === 200 && count === 0)
@@ -228,6 +265,7 @@ async function cleanup() {
   if (created.teacherId) await admin.from('grading_batches').delete().eq('user_id', created.teacherId)
   if (created.classId) await admin.from('classes').delete().eq('id', created.classId)
   if (created.guideId) await admin.from('study_guides').delete().eq('id', created.guideId)
+  if (created.quizId) await admin.from('study_guides').delete().eq('id', created.quizId)
   for (const id of created.users) await admin.auth.admin.deleteUser(id)
 }
 

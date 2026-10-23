@@ -23,7 +23,9 @@ interface Mine {
   status: string
   aiHelp: "off" | "tutor" | "full"
 }
-type Finish = (score: { correct: number; total: number; detail?: { mastered?: string[]; notMastered?: string[] } }) => void
+/** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
+export type FinishAnswer = { id: string; correct: boolean; given?: string }
+type Finish = (score: { correct: number; total: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
 
 const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"] } | null>(null)
 

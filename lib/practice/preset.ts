@@ -7,7 +7,8 @@ export interface AssignPreset {
   classId: string
   rosterIds: string[]
   title?: string
-  source?: { batchId: string; groupKey?: string }
+  /** Where the group came from: a graded set's or an assigned practice's reteach plan. */
+  source?: { batchId?: string; practiceId?: string; groupKey?: string }
   at: number
 }
 

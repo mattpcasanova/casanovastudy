@@ -16,6 +16,8 @@ export interface SavedReteach {
   groups: ReteachGroup[]
   examTitle: string | null
   className: string | null
+  /** What it was written from: a graded test (default) or assigned practice. */
+  source?: 'test' | 'practice'
 }
 
 export interface PlanSection {
@@ -44,8 +46,8 @@ export function planSections(saved: SavedReteach): PlanSection[] {
   out.push({
     key: 'objectives',
     title: 'Objectives',
-    html: `${ul(plan.objectives)}${saved.focus.length ? `<p><strong>From the test:</strong> ${esc(saved.focus.map((f) => `${f.name} ${f.pct}%`).join(', '))}</p>` : ''}`,
-    text: `${bullets(plan.objectives)}${saved.focus.length ? `\nFrom the test: ${saved.focus.map((f) => `${f.name} ${f.pct}%`).join(', ')}` : ''}`,
+    html: `${ul(plan.objectives)}${saved.focus.length ? `<p><strong>From the ${saved.source === 'practice' ? 'practice' : 'test'}:</strong> ${esc(saved.focus.map((f) => `${f.name} ${f.pct}%`).join(', '))}</p>` : ''}`,
+    text: `${bullets(plan.objectives)}${saved.focus.length ? `\nFrom the ${saved.source === 'practice' ? 'practice' : 'test'}: ${saved.focus.map((f) => `${f.name} ${f.pct}%`).join(', ')}` : ''}`,
   })
 
   out.push({
@@ -63,12 +65,12 @@ export function planSections(saved: SavedReteach): PlanSection[] {
     html: [
       ol(plan.miniLesson.steps),
       ex.problem ? `<p><strong>Worked example:</strong> ${esc(ex.problem)}</p>${ol(ex.solution)}` : '',
-      mis.length ? `<p><strong>Common mistakes from this test</strong></p>${ul(mis.map((m) => `${m.mistake} → ${m.fix}`))}` : '',
+      mis.length ? `<p><strong>Common mistakes from this ${saved.source === 'practice' ? 'practice' : 'test'}</strong></p>${ul(mis.map((m) => `${m.mistake} → ${m.fix}`))}` : '',
     ].join(''),
     text: [
       numbered(plan.miniLesson.steps),
       ex.problem ? `\nWorked example: ${ex.problem}\n${numbered(ex.solution)}` : '',
-      mis.length ? `\nCommon mistakes from this test:\n${bullets(mis.map((m) => `${m.mistake} → ${m.fix}`))}` : '',
+      mis.length ? `\nCommon mistakes from this ${saved.source === 'practice' ? 'practice' : 'test'}:\n${bullets(mis.map((m) => `${m.mistake} → ${m.fix}`))}` : '',
     ].join(''),
   })
 

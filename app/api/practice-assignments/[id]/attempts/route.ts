@@ -3,9 +3,10 @@ import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { attemptsLeft, bestAttempt } from '@/lib/practice/assignments'
 import { myAssignedRow } from '@/lib/practice/server'
+import { sanitizeAnswers } from '@/lib/practice/report'
 
 // A student finished a run of their assigned practice.
-// POST { correct, total, detail? } -> { counted, best, attemptsLeft }
+// POST { correct, total, detail?: { mastered?, notMastered?, answers? } } -> { counted, best, attemptsLeft }
 // Percent: correct/total of first answers. Mastery (adaptive): correct =
 // concepts mastered, total = concepts.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,10 +30,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const left = attemptsLeft(a.max_attempts, list)
   const counted = left == null || left > 0
   const pct = Math.round((correct / total) * 1000) / 10
-  // Adaptive only: which concepts were mastered (names, for the teacher).
-  const d = (body.detail ?? null) as { mastered?: unknown; notMastered?: unknown } | null
+  // Adaptive: which concepts were mastered (names, for the teacher). All
+  // formats: the first answer per question, for the class report.
+  const d = (body.detail ?? null) as { mastered?: unknown; notMastered?: unknown; answers?: unknown } | null
   const names = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 20).map((x) => x.slice(0, 120)) : [])
-  const detail = d && typeof d === 'object' ? { mastered: names(d.mastered), notMastered: names(d.notMastered) } : null
+  const answers = d && typeof d === 'object' ? sanitizeAnswers(d.answers) : null
+  const detail = d && typeof d === 'object'
+    ? { ...(Array.isArray(d.mastered) || Array.isArray(d.notMastered) ? { mastered: names(d.mastered), notMastered: names(d.notMastered) } : {}), ...(answers ? { answers } : {}) }
+    : null
   const finishedAt = new Date().toISOString()
   const { error } = await supabase.from('practice_attempts').insert({ assignment_id: id, roster_id: rosterId, student_user_id: user.id, correct, total, pct, detail, counted, finished_at: finishedAt })
   if (error) { console.error('Attempt insert failed:', error); return NextResponse.json({ error: 'Could not save your score' }, { status: 500 }) }

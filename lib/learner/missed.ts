@@ -16,7 +16,7 @@ export interface MissedQuestion {
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
 
-function activityText(a: PracticeActivity): MissedQuestion | null {
+export function activityText(a: PracticeActivity): MissedQuestion | null {
   switch (a.kind) {
     case 'choice': return { question: a.prompt, answer: a.options[a.correct] ?? '' }
     case 'fill': return {

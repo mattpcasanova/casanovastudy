@@ -8,17 +8,18 @@ import { ASSIGNMENT_COLUMNS, assignmentProgress, shareUrl, type AssignmentRow } 
 
 const origin = (request: NextRequest) => (process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin)
 
-// GET ?classId= | ?batchId= | ?guideId= -> the teacher's assignments with per-student progress.
+// GET ?classId= | ?batchId= | ?practiceId= | ?guideId= -> the teacher's assignments with per-student progress.
 export async function GET(request: NextRequest) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
   const q = request.nextUrl.searchParams
   const supabase = createAdminClient()
   let query = supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).eq('teacher_id', user.id).order('created_at', { ascending: false }).limit(100)
-  const classId = q.get('classId'), batchId = q.get('batchId'), guideId = q.get('guideId')
+  const classId = q.get('classId'), batchId = q.get('batchId'), practiceId = q.get('practiceId'), guideId = q.get('guideId')
   if (classId && /^[0-9a-f-]{36}$/i.test(classId)) query = query.eq('class_id', classId)
   if (guideId && /^[0-9a-f-]{36}$/i.test(guideId)) query = query.eq('study_guide_id', guideId)
   if (batchId && /^[0-9a-f-]{36}$/i.test(batchId)) query = query.eq('source->>batchId', batchId)
+  if (practiceId && /^[0-9a-f-]{36}$/i.test(practiceId)) query = query.eq('source->>practiceId', practiceId)
   const { data } = await query
   const rows = (data ?? []) as AssignmentRow[]
   const progress = await assignmentProgress(supabase, rows)
@@ -51,8 +52,10 @@ export async function POST(request: NextRequest) {
   const dueAt = typeof body.dueAt === 'string' && !Number.isNaN(Date.parse(body.dueAt)) ? new Date(body.dueAt).toISOString() : null
   const max = Number(body.maxAttempts)
   const maxAttempts = guide.format === 'adaptive' ? null : Number.isInteger(max) && max >= 1 && max <= 20 ? max : null
-  const src = body.source as { batchId?: unknown; groupKey?: unknown } | undefined
-  const source = src && typeof src.batchId === 'string' && /^[0-9a-f-]{36}$/i.test(src.batchId) ? { batchId: src.batchId, groupKey: typeof src.groupKey === 'string' ? src.groupKey.slice(0, 120) : undefined } : null
+  const src = body.source as { batchId?: unknown; practiceId?: unknown; groupKey?: unknown } | undefined
+  const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)
+  const groupKey = typeof src?.groupKey === 'string' ? src.groupKey.slice(0, 120) : undefined
+  const source = src && uuid(src.batchId) ? { batchId: src.batchId, groupKey } : src && uuid(src.practiceId) ? { practiceId: src.practiceId, groupKey } : null
   const title = (typeof body.title === 'string' && body.title.trim() ? body.title.trim() : guide.title || 'Practice').slice(0, 200)
 
   let created: AssignmentRow | null = null

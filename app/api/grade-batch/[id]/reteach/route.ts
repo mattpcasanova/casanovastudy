@@ -3,9 +3,9 @@ import { requireTeacher } from '@/lib/api-auth'
 import { ClaudeService } from '@/lib/claude-api'
 import { gradingBlock, planBlockResponse } from '@/lib/plans'
 import { createAdminClient } from '@/lib/supabase-server'
-import { questionStats, type ClassInsightsAI } from '@/lib/grading/insights'
-import { normalizeQuestionKey, type GradedQuestion } from '@/lib/grading/parse'
-import { groupsForPrompt, parseReteachPlan, reteachGroups, topicScores, type ReteachPaper } from '@/lib/grading/reteach'
+import type { ClassInsightsAI } from '@/lib/grading/insights'
+import type { GradedQuestion } from '@/lib/grading/parse'
+import { parseReteachPlan, reteachEvidence, reteachGroups, reteachTopicOptions, type ReteachPaper } from '@/lib/grading/reteach'
 
 export const maxDuration = 120
 
@@ -32,11 +32,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   // Topic scores, with the ones we'd focus on (weakest under 80%, up to 3) marked.
   const papers: ReteachPaper[] = rows.map((r) => ({ id: r.id, name: '', rosterId: null, breakdown: (Array.isArray(r.grade_breakdown) ? r.grade_breakdown : []) as GradedQuestion[] }))
-  const scored = insights?.topics?.length ? topicScores(papers, insights.topics) : []
-  const recommended = new Set(insights?.topics?.length ? reteachGroups(papers, insights.topics).focus.map((t) => t.name) : [])
   return NextResponse.json({
     saved: data ? { ...data.data, createdAt: data.created_at } : null,
-    topics: scored.map((t) => ({ name: t.name, pct: Math.round(t.pct), recommended: recommended.has(t.name) })),
+    topics: reteachTopicOptions(papers, insights?.topics ?? []),
     examTitle: rows[0].exam_title,
     className: rows[0].class_name,
     classId: rows.find((r) => r.class_id)?.class_id ?? null,
@@ -64,27 +62,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const papers: ReteachPaper[] = rows.map((r) => ({ id: r.id, name: r.student_name ?? 'Student', rosterId: r.roster_id, breakdown: (Array.isArray(r.grade_breakdown) ? r.grade_breakdown : []) as GradedQuestion[] }))
   const { focus, groups } = reteachGroups(papers, insights.topics, focusNames)
 
-  // Evidence for the AI: focus topics, the questions behind them, what students wrote wrong (no names).
-  const focusKeys = new Set(focus.flatMap((t) => t.questions.map(normalizeQuestionKey)))
-  const stats = questionStats(papers.map((p) => ({ id: p.id, name: '', breakdown: p.breakdown }))).filter((s) => focusKeys.has(s.key))
-  const evidence: string[] = []
-  evidence.push(`FOCUS TOPICS (class percent):\n${focus.map((t) => `- ${t.name}: ${Math.round(t.pct)}% (questions ${t.questions.join(', ')})`).join('\n')}`)
-  evidence.push(`QUESTIONS:\n${stats.map((s) => `- ${s.label}: class average ${Math.round(s.avgPct)}% of ${s.possible} marks, ${s.zeroCount} of ${s.n} scored 0`).join('\n')}`)
-  const snippets: string[] = []
-  for (const s of stats) {
-    const lost = papers
-      .map((p) => p.breakdown.find((q) => normalizeQuestionKey(q.questionNumber) === s.key))
-      .filter((q): q is GradedQuestion => !!q && q.marksAwarded < q.marksPossible && !!q.explanation)
-    lost.slice(0, 4).forEach((q) => snippets.push(`- Q${s.label} (${q.marksAwarded}/${q.marksPossible}): ${q.explanation.slice(0, 240)}`))
-  }
-  if (snippets.length) evidence.push(`MARKING FEEDBACK FROM STUDENTS WHO LOST MARKS:\n${snippets.join('\n')}`)
-  const struggles = (insights.struggles ?? []).filter((x) => focusKeys.has(normalizeQuestionKey(x.question)))
-  if (struggles.length) evidence.push(`COMMON MISTAKES (class report):\n${struggles.map((x) => `- Q${x.question}: ${x.issue}`).join('\n')}`)
-  if (insights.reteach?.length) evidence.push(`CLASS REPORT SUGGESTIONS:\n${insights.reteach.map((r) => `- ${r}`).join('\n')}`)
-  evidence.push(`GROUPS FOR THE GROUP-WORK PART:\n${groupsForPrompt(groups)}`)
-
   try {
-    const { text } = await new ClaudeService().reteachPlan(evidence.join('\n\n'), { examTitle: rows[0].exam_title, className: rows[0].class_name, minutes, detail })
+    const { text } = await new ClaudeService().reteachPlan(reteachEvidence(papers, insights, focus, groups), { examTitle: rows[0].exam_title, className: rows[0].class_name, minutes, detail })
     const plan = parseReteachPlan(text)
     if (!plan) throw new Error('The plan came back in a form we could not read. Try again.')
     const data = { plan, minutes, detail, focus: focus.map((t) => ({ name: t.name, pct: Math.round(t.pct) })), groups, examTitle: rows[0].exam_title, className: rows[0].class_name }

@@ -1,6 +1,9 @@
 // Server helpers for assigned practice (service role; callers check who's asking).
 
+import { NextResponse, type NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { requireTeacher } from '@/lib/api-auth'
+import { createAdminClient } from '@/lib/supabase-server'
 import { assignmentOpen, bestAttempt, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
 
 export interface AssignmentRow {
@@ -13,14 +16,32 @@ export interface AssignmentRow {
   max_attempts: number | null
   due_at: string | null
   code: string
-  source: { batchId?: string; groupKey?: string } | null
+  source: { batchId?: string; practiceId?: string; groupKey?: string } | null
   ai_help: AiHelp
   created_at: string
 }
 
 export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, created_at'
 
+/** The signed-in teacher's own assignment, or the error response to return. */
+export async function ownedAssignment(request: NextRequest, id: string): Promise<{ error: NextResponse } | { supabase: SupabaseClient; assignment: AssignmentRow; userId: string }> {
+  const { user, error } = await requireTeacher(request)
+  if (error) return { error }
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
+  const supabase = createAdminClient()
+  const { data } = await supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).eq('id', id).eq('teacher_id', user.id).maybeSingle()
+  if (!data) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
+  return { supabase, assignment: data as AssignmentRow, userId: user.id }
+}
+
 export const shareUrl = (origin: string, code: string) => `${origin.replace(/\/$/, '')}/practice/${code}`
+
+// Answers in an attempt's detail are for the class report (report-server.ts), not every progress view.
+const masteryDetail = (d: unknown) => {
+  if (!d || typeof d !== 'object') return null
+  const { mastered, notMastered } = d as { mastered?: string[]; notMastered?: string[] }
+  return mastered || notMastered ? { mastered, notMastered } : null
+}
 
 /** Per-student progress on assignments (teacher views). */
 export async function assignmentProgress(supabase: SupabaseClient, assignments: AssignmentRow[]) {
@@ -50,7 +71,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         status: practiceStatus(list, a.due_at),
         daysLate: practiceDaysLate(list, a.due_at),
         attempts: list.filter((t) => t.counted).length,
-        best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: best.detail } : null,
+        best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: masteryDetail(best.detail) } : null,
         lastAt: list.map((t) => t.finishedAt).sort().pop() ?? null,
       }
     }).sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName)))

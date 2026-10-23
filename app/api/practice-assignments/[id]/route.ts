@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
-import { ASSIGNMENT_COLUMNS, aiUsesFor, assignmentProgress, shareUrl, type AssignmentRow } from '@/lib/practice/server'
+import { aiUsesFor, assignmentProgress, ownedAssignment as owned, shareUrl } from '@/lib/practice/server'
 import { normalizeAiHelp } from '@/lib/practice/assignments'
 
 const origin = (request: NextRequest) => (process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin)
-
-async function owned(request: NextRequest, id: string) {
-  const { user, error } = await requireTeacher(request)
-  if (error) return { error }
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
-  const supabase = createAdminClient()
-  const { data } = await supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).eq('id', id).eq('teacher_id', user.id).maybeSingle()
-  if (!data) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
-  return { supabase, assignment: data as AssignmentRow }
-}
 
 // The assignment with each student's progress and AI messages (teacher).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

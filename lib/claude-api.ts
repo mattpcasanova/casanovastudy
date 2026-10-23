@@ -2506,7 +2506,7 @@ Total: <N> marks (marks printed on the paper | marks estimated)
    * Returns the raw reply; parseClassInsights reads it. Sonnet 5, thinking off
    * (a summary, not marking), ~10-20 s and a few cents.
    */
-  async classInsights(classData: string, meta: { examTitle?: string | null; className?: string | null; knownAreas?: string[] }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+  async classInsights(classData: string, meta: { examTitle?: string | null; className?: string | null; knownAreas?: string[]; source?: 'test' | 'practice' }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
     const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
     // Topics add up across a class's tests ("areas"), so reuse the names it already has.
     const areasNote = meta.knownAreas?.length
@@ -2518,14 +2518,16 @@ Total: <N> marks (marks printed on the paper | marks estimated)
       thinking: { type: 'disabled' },
       messages: [{
         role: 'user',
-        content: `A teacher graded a class set${about ? ` (${about})` : ''}. Below is how the class did on every question, with marking feedback from the students who lost the most marks.
+        content: `${meta.source === 'practice'
+          ? `A teacher assigned practice to a class${about ? ` (${about})` : ''}. Below is every question with its answer, how many students got it right and the wrong answers they gave (each student's best attempt).`
+          : `A teacher graded a class set${about ? ` (${about})` : ''}. Below is how the class did on every question, with marking feedback from the students who lost the most marks.`}
 
 ${classData}
 
 Write a short class report for the teacher as JSON:
 - "summary": 2-3 sentences on how the class did overall and where the main gaps are.
-- "topics": group EVERY question into 2-8 topics named the way a teacher would (e.g. "Mole conversions", "Plate boundaries"). Use the question labels exactly as given; each question in exactly one topic. Work out what each question tests from the feedback. If papers used different labels for the same question, put all of those labels in the same topic.${areasNote}
-- "struggles": the 3-5 questions the class found hardest (low averages, many zeros). "question" is ONE label copied exactly from the list. For each, say concretely what students commonly got wrong, based on the feedback (e.g. "Most students skipped converting grams to moles before using the ratio.").
+- "topics": group EVERY question into 2-8 topics named the way a teacher would (e.g. "Mole conversions", "Plate boundaries"). Use the question labels exactly as given; each question in exactly one topic. Work out what each question tests from ${meta.source === 'practice' ? 'its wording' : 'the feedback'}. If papers used different labels for the same question, put all of those labels in the same topic.${areasNote}
+- "struggles": the 3-5 questions the class found hardest (low averages, many zeros). "question" is ONE label copied exactly from the list. For each, say concretely what students commonly got wrong, based on ${meta.source === 'practice' ? 'the wrong answers they gave (what the popular wrong answer suggests they did)' : 'the feedback'} (e.g. "Most students skipped converting grams to moles before using the ratio.").
 - "reteach": 2-4 short, specific suggestions for what to go over again in class.
 Never name or number individual students. No em dashes. Reply with JSON only:
 {"summary": "...", "topics": [{"name": "...", "questions": ["1a", "1b"]}], "struggles": [{"question": "1b", "issue": "..."}], "reteach": ["..."]}`,
@@ -2541,7 +2543,7 @@ Never name or number individual students. No em dashes. Reply with JSON only:
    * the class's weakest topics, the mistakes behind them and the small groups
    * (sizes only, never names) become one lesson as JSON. Sonnet 5, thinking off.
    */
-  async reteachPlan(input: string, meta: { examTitle?: string | null; className?: string | null; minutes: number; detail?: 'quick' | 'standard' | 'detailed' }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+  async reteachPlan(input: string, meta: { examTitle?: string | null; className?: string | null; minutes: number; detail?: 'quick' | 'standard' | 'detailed'; source?: 'test' | 'practice' }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
     const about = [meta.examTitle, meta.className].filter(Boolean).join(', ')
     // How wordy: shorter plans also come back faster.
     const detail = meta.detail ?? 'standard'
@@ -2557,7 +2559,7 @@ Never name or number individual students. No em dashes. Reply with JSON only:
       thinking: { type: 'between_tools' } as unknown as Anthropic.ThinkingConfigParam,
       messages: [{
         role: 'user',
-        content: `A teacher graded a class set${about ? ` (${about})` : ''} and wants to reteach what the class got wrong in one ${meta.minutes}-minute lesson. Here is the evidence:
+        content: `A teacher ${meta.source === 'practice' ? 'assigned practice to' : 'graded'} a class${meta.source === 'practice' ? '' : ' set'}${about ? ` (${about})` : ''} and wants to reteach what the class got wrong in one ${meta.minutes}-minute lesson. Here is the evidence:
 
 ${input}
 
