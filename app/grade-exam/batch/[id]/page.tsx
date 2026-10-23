@@ -221,7 +221,7 @@ function BatchResults({ id }: { id: string }) {
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
-                <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}%</p>
+                <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}% · <Link href={`/grade-exam/batch/${id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></p>
               </div>
               <div className={buttonRow}>
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
@@ -229,7 +229,6 @@ function BatchResults({ id }: { id: string }) {
                 <button type="button" className={actionButton} onClick={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff />Extra credit / points off</button>
                 <button type="button" className={actionButton} onClick={() => setSort(sort === "name" ? "score" : "name")}><ArrowUpDown />Sort by {sort === "name" ? "score" : "name"}</button>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />CSV</button>
-                <Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>
                 <button type="button" className={actionButtonPrimary} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
               </div>
             </div>
@@ -368,7 +367,12 @@ function BatchResults({ id }: { id: string }) {
               rows={exportRows}
               classroomSync={classInfo?.googleCourseId ? <GoogleClassroomSync batchId={id} title={title} /> : undefined}
             />
-            <ClassReport batchId={id} papers={reportPapers} saved={saved} />
+            <ClassReport
+              batchId={id}
+              papers={reportPapers}
+              saved={saved}
+              actions={<Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>}
+            />
           </>
         )}
       </main>

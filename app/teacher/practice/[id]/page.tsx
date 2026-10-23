@@ -96,6 +96,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             {avg != null && <> · average {a.grading === "mastery" ? `${Math.round(avg)}% of topics mastered` : `${Math.round(avg)}%`}</>}
             {students.some((s) => s.aiUses.length) && <> · {students.filter((s) => s.aiUses.length).length} used AI help</>}
             {data.guide && <> · <Link href={`/study-guide/${data.guide.id}`} className="font-medium text-blue-700 hover:underline">open the practice</Link></>}
+            {finished.length > 0 && <> · <Link href={`/teacher/practice/${a.id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></>}
           </p>
         </div>
         <div className={buttonRow}>
