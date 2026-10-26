@@ -327,7 +327,7 @@ export default function GradeExamPage() {
       let processedStudentExams: File[] = []
 
       if (answerSheetFile) {
-        setStatusMessage("Processing mark scheme...")
+        setStatusMessage("Processing answer key...")
         processedMarkScheme = await processFile(answerSheetFile, setStatusMessage)
       }
 
@@ -595,7 +595,7 @@ export default function GradeExamPage() {
               </StepCard>
             </div>
 
-            {/* 2: mark scheme */}
+            {/* 2: answer key */}
             <div
               onDragEnter={handleAnswerSheetDrag}
               onDragLeave={handleAnswerSheetDrag}
@@ -603,7 +603,7 @@ export default function GradeExamPage() {
               onDrop={handleAnswerSheetDrop}
             >
               <StepCard highlight={answerSheetDragActive ? "drag" : errors.answerSheet ? "error" : null}>
-                <StepHeading n={2} title={isTeacher ? "Mark scheme" : "Answer key"} />
+                <StepHeading n={2} title={isTeacher ? "Answer key" : "Answer key"} />
                 {!answerSheetFile && isTeacher && <MarkSchemeNudge />}
                 {answerSheetFile ? (
                   <FileList files={[answerSheetFile]} onRemove={() => removeAnswerSheet()} disabled={isGrading} />

@@ -105,7 +105,7 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
       {!consistent && (
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          These papers weren&apos;t all marked on the same questions (they were graded without a shared mark scheme), so the per-question numbers are only a rough guide.
+          These papers weren&apos;t all marked on the same questions (they were graded without a shared answer key), so the per-question numbers are only a rough guide.
         </p>
       )}
 

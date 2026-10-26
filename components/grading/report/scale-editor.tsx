@@ -23,6 +23,19 @@ export function ScaleEditor({ value, onChange, possible, compact = false }: {
   const setBand = (i: number, patch: Partial<{ grade: string; min: number }>) =>
     onChange({ ...scale, bands: scale.bands.map((b, k) => (k === i ? { ...b, ...patch } : b)) })
 
+  // Switching the basis converts the boundaries (90% of a 40-mark paper is 36),
+  // so the grades stay the same. Without the paper's total there is nothing to
+  // convert with, and the numbers are kept for the teacher to retype.
+  const switchBasis = (basis: 'percent' | 'marks') => {
+    if (basis === scale.basis) return
+    const convert = (min: number) => {
+      if (!possible) return min
+      const v = basis === 'marks' ? (min / 100) * possible : (min / possible) * 100
+      return Math.round(v * 2) / 2
+    }
+    onChange({ ...scale, basis, bands: scale.bands.map((b) => ({ ...b, min: convert(b.min) })) })
+  }
+
   return (
     <div className="space-y-3">
       <Select value={scale.preset} onValueChange={(p) => onChange(presetScale(p as ScalePreset))}>
@@ -46,7 +59,7 @@ export function ScaleEditor({ value, onChange, possible, compact = false }: {
                 <button
                   key={basis}
                   type="button"
-                  onClick={() => onChange({ ...scale, basis })}
+                  onClick={() => switchBasis(basis)}
                   className={cn("rounded-md px-2 py-1", scale.basis === basis ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100")}
                 >
                   {basis === 'percent' ? 'Percent' : 'Raw marks'}

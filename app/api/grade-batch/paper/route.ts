@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 
 // Batch grading, step 2: grade one student's paper (pages already uploaded to
-// Cloudinary) against the batch's mark scheme, save it with the batch id, and
+// Cloudinary) against the batch's answer key, save it with the batch id, and
 // stream progress then the score (NDJSON). The browser runs a few at a time.
 
 export const maxDuration = 300
@@ -25,7 +25,7 @@ function textFiles(list: unknown): PaperFile[] {
   return (list as TextPart[])
     .filter((t) => typeof t?.content === 'string' && t.content.trim())
     .slice(0, 10)
-    .map((t) => ({ buffer: Buffer.from(String(t.content).slice(0, 200000), 'utf-8'), name: String(t.name ?? 'mark scheme').slice(0, 120), type: 'text/plain' }))
+    .map((t) => ({ buffer: Buffer.from(String(t.content).slice(0, 200000), 'utf-8'), name: String(t.name ?? 'answer key').slice(0, 120), type: 'text/plain' }))
 }
 
 const toFiles = (images: Awaited<ReturnType<typeof fetchUploadedImageBuffers>>): PaperFile[] =>
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Keep the set's mark scheme (or checked answer key), notes and Classroom
+ * Keep the set's answer key (or checked answer key), notes and Classroom
  * assignment, so papers added later are marked the same way. Never touches
  * another teacher's set.
  */

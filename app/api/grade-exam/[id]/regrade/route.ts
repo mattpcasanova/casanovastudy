@@ -12,7 +12,7 @@ import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 
 // Grade one paper again, with a note from the teacher ("the circle on Q8 is
 // C", "accept 'bent' for 31d"), from the pages saved with the report
-// (migration 074) and the set's mark scheme (grading_batches). Replaces the
+// (migration 074) and the set's answer key (grading_batches). Replaces the
 // marks and feedback (edits to this report are lost; extra credit stays).
 // Owner only. About a minute and ~$0.10 for a 9-page paper.
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!pages.length) return NextResponse.json({ error: 'This report has no saved pages to grade from (it was graded before pages were kept).' }, { status: 409 })
   const { data: batch } = row.batch_id ? await supabase.from('grading_batches').select('mark_scheme, notes').eq('batch_id', row.batch_id).eq('user_id', user.id).maybeSingle() : { data: null }
   const scheme = (batch?.mark_scheme ?? null) as { texts?: Array<{ name: string; content: string }>; images?: Array<{ url: string; name?: string }> } | null
-  if (!scheme || (!scheme.texts?.length && !scheme.images?.length)) return NextResponse.json({ error: "The set's mark scheme wasn't saved, so the paper can't be regraded the same way." }, { status: 409 })
+  if (!scheme || (!scheme.texts?.length && !scheme.images?.length)) return NextResponse.json({ error: "The set's answer key wasn't saved, so the paper can't be regraded the same way." }, { status: 409 })
 
   const block = await checkGrading(user.id)
   if (block) return planBlockResponse(block)

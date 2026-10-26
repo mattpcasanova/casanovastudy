@@ -8,7 +8,7 @@ import { AssignedPracticeList } from "@/components/assign/assigned-practice-list
 import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardList, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -165,22 +165,24 @@ function ClassView({ id }: { id: string }) {
     <Shell>
       <DeleteClassDialog classId={cls.id} label={`${cls.name}${cls.period ? ` (Period ${cls.period})` : ""}`} open={deleteOpen} onOpenChange={setDeleteOpen} />
       <Link href="/teacher/classes" className={backLink}><ArrowLeft />My classes</Link>
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <div>
+      {/* Title row: the class, and the one thing to do with it. */}
+      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{cls.name}</h1>
           <p className="text-slate-600">
             {[cls.school_year, cls.period && `Period ${cls.period}`, `${roster.filter((r) => !r.left).length} student${roster.filter((r) => !r.left).length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+            {" · "}<Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="font-medium text-blue-700 hover:underline">{courseName(cls.name, cls.course)} across years</Link>
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className={backLink}>{courseName(cls.name, cls.course)} across years</Link>
-            <button type="button" onClick={() => setDetailsOpen((o) => !o)} className={backLink}>Year &amp; course</button>
-            <button type="button" onClick={() => setDeleteOpen(true)} className={cn(backLink, "hover:bg-rose-50 hover:text-rose-700")}><Trash2 />Delete class</button>
-          </div>
         </div>
+        <Button asChild className={cn(actionButtonPrimary, "h-11 w-full bg-blue-600 px-5 hover:bg-blue-700 sm:w-auto")}><Link href={`/grade-exam/batch?class=${cls.id}`}><ClipboardList className="mr-2 h-4 w-4" />Grade this class</Link></Button>
+      </div>
+      {/* Toolbar: settings on the left, the one dangerous thing on the right. */}
+      <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
         <div className={buttonRow}>
-          <Button variant="ghost" onClick={() => setEditOpen(true)} className={actionButton}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
-          <Button asChild className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>
+          <Button variant="ghost" onClick={() => setEditOpen(true)} className={actionButton}><Pencil className="mr-2 h-4 w-4" />Edit class</Button>
+          <Button variant="ghost" onClick={() => setDetailsOpen((o) => !o)} aria-pressed={detailsOpen} className={cn(actionButton, detailsOpen && "bg-blue-50 text-blue-800 ring-blue-300")}><CalendarDays className="mr-2 h-4 w-4" />Year &amp; course</Button>
         </div>
+        <Button variant="ghost" onClick={() => setDeleteOpen(true)} className={cn(actionButton, "w-full text-rose-700 hover:bg-rose-50 hover:text-rose-800 sm:w-auto")}><Trash2 className="mr-2 h-4 w-4" />Delete class</Button>
       </div>
       {/* Below the header row, so opening it doesn't push the buttons onto new rows. */}
       {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}

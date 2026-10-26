@@ -150,7 +150,7 @@ export async function POST(
       submissionData = created
     }
 
-    // Auto-grade when a mark scheme is present AND the teacher opted in.
+    // Auto-grade when an answer key is present AND the teacher opted in.
     if (assignment.auto_grade && assignment.mark_scheme_url) {
       await supabase
         .from('assignment_submissions')

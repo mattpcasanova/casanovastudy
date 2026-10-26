@@ -23,7 +23,7 @@ import { useAuth } from "@/lib/auth"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 
 interface ClassRecord {
@@ -105,15 +105,17 @@ function Classes() {
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>My classes</h1>
           <p className="mt-1 max-w-xl text-slate-600">A class is your list of names. Grading matches each paper to a name on it, and students can join with the class code to see the reports you release.</p>
         </div>
-        <div className="flex gap-2">
-          {googleReady && <Button variant="ghost" onClick={async () => { const err = await connectGoogleClassroom(); if (err) setNotice(err) }} className={actionButton}>Import from Google Classroom</Button>}
+        <Button onClick={() => setCreateOpen(true)} className={cn(actionButtonPrimary, "h-11 w-full bg-blue-600 px-5 hover:bg-blue-700 sm:w-auto")}><Plus className="mr-2 h-4 w-4" />New class</Button>
+      </div>
+      <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center">
+        <div className={buttonRow}>
           <Button variant="ghost" onClick={() => setImportOpen(true)} className={actionButton}><FileUp className="mr-2 h-4 w-4" />Import from a file</Button>
-          <Button onClick={() => setCreateOpen(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Plus className="mr-2 h-4 w-4" />New class</Button>
+          {googleReady && <Button variant="ghost" onClick={async () => { const err = await connectGoogleClassroom(); if (err) setNotice(err) }} className={actionButton}>Import from Google Classroom</Button>}
         </div>
       </div>
       <TeacherVerificationCard className="mt-6" />

@@ -4,7 +4,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { gradingBlock, planBlockResponse } from '@/lib/plans'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 
-// Batch grading with no mark scheme: draft one answer key from the first
+// Batch grading with no answer key: draft one answer key from the first
 // student's paper (questions are printed on it). The teacher checks it, then
 // every paper is graded against it, so totals match across the class.
 

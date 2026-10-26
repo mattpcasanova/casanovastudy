@@ -6,7 +6,7 @@
 // each page to find where each student's paper starts (students write their
 // name on page 1 only) and fill in the exam details from the papers, let the
 // teacher fix the split, then grade a few papers at a time
-// (/api/grade-batch/paper). With no mark scheme, an answer key is drafted from
+// (/api/grade-batch/paper). With no answer key, an answer key is drafted from
 // the first paper (/api/grade-batch/answer-key) for the teacher to check, and
 // every paper is marked against it. Keep the tab open while it grades.
 
@@ -111,7 +111,7 @@ function BatchGrading() {
   const fileOwners = useRef(new WeakMap<File, string>())
   // The Classroom assignment these papers came from (saved with the set).
   const [classroomSource, setClassroomSource] = useState<{ courseId: string; workId: string } | null>(null)
-  // Adding to an existing set: its mark scheme is reused unless a new one is dropped in.
+  // Adding to an existing set: its answer key is reused unless a new one is dropped in.
   const [inheritedScheme, setInheritedScheme] = useState(false)
   const [alreadyGraded, setAlreadyGraded] = useState<string[]>([])
   // Class-list ids already graded in the set being added to (not "no paper yet").
@@ -164,7 +164,7 @@ function BatchGrading() {
   // Group work: other members of a paper (keyed by the paper's first page), graded once, saved for each.
   const [groups, setGroups] = useState<Record<number, string[]>>({})
   const [groupOpen, setGroupOpen] = useState<Set<number>>(new Set())
-  // Add to an existing class set: same title, class, scale and mark scheme;
+  // Add to an existing class set: same title, class, scale and answer key;
   // students already graded in it are left out of a Classroom pull.
   const attachToBatch = async (existing: string) => {
     const res = await authFetch(`/api/grade-batch/${existing}`, { cache: "no-store" })
@@ -358,14 +358,14 @@ function BatchGrading() {
     setSortStartedAt(Date.now())
     setProgress({ step: "prepare", done: 0, total: paperFiles.length })
     try {
-      // Mark scheme: typed PDFs/Word read as text, photos and scans as images.
+      // Answer key: typed PDFs/Word read as text, photos and scans as images.
       const issues: string[] = []
       let scheme = inheritedScheme && !markFiles.length ? markScheme : { texts: [] as Array<{ name: string; content: string }>, images: [] as Array<{ url: string; name: string }> }
       if (markFiles.length) {
-        setStatus("Reading the mark scheme...")
+        setStatus("Reading the answer key...")
         const prepared = await prepareMaterials(markFiles, { pdfMode: "auto", maxImages: 30, onProgress: setStatus })
         issues.push(...prepared.problems)
-        const images = await uploadAll(prepared.images.map((i) => ({ blob: i.blob, name: i.name })), "grading-mark-schemes", (n, total) => setStatus(`Uploading mark scheme page ${n} of ${total}...`))
+        const images = await uploadAll(prepared.images.map((i) => ({ blob: i.blob, name: i.name })), "grading-mark-schemes", (n, total) => setStatus(`Uploading answer key page ${n} of ${total}...`))
         scheme = { texts: prepared.texts, images }
       }
 
@@ -495,7 +495,7 @@ function BatchGrading() {
       setProblems(issues)
       setPhase("review")
 
-      // No mark scheme: write one answer key from the first paper so everyone is marked the same way.
+      // No answer key: write one answer key from the first paper so everyone is marked the same way.
       if (!scheme.texts.length && !scheme.images.length) {
         const first = groupPages(startPoints, allHeaders)[0]
         if (first) void draftAnswerKey(first.pages.map((i) => allPages[i]))
@@ -532,7 +532,7 @@ function BatchGrading() {
   }
 
   const hasScheme = markScheme.texts.length > 0 || markScheme.images.length > 0
-  // The checked answer key stands in for the mark scheme (and caches the same way).
+  // The checked answer key stands in for the answer key (and caches the same way).
   const schemeForGrading: Scheme = hasScheme || answerKey.status !== "ready" || !answerKey.text.trim()
     ? markScheme
     : { texts: [{ name: ANSWER_KEY_NAME, content: answerKey.text }], images: [] }
@@ -642,7 +642,7 @@ function BatchGrading() {
       {(phase === "setup" || phase === "preparing") && (
         <div className={cn("space-y-8", phase === "preparing" && "hidden")}>
           <GradingModeSwitch mode="class" />
-          {addingTo && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Adding late papers to <span className="font-semibold">{addingTo}</span>. They&apos;ll join the same class results. Use the same mark scheme.</p>}
+          {addingTo && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Adding late papers to <span className="font-semibold">{addingTo}</span>. They&apos;ll join the same class results. Use the same answer key.</p>}
 
           <Section n={1} title="Student papers" hint="The whole stack: phone photos in any order of students, scanned PDFs, or one file per student. Names only need to be on the first page.">
             <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
@@ -685,9 +685,9 @@ function BatchGrading() {
             )}
           </Section>
 
-          <Section n={2} title="Mark scheme" hint="A photo, PDF, Word or text file of the answers.">
+          <Section n={2} title="Answer key" hint="A photo, PDF, Word or text file of the answers.">
             {!markFiles.length && inheritedScheme && (
-              <p className="mb-3 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Using the same mark scheme as the rest of {addingTo ?? "this set"}{markScheme.texts.some((t) => t.name === ANSWER_KEY_NAME) ? " (the answer key you checked)" : ""}, so everyone is marked the same way. Drop a file here only to use a different one.</p>
+              <p className="mb-3 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Using the same answer key as the rest of {addingTo ?? "this set"}{markScheme.texts.some((t) => t.name === ANSWER_KEY_NAME) ? " (the answer key you checked)" : ""}, so everyone is marked the same way. Drop a file here only to use a different one.</p>
             )}
             {!markFiles.length && !inheritedScheme && <MarkSchemeNudge batch />}
             <DropZone files={markFiles} onFiles={(f) => setMarkFiles((prev) => [...prev, ...f])} onRemove={(i) => setMarkFiles((prev) => prev.filter((_, j) => j !== i))} disabled={phase === "preparing"} />
@@ -1170,7 +1170,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <GradingHero
         title="Grade a whole class"
         accent="in one go"
-        subtitle="Drop in the stack. We sort it into students, you check it, then every paper is graded against your mark scheme."
+        subtitle="Drop in the stack. We sort it into students, you check it, then every paper is graded against your answer key."
       />
       <main className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">{children}</main>
     </div>
@@ -1271,7 +1271,7 @@ function AnswerKeyPanel({ answerKey, editable, onChange, onRedo }: { answerKey: 
   return (
     <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-200">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 font-semibold text-amber-900"><KeyRound className="h-4 w-4" />No mark scheme, so here&apos;s an answer key from the first paper</p>
+        <p className="flex items-center gap-2 font-semibold text-amber-900"><KeyRound className="h-4 w-4" />No answer key, so here&apos;s one drafted from the first paper</p>
         {editable && onRedo && answerKey.status !== "drafting" && (
           <button type="button" onClick={onRedo} className={actionButton}><RotateCcw />Write it again</button>
         )}

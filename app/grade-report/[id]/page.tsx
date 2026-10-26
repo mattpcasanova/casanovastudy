@@ -41,7 +41,7 @@ interface GradingResult {
   pdfUrl: string | null
   createdAt: string
   isOwner: boolean
-  /** Saved pages + the set's mark scheme exist, so the owner can grade it again. */
+  /** Saved pages + the set's answer key exist, so the owner can grade it again. */
   canRegrade?: boolean
   linkedStudent: boolean
   groupId: string | null
@@ -279,7 +279,7 @@ export default function GradeReportPage() {
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Regrade this paper</DialogTitle>
-                  <DialogDescription>The paper is graded again from its pages against the set&apos;s mark scheme. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute.</DialogDescription>
+                  <DialogDescription>The paper is graded again from its pages against the set&apos;s answer key. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute.</DialogDescription>
                 </DialogHeader>
                 <label className="block text-sm">
                   <span className="font-medium text-slate-800">Tell the grader what to look at (optional)</span>

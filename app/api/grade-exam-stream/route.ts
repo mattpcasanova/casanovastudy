@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
         const isTeacher = profile.user_type === 'teacher'
 
-        // Get form data - mark scheme can be multiple files (if PDF was converted to images)
+        // Get form data - answer key can be multiple files (if PDF was converted to images)
         const markSchemeFiles = formData.getAll('markScheme') as File[]
         const studentExamFiles = formData.getAll('studentExam') as File[]
         const additionalComments = formData.get('additionalComments') as string | null
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
           message: 'Processing exam files...'
         }) + '\n\n'))
 
-        // Process mark scheme files (may be multiple images from PDF conversion)
+        // Process answer key files (may be multiple images from PDF conversion)
         const markSchemeBuffers: Array<{ buffer: Buffer; name: string; type: string }> = []
         for (const file of markSchemeFiles) {
           const bytes = await file.arrayBuffer()

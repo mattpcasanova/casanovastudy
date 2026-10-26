@@ -104,8 +104,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   return (
     <Shell>
       {data.class && <Link href={`/teacher/classes/${data.class.id}`} className={backLink}><ArrowLeft />{data.class.name}{data.class.period ? ` (P${data.class.period})` : ""}</Link>}
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{a.title}</h1>
           <p className="text-slate-600">
             {students.length} student{students.length === 1 ? "" : "s"} · {students.filter((s) => s.status === "done" || s.status === "late").length} done
@@ -116,9 +116,11 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             {finished.length > 0 && <> · <Link href={`/teacher/practice/${a.id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></>}
           </p>
         </div>
+        <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
+      </div>
+      <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
         <div className={buttonRow}>
-          <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
-          <button type="button" className={actionButton} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
+          <button type="button" className={cn(actionButton, showQr && "bg-blue-50 text-blue-800 ring-blue-300")} aria-pressed={showQr} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
           <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp />Send to gradebook</button>
         </div>
       </div>

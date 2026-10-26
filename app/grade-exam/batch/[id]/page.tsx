@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
+import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, RefreshCw, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { AdjustmentDialog, type AdjustablePaper } from "@/components/grading/adjustment-dialog"
 import { AcceptAnswerDialog } from "@/components/grading/accept-answer-dialog"
+import { RegradeSetDialog } from "@/components/grading/regrade-set-dialog"
 import type { AcceptPlanRow } from "@/lib/grading/accept-answer"
 import { adjustedTotals, adjustmentGroups, adjustmentLine, gradebookComment, normalizeAdjustments, type GradeAdjustment } from "@/lib/grading/adjustments"
 
@@ -53,6 +54,10 @@ interface Row {
   created_at: string
   grade_breakdown: GradedQuestion[] | null
   adjustments: GradeAdjustment[] | null
+  /** Pages were saved with the report, so it can be regraded. */
+  has_pages?: boolean
+  /** A score the teacher entered by hand (no paper, no breakdown). */
+  by_hand?: boolean
 }
 
 /** The marks as graded, before extra credit / points off. */
@@ -167,6 +172,13 @@ function BatchResults({ id }: { id: string }) {
     setNotice(paperIds.length ? `${adjustmentLine(adjustment)} saved for ${paperIds.length} student${paperIds.length === 1 ? "" : "s"}` : "Removed")
   }
   const [acceptOpen, setAcceptOpen] = useState(false)
+  const [regradeOpen, setRegradeOpen] = useState(false)
+  // One regrade per paper: group copies share marks, and hand-entered scores have no pages.
+  const regradable = useMemo(() => {
+    const seenGroup = new Set<string>()
+    return (rows ?? []).filter((r) => { if (r.group_id) { if (seenGroup.has(r.group_id)) return false; seenGroup.add(r.group_id) } return true })
+      .map((r) => ({ id: r.id, name: r.student_name, hasPages: !!r.has_pages, pages: Number((r as { page_count?: number }).page_count ?? 0) }))
+  }, [rows])
   const questionLabels = useMemo(() => { const seen: string[] = []; for (const r of rows ?? []) for (const q of r.grade_breakdown ?? []) { const l = String(q.questionNumber); if (!seen.includes(l)) seen.push(l) } return seen }, [rows])
   const previewAccept = useCallback(async (accept: { question: string; answers: string; everyone: boolean }) => {
     const res = await authFetch(`/api/grade-batch/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acceptAnswer: accept, preview: true }) })
@@ -265,6 +277,7 @@ function BatchResults({ id }: { id: string }) {
                     <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</DropdownMenuItem>
                     <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff className="mr-2 h-4 w-4" />Extra credit / points off</DropdownMenuItem>
                     <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => setAcceptOpen(true)}><ListChecks className="mr-2 h-4 w-4" />Accept another answer</DropdownMenuItem>
+                    <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => setRegradeOpen(true)}><RefreshCw className="mr-2 h-4 w-4" />Regrade all papers…</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />Download CSV</button>
@@ -314,6 +327,7 @@ function BatchResults({ id }: { id: string }) {
                       {e?.status === "late" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>}
                       {r.group_id && r.group_members && r.group_members.length > 1 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Group of {r.group_members.length}</span>}
                       {checksFor(r) > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300" title="The grader wasn't sure it read these answers right">{checksFor(r)} to check</span>}
+                      {r.by_hand && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Entered by hand</span>}
                       <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "ml-auto text-blue-700")}><FileText />Report</Link>
                     </div>
                   </li>
@@ -352,6 +366,7 @@ function BatchResults({ id }: { id: string }) {
                           return <span className="ml-2 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>
                         })()}
                         {checksFor(r) > 0 && <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300" title="The grader wasn't sure it read these answers right">{checksFor(r)} to check</span>}
+                        {r.by_hand && <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Entered by hand</span>}
                         {r.group_id && r.group_members && r.group_members.length > 1 && (
                           <span className="ml-2 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700" title={`Group work: ${r.group_members.map((m) => m.name).join(", ")}`}>Group of {r.group_members.length}</span>
                         )}
@@ -410,7 +425,8 @@ function BatchResults({ id }: { id: string }) {
             <AdjustmentDialog open={adjustOpen} onOpenChange={setAdjustOpen} papers={adjustable} editing={editingAdjustment} onSave={saveAdjustment} />
             <AcceptAnswerDialog open={acceptOpen} onOpenChange={setAcceptOpen} questions={questionLabels} preview={previewAccept} onSave={saveAccept} />
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
-            <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} onChanged={() => void load()} />
+            <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} possible={Number(first?.total_possible_marks) || null} onChanged={() => void load()} />
+            <RegradeSetDialog open={regradeOpen} onOpenChange={setRegradeOpen} batchId={id} papers={regradable} onDone={() => void load()} />
             <GradebookExportDialog
               open={exportOpen}
               onOpenChange={setExportOpen}

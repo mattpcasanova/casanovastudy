@@ -186,18 +186,18 @@ export function GradingModeSwitch({ mode }: { mode: "class" | "single" }) {
   )
 }
 
-/** Shown while no mark scheme is attached: grading works without one, but marks are much better with it. */
+/** Shown while no answer key is attached: grading works without one, but marks are much better with it. */
 export function MarkSchemeNudge({ batch }: { batch?: boolean }) {
   return (
     <div className="mb-4 flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
       <div>
-        <p className="font-semibold">Highly recommended: add your mark scheme</p>
+        <p className="font-semibold">Highly recommended: add your answer key</p>
         <p className="mt-0.5 text-amber-800">
           It&apos;s the biggest thing for accurate marks: the grader uses your answers and your mark split instead of working them out itself.
           {batch
-            ? " No mark scheme? Carry on: we'll write an answer key from the first paper for you to check, and mark everyone against it."
-            : " No mark scheme? You can still grade; the marks will be the AI's own judgement."}
+            ? " No answer key? Carry on: we'll write an answer key from the first paper for you to check, and mark everyone against it."
+            : " No answer key? You can still grade; the marks will be the AI's own judgement."}
         </p>
       </div>
     </div>

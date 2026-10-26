@@ -20,12 +20,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data, error: dbError } = await createAdminClient()
     .from('grading_results')
-    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members, adjustments')
+    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members, adjustments, page_urls, student_exam_filename')
     .eq('batch_id', id)
     .eq('user_id', user.id)
     .order('student_name', { ascending: true })
   if (dbError) return NextResponse.json({ error: 'Could not load results' }, { status: 500 })
-  const results = data ?? []
+  // has_pages: the paper can be regraded (migration 074); by_hand: a score the teacher entered.
+  const results = (data ?? []).map(({ page_urls, student_exam_filename, ...r }) => ({ ...r, has_pages: Array.isArray(page_urls) && page_urls.length > 0, by_hand: student_exam_filename === 'Entered by hand' }))
   const { data: saved } = await createAdminClient().from('grading_batch_insights').select('signature, data, created_at').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
   const signature = insightsSignature(results.map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })))
   const insights = saved ? { insights: saved.data, current: saved.signature === signature, createdAt: saved.created_at } : null
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   const { data: cls } = classId ? await createAdminClient().from('classes').select('id, google_course_id').eq('id', classId).maybeSingle() : { data: null }
   const classInfo = cls ? { id: cls.id, googleCourseId: cls.google_course_id } : null
-  // What adding more papers later reuses: the mark scheme, notes and Classroom assignment.
+  // What adding more papers later reuses: the answer key, notes and Classroom assignment.
   const { data: setupRow } = await createAdminClient().from('grading_batches').select('mark_scheme, notes, classroom_course_id, classroom_work_id').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
   const setup = setupRow ? {
     markScheme: setupRow.mark_scheme ?? null,
@@ -162,6 +163,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       changed++
     }
     return NextResponse.json({ ok: true, changed, plan })
+  }
+
+  // A new answer key for the set (then the teacher regrades the papers against it).
+  if (body.markScheme && typeof body.markScheme === 'object') {
+    const scheme = body.markScheme as { texts?: unknown; images?: unknown }
+    const texts = (Array.isArray(scheme.texts) ? scheme.texts : [])
+      .filter((t): t is { name: string; content: string } => !!t && typeof t.name === 'string' && typeof t.content === 'string' && !!t.content.trim())
+      .slice(0, 20).map((t) => ({ name: t.name.slice(0, 200), content: t.content.slice(0, 200_000) }))
+    const images = (Array.isArray(scheme.images) ? scheme.images : [])
+      .filter((i): i is { url: string; name?: string } => !!i && typeof i.url === 'string')
+      .slice(0, 40).map((i) => ({ url: i.url.slice(0, 500), name: String(i.name ?? '').slice(0, 200) }))
+    if (!texts.length && !images.length) return NextResponse.json({ error: 'The answer key is empty' }, { status: 400 })
+    const { data: existing } = await supabase.from('grading_batches').select('user_id').eq('batch_id', id).maybeSingle()
+    if (existing && existing.user_id !== user.id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const { error: upErr } = await supabase.from('grading_batches').upsert({ batch_id: id, user_id: user.id, mark_scheme: { texts, images }, updated_at: now }, { onConflict: 'batch_id' })
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
   }
 
   if (body.gradeScale !== undefined) {

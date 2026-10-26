@@ -49,11 +49,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: 'Student exam file is required' }, { status: 400 })
     }
 
-    // Validate mark scheme
+    // Validate answer key
     if (markSchemeFile && !VALID_DOC_TYPES.includes(markSchemeFile.type)) {
       return NextResponse.json({
         success: false,
-        error: `Invalid mark scheme file type: ${markSchemeFile.type}. Please upload a PDF or DOCX file.`
+        error: `Invalid answer key file type: ${markSchemeFile.type}. Please upload a PDF or DOCX file.`
       }, { status: 400 })
     }
 

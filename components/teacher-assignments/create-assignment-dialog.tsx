@@ -180,7 +180,7 @@ export default function CreateAssignmentDialog({
         return
       }
       setValues(v => ({ ...v, mark_scheme_url: json.url }))
-      toast({ title: "Mark scheme uploaded" })
+      toast({ title: "Answer key uploaded" })
     } catch (err) {
       console.error(err)
       toast({ title: "Network error", variant: "destructive" })
@@ -272,7 +272,7 @@ export default function CreateAssignmentDialog({
           <DialogTitle className="text-lg text-white">{mode === "create" ? "Create Assignment" : "Edit Assignment"}</DialogTitle>
           <DialogDescription className="text-blue-50/90">
             {mode === "create"
-              ? "Post this to one or more of your classes. You can add or change the mark scheme later."
+              ? "Post this to one or more of your classes. You can add or change the answer key later."
               : "Edit assignment details. Changing class links replaces the current set."}
           </DialogDescription>
         </DialogHeader>
@@ -292,7 +292,7 @@ export default function CreateAssignmentDialog({
                 >
                   <FileUp className="h-4 w-4 mb-1.5 text-muted-foreground" />
                   <p className="text-sm font-medium">File upload</p>
-                  <p className="text-xs text-muted-foreground">Students submit work; AI grades against your mark scheme</p>
+                  <p className="text-xs text-muted-foreground">Students submit work; AI grades against your answer key</p>
                 </button>
                 <button
                   type="button"
@@ -413,11 +413,11 @@ export default function CreateAssignmentDialog({
 
           {!isMastery && (
           <div className="space-y-2">
-            <Label>Mark scheme (PDF or DOCX, optional)</Label>
+            <Label>Answer key (PDF or DOCX, optional)</Label>
             {values.mark_scheme_url ? (
               <div className="flex items-center justify-between gap-2 border rounded-md px-3 py-2 bg-muted/30">
                 <a href={values.mark_scheme_url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline truncate">
-                  Uploaded mark scheme
+                  Uploaded answer key
                 </a>
                 <Button
                   type="button"
@@ -449,7 +449,7 @@ export default function CreateAssignmentDialog({
                   disabled={uploadingMarkScheme}
                 >
                   {uploadingMarkScheme ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                  {uploadingMarkScheme ? "Uploading…" : "Upload mark scheme"}
+                  {uploadingMarkScheme ? "Uploading…" : "Upload answer key"}
                 </Button>
                 <Badge variant="secondary" className="text-xs">Required for AI grading</Badge>
               </div>
@@ -489,7 +489,7 @@ export default function CreateAssignmentDialog({
             <label className="flex items-center justify-between gap-3 cursor-pointer">
               <div>
                 <p className="text-sm">Auto-grade on submit</p>
-                <p className="text-xs text-muted-foreground">AI grades the submission immediately when a student submits (requires mark scheme)</p>
+                <p className="text-xs text-muted-foreground">AI grades the submission immediately when a student submits (requires answer key)</p>
               </div>
               <Switch
                 checked={values.auto_grade}

@@ -50,7 +50,7 @@ export async function GET(
         return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
       }
 
-      // Student-facing payload: redact mark scheme + grading instructions but keep visibility flags
+      // Student-facing payload: redact answer key + grading instructions but keep visibility flags
       const { mark_scheme_url, mark_scheme_text, grading_instructions, teacher_id, auto_grade, ...studentSafe } = assignment
 
       // Look up student's own submission

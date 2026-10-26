@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Loader2, Users } from "lucide-react"
+import { Loader2, PenLine, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
@@ -44,11 +44,13 @@ export interface BatchRosterEntry {
 
 const STATUSES = [["absent", "Absent"], ["missing", "Missing"], ["exempt", "Exempt"]] as const
 
-export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }: {
+export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, onChanged }: {
   batchId: string
   rows: BatchClassRow[]
   roster: BatchRosterEntry[]
   examTitle: string | null
+  /** The set's total marks, for scores entered by hand. */
+  possible?: number | null
   onChanged: () => void
 }) {
   const [classes, setClasses] = useState<ClassOption[] | null>(null)
@@ -71,6 +73,21 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
       setClasses(res.ok ? data.classes ?? [] : [])
     })()
   }, [classId])
+
+  // A score worked out by hand for a student with no paper: becomes a report in the set.
+  const [entering, setEntering] = useState<string | null>(null)
+  const [enteredMarks, setEnteredMarks] = useState("")
+  const [enterError, setEnterError] = useState("")
+  const saveEntered = async (rosterId: string) => {
+    setEnterError("")
+    try {
+      const res = await authFetch(`/api/grade-batch/${batchId}/manual`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterId, marks: Number(enteredMarks) }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Could not save")
+      setEntering(null); setEnteredMarks("")
+      onChanged()
+    } catch (e) { setEnterError(e instanceof Error ? e.message : "Could not save") }
+  }
 
   const patch = async (body: Record<string, unknown>) => {
     const res = await authFetch(`/api/grade-batch/${batchId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -171,6 +188,17 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, onChanged }:
                     {noPaper.map((e) => (
                       <li key={e.rosterId} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                         <span className="min-w-0 flex-1 text-slate-800">{e.name}{e.studentNumber && <span className="ml-1.5 text-xs text-slate-400">#{e.studentNumber}</span>}</span>
+                        {entering === e.rosterId ? (
+                          <form className="flex flex-wrap items-center gap-2" onSubmit={(ev) => { ev.preventDefault(); void saveEntered(e.rosterId) }}>
+                            <input type="number" min={0} max={possible ?? undefined} step="any" value={enteredMarks} onChange={(ev) => setEnteredMarks(ev.target.value)} autoFocus aria-label={`Marks for ${e.name}`} className="h-10 w-20 rounded-xl border border-slate-300 px-2 text-right" />
+                            <span className="text-slate-500">/ {possible ?? "?"}</span>
+                            <button type="submit" disabled={!enteredMarks.trim()} className={actionButtonPrimary}>Save</button>
+                            <button type="button" onClick={() => { setEntering(null); setEnterError("") }} className={actionButton}>Cancel</button>
+                            {enterError && <span className="text-rose-700">{enterError}</span>}
+                          </form>
+                        ) : (
+                          <button type="button" onClick={() => { setEntering(e.rosterId); setEnteredMarks("") }} className={actionButton} title="A score you worked out by hand"><PenLine />Enter a score</button>
+                        )}
                         <span className="flex gap-1" role="group" aria-label={`Status for ${e.name}`}>
                           {STATUSES.map(([value, text]) => (
                             <button

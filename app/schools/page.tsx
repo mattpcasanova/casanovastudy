@@ -22,7 +22,7 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: BookOpen, title: "Guides from class materials", body: "Students turn notes, slides, worksheets or phone photos into outlines, quizzes, flashcards, practice and study plans in about a minute, written at their grade level." },
   { icon: Brain, title: "Practice that sticks", body: "Learn mode spaces out review so students come back to each card right before they would forget it, and every quiz retries what they missed." },
   { icon: LineChart, title: "Weak spots, not just scores", body: "Each student sees which topics they are strong and weak in, and gets a one-tap quiz built from the exact questions they got wrong." },
-  { icon: ClipboardCheck, title: "Grading for teachers", body: "Teachers photograph a class set of handwritten exams, add the mark scheme, and get a marked paper with feedback for each student, plus a class results table." },
+  { icon: ClipboardCheck, title: "Grading for teachers", body: "Teachers photograph a class set of handwritten exams, add the answer key, and get a marked paper with feedback for each student, plus a class results table." },
 ]
 
 const DATA: { icon: LucideIcon; title: string; body: ReactNode }[] = [

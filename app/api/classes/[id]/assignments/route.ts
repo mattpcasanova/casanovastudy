@@ -117,7 +117,7 @@ export async function GET(
     }
 
     const result = visible.map(a => {
-      // Strip mark scheme details from student response
+      // Strip answer key details from student response
       const { mark_scheme_url, mark_scheme_text, ...studentSafe } = a
       const sub = subMap.get(a.id) ?? null
       const grading = sub?.grading_result_id ? gradingMap.get(sub.grading_result_id) ?? null : null

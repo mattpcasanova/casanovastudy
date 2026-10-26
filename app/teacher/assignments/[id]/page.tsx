@@ -215,7 +215,7 @@ export default function TeacherAssignmentDetailPage() {
   const gradeSubmission = async (submission: Submission) => {
     if (!assignment) return
     if (!assignment.mark_scheme_url) {
-      toast({ title: "Add a mark scheme to this assignment first", variant: "destructive" })
+      toast({ title: "Add an answer key to this assignment first", variant: "destructive" })
       return
     }
     setGradingId(submission.id)
@@ -308,7 +308,7 @@ export default function TeacherAssignmentDetailPage() {
       return { label: "Self-grading quiz", tone: "green" as const }
     }
     const hasMarkScheme = !!(assignment.mark_scheme_url || assignment.mark_scheme_text)
-    if (!hasMarkScheme) return { label: "Add mark scheme", tone: "amber" as const }
+    if (!hasMarkScheme) return { label: "Add answer key", tone: "amber" as const }
     if (!assignment.is_published) return { label: "Unpublished draft", tone: "amber" as const }
     return { label: "Ready to grade", tone: "green" as const }
   }, [assignment])
@@ -386,7 +386,7 @@ export default function TeacherAssignmentDetailPage() {
               {!isMasteryQuiz && !assignment.mark_scheme_url && !assignment.mark_scheme_text && (
                 <>
                   <span>·</span>
-                  <Badge variant="outline" className="text-amber-600 border-amber-600">No mark scheme</Badge>
+                  <Badge variant="outline" className="text-amber-600 border-amber-600">No answer key</Badge>
                 </>
               )}
             </div>
@@ -454,7 +454,7 @@ export default function TeacherAssignmentDetailPage() {
             <CardContent className="p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Mark scheme uploaded</span>
+                <span className="text-sm">Answer key uploaded</span>
               </div>
               <Button variant="outline" size="sm" asChild>
                 <a href={assignment.mark_scheme_url} target="_blank" rel="noreferrer">

@@ -78,7 +78,7 @@ function TeacherHome() {
           <Link href="/grade-exam/batch" className="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-2xl shadow-blue-900/15 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-blue-300 md:col-span-2">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-500 text-white"><Users className="h-6 w-6" /></span>
             <h2 className={cn(fontDisplay, "mt-4 text-2xl font-semibold text-slate-900")}>Grade a class</h2>
-            <p className="mt-1 max-w-md text-slate-600">Drop in the whole stack (or scan it on the copier). We sort it into students, you check it, and every paper is marked against your mark scheme.</p>
+            <p className="mt-1 max-w-md text-slate-600">Drop in the whole stack (or scan it on the copier). We sort it into students, you check it, and every paper is marked against your answer key.</p>
             <span className="mt-4 inline-flex items-center gap-1.5 font-semibold text-blue-700">Start grading <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
           </Link>
           <div className="grid gap-4">
