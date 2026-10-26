@@ -5,7 +5,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp, ShieldCheck } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp, ShieldCheck, Smile } from 'lucide-react'
+import { AvatarPicker, UserAvatar } from '@/components/profile/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,28 +21,13 @@ import { PlanMenuItems } from '@/components/plan/plan-menu'
 import { SchoolMenuItem } from "@/components/school/school-menu-item"
 import { useInClass } from "@/components/student/classwork"
 
-// Get user initials from name or email
-function getUserInitials(user: { email: string; first_name?: string; last_name?: string } | null): string {
-  if (!user) return '?'
-
-  if (user.first_name && user.last_name) {
-    return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
-  }
-  if (user.first_name) {
-    return user.first_name.substring(0, 2).toUpperCase()
-  }
-  // Fall back to email
-  const emailName = user.email.split('@')[0]
-  return emailName.substring(0, 2).toUpperCase()
-}
-
 export default function NavigationHeader() {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
-  const initials = getUserInitials(user)
 
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [avatarOpen, setAvatarOpen] = useState(false)
   const { mode: installMode, install } = useInstall()
   const [iosStepsOpen, setIosStepsOpen] = useState(false)
 
@@ -290,15 +276,16 @@ export default function NavigationHeader() {
               )}
             </nav>
 
+            <AvatarPicker open={avatarOpen} onOpenChange={setAvatarOpen} />
             {/* User Menu */}
             {mounted && user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="w-10 h-10 rounded-full bg-white text-primary font-bold text-sm flex items-center justify-center ring-2 ring-white/40 hover:ring-white/70 hover:scale-105 transition-all duration-200 shadow-md"
+                    className="w-10 h-10 rounded-full ring-2 ring-white/40 hover:ring-white/70 hover:scale-105 transition-all duration-200 shadow-md"
                     aria-label="User menu"
                   >
-                    {initials}
+                    <UserAvatar user={user} className="h-full w-full text-sm" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -314,6 +301,9 @@ export default function NavigationHeader() {
                   <PlanMenuItems />
                   <SchoolMenuItem />
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setAvatarOpen(true)} className="cursor-pointer">
+                    <Smile className="h-4 w-4 mr-2 flex-shrink-0" />Change avatar
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
                   </DropdownMenuItem>
@@ -332,10 +322,10 @@ export default function NavigationHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="w-9 h-9 rounded-full bg-white text-primary font-bold text-xs flex items-center justify-center shadow-md"
+                    className="w-9 h-9 rounded-full shadow-md"
                     aria-label="User menu"
                   >
-                    {initials}
+                    <UserAvatar user={user} className="h-full w-full text-xs" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -351,6 +341,9 @@ export default function NavigationHeader() {
                   <PlanMenuItems />
                   <SchoolMenuItem />
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setAvatarOpen(true)} className="cursor-pointer">
+                    <Smile className="h-4 w-4 mr-2 flex-shrink-0" />Change avatar
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account"><ShieldCheck className="h-4 w-4 mr-2 flex-shrink-0" />Account &amp; privacy</Link>
                   </DropdownMenuItem>

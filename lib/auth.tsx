@@ -11,6 +11,7 @@ export interface User {
   first_name?: string
   last_name?: string
   birth_date?: string
+  avatar?: string | null // "cat:violet" (components/profile/avatar.tsx)
 }
 
 interface AuthContextType {
@@ -91,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user_type: data.user_type,
         first_name: data.first_name,
         last_name: data.last_name,
-        birth_date: data.birth_date
+        birth_date: data.birth_date,
+        avatar: data.avatar ?? null
       }
 
       // Track that we've loaded this user
