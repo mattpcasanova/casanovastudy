@@ -260,6 +260,9 @@ export function ReportDocument({ draft, onChange, editing, settings, date }: {
                   ) : (
                     <span className="font-semibold">{label(q.questionNumber)}</span>
                   )}
+                  {q.check && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 print:hidden" title={q.check}>Check this: {q.check}</span>
+                  )}
                   {!editing && settings.showMarkCodes && q.markCodes && (
                     <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">{q.markCodes}</span>
                   )}

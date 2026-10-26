@@ -81,6 +81,9 @@ const NO_PAPER_TONE: Record<string, string> = {
   exempt: "bg-white text-slate-500 ring-slate-200",
 }
 
+/** Questions where the grader said it wasn't sure of its reading ("Check:" lines). */
+const checksFor = (r: { grade_breakdown: GradedQuestion[] | null }) => (r.grade_breakdown ?? []).filter((q) => q.check).length
+
 export default function BatchResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   return (
@@ -279,6 +282,7 @@ function BatchResults({ id }: { id: string }) {
                       <span className="text-sm text-slate-600">{r.total_marks}/{r.total_possible_marks} marks{r.grade ? <> · <strong className="text-slate-900">{r.grade}</strong></> : null}</span>
                       {e?.status === "late" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>}
                       {r.group_id && r.group_members && r.group_members.length > 1 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Group of {r.group_members.length}</span>}
+                      {checksFor(r) > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300" title="The grader wasn't sure it read these answers right">{checksFor(r)} to check</span>}
                       <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "ml-auto text-blue-700")}><FileText />Report</Link>
                     </div>
                   </li>
@@ -316,6 +320,7 @@ function BatchResults({ id }: { id: string }) {
                           if (e?.status !== "late") return null
                           return <span className="ml-2 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">Late{e.daysLate ? ` · ${dayCount(e.daysLate)}` : ""}</span>
                         })()}
+                        {checksFor(r) > 0 && <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300" title="The grader wasn't sure it read these answers right">{checksFor(r)} to check</span>}
                         {r.group_id && r.group_members && r.group_members.length > 1 && (
                           <span className="ml-2 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700" title={`Group work: ${r.group_members.map((m) => m.name).join(", ")}`}>Group of {r.group_members.length}</span>
                         )}

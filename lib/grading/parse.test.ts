@@ -92,3 +92,17 @@ Codes: n/a`)
     expect(r.breakdown[2].markCodes).toBeUndefined()
   })
 })
+
+describe('Check lines', () => {
+  it('keeps the grader\'s doubt on the question for the teacher', () => {
+    const r = parseGradingOutput(`[MARK SCHEME SUMMARY]
+8(1), 9(1)
+Total: 2 marks
+[END SUMMARY]
+**Question 8**, Mark: 0/1 - No answer is clearly marked; the shading is unclear.
+Check: faint circle, could be C
+**Question 9**, Mark: 1/1 - Correct, B.`)
+    expect(r.breakdown[0]).toMatchObject({ questionNumber: '8', marksAwarded: 0, check: 'faint circle, could be C' })
+    expect(r.breakdown[1].check).toBeUndefined()
+  })
+})

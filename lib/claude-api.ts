@@ -1298,6 +1298,10 @@ Examples of correct format:
 ILLEGIBLE HANDWRITING:
 - If you cannot read or understand a student's handwriting for a question, award 0 marks
 - Use explanation: "Answer could not be read/understood due to illegible handwriting"
+
+MULTIPLE CHOICE ANSWERS:
+- A circle, shading, tick or underline on an option letter is the student's answer; a cross through a letter rules that option out. Look closely: pencil circles are often thin and faint.
+- When you cannot tell with confidence what the student marked (a faint or partial mark, two options marked, a mark you cannot make out), mark it as best you can and add this line directly under that question: Check: <what was unclear, in a few words>. Do the same for any written answer you were not sure you read right. The teacher looks at every Check line, so never guess silently: when in doubt, add the line. A Check line costs nothing; a silent misread costs the student a mark.
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
@@ -1455,6 +1459,10 @@ ${markingStyleInstructions(markingStyle)}
 ILLEGIBLE HANDWRITING:
 - If you cannot read or understand a student's handwriting for a question, award 0 marks
 - Use explanation: "Answer could not be read/understood due to illegible handwriting"
+
+MULTIPLE CHOICE ANSWERS:
+- A circle, shading, tick or underline on an option letter is the student's answer; a cross through a letter rules that option out. Look closely: pencil circles are often thin and faint.
+- When you cannot tell with confidence what the student marked (a faint or partial mark, two options marked, a mark you cannot make out), mark it as best you can and add this line directly under that question: Check: <what was unclear, in a few words>. Do the same for any written answer you were not sure you read right. The teacher looks at every Check line, so never guess silently: when in doubt, add the line. A Check line costs nothing; a silent misread costs the student a mark.
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
