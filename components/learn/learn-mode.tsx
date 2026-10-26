@@ -1,5 +1,7 @@
 "use client"
 
+import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { textForSpeech } from '@/lib/reading/speech'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Clock, Eye, Lightbulb, RotateCcw, Trophy, XCircle, Play } from 'lucide-react'
@@ -293,6 +295,7 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
               <p className={cn(fontDisplay, 'text-center text-xl font-medium leading-snug text-slate-900 sm:text-2xl')}>
                 <QuestionStem text={current.front} listClassName="text-left" />
               </p>
+              <div className="mt-3 flex justify-center"><ReadAloudButton text={textForSpeech(current.front)} label="Read the card aloud" /></div>
               {current.figure && <div className="mx-auto mt-4 max-w-lg"><GraphFence text={current.figure} compact allowExplain={revealed} /></div>}
               {!revealed ? (
                 <div className="mt-8 flex justify-center">
@@ -302,8 +305,9 @@ export default function LearnMode({ guideId, title, items }: { guideId: string; 
                 </div>
               ) : (
                 <div className="mt-6 animate-fade-up">
-                  <div className="rounded-xl bg-violet-50/60 p-5 ring-1 ring-inset ring-violet-100">
-                    <StudyMarkdown content={current.back} compact />
+                  <div className="flex items-start gap-3 rounded-xl bg-violet-50/60 p-5 ring-1 ring-inset ring-violet-100">
+                    <div className="min-w-0 flex-1"><StudyMarkdown content={current.back} compact /></div>
+                    <ReadAloudButton text={textForSpeech(current.back)} label="Read the answer aloud" />
                   </div>
                   <ExplainButton build={() => ({
                     label: `Explain this card: “${current.front.split('\n')[0].slice(0, 110)}”`,

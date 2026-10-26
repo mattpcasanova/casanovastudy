@@ -15,6 +15,8 @@ interface PageBannerProps {
   label?: string
   onBack?: () => void
   backLabel?: string
+  /** Top-right control, opposite Back (e.g. the Reading settings button). */
+  action?: React.ReactNode
 }
 
 /**
@@ -26,7 +28,7 @@ interface PageBannerProps {
  * Requires an ancestor to define the --font-display variable (displaySerif.variable)
  * for the serif title.
  */
-export default function PageBanner({ title, meta, accent, icon: Icon, label, onBack, backLabel = 'Back' }: PageBannerProps) {
+export default function PageBanner({ title, meta, accent, icon: Icon, label, onBack, backLabel = 'Back', action }: PageBannerProps) {
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 text-white print:hidden">
       <div className="pointer-events-none absolute -top-24 right-[12%] h-64 w-64 rounded-full bg-cyan-300/20 blur-3xl" />
@@ -43,6 +45,8 @@ export default function PageBanner({ title, meta, accent, icon: Icon, label, onB
           {backLabel}
         </button>
       )}
+
+      {action && <div className="absolute right-4 top-4 z-10 sm:right-6">{action}</div>}
 
       <div className="container relative mx-auto px-4 pb-11 pt-14">
         <div className="flex flex-col items-center text-center">

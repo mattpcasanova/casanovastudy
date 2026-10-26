@@ -14,9 +14,11 @@
 // panel says the teacher can see what they ask. The route enforces it too
 // (403 code 'ai_off'), e.g. for the same guide opened without ?assignment=.
 
+import { useReading } from '@/components/reading/reading-provider'
+import { speak, speechSupported, textForSpeech } from '@/lib/reading/speech'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowUp, Calculator, Camera, Loader2, RotateCcw, MessageCircleQuestion, X } from 'lucide-react'
+import { ArrowUp, Calculator, Camera, Loader2, RotateCcw, MessageCircleQuestion, Volume2, X } from 'lucide-react'
 import { PHOTO_ACCEPT, photoToDataUrl } from './tutor-help'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -180,6 +182,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   }, [selection, send])
 
   const api = useMemo<ExplainApi>(() => ({ ask: (req) => void send(req) }), [send])
+  const reading = useReading()
 
   // Teacher turned AI help off for this assigned work: no Explain anywhere, calculator stays.
   if (aiOff && !open) {
@@ -209,16 +212,28 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
     const { rect } = selection
     const top = rect.top > 70 ? rect.top - 46 : rect.bottom + 8
     const left = Math.min(Math.max(rect.left + rect.width / 2, 70), window.innerWidth - 70)
+    const canRead = !!reading?.settings.readAloud && speechSupported()
     return (
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()} // keep the selection while clicking
-        onClick={explainSelection}
-        style={{ top, left }}
-        className="fixed z-50 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-lg ring-1 ring-white/20 transition hover:bg-blue-700 print:hidden"
-      >
-        <MessageCircleQuestion className="h-4 w-4 text-sky-300" /> Explain
-      </button>
+      <div style={{ top, left }} className="fixed z-50 flex -translate-x-1/2 items-center overflow-hidden rounded-full bg-slate-900 text-sm font-semibold text-white shadow-lg ring-1 ring-white/20 print:hidden">
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()} // keep the selection while clicking
+          onClick={explainSelection}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 transition hover:bg-blue-700"
+        >
+          <MessageCircleQuestion className="h-4 w-4 text-sky-300" /> Explain
+        </button>
+        {canRead && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => speak('selection', textForSpeech(selection.text), { lang: reading!.speechLang })}
+            className="inline-flex items-center gap-1.5 border-l border-white/20 px-3.5 py-2 transition hover:bg-blue-700"
+          >
+            <Volume2 className="h-4 w-4 text-sky-300" /> Read aloud
+          </button>
+        )}
+      </div>
     )
   })() : null
 

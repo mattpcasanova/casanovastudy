@@ -15,6 +15,8 @@ import { ExplanationText } from './explanation-text'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
+import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { questionForSpeech } from '@/lib/reading/speech'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
@@ -273,9 +275,12 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
             </button>
           </div>
         </div>
-        <p className={cn(fontDisplay, 'mb-6 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
-          <QuestionStem text={current.question} />
-        </p>
+        <div className="mb-6 flex items-start gap-3">
+          <p className={cn(fontDisplay, 'min-w-0 flex-1 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
+            <QuestionStem text={current.question} />
+          </p>
+          <ReadAloudButton text={questionForSpeech(current.question, current.type === 'mc' ? current.options : undefined)} label="Read the question aloud" />
+        </div>
         {current.figure && <GraphFence text={current.figure} compact allowExplain={revealed} />}
 
         {current.type === 'mc' && (

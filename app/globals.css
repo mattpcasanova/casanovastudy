@@ -325,3 +325,27 @@
   :is(.bg-slate-800, .bg-slate-900, .bg-slate-950, .bg-gray-900) :is(.text-slate-400, .text-slate-500),
   :is(.bg-slate-800, .bg-slate-900, .bg-slate-950, .bg-gray-900):is(.text-slate-400, .text-slate-500) { color: #90a1b9; }
 }
+
+/* Reading settings (components/reading/reading-provider.tsx). Unlayered, so
+   these beat Tailwind's font utilities without !important; KaTeX's own
+   class rules are more specific and keep the math fonts. */
+[data-reading-font="readable"],
+[data-reading-font="readable"] :is(h1, h2, h3, h4, h5, h6, p, li, dt, dd, td, th, label, button, input, textarea, blockquote, figcaption, summary, a, strong, em, span, div):not(.katex, .katex *) {
+  font-family: var(--font-readable), ui-sans-serif, system-ui, sans-serif;
+}
+[data-reading-font="dyslexic"],
+[data-reading-font="dyslexic"] :is(h1, h2, h3, h4, h5, h6, p, li, dt, dd, td, th, label, button, input, textarea, blockquote, figcaption, summary, a, strong, em, span, div):not(.katex, .katex *) {
+  font-family: var(--font-dyslexic), ui-sans-serif, system-ui, sans-serif;
+}
+[data-reading-font] :is(code, pre, kbd) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+[data-reading-font] .study-code span { font-family: inherit; }
+[data-reading-size="large"] { zoom: 1.12; }
+[data-reading-size="larger"] { zoom: 1.25; }
+[data-reading-spacing="relaxed"] :is(p, li, label, dd, dt, td, th, blockquote, h1, h2, h3, h4) {
+  line-height: 1.9;
+  word-spacing: 0.12em;
+  letter-spacing: 0.015em;
+}
+@media print {
+  [data-reading-size] { zoom: 1; }
+}

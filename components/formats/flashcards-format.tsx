@@ -1,5 +1,7 @@
 "use client"
 
+import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { textForSpeech } from '@/lib/reading/speech'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -459,6 +461,7 @@ function StudyCard({
             </p>
           </div>
           <p className="pb-5 text-center text-xs text-slate-400">Tap to reveal the answer</p>
+          {!isFlipped && <ReadAloudButton text={textForSpeech(card.question)} label="Read the question aloud" className="absolute bottom-3 right-3" />}
         </div>
 
         {/* Back */}
@@ -490,6 +493,7 @@ function StudyCard({
             )}
           </div>
           <p className="pb-5 text-center text-xs text-slate-400">Tap to flip back</p>
+          {isFlipped && <ReadAloudButton text={textForSpeech(card.answer)} label="Read the answer aloud" className="absolute bottom-3 right-3" />}
         </div>
       </div>
     </div>

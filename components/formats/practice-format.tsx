@@ -13,6 +13,8 @@ import {
 import { InlineMarkdown } from './study-markdown'
 import { ExplanationText } from './explanation-text'
 import { QuestionStem } from './question-stem'
+import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { questionForSpeech, textForSpeech } from '@/lib/reading/speech'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
@@ -380,10 +382,14 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
   return (
     <>
       {activity.kind !== 'fill' && activity.prompt && (
-        <p className={cn(fontDisplay, 'font-medium leading-snug text-slate-900', compact ? 'mb-4 text-lg' : 'mb-5 text-xl sm:text-[1.45rem]')}>
-          <QuestionStem text={activity.prompt} />
-        </p>
+        <div className={cn('flex items-start gap-3', compact ? 'mb-4' : 'mb-5')}>
+          <p className={cn(fontDisplay, 'min-w-0 flex-1 font-medium leading-snug text-slate-900', compact ? 'text-lg' : 'text-xl sm:text-[1.45rem]')}>
+            <QuestionStem text={activity.prompt} />
+          </p>
+          <ReadAloudButton text={activitySpeech(activity)} label="Read this aloud" />
+        </div>
       )}
+      {activity.kind === 'fill' && <div className="-mt-1 mb-2 flex justify-end"><ReadAloudButton text={activitySpeech(activity)} label="Read this aloud" /></div>}
       {activity.figure && <GraphFence text={activity.figure} compact allowExplain={!!checked} />}
       {activity.code && activity.kind !== 'bug' && activity.kind !== 'write' && <CodeBlock lang={activity.code.lang} text={activity.code.text} compact className="mb-5 mt-0" />}
       {activity.kind === 'match' && <MatchBoard activity={activity} onDone={onDone} />}
@@ -828,4 +834,11 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
       )}
     </div>
   )
+}
+
+/** What the speaker button says for an activity: the prompt, plus choices or the sentence with its blanks. */
+function activitySpeech(a: PracticeActivity): string {
+  if (a.kind === 'fill') return [a.prompt ? textForSpeech(a.prompt) : '', textForSpeech(a.parts.map((p) => (typeof p === 'string' ? p : ' blank ')).join(''))].filter(Boolean).join('. ')
+  if (a.kind === 'choice' && !isTrueFalse(a)) return questionForSpeech(a.prompt, a.options)
+  return textForSpeech(a.prompt)
 }

@@ -40,6 +40,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { signInPath } from '@/lib/sign-in-path'
 import { NextFormatCard, NextFormatDialog, canMakeAnotherFormat } from '@/components/next-format'
+import { ReadingProvider, ReadingSettingsButton, ReadingSurface } from '@/components/reading/reading-provider'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
@@ -252,6 +253,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   }
 
   return (
+    <ReadingProvider language={studyGuide.language}>
     <div className={cn(displaySerif.variable, 'min-h-screen bg-slate-50 print:min-h-0 print:bg-white')}>
       {/* Navigation Header */}
       <div className="print:hidden">
@@ -266,6 +268,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         accent={fmt.accent}
         icon={fmt.icon}
         onBack={() => router.back()}
+        action={<ReadingSettingsButton />}
       />
 
       {parentPlan && (
@@ -472,7 +475,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
         <DesmosProvider guideId={studyGuide.id} mode={calculatorMode} showButton={false}>
           <ExplainProvider guideId={studyGuide.id}>
-            <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}>{renderFormat()}</StudyResultsProvider>
+            <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}><ReadingSurface>{renderFormat()}</ReadingSurface></StudyResultsProvider>
           </ExplainProvider>
         </DesmosProvider>
         {showNextFormat && <NextFormatCard guide={studyGuide} />}
@@ -483,6 +486,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       <Toaster />
     </div>
+    </ReadingProvider>
   )
 }
 

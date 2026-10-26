@@ -7,6 +7,8 @@
 // day) and for checking the occasional "explain it" answer.
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
+import { ReadAloudButton } from "@/components/reading/reading-provider"
+import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAssignmentFinish } from "@/components/assign/assignment-context"
 import { useRouter } from "next/navigation"
@@ -279,7 +281,10 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
             </div>
 
             <div className="p-5 sm:p-7">
-              <QuestionPrompt text={q.prompt} />
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1"><QuestionPrompt text={q.prompt} /></div>
+                <ReadAloudButton text={questionForSpeech(q.prompt, q.type === "mc" ? q.options : undefined)} label="Read the question aloud" />
+              </div>
               {q.figure && <div className="mt-4"><GraphFence text={q.figure} allowExplain={!!result} /></div>}
               <div className="mt-5">
                 {(q.type === "mc" || q.type === "tf") && <ChoiceAnswer q={q} result={result} onPick={(i) => submit(String(i))} />}
