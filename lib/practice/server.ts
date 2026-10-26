@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { accountNames } from '@/lib/classes/server'
+import type { FocusEvent } from './focus'
 import { assignmentOpen, bestAttempt, couldBeStudent, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
 
 export interface AssignmentRow {
@@ -19,10 +20,11 @@ export interface AssignmentRow {
   code: string
   source: { batchId?: string; practiceId?: string; groupKey?: string } | null
   ai_help: AiHelp
+  focus_mode: boolean
   created_at: string
 }
 
-export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, created_at'
+export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, focus_mode, created_at'
 
 /** The signed-in teacher's own assignment, or the error response to return. */
 export async function ownedAssignment(request: NextRequest, id: string): Promise<{ error: NextResponse } | { supabase: SupabaseClient; assignment: AssignmentRow; userId: string }> {
@@ -127,6 +129,20 @@ export async function aiRuleForGuide(supabase: SupabaseClient, userId: string, g
 
 export interface AiUse { at: string; kind: string; message: string }
 
+/** Each assigned student's focus-mode log (teacher view), oldest first: rosterId -> events. */
+export async function focusEventsFor(supabase: SupabaseClient, assignmentId: string): Promise<Map<string, FocusEvent[]>> {
+  const { data } = await supabase
+    .from('assignment_focus_events').select('roster_id, kind, at, seconds')
+    .eq('assignment_id', assignmentId).order('at').limit(5000)
+  const out = new Map<string, FocusEvent[]>()
+  for (const r of data ?? []) {
+    const list = out.get(r.roster_id as string) ?? []
+    list.push({ kind: r.kind as FocusEvent['kind'], at: r.at as string, seconds: r.seconds as number | null })
+    out.set(r.roster_id as string, list)
+  }
+  return out
+}
+
 /** Each assigned student's AI messages (teacher view), newest first: rosterId -> uses. */
 export async function aiUsesFor(supabase: SupabaseClient, assignmentId: string): Promise<Map<string, AiUse[]>> {
   const { data } = await supabase
@@ -164,7 +180,7 @@ export async function moveWrongPractice(supabase: SupabaseClient, teacherId: str
     .neq('roster_id', rosterId)
   for (const a of from ?? []) {
     const target = (theirs ?? []).find((t) => ((Array.isArray(t.practice_assignments) ? t.practice_assignments[0] : t.practice_assignments) as { study_guide_id: string }).study_guide_id === a.study_guide_id)
-    for (const table of ['practice_attempts', 'assignment_ai_uses']) {
+    for (const table of ['practice_attempts', 'assignment_ai_uses', 'assignment_focus_events']) {
       const rows = target
         ? supabase.from(table).update({ assignment_id: target.assignment_id, roster_id: target.roster_id })
         : supabase.from(table).delete()

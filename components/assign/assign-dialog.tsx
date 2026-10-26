@@ -12,6 +12,8 @@ import { Check, Copy, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { AI_HELP_OPTIONS, type AiHelp } from "@/lib/practice/assignments"
+import { FOCUS_MODE_HINT } from "@/lib/practice/focus"
+import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
 import { ClassroomPracticePanel } from "./classroom-practice-panel"
 import { sortClasses } from "@/lib/classes/sort"
@@ -49,6 +51,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [dueTime, setDueTime] = useState("23:59")
   const [attempts, setAttempts] = useState("1")
   const [aiHelp, setAiHelp] = useState<AiHelp>("tutor")
+  const [focusMode, setFocusMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<CreatedAssignment | null>(null)
@@ -110,6 +113,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
           dueAt: dueOn ? new Date(`${dueDay}T${dueTime}`).toISOString() : null,
           maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
           aiHelp,
+          focusMode,
           source: preset?.source,
         }),
       })
@@ -244,6 +248,13 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                 </div>
                 <p className="mt-1.5 text-sm text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === aiHelp)?.hint}</p>
               </div>
+              <label className="flex items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+                <span>
+                  <span className="block text-sm font-medium text-slate-800">Focus mode</span>
+                  <span className="block text-sm text-slate-500">{FOCUS_MODE_HINT}</span>
+                </span>
+                <Switch checked={focusMode} onCheckedChange={setFocusMode} aria-label="Focus mode" className="mt-0.5" />
+              </label>
               {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">

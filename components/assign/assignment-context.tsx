@@ -8,8 +8,9 @@
 // (useAssignmentAi); /api/explain enforces it either way.
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
-import { CalendarClock, CheckCircle2, ClipboardCheck, MessageCircleOff, MessageCircleQuestion } from "lucide-react"
+import { CalendarClock, CheckCircle2, ClipboardCheck, Eye, Maximize2, MessageCircleOff, MessageCircleQuestion } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
+import { FocusGate, FocusNotices, useFocusMode } from "./focus-mode"
 
 interface Mine {
   title: string
@@ -22,6 +23,7 @@ interface Mine {
   best: { pct: number; correct: number; total: number } | null
   status: string
   aiHelp: "off" | "tutor" | "full"
+  focusMode: boolean
 }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
@@ -45,6 +47,9 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   const [id, setId] = useState<string | null>(null)
   const [mine, setMine] = useState<Mine | null>(null)
   const [saved, setSaved] = useState<string>("")
+  // Focus mode only matters while there's an attempt left to count.
+  const focusOn = !!mine?.focusMode && mine.attemptsLeft !== 0
+  const focus = useFocusMode(id, focusOn)
 
   useEffect(() => {
     const a = new URLSearchParams(window.location.search).get("assignment")
@@ -59,8 +64,10 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
     })()
   }, [guideId])
 
+  const focusFinished = focus.runFinished
   const finish = useCallback<Finish>((score) => {
     if (!id || score.total <= 0) return
+    focusFinished()
     void (async () => {
       const res = await authFetch(`/api/practice-assignments/${id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(score) })
       const data = await res.json().catch(() => ({}))
@@ -71,7 +78,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
         ? `Sent to your teacher: ${mine?.grading === "mastery" ? `${score.correct} of ${score.total} topics mastered` : `${score.correct}/${score.total} (${pct}%)`}.`
         : "You've used all your attempts, so this one wasn't sent. Your best score still counts.")
     })()
-  }, [id, mine?.grading])
+  }, [id, mine?.grading, focusFinished])
 
   if (!id || !mine) return <>{children}</>
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
@@ -87,9 +94,17 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
           {mine.aiHelp === "tutor" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />AI help: hints only. Your teacher can see what you ask</span>}
           {mine.aiHelp === "full" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Your teacher can see what you ask the AI</span>}
           {best && <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" />Best so far: {best}</span>}
+          {focusOn && focus.state === "on" && <span className="inline-flex items-center gap-1.5 font-medium"><Eye className="h-4 w-4" />Focus mode: leaving this page is recorded</span>}
+          {focusOn && focus.state === "on" && focus.finished && (
+            <button type="button" onClick={() => void focus.backToFullscreen()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 font-semibold text-white hover:bg-emerald-800">
+              <Maximize2 className="h-4 w-4" />Full screen for another attempt
+            </button>
+          )}
           {saved && <span className="w-full font-medium" aria-live="polite">{saved}</span>}
         </div>
       </div>
+      {focusOn && focus.state === "gate" && <FocusGate title={mine.title} onStart={() => void focus.start()} />}
+      {focusOn && focus.state === "on" && <FocusNotices notice={focus.notice} onDismiss={focus.dismissNotice} outOfFullscreen={focus.outOfFullscreen} onBackToFullscreen={() => void focus.backToFullscreen()} />}
       {children}
     </Ctx.Provider>
   )

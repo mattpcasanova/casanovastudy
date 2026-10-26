@@ -30,5 +30,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     best: bestAttempt(list),
     status: practiceStatus(list, a.due_at),
     aiHelp: rule?.aiHelp ?? 'full',
+    focusMode: !!a.focus_mode,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

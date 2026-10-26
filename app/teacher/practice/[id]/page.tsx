@@ -9,7 +9,9 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Eye, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { FOCUS_MODE_HINT, focusChip, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
@@ -26,9 +28,9 @@ import { cn } from "@/lib/utils"
 import { AI_HELP_OPTIONS, dayCount, type AiHelp } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[] }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[] }
 interface Data {
-  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; url: string; created_at: string; class_id: string }
+  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; url: string; created_at: string; class_id: string }
   students: Student[]
   guide: { id: string; title: string; format: string } | null
   class: { id: string; name: string; period: string | null } | null
@@ -64,6 +66,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [aiFor, setAiFor] = useState<Student | null>(null)
+  const [focusFor, setFocusFor] = useState<Student | null>(null)
   const [nameOrder, setNameOrder] = useNameOrder()
   const [byScore, setByScore] = useState(false)
 
@@ -108,6 +111,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             {students.length} student{students.length === 1 ? "" : "s"} · {students.filter((s) => s.status === "done" || s.status === "late").length} done
             {avg != null && <> · average {a.grading === "mastery" ? `${Math.round(avg)}% of topics mastered` : `${Math.round(avg)}%`}</>}
             {students.some((s) => s.aiUses.length) && <> · {students.filter((s) => s.aiUses.length).length} used AI help</>}
+            {students.some((s) => focusChip(summarizeFocus(s.focus))) && <> · {students.filter((s) => focusChip(summarizeFocus(s.focus))).length} left the page</>}
             {data.guide && <> · <Link href={`/study-guide/${data.guide.id}`} className="font-medium text-blue-700 hover:underline">open the practice</Link></>}
             {finished.length > 0 && <> · <Link href={`/teacher/practice/${a.id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></>}
           </p>
@@ -156,6 +160,13 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           </select>
         </label>
         <p className="w-full text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.hint} You see every question a student asks the AI while doing it.</p>
+        <label className="flex w-full items-start justify-between gap-4 border-t border-slate-100 pt-3">
+          <span>
+            <span className="flex items-center gap-2 font-medium text-slate-800"><Eye className="h-4 w-4 text-slate-500" />Focus mode</span>
+            <span className="block text-slate-500">{FOCUS_MODE_HINT} Changes apply the next time a student opens it.</span>
+          </span>
+          <Switch checked={a.focus_mode} onCheckedChange={(on) => void patch({ focusMode: on })} aria-label="Focus mode" className="mt-0.5" />
+        </label>
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -190,6 +201,10 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
               {s.aiUses.length > 0
                 ? <button type="button" onClick={() => setAiFor(s)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200 hover:bg-violet-100"><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
                 : null}
+              {(() => {
+                const chip = focusChip(summarizeFocus(s.focus))
+                return chip ? <button type="button" onClick={() => setFocusFor(s)} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200 hover:bg-amber-100"><Eye className="h-3.5 w-3.5" />{chip}</button> : null
+              })()}
               <span className="w-36 text-right font-semibold tabular-nums text-slate-900">{score(s)}</span>
               <span className="w-28 text-right text-xs text-slate-500">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.lastAt ? ` · ${new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span>
               {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <span className="w-full pl-0 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</span> : null}
@@ -215,6 +230,23 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           status: s.best ? (s.status === "late" ? "late" : null) : s.status === "missing" ? "missing" : null,
         }))}
       />
+
+      <Dialog open={!!focusFor} onOpenChange={(o) => { if (!o) setFocusFor(null) }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{focusFor?.firstName || focusFor?.name} in focus mode</DialogTitle>
+            <DialogDescription>Everything recorded while they had this assignment open, in order. Leaving can also mean a notification or another window they clicked by accident, so ask before assuming.</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2">
+            {focusFor?.focus.map((e, i) => (
+              <li key={i} className={cn("flex items-baseline gap-3 rounded-xl border p-3 text-sm", e.kind === "start" ? "border-slate-200" : "border-amber-200 bg-amber-50/60")}>
+                <span className="w-32 shrink-0 text-xs text-slate-500">{new Date(e.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
+                <span className="text-slate-900">{focusEventText(e)}</span>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!aiFor} onOpenChange={(o) => { if (!o) setAiFor(null) }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">

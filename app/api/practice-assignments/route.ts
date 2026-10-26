@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   })
 }
 
-// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, aiHelp?, source? } -> { assignment }
+// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, aiHelp?, focusMode?, source? } -> { assignment }
 export async function POST(request: NextRequest) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   let created: AssignmentRow | null = null
   for (let i = 0; i < 4 && !created; i++) {
     const { data, error: dbError } = await supabase.from('practice_assignments').insert({
-      teacher_id: user.id, class_id: cls.id, study_guide_id: guide.id, title, grading: gradingFor(guide.format), max_attempts: maxAttempts, due_at: dueAt, code: makeCode(), source, ai_help: normalizeAiHelp(body.aiHelp),
+      teacher_id: user.id, class_id: cls.id, study_guide_id: guide.id, title, grading: gradingFor(guide.format), max_attempts: maxAttempts, due_at: dueAt, code: makeCode(), source, ai_help: normalizeAiHelp(body.aiHelp), focus_mode: body.focusMode === true,
     }).select(ASSIGNMENT_COLUMNS).single()
     if (data) created = data as AssignmentRow
     else if (dbError?.code !== '23505') { console.error('Assignment insert failed:', dbError); return NextResponse.json({ error: 'Could not assign it' }, { status: 500 }) }
