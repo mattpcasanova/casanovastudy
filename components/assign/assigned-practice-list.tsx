@@ -3,6 +3,8 @@
 // "Assigned practice" on a class page (or one student's page): each
 // assignment with how many are done, linking to its page.
 
+import { cn } from "@/lib/utils"
+import { fontDisplay } from "@/lib/formats/design"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { CalendarClock, ChevronRight, ClipboardCheck } from "lucide-react"
@@ -24,7 +26,7 @@ export function AssignedPracticeList({ classId, rosterId }: { classId: string; r
   if (!list) return null
   return (
     <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="font-semibold text-slate-900">Assigned practice</h2>
+      <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Assigned practice</h2>
       {list.length === 0 ? (
         <p className="mt-1 text-sm text-slate-500">{rosterId ? "Nothing assigned to this student yet." : "Nothing assigned yet. Open one of your quizzes or practice sets (or make one from a reteach plan) and press Assign to students."}</p>
       ) : (

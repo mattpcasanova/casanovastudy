@@ -11,6 +11,7 @@ import { ArrowDown, ArrowUp, Download } from "lucide-react"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
 import { resultsCsvTable } from "@/lib/classes/gradebook-csv"
 import { cn } from "@/lib/utils"
+import { fontDisplay } from "@/lib/formats/design"
 import { actionButton, selectBox } from "@/components/grading/grading-ui"
 import { compareNames, displayName } from "@/lib/grading/names"
 import { useNameOrder } from "@/lib/use-name-order"
@@ -64,7 +65,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
     <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-semibold text-slate-900">Gradebook</h2>
+          <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Gradebook</h2>
           <p className="text-xs text-slate-500">Click a column to sort; click a score to open the report. Practice columns are assigned practice (best attempt), averaged separately from tests.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">

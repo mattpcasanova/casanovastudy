@@ -191,14 +191,14 @@ function ClassView({ id }: { id: string }) {
         {/* Roster */}
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-slate-900">Roster</h2>
+            <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Roster</h2>
             {roster.length > 0 && !pasteOpen && (
               clearing
                 ? <span className="ml-auto mr-2 flex items-center gap-1 text-xs">Remove all {roster.length} names?
                     <button type="button" onClick={() => void clearRoster()} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove all</button>
                     <button type="button" onClick={() => setClearing(false)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
                   </span>
-                : <button type="button" onClick={() => setClearing(true)} className="ml-auto mr-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700">Remove all names</button>
+                : <button type="button" onClick={() => setClearing(true)} className={cn(actionButton, "ml-auto mr-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700")}>Remove all names</button>
             )}
             {!pasteOpen && <Button variant="ghost" onClick={() => setPasteOpen(true)} className={actionButton}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
           </div>
@@ -266,7 +266,7 @@ function ClassView({ id }: { id: string }) {
         <div className="space-y-6">
           {/* Join code */}
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900">Join code</h2>
+            <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Join code</h2>
             <p className="mt-1 text-xs text-slate-500">Optional. Students who join are linked to their name, so you can release reports to them and see their weak spots.</p>
             <TeacherVerificationCard compact className="mt-3" />
             <p className="my-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">{cls.enrollment_code}</p>
@@ -278,7 +278,7 @@ function ClassView({ id }: { id: string }) {
 
           {/* Weak spots */}
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900">Top weak spots</h2>
+            <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Top weak spots</h2>
             {linkedStudents === 0 ? (
               <p className="mt-1 text-sm text-slate-500">Shows once students join with the code and study on Casanova Study.</p>
             ) : weakSpots.length === 0 ? (
@@ -314,7 +314,7 @@ function ClassView({ id }: { id: string }) {
 
       {/* Graded work */}
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-slate-900">Graded class sets</h2>
+        <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Graded class sets</h2>
         {batches.length === 0 ? (
           <p className="mt-1 text-sm text-slate-500">Nothing graded for this class yet. Pick this class when you grade a stack.</p>
         ) : (

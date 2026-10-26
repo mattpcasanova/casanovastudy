@@ -5,13 +5,14 @@
 // the students lowest in each area, a students-by-areas grid, and "Make
 // practice" (a homepage request built from the questions they lost marks on).
 
-import { actionButton } from "@/components/grading/grading-ui"
+import { actionButton, selectBox } from "@/components/grading/grading-ui"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowDownRight, ArrowUpRight, PencilLine } from "lucide-react"
 import type { ClassArea } from "@/lib/classes/areas"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { cn } from "@/lib/utils"
+import { fontDisplay } from "@/lib/formats/design"
 
 const tone = (pct: number) => (pct >= 80 ? "bg-emerald-500" : pct >= 65 ? "bg-blue-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500")
 const cellTone = (pct: number) => (pct >= 80 ? "bg-emerald-100 text-emerald-900" : pct >= 65 ? "bg-blue-100 text-blue-900" : pct >= 50 ? "bg-amber-100 text-amber-900" : "bg-rose-100 text-rose-900")
@@ -53,12 +54,12 @@ export function ClassAreas({ areas, className, setsWithoutReport, tests = [], te
     <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-semibold text-slate-900">Where the class is struggling</h2>
+          <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Where the class is struggling</h2>
           <p className="text-xs text-slate-500">By area, across every graded set for this class{setsWithoutReport > 0 ? `. ${setsWithoutReport} set${setsWithoutReport === 1 ? " has" : "s have"} no class report yet; open ${setsWithoutReport === 1 ? "it" : "them"} to include ${setsWithoutReport === 1 ? "it" : "them"}.` : "."}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
         {tests.length > 1 && onTest && (
-          <select value={test} onChange={(e) => onTest(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs" aria-label="Which test">
+          <select value={test} onChange={(e) => onTest(e.target.value)} className={cn(selectBox, "pr-9")} aria-label="Which test">
             <option value="">All tests</option>
             {tests.map((t) => <option key={t.batchId} value={t.batchId}>{t.title}</option>)}
           </select>
