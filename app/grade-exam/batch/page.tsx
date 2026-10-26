@@ -298,8 +298,8 @@ function BatchGrading() {
     // is renamed to it (the roster spelling).
     if (from && only) setNames((m) => ({ ...m, [only.paperKey]: `${from.firstName} ${from.lastName}`.trim() }))
     setRoster((r) => [...r, ...(from
-      ? [{ id: `temp-${Date.now()}`, firstName: from.firstName, lastName: from.lastName, studentUserId: null, studentNumber: from.studentNumber, email: from.email, left: false, linked: false }]
-      : list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, linked: false })))])
+      ? [{ id: `temp-${Date.now()}`, firstName: from.firstName, lastName: from.lastName, studentUserId: null, studentNumber: from.studentNumber, email: from.email, left: false, accountConfirmed: false, linked: false }]
+      : list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, accountConfirmed: false, linked: false })))])
     setAdding((n) => n + 1)
     try {
       const body = from ? { names: [{ firstName: from.firstName, lastName: from.lastName, studentNumber: from.studentNumber ?? undefined, email: from.email }] } : { text: list.join("\n") }

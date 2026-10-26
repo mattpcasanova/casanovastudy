@@ -51,7 +51,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
   const ids = assignments.map((a) => a.id)
   if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
   const [{ data: who }, { data: tries }] = await Promise.all([
-    supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email)').in('assignment_id', ids),
+    supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email, account_confirmed_at)').in('assignment_id', ids),
     supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at, detail').in('assignment_id', ids),
   ])
   const accounts = await accountNames(supabase, (who ?? []).map((w) => ((Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null)?.student_user_id))
@@ -59,7 +59,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
   for (const a of assignments) {
     const rows = (who ?? []).filter((w) => w.assignment_id === a.id)
     out.set(a.id, rows.map((w) => {
-      const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null; student_number: string | null; email: string | null } | null
+      const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null; student_number: string | null; email: string | null; account_confirmed_at: string | null } | null
       const mine = (tries ?? []).filter((t) => t.assignment_id === a.id && t.roster_id === w.roster_id)
       const list: Array<Attempt & { detail: unknown }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string, detail: t.detail }))
       const best = bestAttempt(list)
@@ -72,7 +72,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         linkedVia: r?.linked_via ?? null,
         account: (() => {
           const acc = r?.student_user_id ? accounts.get(r.student_user_id) : undefined
-          return acc ? { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: couldBeStudent(acc, { firstName: r!.first_name, lastName: r!.last_name }) } : null
+          return acc ? { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: !!r!.account_confirmed_at || couldBeStudent(acc, { firstName: r!.first_name, lastName: r!.last_name }) } : null
         })(),
         studentNumber: r?.student_number ?? null,
         email: r?.email ?? null,

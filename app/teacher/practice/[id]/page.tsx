@@ -90,6 +90,12 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
     await authFetch(`/api/classes/${data.assignment.class_id}/roster/${s.rosterId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unlink: true }) })
     await load()
   }
+  // The account's name is spelled differently but it is this student: confirm it so the warning stops.
+  const confirmThem = async (s: Student) => {
+    if (!data) return
+    await authFetch(`/api/classes/${data.assignment.class_id}/roster/${s.rosterId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true }) })
+    await load()
+  }
 
   if (error) return <Shell><p className="rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p></Shell>
   if (!data) return <Shell><p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p></Shell>
@@ -196,6 +202,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
               {s.account && !s.account.matches && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1 pl-2.5 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
                   <AlertTriangle className="h-3.5 w-3.5" />Signed in as {s.account.name || "someone else"}
+                  <button type="button" onClick={() => void confirmThem(s)} className="h-7 rounded-full bg-amber-700 px-2.5 font-semibold text-white hover:bg-amber-800">Yes, that&apos;s them</button>
                   <button type="button" onClick={() => void notThem(s)} className="h-7 rounded-full bg-white px-2.5 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
                 </span>
               )}

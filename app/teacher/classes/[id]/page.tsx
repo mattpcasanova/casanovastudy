@@ -263,6 +263,9 @@ function ClassView({ id }: { id: string }) {
                   onUnlink={async () => {
                     if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null, account: undefined } : x)) ?? null)
                   }}
+                  onConfirm={async () => {
+                    if (await patchRow(row, { confirm: true })) setRoster((r) => r?.map((x) => (x.id === row.id && x.account ? { ...x, accountConfirmed: true, account: { ...x.account, matches: true } } : x)) ?? null)
+                  }}
                   onRemove={() => void removeRow(row)}
                 />
               ))}
@@ -393,11 +396,12 @@ function DetailsForm({ cls, onSave, onCancel }: { cls: ClassInfo; onSave: (year:
   )
 }
 
-function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
+function RosterItem({ row, classId, onSave, onUnlink, onConfirm, onRemove }: {
   row: RosterRow
   classId: string
   onSave: (fields: { firstName: string; lastName: string; email: string; studentNumber: string }) => void
   onUnlink: () => void
+  onConfirm: () => void
   onRemove: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -449,6 +453,7 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
         <div className="flex w-full flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="min-w-[12rem] flex-1">Signed in as <span className="font-semibold">{row.account.name || "a student with no name"}</span>. Is that {row.firstName}?</span>
+          <button type="button" onClick={onConfirm} className="h-9 rounded-lg bg-amber-700 px-3 text-sm font-semibold text-white hover:bg-amber-800">Yes, that&apos;s them</button>
           <button type="button" onClick={onUnlink} className="h-9 rounded-lg bg-white px-3 text-sm font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
         </div>
       )}

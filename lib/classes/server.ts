@@ -18,6 +18,8 @@ export interface RosterRow {
   email: string | null
   /** Left the class mid-year: hidden by default, graded work kept. */
   left: boolean
+  /** The teacher confirmed the linked account is this student ("Yes, that's them"). */
+  accountConfirmed: boolean
   /** The linked account's own name, and whether it could be this student (roster GET only). */
   account?: { name: string; matches: boolean }
   linked: boolean
@@ -44,7 +46,7 @@ export async function accountNames(supabase: SupabaseClient, userIds: Array<stri
 export async function loadRoster(supabase: SupabaseClient, classId: string): Promise<RosterRow[]> {
   const { data } = await supabase
     .from('class_roster')
-    .select('id, first_name, last_name, student_user_id, student_number, email, left_at')
+    .select('id, first_name, last_name, student_user_id, student_number, email, left_at, account_confirmed_at')
     .eq('class_id', classId)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
@@ -56,6 +58,7 @@ export async function loadRoster(supabase: SupabaseClient, classId: string): Pro
     studentNumber: r.student_number,
     email: r.email,
     left: !!r.left_at,
+    accountConfirmed: !!r.account_confirmed_at,
     linked: !!r.student_user_id,
   }))
 }

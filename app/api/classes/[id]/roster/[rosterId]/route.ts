@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { linkRosterByEmail, ownedClass } from '@/lib/classes/server'
 import { moveWrongPractice } from '@/lib/practice/server'
 
-// Rename a roster name, or unlink it from a student account. Owner only.
+// Rename a roster name, unlink it from a student account, or confirm the
+// linked account is this student ({ confirm: true }, "Yes, that's them"). Owner only.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; rosterId: string }> }) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -17,7 +18,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const update: Record<string, unknown> = {}
   if (typeof body.firstName === 'string') update.first_name = body.firstName.trim().slice(0, 60)
   if (typeof body.lastName === 'string') update.last_name = body.lastName.trim().slice(0, 60)
-  if (body.unlink === true) { update.student_user_id = null; update.linked_via = null }
+  if (body.unlink === true) { update.student_user_id = null; update.linked_via = null; update.account_confirmed_at = null }
+  if (body.confirm === true) update.account_confirmed_at = new Date().toISOString()
   if (typeof body.email === 'string') {
     const email = body.email.trim().toLowerCase()
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email doesn\'t look right' }, { status: 400 })

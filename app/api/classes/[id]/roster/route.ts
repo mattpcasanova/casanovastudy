@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const accounts = await accountNames(supabase, rows.map((r) => r.studentUserId))
   const roster = rows.map((r) => {
     const acc = r.studentUserId ? accounts.get(r.studentUserId) : undefined
-    return acc ? { ...r, account: { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: couldBeStudent(acc, r) } } : r
+    return acc ? { ...r, account: { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: r.accountConfirmed || couldBeStudent(acc, r) } } : r
   })
   return NextResponse.json({ class: cls, roster }, { headers: { 'Cache-Control': 'no-store' } })
 }
