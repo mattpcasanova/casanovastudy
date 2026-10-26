@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookUp, Diff, Download, FilePlus2, GraduationCap, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
+import { BookUp, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -28,6 +28,8 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { AdjustmentDialog, type AdjustablePaper } from "@/components/grading/adjustment-dialog"
+import { AcceptAnswerDialog } from "@/components/grading/accept-answer-dialog"
+import type { AcceptPlanRow } from "@/lib/grading/accept-answer"
 import { adjustedTotals, adjustmentGroups, adjustmentLine, gradebookComment, normalizeAdjustments, type GradeAdjustment } from "@/lib/grading/adjustments"
 
 interface Row {
@@ -110,9 +112,11 @@ function BatchResults({ id }: { id: string }) {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [editingAdjustment, setEditingAdjustment] = useState<{ adjustment: GradeAdjustment; paperIds: string[] } | null>(null)
 
-  const patchBatch = async (body: Record<string, unknown>) => {
+  const patchBatch = async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
     const res = await authFetch(`/api/grade-batch/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Could not save")
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || "Could not save")
+    return data
   }
 
   const rename = async (row: Row, name: string) => {
@@ -160,6 +164,20 @@ function BatchResults({ id }: { id: string }) {
     await patchBatch({ adjustment, paperIds })
     await load()
     setNotice(paperIds.length ? `${adjustmentLine(adjustment)} saved for ${paperIds.length} student${paperIds.length === 1 ? "" : "s"}` : "Removed")
+  }
+  const [acceptOpen, setAcceptOpen] = useState(false)
+  const questionLabels = useMemo(() => { const seen: string[] = []; for (const r of rows ?? []) for (const q of r.grade_breakdown ?? []) { const l = String(q.questionNumber); if (!seen.includes(l)) seen.push(l) } return seen }, [rows])
+  const previewAccept = useCallback(async (accept: { question: string; answers: string; everyone: boolean }) => {
+    const res = await authFetch(`/api/grade-batch/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acceptAnswer: accept, preview: true }) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || "Could not preview")
+    return data.plan as AcceptPlanRow[]
+  }, [id])
+  const saveAccept = async (accept: { question: string; answers: string; everyone: boolean; reason: string }) => {
+    const data = await patchBatch({ acceptAnswer: accept })
+    await load()
+    const n = Number(data.changed ?? 0)
+    setNotice(`Question ${accept.question}: ${n} student${n === 1 ? "" : "s"} re-marked`)
   }
   const removeAdjustment = async (adjustment: GradeAdjustment) => {
     setConfirmRemove(null)
@@ -235,6 +253,7 @@ function BatchResults({ id }: { id: string }) {
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
                 <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
                 <button type="button" className={actionButton} onClick={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff />Extra credit / points off</button>
+                <button type="button" className={actionButton} onClick={() => setAcceptOpen(true)}><ListChecks />Accept another answer</button>
                 <select
                   aria-label="Sort students"
                   value={sort === "score" ? "score" : nameOrder}
@@ -377,6 +396,7 @@ function BatchResults({ id }: { id: string }) {
               </section>
             )}
             <AdjustmentDialog open={adjustOpen} onOpenChange={setAdjustOpen} papers={adjustable} editing={editingAdjustment} onSave={saveAdjustment} />
+            <AcceptAnswerDialog open={acceptOpen} onOpenChange={setAcceptOpen} questions={questionLabels} preview={previewAccept} onSave={saveAccept} />
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
             <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} onChanged={() => void load()} />
             <GradebookExportDialog

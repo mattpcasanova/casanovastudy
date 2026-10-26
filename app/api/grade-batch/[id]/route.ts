@@ -7,6 +7,7 @@ import { gradeFor, normalizeScale } from '@/lib/grading/scale'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 import { matchRoster } from '@/lib/grading/names'
 import { paperDaysLate } from '@/lib/grading/late'
+import { acceptAnswerPlan, applyAcceptance, normalizeAnswerList, type AcceptAnswer } from '@/lib/grading/accept-answer'
 import { adjustedTotals, normalizeAdjustments, withAdjustment } from '@/lib/grading/adjustments'
 import type { GradedQuestion } from '@/lib/grading/parse'
 
@@ -131,6 +132,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       changed++
     }
     return NextResponse.json({ ok: true, changed })
+  }
+
+  // Re-mark one question across the set: also accept other answers, or full
+  // marks for everyone. { acceptAnswer: { question, answers, everyone, reason }, preview? }
+  if (body.acceptAnswer && typeof body.acceptAnswer === 'object') {
+    const a = body.acceptAnswer as Record<string, unknown>
+    const accept: AcceptAnswer = {
+      question: typeof a.question === 'string' ? a.question.trim().slice(0, 50) : '',
+      answers: typeof a.answers === 'string' ? normalizeAnswerList(a.answers) : Array.isArray(a.answers) ? normalizeAnswerList(a.answers.map(String).join(' ')) : [],
+      everyone: a.everyone === true,
+      reason: typeof a.reason === 'string' ? a.reason.trim().slice(0, 200) || undefined : undefined,
+    }
+    if (!accept.question || (!accept.everyone && !accept.answers.length)) return NextResponse.json({ error: 'Pick the question and the answers to accept' }, { status: 400 })
+    const papers = rows.map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: (Array.isArray(r.grade_breakdown) ? r.grade_breakdown : []) as GradedQuestion[] }))
+    const plan = acceptAnswerPlan(papers, accept)
+    if (body.preview === true) return NextResponse.json({ plan })
+    let changed = 0
+    for (const step of plan) {
+      if (!step.changed) continue
+      const r = rows.find((p) => p.id === step.id)!
+      const breakdown = applyAcceptance(papers.find((p) => p.id === step.id)!.breakdown, accept)
+      const raw = breakdown.reduce((s, q) => s + Number(q.marksAwarded || 0), 0)
+      const possible = breakdown.reduce((s, q) => s + Number(q.marksPossible || 0), 0) || Number(r.total_possible_marks)
+      const t = adjustedTotals(raw, possible, normalizeAdjustments(r.adjustments), normalizeScale(r.grade_scale))
+      await supabase.from('grading_results')
+        .update({ grade_breakdown: breakdown, total_marks: t.marks, total_possible_marks: possible, percentage: t.percentage, grade: t.grade, updated_at: now })
+        .eq('id', step.id).eq('user_id', user.id)
+      changed++
+    }
+    return NextResponse.json({ ok: true, changed, plan })
   }
 
   if (body.gradeScale !== undefined) {
