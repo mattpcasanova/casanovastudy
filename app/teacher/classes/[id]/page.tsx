@@ -6,7 +6,7 @@
 
 import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
 import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
-import { use, useCallback, useEffect, useMemo, useState } from "react"
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardList, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
@@ -56,6 +56,14 @@ function ClassView({ id }: { id: string }) {
   const [areaTest, setAreaTest] = useState("")
   const [showLeft, setShowLeft] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const rosterRef = useRef<HTMLElement>(null)
+  // Folding a long list from its bottom would leave the viewport on whatever
+  // moved up into it; bring the roster's top back into view instead.
+  const toggleShowAll = () => {
+    const folding = showAll
+    setShowAll(!showAll)
+    if (folding) requestAnimationFrame(() => rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }))
+  }
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -193,7 +201,7 @@ function ClassView({ id }: { id: string }) {
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Roster */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section ref={rosterRef} className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Roster</h2>
             {roster.length > 0 && !pasteOpen && (
@@ -263,7 +271,7 @@ function ClassView({ id }: { id: string }) {
           <div className="mt-3 flex flex-wrap gap-2">
             {/* A long roster is folded so the gradebook and sets stay close by. */}
             {roster.filter((r) => showLeft || !r.left).length > ROSTER_PREVIEW && (
-              <button type="button" onClick={() => setShowAll((v) => !v)} className={actionButton}>
+              <button type="button" onClick={toggleShowAll} className={actionButton}>
                 {showAll ? "Show fewer" : `Show all ${roster.filter((r) => showLeft || !r.left).length} names`}
               </button>
             )}
