@@ -8,7 +8,7 @@ import { AssignedPracticeList } from "@/components/assign/assigned-practice-list
 import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, QrCode, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
+import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,6 @@ import type { RosterRow } from "@/lib/classes/server"
 import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
 import type { ClassArea } from "@/lib/classes/areas"
 import { ClassAreas } from "@/components/classes/class-areas"
-import { StampTestDialog } from "@/components/classes/stamp-test-dialog"
 import { RosterFileHelp } from "@/components/classes/roster-file-help"
 import { parseRosterPaste } from "@/lib/classes/roster"
 import { ClassGradebook } from "@/components/classes/class-gradebook"
@@ -61,7 +60,6 @@ function ClassView({ id }: { id: string }) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState("")
   const [editOpen, setEditOpen] = useState(false)
-  const [stampOpen, setStampOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
@@ -178,14 +176,14 @@ function ClassView({ id }: { id: string }) {
             <button type="button" onClick={() => setDetailsOpen((o) => !o)} className={backLink}>Year &amp; course</button>
             <button type="button" onClick={() => setDeleteOpen(true)} className={cn(backLink, "hover:bg-rose-50 hover:text-rose-700")}><Trash2 />Delete class</button>
           </div>
-          {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
         </div>
         <div className={buttonRow}>
           <Button variant="ghost" onClick={() => setEditOpen(true)} className={actionButton}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
-          <Button variant="ghost" onClick={() => setStampOpen(true)} disabled={!roster.length} title={roster.length ? undefined : "Add names first"} className={actionButton}><QrCode className="mr-2 h-4 w-4" />Print stamped copies</Button>
           <Button asChild className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}><Link href={`/grade-exam/batch?class=${cls.id}`}>Grade this class</Link></Button>
         </div>
       </div>
+      {/* Below the header row, so opening it doesn't push the buttons onto new rows. */}
+      {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Roster */}
@@ -335,7 +333,6 @@ function ClassView({ id }: { id: string }) {
         )}
       </section>
 
-      <StampTestDialog open={stampOpen} onOpenChange={setStampOpen} defaultClassId={cls.id} />
       <ClassFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}

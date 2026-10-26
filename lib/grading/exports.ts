@@ -60,13 +60,14 @@ export const EXPORT_PRESETS: Record<ExportPreset, PresetInfo> = {
       'In Focus Gradebook, create the assignment (or open it).',
       'Click the assignment\'s info icon, then Import Grades (Focus 7.4+; "Import CSV File").',
       asPercent(o)
-        ? 'Choose Percent, pick the Student ID column and the Percent column, and import.'
+        ? 'Choose Percent, pick the Student ID column and the Score column (it holds the percents), and import.'
         : 'Choose Points, pick the Student ID column and the Score column, and import.',
       'Student IDs must match Focus exactly. Students with no score are left out (Focus doesn\'t allow blanks).',
       'Extra credit or deductions? Scores already include them. If the import lets you pick a comment column, pick Comment; if not, copy each comment from the list below into the score\'s comment in Focus.',
     ],
     build: (rows, o) => withComments(rows, asPercent(o)
-      ? [['Student ID', 'Percent'], ...rows.map((r) => [r.studentNumber ?? '', pct1(r.percent)])]
+      // Header stays "Score": Focus fills its score column from that name and asks when it's "Percent".
+      ? [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pct1(r.percent)])]
       : [['Student ID', 'Score'], ...rows.map((r) => [r.studentNumber ?? '', pts(r.score)])]),
   },
   powerschool: {

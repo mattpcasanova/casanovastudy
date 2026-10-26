@@ -19,7 +19,7 @@ describe('buildExport', () => {
   })
   it('Focus can take a percent instead of points', () => {
     const out = buildExport([...rows, { firstName: 'Bo', lastName: 'Li', studentNumber: '1005', email: null, marks: 2, possible: 3, pct: 66.7, status: null }], 'focus', { title: 'Unit 3', scoreAs: 'percent', missingAsZero: true })
-    expect(out.table).toEqual([['Student ID', 'Percent'], ['01001', '85'], ['', '60'], ['1003', '0'], ['1005', '66.7']])
+    expect(out.table).toEqual([['Student ID', 'Score'], ['01001', '85'], ['', '60'], ['1003', '0'], ['1005', '66.7']])
     expect(presetSteps('focus', { title: 'Unit 3', scoreAs: 'percent' }).join(' ')).toContain('Choose Percent')
     expect(presetSteps('focus', { title: 'Unit 3' }).join(' ')).toContain('Choose Points')
   })
