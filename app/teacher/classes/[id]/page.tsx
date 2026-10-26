@@ -202,7 +202,7 @@ function ClassView({ id }: { id: string }) {
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Roster */}
         <section ref={rosterRef} className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Roster</h2>
             {roster.length > 0 && !pasteOpen && (
               clearing
@@ -211,6 +211,9 @@ function ClassView({ id }: { id: string }) {
                     <button type="button" onClick={() => setClearing(false)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
                   </span>
                 : <button type="button" onClick={() => setClearing(true)} className={cn(actionButton, "ml-auto mr-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700")}>Remove all names</button>
+            )}
+            {!pasteOpen && !clearing && roster.some((r) => r.email && !r.left) && (
+              <CopyButton text={roster.filter((r) => r.email && !r.left).map((r) => r.email!).join(", ")} label="Copy emails" copied="Emails copied" className={actionButton} title="Copy every student's email, ready to paste into the Bcc box of an email" />
             )}
             {!pasteOpen && <Button variant="ghost" onClick={() => setPasteOpen(true)} className={actionButton}><UserPlus className="mr-1.5 h-4 w-4" />Add names</Button>}
           </div>
@@ -429,11 +432,10 @@ function RosterItem({ row, classId, onSave, onUnlink, onConfirm, onRemove }: {
   }
 
   return (
-    <li className="group flex flex-wrap items-center gap-2 py-2">
+    <li className="group py-2">
+     <div className="flex flex-wrap items-center gap-2">
       <Link href={`/teacher/classes/${classId}/students/${row.id}`} className="min-w-0 flex-1 rounded-md text-sm text-slate-900 hover:text-blue-700">
         <span className="group-hover:underline">{row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}</span>
-        {row.studentNumber && <span className="ml-2 text-xs text-slate-400">ID {row.studentNumber}</span>}
-        {row.email && <span className="ml-2 hidden text-xs text-slate-400 sm:inline">{row.email}</span>}
         {row.left && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Left</span>}
       </Link>
       {row.linked && row.account?.matches !== false && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title={row.account?.name ? `Signed in as ${row.account.name}` : "Linked to the student's Casanova Study account"}><Link2 className="h-3 w-3" />Linked</span>}
@@ -449,8 +451,16 @@ function RosterItem({ row, classId, onSave, onUnlink, onConfirm, onRemove }: {
           <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>
         </span>
       )}
+     </div>
+      {/* ID and email on their own line, each a click-to-copy (the name is a link, so selecting text there navigates). */}
+      {(row.studentNumber || row.email) && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+          {row.studentNumber && <CopyText text={row.studentNumber} label={`ID ${row.studentNumber}`} what="Student ID" />}
+          {row.email && <CopyText text={row.email} label={row.email} what="Email" />}
+        </div>
+      )}
       {row.linked && row.account?.matches === false && (
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+        <div className="mt-1 flex w-full flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="min-w-[12rem] flex-1">Signed in as <span className="font-semibold">{row.account.name || "a student with no name"}</span>. Is that {row.firstName}?</span>
           <button type="button" onClick={onConfirm} className="h-9 rounded-lg bg-amber-700 px-3 text-sm font-semibold text-white hover:bg-amber-800">Yes, that&apos;s them</button>
@@ -458,6 +468,33 @@ function RosterItem({ row, classId, onSave, onUnlink, onConfirm, onRemove }: {
         </div>
       )}
     </li>
+  )
+}
+
+/** A quiet bit of text that copies itself when clicked and says so for a moment. */
+function CopyText({ text, label, what }: { text: string; label: string; what: string }) {
+  const [done, setDone] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => { void navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500) }) }}
+      className="inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 -mx-1 text-left text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+      title={`Copy ${what.toLowerCase()}`}
+      aria-label={`Copy ${what.toLowerCase()} ${text}`}
+    >
+      <span className="truncate">{label}</span>
+      {done ? <span className="inline-flex items-center gap-0.5 text-emerald-700"><Check className="h-3 w-3" />Copied</span> : <Copy className="h-3 w-3 opacity-0 group-hover:opacity-60" aria-hidden />}
+    </button>
+  )
+}
+
+/** An action button that copies text and shows a done state for a moment. */
+function CopyButton({ text, label, copied, className, title }: { text: string; label: string; copied: string; className?: string; title?: string }) {
+  const [done, setDone] = useState(false)
+  return (
+    <Button variant="ghost" title={title} className={className} onClick={() => { void navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 2000) }) }}>
+      {done ? <><Check className="mr-1.5 h-4 w-4 text-emerald-700" />{copied}</> : <><Copy className="mr-1.5 h-4 w-4" />{label}</>}
+    </Button>
   )
 }
 

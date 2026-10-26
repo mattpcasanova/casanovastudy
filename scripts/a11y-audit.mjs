@@ -72,7 +72,7 @@ async function seed() {
   const t = api(teacher.session)
   const { data: cls } = await admin.from('classes').insert({ teacher_id: teacher.id, name: 'A11Y AUDIT CLASS (safe to delete)', period: '3', enrollment_code: 'A' + Math.random().toString(36).slice(2, 7).toUpperCase().replace(/[^A-Z2-9]/g, 'X') }).select('id, enrollment_code').single()
   created.classId = cls.id
-  await t('POST', `/api/classes/${cls.id}/roster`, { text: 'Sean Miller\nLee, Mary Ann\nAva Kim\nNoah Park' })
+  await t('POST', `/api/classes/${cls.id}/roster`, { text: 'Student\tStudent ID\tEmail\nSean Miller\t104482\tsean.miller@school.example\nLee, Mary Ann\t\t\nAva Kim\t108821\tava.kim@school.example\nNoah Park\t\t' })
   const joined = await api(student.session)('POST', '/api/classes/join', { code: cls.enrollment_code })
   if (joined.status >= 300) console.warn('Student could not join the class:', joined.status, JSON.stringify(joined.json))
   const roster = (await t('GET', `/api/classes/${cls.id}/roster`)).json.roster

@@ -59,7 +59,7 @@ export function ClassAreas({ areas, className, setsWithoutReport, tests = [], te
         </div>
         <div className="flex flex-wrap items-center gap-2">
         {tests.length > 1 && onTest && (
-          <select value={test} onChange={(e) => onTest(e.target.value)} className={cn(selectBox, "pr-9")} aria-label="Which test">
+          <select value={test} onChange={(e) => onTest(e.target.value)} className={cn(selectBox, "max-w-full pr-9")} aria-label="Which test">
             <option value="">All tests</option>
             {tests.map((t) => <option key={t.batchId} value={t.batchId}>{t.title}</option>)}
           </select>
