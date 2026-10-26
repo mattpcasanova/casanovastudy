@@ -35,7 +35,7 @@ import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
 import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox, buttonRow } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
-import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitPoints, typicalPageCount, type PageHeader } from "@/lib/grading/batch"
+import { estimateGradingSeconds, groupPages, looksReversed, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitPoints, typicalPageCount, type PageHeader } from "@/lib/grading/batch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { cn } from "@/lib/utils"
@@ -449,12 +449,21 @@ function BatchGrading() {
       const stampClasses = [...new Set(imageHeaders.map((h) => h?.stamp?.classId).filter(Boolean))] as string[]
       if (stampClasses.length === 1 && !classId) setClassId(stampClasses[0])
 
+      // Photos picked last-first (page 9 before page 1): turn the stack around so
+      // each paper starts with its cover.
+      const pageHeaders: PageHeader[] = imageHeaders.map((h) => h ?? { name: null, firstPage: false })
+      let imagePagesOut = uploaded.map((u, i) => ({ label: u.name, url: u.url, thumb: thumbs[i] }))
+      if (looksReversed(pageHeaders)) {
+        imagePagesOut = imagePagesOut.reverse()
+        pageHeaders.reverse()
+        issues.push("The photos were in reverse order (last page first), so they were turned around. Check that each student's pages start with page 1.")
+      }
       const allPages: Page[] = [
-        ...uploaded.map((u, i) => ({ label: u.name, url: u.url, thumb: thumbs[i] })),
+        ...imagePagesOut,
         ...textPapers,
       ]
       const allHeaders: PageHeader[] = [
-        ...imageHeaders.map((h) => h ?? { name: null, firstPage: false }),
+        ...pageHeaders,
         ...textPapers.map((t, i) => (textOwners[i] ? { name: textOwners[i]!, firstPage: true, fromFile: true, fromClassroom: true } : { name: t.label.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), firstPage: true })),
       ]
       // Fill the exam details from the papers (only the boxes the teacher left empty).

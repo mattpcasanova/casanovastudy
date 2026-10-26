@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitNameAndPeriod, splitPoints, typicalPageCount, type PageHeader } from './batch'
+import { estimateGradingSeconds, groupPages, looksReversed, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitNameAndPeriod, splitPoints, typicalPageCount, type PageHeader } from './batch'
 
 const p = (name: string | null, firstPage = !!name): PageHeader => ({ name, firstPage })
 
@@ -89,6 +89,20 @@ describe('splitPoints + groupPages', () => {
     starts[2] = true // teacher: page 3 starts a new student
     const groups = groupPages(starts, headers, new Set([3]))
     expect(groups).toEqual([{ name: 'Ava R.', pages: [0, 1] }, { name: 'Student 1', pages: [2] }])
+  })
+})
+
+describe('looksReversed', () => {
+  it('spots a stack whose covers come last', () => {
+    const forward = [p('Ava R.'), p(null), p(null), p('Ben K.'), p(null), p(null)]
+    expect(looksReversed(forward)).toBe(false)
+    expect(looksReversed([...forward].reverse())).toBe(true)
+    const turned = [...forward].reverse().reverse() // what the batch page does once looksReversed is true
+    expect(groupPages(splitPoints(turned), turned).map((g) => g.pages.length)).toEqual([3, 3])
+  })
+  it('leaves one-page quizzes and stamped or named files alone', () => {
+    expect(looksReversed(['A', 'B', 'C', 'D'].map((n) => p(n)))).toBe(false)
+    expect(looksReversed([p(null), p(null), p(null), { name: 'Ava R.', firstPage: true, fromFile: true }])).toBe(false)
   })
 })
 

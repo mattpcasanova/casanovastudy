@@ -120,6 +120,21 @@ export function splitPoints(headers: PageHeader[], roster?: RosterName[]): boole
   return bestStarts!
 }
 
+/**
+ * A stack photographed or picked last page first: the first photo is an
+ * inside page and the last one is a paper's cover. Phone pickers hand files
+ * over in selection order when their names don't say which came first, so a
+ * teacher who ticks photos from the newest back gets every paper reversed
+ * (page 9 first). The pages are then turned around before splitting.
+ */
+export function looksReversed(headers: PageHeader[]): boolean {
+  if (headers.length < 4) return false
+  const cover = (h: PageHeader | undefined) => !!h && !!h.name && h.firstPage
+  const plain = (h: PageHeader | undefined) => !!h && !h.name && !h.firstPage
+  if (headers.some((h) => h.stamp || h.fromFile)) return false
+  return plain(headers[0]) && cover(headers[headers.length - 1])
+}
+
 const STRONG_START = 3
 const FIRST_PAGE_START = 1.5
 const NAME_ONLY_START = 1
