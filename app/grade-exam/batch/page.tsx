@@ -119,6 +119,9 @@ function BatchGrading() {
 
   const [phase, setPhase] = useState<Phase>("setup")
   const [status, setStatus] = useState("")
+  // What "Sort into students" is doing right now (the status line has the detail).
+  const [progress, setProgress] = useState<SortProgress | null>(null)
+  const [sortStartedAt, setSortStartedAt] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [problems, setProblems] = useState<string[]>([])
 
@@ -134,10 +137,10 @@ function BatchGrading() {
   const [names, setNames] = useState<Record<number, string>>({})
   const [results, setResults] = useState<Record<number, PaperStatus>>({})
   const [gradingStartedAt, setGradingStartedAt] = useState<number | null>(null)
-  // A one-second clock while grading, for elapsed time and time left.
+  // A one-second clock while sorting and grading, for elapsed time and time left.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (phase !== "grading") return
+    if (phase !== "grading" && phase !== "preparing") return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [phase])
@@ -352,6 +355,8 @@ function BatchGrading() {
     setProblems([])
     if (!paperFiles.length) { setError("Add the students' papers first."); return }
     setPhase("preparing")
+    setSortStartedAt(Date.now())
+    setProgress({ step: "prepare", done: 0, total: paperFiles.length })
     try {
       // Mark scheme: typed PDFs/Word read as text, photos and scans as images.
       const issues: string[] = []
@@ -371,6 +376,7 @@ function BatchGrading() {
       const textOwners: Array<string | undefined> = []
       for (const [fileIndex, file] of ordered.entries()) {
         if (imagePages.length >= MAX_PAGES) { issues.push(`Only the first ${MAX_PAGES} pages were used.`); break }
+        setProgress({ step: "prepare", done: fileIndex, total: ordered.length })
         const prepared = await prepareMaterials([file], { pdfMode: "images", maxImages: MAX_PAGES - imagePages.length, onProgress: setStatus })
         issues.push(...prepared.problems)
         const owner = fileOwners.current.get(file)
@@ -386,7 +392,8 @@ function BatchGrading() {
       if (stamped.duplicates) issues.push(`${stamped.duplicates} page${stamped.duplicates === 1 ? " was" : "s were"} scanned twice and left out.`)
       const orderedImages = stamped.order.map((i) => imagePages[i])
 
-      const uploaded = await uploadAll(orderedImages.map((p) => ({ blob: p.blob, name: p.label })), "grading-pages", (n, total) => setStatus(`Uploading page ${n} of ${total}...`))
+      setProgress({ step: "upload", done: 0, total: orderedImages.length })
+      const uploaded = await uploadAll(orderedImages.map((p) => ({ blob: p.blob, name: p.label })), "grading-pages", (n, total) => { setStatus(`Uploading page ${n} of ${total}...`); setProgress({ step: "upload", done: n, total }) })
       const thumbs = orderedImages.map((p) => URL.createObjectURL(p.blob))
       thumbsRef.current.push(...thumbs)
 
@@ -411,16 +418,32 @@ function BatchGrading() {
       const unread = uploaded.filter((_, i) => !imageHeaders[i])
       if (unread.length) {
         setStatus(`Finding where each student's paper starts (${unread.length} pages)...`)
+        setProgress({ step: "read", done: 0, total: unread.length })
         const res = await authFetch("/api/grade-batch/split", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pages: unread, roster: rosterNames }),
         })
-        const data = await res.json().catch(() => ({}))
-        if (isPlanBlock(data)) { openPremium(data); setPhase("setup"); return }
-        if (!res.ok) throw new Error(data.error || "Could not read the pages")
+        // Progress streams as NDJSON; a plan block or an error is plain JSON.
+        if (!res.ok || !res.body || !(res.headers.get("content-type") ?? "").includes("ndjson")) {
+          const data = await res.json().catch(() => ({}))
+          if (isPlanBlock(data)) { openPremium(data); setPhase("setup"); return }
+          throw new Error(data.error || "Could not read the pages")
+        }
+        let readHeaders: PageHeader[] | null = null
+        let readError: string | null = null
+        await readNdjson(res.body, (event) => {
+          if (event.type === "status" && (event.step === "read" || event.step === "names")) {
+            const done = Number(event.done), total = Number(event.total)
+            setProgress({ step: event.step, done, total })
+            setStatus("") // the step row shows the count
+          } else if (event.type === "done") readHeaders = event.headers as PageHeader[]
+          else if (event.type === "error") readError = String(event.error)
+        })
+        if (readError || !readHeaders) throw new Error(readError || "Could not read the pages")
+        const found: PageHeader[] = readHeaders
         let k = 0
-        for (let i = 0; i < uploaded.length; i++) if (!imageHeaders[i]) imageHeaders[i] = data.headers[k++]
+        for (let i = 0; i < uploaded.length; i++) if (!imageHeaders[i]) imageHeaders[i] = found[k++]
       }
       // A stack of one class's stamped copies picks that class.
       const stampClasses = [...new Set(imageHeaders.map((h) => h?.stamp?.classId).filter(Boolean))] as string[]
@@ -475,6 +498,7 @@ function BatchGrading() {
       setPhase("setup")
     } finally {
       setStatus("")
+      setProgress(null)
     }
   }
 
@@ -603,8 +627,11 @@ function BatchGrading() {
   return (
     <Shell>
       {/* 1-3: setup */}
+      {phase === "preparing" && progress && (
+        <SortingProgress progress={progress} status={status} elapsed={sortStartedAt ? (now - sortStartedAt) / 1000 : 0} />
+      )}
       {(phase === "setup" || phase === "preparing") && (
-        <div className="space-y-8">
+        <div className={cn("space-y-8", phase === "preparing" && "hidden")}>
           <GradingModeSwitch mode="class" />
           {addingTo && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Adding late papers to <span className="font-semibold">{addingTo}</span>. They&apos;ll join the same class results. Use the same mark scheme.</p>}
 
@@ -1138,6 +1165,58 @@ function Shell({ children }: { children: React.ReactNode }) {
       />
       <main className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">{children}</main>
     </div>
+  )
+}
+
+type SortStep = "prepare" | "upload" | "read" | "names"
+interface SortProgress { step: SortStep; done: number; total: number }
+
+const SORT_STEPS: Array<{ key: SortStep; label: string; unit: string }> = [
+  { key: "prepare", label: "Getting the pages ready", unit: "file" },
+  { key: "upload", label: "Uploading the pages", unit: "page" },
+  { key: "read", label: "Finding where each student's paper starts", unit: "page" },
+  { key: "names", label: "Reading the name on each first page", unit: "paper" },
+]
+
+/** Rough time for the AI reads: ~0.4 s a page for the first pass (8 at a time) and ~0.8 s a paper for the names. */
+const sortSecondsLeft = (p: SortProgress) => {
+  if (p.step === "read") return 10 + (p.total - p.done) * 0.4 + Math.max(1, p.total / 9) * 0.8
+  if (p.step === "names") return 5 + (p.total - p.done) * 0.8
+  return null
+}
+
+/** The full-width card shown while a stack is being sorted: each step with a bar, count and time. */
+function SortingProgress({ progress, status, elapsed }: { progress: SortProgress; status: string; elapsed: number }) {
+  const current = SORT_STEPS.findIndex((s) => s.key === progress.step)
+  const left = sortSecondsLeft(progress)
+  return (
+    <StepCard className="space-y-5">
+      <div aria-live="polite">
+        <h2 className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>Sorting the stack into students</h2>
+        <p className="text-sm text-slate-600">Keep this tab open. {left !== null ? `${minutes(left).replace(/^./, (c) => c.toUpperCase())} left for the reading, ` : ""}{clock(elapsed)} so far.</p>
+      </div>
+      <ol className="space-y-3">
+        {SORT_STEPS.map((step, i) => {
+          const state = i < current ? "done" : i === current ? "now" : "later"
+          const pct = state === "done" ? 100 : state === "now" && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+          return (
+            <li key={step.key} className={cn("rounded-xl p-3 ring-1", state === "now" ? "bg-blue-50 ring-blue-200" : "bg-white ring-slate-200", state === "later" && "opacity-60")}>
+              <div className="flex items-center gap-3 text-sm">
+                {state === "done" ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-700" /> : state === "now" ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-700" /> : <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full ring-1 ring-slate-300 text-xs text-slate-500">{i + 1}</span>}
+                <span className={cn("font-medium", state === "now" ? "text-blue-900" : "text-slate-800")}>{step.label}</span>
+                {state === "now" && progress.total > 0 && <span className="ml-auto tabular-nums text-slate-600">{Math.min(progress.done, progress.total)} of {progress.total} {step.unit}{progress.total === 1 ? "" : "s"}</span>}
+              </div>
+              {state === "now" && (
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={step.label}>
+                  <div className="h-full rounded-full bg-blue-700 transition-[width] duration-500" style={{ width: `${pct}%` }} />
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      {status && <p className="text-sm text-slate-500">{status}</p>}
+    </StepCard>
   )
 }
 
