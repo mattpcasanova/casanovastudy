@@ -32,6 +32,9 @@ import { DeleteClassDialog } from "@/components/classes/delete-class-dialog"
 interface ClassInfo { id: string; name: string; period: string | null; subject: string | null; enrollment_code: string; school_year: string; course: string | null }
 interface BatchSummary { id: string; title: string | null; createdAt: string; papers: number; average: number; released: boolean }
 
+/** Names shown before "Show all": enough to see the class, short enough to keep the gradebook near. */
+const ROSTER_PREVIEW = 8
+
 export default function ClassPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   return (
@@ -52,6 +55,7 @@ function ClassView({ id }: { id: string }) {
   const [gradebook, setGradebook] = useState<{ tests: GradebookTest[]; rows: GradebookRow[] } | null>(null)
   const [areaTest, setAreaTest] = useState("")
   const [showLeft, setShowLeft] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -187,7 +191,7 @@ function ClassView({ id }: { id: string }) {
       {/* Below the header row, so opening it doesn't push the buttons onto new rows. */}
       {detailsOpen && <DetailsForm cls={cls} onSave={saveDetails} onCancel={() => setDetailsOpen(false)} />}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Roster */}
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -240,7 +244,7 @@ function ClassView({ id }: { id: string }) {
             <p className="text-sm text-slate-500">No names yet.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {roster.filter((r) => showLeft || !r.left).map((row) => (
+              {roster.filter((r) => showLeft || !r.left).slice(0, showAll ? undefined : ROSTER_PREVIEW).map((row) => (
                 <RosterItem
                   key={row.id}
                   row={row}
@@ -256,11 +260,19 @@ function ClassView({ id }: { id: string }) {
               ))}
             </ul>
           )}
-          {roster.some((r) => r.left) && (
-            <button type="button" onClick={() => setShowLeft((v) => !v)} className={cn(actionButton, "mt-3")}>
-              {showLeft ? "Hide students who left" : `Show ${roster.filter((r) => r.left).length} who left`}
-            </button>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {/* A long roster is folded so the gradebook and sets stay close by. */}
+            {roster.filter((r) => showLeft || !r.left).length > ROSTER_PREVIEW && (
+              <button type="button" onClick={() => setShowAll((v) => !v)} className={actionButton}>
+                {showAll ? "Show fewer" : `Show all ${roster.filter((r) => showLeft || !r.left).length} names`}
+              </button>
+            )}
+            {roster.some((r) => r.left) && (
+              <button type="button" onClick={() => setShowLeft((v) => !v)} className={actionButton}>
+                {showLeft ? "Hide students who left" : `Show ${roster.filter((r) => r.left).length} who left`}
+              </button>
+            )}
+          </div>
         </section>
 
         <div className="space-y-6">
@@ -276,14 +288,15 @@ function ClassView({ id }: { id: string }) {
             </div>
           </section>
 
-          {/* Weak spots */}
+          {/* Weak spots: a card once there are some, otherwise one quiet line under the join code. */}
+          {weakSpots.length === 0 ? (
+            <p className="px-1 text-sm text-slate-500">
+              {linkedStudents === 0 ? "Weak spots show here once students join with the code and study." : `No weak spots yet across ${linkedStudents} linked student${linkedStudents === 1 ? "" : "s"}.`}
+            </p>
+          ) : (
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Top weak spots</h2>
-            {linkedStudents === 0 ? (
-              <p className="mt-1 text-sm text-slate-500">Shows once students join with the code and study on Casanova Study.</p>
-            ) : weakSpots.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-500">No weak spots yet across {linkedStudents} linked student{linkedStudents === 1 ? "" : "s"}.</p>
-            ) : (
+            {(
               <ul className="mt-2 space-y-2">
                 {weakSpots.map((s) => (
                   <li key={s.key} className="text-sm">
@@ -294,6 +307,7 @@ function ClassView({ id }: { id: string }) {
               </ul>
             )}
           </section>
+          )}
         </div>
       </div>
 
