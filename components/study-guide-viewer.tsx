@@ -38,6 +38,7 @@ import AssignToClassDialog from '@/components/assign-to-class-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
+import { signInPath } from '@/lib/sign-in-path'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
@@ -66,7 +67,7 @@ interface StudyGuideViewerProps {
 }
 
 export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -278,6 +279,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         </div>
       )}
 
+      {/* Signed out (a shared link): say what an account adds; both buttons come back here */}
+      {!authLoading && !user && <SignedOutBanner />}
+
       {/* Save Banner - Show for logged-in users viewing someone else's guide */}
       {canSave && (
         <div className="bg-slate-50 border-b border-slate-200 print:hidden">
@@ -462,6 +466,28 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       <p className="hidden pt-6 text-center text-[0.7rem] text-slate-400 print:block">Made with Casanova Study</p>
 
       <Toaster />
+    </div>
+  )
+}
+
+function SignedOutBanner() {
+  const [paths, setPaths] = useState({ signIn: '/auth/signin', signUp: '/auth/signup' })
+  useEffect(() => {
+    const signIn = signInPath()
+    setPaths({ signIn, signUp: signIn.replace('/auth/signin', '/auth/signup') })
+  }, [])
+  return (
+    <div className="border-b border-blue-100 bg-blue-50 print:hidden">
+      <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-700 sm:text-base">
+          <span className="font-semibold text-slate-900">You can study this guide without an account.</span>{' '}
+          Make a free one to keep your progress on any device, ask for explanations and make your own guides. You&apos;ll come right back here.
+        </p>
+        <div className="flex shrink-0 gap-2">
+          <Link href={paths.signUp} className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Create free account</Link>
+          <Link href={paths.signIn} className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50">Sign in</Link>
+        </div>
+      </div>
     </div>
   )
 }

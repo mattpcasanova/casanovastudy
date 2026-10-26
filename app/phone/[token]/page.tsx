@@ -22,7 +22,11 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
   const [state, setState] = useState<"loading" | "ready" | "expired">("loading")
   const [firstName, setFirstName] = useState<string | null>(null)
   const [pages, setPages] = useState<Page[]>([])
-  const [preparing, setPreparing] = useState("")
+  const [preparing, setPreparing] = useState<{ message: string; done?: number; total?: number } | null>(null)
+  // Between tapping the picker's checkmark and the files arriving, iOS copies
+  // (and often converts) every photo, which can take minutes with nothing on
+  // screen. We show the wait from the moment they come back to this page.
+  const [picking, setPicking] = useState<"" | "open" | "waiting">("")
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null)
   const [sent, setSent] = useState<number | null>(null)
   const [problems, setProblems] = useState<string[]>([])
@@ -43,22 +47,60 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
     })()
   }, [token])
 
+  useEffect(() => {
+    if (!picking) return
+    const back = () => { if (document.visibilityState === "visible") setPicking((p) => (p === "open" ? "waiting" : p)) }
+    window.addEventListener("focus", back)
+    document.addEventListener("visibilitychange", back)
+    return () => { window.removeEventListener("focus", back); document.removeEventListener("visibilitychange", back) }
+  }, [picking])
+
+  // Closing the picker without choosing fires "cancel" (newer browsers;
+  // older ones get the "I didn't pick anything" button on the overlay).
+  useEffect(() => {
+    const inputs = [camera.current, picker.current]
+    const cancel = () => setPicking("")
+    inputs.forEach((el) => el?.addEventListener("cancel", cancel))
+    return () => inputs.forEach((el) => el?.removeEventListener("cancel", cancel))
+  }, [state])
+
+  const openPicker = (input: HTMLInputElement | null) => {
+    if (!input) return
+    setPicking("open")
+    input.click()
+  }
+
   const addFiles = async (list: FileList | null) => {
+    setPicking("")
     if (!list?.length) return
     setSent(null)
     setError("")
     const files = orderPicked(Array.from(list))
     const room = PHONE_LIMITS.maxFilesPerSend - pages.length
     if (room <= 0) { setError(`Send these ${pages.length} pages first, then add more.`); return }
-    setPreparing("Getting pages ready…")
+    const photos = files.filter((f) => !/pdf/i.test(f.type) && !/\.pdf$/i.test(f.name)).length
+    let photoNumber = 0
+    setPreparing({ message: "Getting pages ready…" })
     try {
-      const prepared = await prepareMaterials(files, { pdfMode: "images", maxImages: room, onProgress: (m) => setPreparing(m.replace(/\.\.\.$/, "…")) })
+      const prepared = await prepareMaterials(files, {
+        pdfMode: "images",
+        maxImages: room,
+        onProgress: (m) => {
+          if (m.startsWith("Preparing ") && photos > 0) {
+            photoNumber = Math.min(photoNumber + 1, photos)
+            setPreparing({ message: photos > 1 ? `Getting photo ${photoNumber} of ${photos} ready…` : "Getting your photo ready…", done: photoNumber - 1, total: photos })
+            return
+          }
+          const page = m.match(/page (\d+) of (\d+)/)
+          setPreparing({ message: m.replace(/\.\.\.$/, "…"), ...(page ? { done: Number(page[1]) - 1, total: Number(page[2]) } : {}) })
+        },
+      })
       setProblems(prepared.problems)
       setPages((prev) => [...prev, ...prepared.images.map((img) => ({ id: crypto.randomUUID(), blob: img.blob, url: URL.createObjectURL(img.blob) }))])
     } catch {
       setError("Those files couldn't be opened. Try taking photos of the pages instead.")
     } finally {
-      setPreparing("")
+      setPreparing(null)
     }
   }
 
@@ -125,7 +167,7 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
     }
   }
 
-  const busy = !!preparing || !!sending
+  const busy = !!preparing || !!sending || picking === "waiting"
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-32">
@@ -162,10 +204,10 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
               )}
 
               <div className="mt-4 space-y-2">
-                <button type="button" onClick={() => camera.current?.click()} disabled={busy} className={cn(bigButton, "bg-blue-600 text-white shadow-sm active:bg-blue-700")}>
+                <button type="button" onClick={() => openPicker(camera.current)} disabled={busy} className={cn(bigButton, "bg-blue-600 text-white shadow-sm active:bg-blue-700")}>
                   <Camera />{pages.length ? "Take another photo" : "Take photos"}
                 </button>
-                <button type="button" onClick={() => picker.current?.click()} disabled={busy} className={cn(bigButton, "bg-white text-slate-800 ring-1 ring-slate-300 active:bg-slate-50")}>
+                <button type="button" onClick={() => openPicker(picker.current)} disabled={busy} className={cn(bigButton, "bg-white text-slate-800 ring-1 ring-slate-300 active:bg-slate-50")}>
                   <Images />Choose photos or a PDF
                 </button>
               </div>
@@ -194,7 +236,6 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
               </details>
             </section>
 
-            {preparing && <p className="flex items-center gap-2 rounded-2xl bg-white p-3 text-sm text-slate-600 ring-1 ring-slate-200"><Loader2 className="h-4 w-4 animate-spin" />{preparing}</p>}
             {problems.map((p) => <p key={p} className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">{p}</p>)}
             {error && <p className="flex items-start gap-2 rounded-2xl bg-rose-50 p-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
 
@@ -220,6 +261,32 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
           </div>
         )}
       </main>
+
+      {(picking === "waiting" || preparing) && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center" role="status" aria-live="polite">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-600" />
+            <p className="mt-4 text-lg font-semibold text-slate-900">
+              {preparing ? preparing.message : "Getting your photos from your phone…"}
+            </p>
+            {preparing?.total ? (
+              <div className="mx-auto mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-blue-600 transition-all duration-300" style={{ width: `${Math.max(4, Math.round(((preparing.done ?? 0) / preparing.total) * 100))}%` }} />
+              </div>
+            ) : null}
+            <p className="mt-3 text-sm text-slate-600">
+              {preparing
+                ? "Making each page smaller so it sends fast. Keep this page open."
+                : "Your phone is handing the photos over. With lots of photos this can take a minute or two. Keep this page open."}
+            </p>
+            {!preparing && (
+              <button type="button" onClick={() => setPicking("")} className="mt-4 text-sm font-medium text-slate-500 underline underline-offset-2">
+                I didn&apos;t pick anything
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {state === "ready" && pages.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">

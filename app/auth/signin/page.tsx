@@ -23,9 +23,12 @@ export default function SignInPage() {
   const [resent, setResent] = useState(false)
   const [mode, setMode] = useState<'signin' | 'forgot' | 'forgot-sent'>('signin')
   const next = useRef('/')
+  // "Create an account" keeps the page they were heading to (e.g. a shared guide).
+  const [signUpHref, setSignUpHref] = useState('/auth/signup')
 
   useEffect(() => {
     next.current = safeNext(new URLSearchParams(window.location.search).get('next'))
+    if (next.current !== '/') setSignUpHref(`/auth/signup?next=${encodeURIComponent(next.current)}`)
   }, [])
 
   // Already signed in (e.g. opened the page in another tab): skip the form.
@@ -165,7 +168,7 @@ export default function SignInPage() {
 
       <p className="mt-8 text-center text-sm text-slate-600">
         New to Casanova Study?{' '}
-        <Link href="/auth/signup" className="font-semibold text-blue-600 hover:text-blue-700">Create an account</Link>
+        <Link href={signUpHref} className="font-semibold text-blue-600 hover:text-blue-700">Create an account</Link>
       </p>
     </AuthShell>
   )

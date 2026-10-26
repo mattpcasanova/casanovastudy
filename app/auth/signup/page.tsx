@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -9,8 +9,9 @@ import { useAuth } from '@/lib/auth'
 import { TEACHER_MIN_AGE, ageOn, isPlausibleBirthDate } from '@/lib/consent-rules'
 import {
   AuthShell, AuthHeading, Divider, Field, FormError, GoogleButton, PasswordField, PrimaryButton, RolePicker,
-  ROLES, friendlyAuthError, type Role,
+  ROLES, friendlyAuthError, safeNext, type Role,
 } from '@/components/auth/auth-ui'
+import { rememberReturnTo } from '@/lib/return-to'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -24,6 +25,19 @@ export default function SignUpPage() {
   const [birthDate, setBirthDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  // Page they were heading to (a shared guide, a practice link). New accounts
+  // still land on / first so the consent step runs; ReturnToResume sends them on.
+  const next = useRef('/')
+  const [signInHref, setSignInHref] = useState('/auth/signin')
+
+  useEffect(() => {
+    next.current = safeNext(new URLSearchParams(window.location.search).get('next'))
+    if (next.current !== '/') setSignInHref(`/auth/signin?next=${encodeURIComponent(next.current)}`)
+  }, [])
+
+  const keepDestination = () => {
+    if (next.current !== '/') rememberReturnTo(next.current)
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,6 +53,7 @@ export default function SignUpPage() {
     }
 
     setIsLoading(true)
+    keepDestination()
     try {
       const { needsConfirmation } = await signUp(email.trim(), password, role, firstName.trim(), lastName.trim(), birthDate || undefined)
       if (!needsConfirmation) {
@@ -60,6 +75,7 @@ export default function SignUpPage() {
     if (!role) return
     setError('')
     setIsLoading(true)
+    keepDestination()
     try {
       await signInWithGoogle({ role })
     } catch (err) {
@@ -76,7 +92,7 @@ export default function SignUpPage() {
 
         <p className="mt-8 text-center text-sm text-slate-600">
           Already have an account?{' '}
-          <Link href="/auth/signin" className="font-semibold text-blue-600 hover:text-blue-700">Sign in</Link>
+          <Link href={signInHref} className="font-semibold text-blue-600 hover:text-blue-700">Sign in</Link>
         </p>
       </AuthShell>
     )
@@ -135,7 +151,7 @@ export default function SignUpPage() {
 
       <p className="mt-8 text-center text-sm text-slate-600">
         Already have an account?{' '}
-        <Link href="/auth/signin" className="font-semibold text-blue-600 hover:text-blue-700">Sign in</Link>
+        <Link href={signInHref} className="font-semibold text-blue-600 hover:text-blue-700">Sign in</Link>
       </p>
     </AuthShell>
   )
