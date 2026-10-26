@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { legacyHelp, looksLikeHeic, uploadKind } from './kinds'
+import { jpegInfo, legacyHelp, looksLikeHeic, uploadKind } from './kinds'
 import { sniffImageType } from './server-images'
 
 describe('uploadKind', () => {
@@ -46,5 +46,21 @@ describe('sniffImageType', () => {
     expect(sniffImageType(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe('image/png')
     expect(sniffImageType(new Uint8Array([...'RIFF'].map((c) => c.charCodeAt(0)).concat([0, 0, 0, 0], [...'WEBP'].map((c) => c.charCodeAt(0)))))).toBe('image/webp')
     expect(sniffImageType(new Uint8Array([0x25, 0x50, 0x44, 0x46]))).toBeNull() // %PDF
+  })
+})
+
+describe('jpegInfo', () => {
+  const seg = (marker: number, body: number[]) => [0xff, marker, (body.length + 2) >> 8, (body.length + 2) & 0xff, ...body]
+  const sof = (w: number, h: number) => seg(0xc0, [8, h >> 8, h & 0xff, w >> 8, w & 0xff, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1])
+  it('reads the size from the frame header and spots EXIF', () => {
+    const plain = new Uint8Array([0xff, 0xd8, ...seg(0xe0, [0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]), ...sof(1568, 2090)])
+    expect(jpegInfo(plain)).toEqual({ width: 1568, height: 2090, hasExif: false })
+    const exif = new Uint8Array([0xff, 0xd8, ...seg(0xe1, [0x45, 0x78, 0x69, 0x66, 0, 0, 1, 2, 3]), ...sof(4032, 3024)])
+    expect(jpegInfo(exif)).toEqual({ width: 4032, height: 3024, hasExif: true })
+  })
+  it('skips a progressive frame marker the same way and gives up on non-JPEGs', () => {
+    expect(jpegInfo(new Uint8Array([0xff, 0xd8, ...sof(10, 20).map((b, k) => (k === 1 ? 0xc2 : b))]))).toEqual({ width: 10, height: 20, hasExif: false })
+    expect(jpegInfo(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBeNull()
+    expect(jpegInfo(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))).toBeNull()
   })
 })

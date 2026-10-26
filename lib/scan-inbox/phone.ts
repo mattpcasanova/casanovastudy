@@ -7,10 +7,10 @@
 export const PHONE_LIMITS = {
   /** How long a QR code works. */
   sessionMinutes: 120,
-  /** Pages (or files) one link can send in total. */
-  maxFiles: 400,
-  /** Pages per send. */
-  maxFilesPerSend: 150,
+  /** Pages (or files) one link can send in total (the batch grader takes 450). */
+  maxFiles: 500,
+  /** Pages per send. A 25-paper class of 9-page papers is 228; the old cap of 150 cut such a stack short. */
+  maxFilesPerSend: 450,
   /** Prepared pages are ~200-500 KB; a PDF that couldn't be split on the phone goes up whole. */
   maxFileBytes: 60 * 1024 * 1024,
 }

@@ -77,3 +77,41 @@ export function legacyHelp(name: string): string {
   if (ext === 'doc') return `${name}: this is the old Word format. Open it and choose File > Save As > Word (.docx) or PDF, then upload that.`
   return `${name}: this file type isn't supported. Try a PDF, a photo, or a Word or PowerPoint file.`
 }
+
+export interface JpegInfo {
+  width: number
+  height: number
+  /** Has an EXIF segment (which may carry a rotation the pixels don't show). */
+  hasExif: boolean
+}
+
+/**
+ * Size and EXIF presence from a JPEG's header bytes (the first ~64 KB is
+ * plenty), without decoding it: pages our own pipeline already made (phone
+ * sends, scans) can be passed through instead of decoded and re-encoded.
+ * null when it isn't a JPEG or no frame header is found.
+ */
+export function jpegInfo(bytes: Uint8Array): JpegInfo | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null
+  let hasExif = false
+  let i = 2
+  while (i + 4 <= bytes.length) {
+    if (bytes[i] !== 0xff) { i++; continue }
+    const marker = bytes[i + 1]
+    if (marker === 0xff) { i++; continue }
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue }
+    if (marker === 0xd9 || marker === 0xda) return null // end of image / scan data before any frame header
+    const length = (bytes[i + 2] << 8) | bytes[i + 3]
+    if (length < 2) return null
+    if (marker === 0xe1 && i + 9 < bytes.length && bytes[i + 4] === 0x45 && bytes[i + 5] === 0x78 && bytes[i + 6] === 0x69 && bytes[i + 7] === 0x66) hasExif = true
+    const isFrame = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc
+    if (isFrame) {
+      if (i + 9 > bytes.length) return null
+      const height = (bytes[i + 5] << 8) | bytes[i + 6]
+      const width = (bytes[i + 7] << 8) | bytes[i + 8]
+      return width && height ? { width, height, hasExif } : null
+    }
+    i += 2 + length
+  }
+  return null
+}

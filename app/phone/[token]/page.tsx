@@ -24,8 +24,10 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
   const [pages, setPages] = useState<Page[]>([])
   const [preparing, setPreparing] = useState<{ message: string; done?: number; total?: number } | null>(null)
   // Between tapping the picker's checkmark and the files arriving, iOS copies
-  // (and often converts) every photo, which can take minutes with nothing on
-  // screen. We show the wait from the moment they come back to this page.
+  // (and often converts) every photo: 10-15 s for 200 photos with nothing on
+  // screen. The picker is a sheet over this page, so the page never goes
+  // hidden and a "came back" signal was unreliable; the wait shows from the
+  // moment the picker opens (the sheet covers it until they tap Done).
   const [picking, setPicking] = useState<"" | "open" | "waiting">("")
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null)
   const [sent, setSent] = useState<number | null>(null)
@@ -82,19 +84,23 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
     let photoNumber = 0
     setPreparing({ message: "Getting pages ready…" })
     try {
-      const prepared = await prepareMaterials(files, {
-        pdfMode: "images",
-        maxImages: room,
-        onProgress: (m) => {
-          if (m.startsWith("Preparing ") && photos > 0) {
-            photoNumber = Math.min(photoNumber + 1, photos)
-            setPreparing({ message: photos > 1 ? `Getting photo ${photoNumber} of ${photos} ready…` : "Getting your photo ready…", done: photoNumber - 1, total: photos })
-            return
-          }
-          const page = m.match(/page (\d+) of (\d+)/)
-          setPreparing({ message: m.replace(/\.\.\.$/, "…"), ...(page ? { done: Number(page[1]) - 1, total: Number(page[2]) } : {}) })
-        },
-      })
+      const onProgress = (m: string) => {
+        if (m.startsWith("Preparing ") && photos > 0) {
+          photoNumber = Math.min(photoNumber + 1, photos)
+          setPreparing({ message: photos > 1 ? `Getting photo ${photoNumber} of ${photos} ready…` : "Getting your photo ready…", done: photoNumber - 1, total: photos })
+          return
+        }
+        const page = m.match(/page (\d+) of (\d+)/)
+        setPreparing({ message: m.replace(/\.\.\.$/, "…"), ...(page ? { done: Number(page[1]) - 1, total: Number(page[2]) } : {}) })
+      }
+      // Three runs of pages at once: decoding and encoding happen off the main
+      // thread, so a big stack gets ready about twice as fast. Order is kept
+      // by joining the runs in order.
+      const runs = Math.min(3, Math.max(1, Math.ceil(files.length / 4)))
+      const per = Math.ceil(files.length / runs)
+      const parts = await Promise.all(Array.from({ length: runs }, (_, r) => prepareMaterials(files.slice(r * per, (r + 1) * per), { pdfMode: "images", maxImages: room, onProgress })))
+      const prepared = { images: parts.flatMap((p) => p.images).slice(0, room), problems: parts.flatMap((p) => p.problems) }
+      if (parts.flatMap((p) => p.images).length > room) prepared.problems.push(`Only ${room} pages fit in one send. Send these, then add the rest.`)
       setProblems(prepared.problems)
       setPages((prev) => [...prev, ...prepared.images.map((img) => ({ id: crypto.randomUUID(), blob: img.blob, url: URL.createObjectURL(img.blob) }))])
     } catch {
@@ -145,7 +151,7 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
             setSending((s) => s && { ...s, done: s.done + 1 })
           }
         }
-        await Promise.all([worker(), worker(), worker()])
+        await Promise.all([worker(), worker(), worker(), worker()])
       }
       const res = await fetch(`/api/phone-upload/${token}`, {
         method: "POST",
@@ -246,7 +252,7 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
                   {pages.map((p, i) => (
                     <li key={p.id} className="relative overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.url} alt={`Page ${i + 1}`} className="aspect-[3/4] w-full object-cover" />
+                      <img src={p.url} alt={`Page ${i + 1}`} loading="lazy" decoding="async" className="aspect-[3/4] w-full object-cover" />
                       <span className="absolute bottom-1 left-1 rounded-md bg-slate-900/75 px-1.5 text-xs font-semibold text-white">{i + 1}</span>
                       {!sending && (
                         <button type="button" onClick={() => remove(p.id)} aria-label={`Remove page ${i + 1}`} className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/75 text-white">
@@ -262,12 +268,12 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
         )}
       </main>
 
-      {(picking === "waiting" || preparing) && (
+      {(picking || preparing) && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center" role="status" aria-live="polite">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-600" />
             <p className="mt-4 text-lg font-semibold text-slate-900">
-              {preparing ? preparing.message : "Getting your photos from your phone…"}
+              {preparing ? preparing.message : picking === "open" ? "Choose the photos, then tap Done" : "Getting your photos from your phone…"}
             </p>
             {preparing?.total ? (
               <div className="mx-auto mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -277,7 +283,7 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
             <p className="mt-3 text-sm text-slate-600">
               {preparing
                 ? "Making each page smaller so it sends fast. Keep this page open."
-                : "Your phone is handing the photos over. With lots of photos this can take a minute or two. Keep this page open."}
+                : "After you tap Done, your phone hands the photos over: about 10 seconds per 100 photos, with nothing to show for it. Keep this page open."}
             </p>
             {!preparing && (
               <button type="button" onClick={() => setPicking("")} className="mt-4 text-sm font-medium text-slate-500 underline underline-offset-2">

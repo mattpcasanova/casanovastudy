@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
             send({ type: 'status', step: 'read', done: ++read, total: images.length })
           }
         }
-        await Promise.all(Array.from({ length: Math.min(8, images.length) }, worker))
+        await Promise.all(Array.from({ length: Math.min(12, images.length) }, worker))
 
         // The first page of each paper gets the careful read. When that page turns
         // out not to be a first page (Haiku missed the real cover and a neighbour
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
             send({ type: 'status', step: 'names', done: ++named, total: starts.length })
           }
         }
-        await Promise.all(Array.from({ length: Math.min(6, starts.length) }, coverWorker))
+        await Promise.all(Array.from({ length: Math.min(8, starts.length) }, coverWorker))
         send({ type: 'done', headers })
       } catch (e) {
         console.error('Split failed:', e)

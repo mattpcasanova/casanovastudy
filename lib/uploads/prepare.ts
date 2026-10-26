@@ -9,7 +9,7 @@
 
 import { extractTextFromDOCX, extractTextFromPPTX } from '@/lib/client-file-processor'
 import { loadPdfJs } from '@/lib/pdf-to-images'
-import { UPLOAD_LIMITS, legacyHelp, looksLikeHeic, uploadKind } from './kinds'
+import { UPLOAD_LIMITS, jpegInfo, legacyHelp, looksLikeHeic, uploadKind } from './kinds'
 
 export interface PreparedImage {
   name: string
@@ -59,7 +59,7 @@ export async function prepareMaterials(files: File[], opts: PrepareOptions = {})
         case 'image':
         case 'heic':
           progress(`Preparing ${file.name}...`)
-          addImage({ name: jpegName(file.name), blob: await imageToJpeg(file, kind === 'heic') })
+          addImage({ name: jpegName(file.name), blob: (kind === 'image' && (await readyJpeg(file))) || (await imageToJpeg(file, kind === 'heic')) })
           break
         case 'pdf': {
           const { texts, images } = await readPdf(file, opts.pdfMode ?? 'auto', progress, maxImages - out.images.length)
@@ -91,6 +91,20 @@ export async function prepareMaterials(files: File[], opts: PrepareOptions = {})
     out.problems.push(`Only the first ${maxImages} photos or pages were used (${droppedImages} left out). For more, split them across two guides.`)
   }
   return out
+}
+
+// A JPEG that is already page-sized (a phone send, a scan, a page we made
+// earlier) is used as it is: decoding and re-encoding 228 of them on the
+// laptop took longer than uploading them. EXIF rotation can't be checked
+// without decoding, so anything with an EXIF segment still goes through.
+const READY_JPEG_MAX_BYTES = 700 * 1024
+
+async function readyJpeg(file: File): Promise<Blob | null> {
+  if (file.size > READY_JPEG_MAX_BYTES) return null
+  if (!/jpe?g/i.test(file.type) && !/\.jpe?g$/i.test(file.name)) return null
+  const info = jpegInfo(new Uint8Array(await file.slice(0, 65536).arrayBuffer()))
+  if (!info || info.hasExif || Math.max(info.width, info.height) > UPLOAD_LIMITS.imageEdge) return null
+  return file
 }
 
 function jpegName(name: string): string {

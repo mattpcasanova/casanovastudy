@@ -1048,7 +1048,7 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: str
       onProgress(++finished, items.length)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker))
+  await Promise.all(Array.from({ length: Math.min(6, items.length) }, worker))
   return out
 }
 
