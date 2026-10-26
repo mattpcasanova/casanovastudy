@@ -7,6 +7,7 @@ export interface StudyGuideData {
   materialsKind?: 'notes' | 'assessment' | 'topic_list' // detected type of the uploads
   planId?: string // generated from a study plan unit
   planUnit?: string
+  sourceGuideId?: string // "Make another format": build from this existing guide's content
   studyGuideName: string
   subject: string
   gradeLevel: string
@@ -58,6 +59,7 @@ export interface StudyGuideRequest {
   materialsKind?: string
   planId?: string // parent study plan guide id
   planUnit?: string // PlanUnit.key within that plan
+  sourceGuideId?: string // existing guide whose content is the source material
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models
   codeEditor?: boolean // false = no runnable code exercises
@@ -123,6 +125,8 @@ export interface ClaudeApiRequest {
   images?: GuideImage[]
   /** LEARNER HISTORY block from the student's answer log (lib/learner/profile.ts), or ''. */
   learnerNote?: string
+  /** Built from an existing guide ("Make another format"); its content is the MATERIALS. */
+  fromGuide?: { title: string; format: string }
 }
 
 export interface GuideImage {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitNameAndPeriod, splitPoints, type PageHeader } from './batch'
+import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitNameAndPeriod, splitPoints, typicalPageCount, type PageHeader } from './batch'
 
 const p = (name: string | null, firstPage = !!name): PageHeader => ({ name, firstPage })
 
@@ -22,12 +22,87 @@ describe('splitPoints + groupPages', () => {
     const groups = groupPages(splitPoints(headers), headers)
     expect(groups).toEqual([{ name: 'Ava R.', pages: [0, 1] }, { name: 'Student 1', pages: [2, 3] }])
   })
+  // A class set's papers are all about the same length. Phone photos of a page
+  // held up show the next cover underneath, so inside pages come back with a
+  // name (and sometimes "first page"); those must not split a 9-page paper.
+  const stack = (papers: Array<{ name: string; pages: number; stray?: Array<[number, PageHeader]> }>) => {
+    const headers: PageHeader[] = []
+    const truth: number[] = []
+    for (const paper of papers) {
+      truth.push(headers.length)
+      const start = headers.length
+      for (let k = 0; k < paper.pages; k++) headers.push(k === 0 ? p(paper.name) : p(null))
+      for (const [offset, h] of paper.stray ?? []) headers[start + offset] = h
+    }
+    return { headers, truth }
+  }
+  const startsOf = (starts: boolean[]) => starts.map((s, i) => (s ? i : -1)).filter((i) => i >= 0)
+  it('ignores names and "first pages" read on inside pages when papers have a usual length', () => {
+    const { headers, truth } = stack([
+      { name: 'Ava R.', pages: 9, stray: [[6, p('Ben K.')], [7, { name: 'Ben K.', firstPage: true }]] },
+      { name: 'Ben K.', pages: 9, stray: [[5, p('Cara M.')]] },
+      { name: 'Cara M.', pages: 10, stray: [[8, { name: null, firstPage: true }]] },
+      { name: 'Dan P.', pages: 9 },
+      { name: 'Eve S.', pages: 9, stray: [[2, p('Ava R.')]] },
+    ])
+    expect(startsOf(splitPoints(headers))).toEqual(truth)
+  })
+  it('still splits a real first page whose name could not be read', () => {
+    const { headers, truth } = stack([
+      { name: 'Ava R.', pages: 9 },
+      { name: 'Ben K.', pages: 9 },
+      { name: '', pages: 9, stray: [[0, { name: null, firstPage: true }]] },
+      { name: 'Dan P.', pages: 9 },
+    ])
+    expect(startsOf(splitPoints(headers))).toEqual(truth)
+    expect(groupPages(splitPoints(headers), headers)[2]).toEqual({ name: 'Student 1', pages: [18, 19, 20, 21, 22, 23, 24, 25, 26] })
+  })
+  it('uses a name on an inside page when it is the only sign of a missed cover', () => {
+    const { headers, truth } = stack([
+      { name: 'Ava R.', pages: 9 },
+      { name: 'Ben K.', pages: 9 },
+      { name: '', pages: 9, stray: [[0, { name: 'Cara M.', firstPage: false }]] },
+      { name: 'Dan P.', pages: 9 },
+    ])
+    expect(startsOf(splitPoints(headers))).toEqual(truth)
+  })
+  it('keeps a paper a page short or long (a photo missed or an extra sheet)', () => {
+    const { headers, truth } = stack([
+      { name: 'Ava R.', pages: 8 },
+      { name: 'Ben K.', pages: 10 },
+      { name: 'Cara M.', pages: 9 },
+      { name: 'Dan P.', pages: 9 },
+    ])
+    expect(startsOf(splitPoints(headers))).toEqual(truth)
+  })
+  it('splits every candidate when there are too few sure first pages to know the length', () => {
+    const headers = [p('Ava R.'), p(null), p(null, true), p(null), p('Ben K.')]
+    expect(startsOf(splitPoints(headers))).toEqual([0, 2, 4])
+  })
+  it('one-page quizzes: every named page is a paper', () => {
+    const headers = ['A', 'B', 'C', 'D', 'E', 'F'].map((n) => p(n))
+    expect(startsOf(splitPoints(headers))).toEqual([0, 1, 2, 3, 4, 5])
+  })
   it('respects teacher edits: toggled split points and removed pages', () => {
     const headers = [p('Ava R.'), p(null), p(null), p(null)]
     const starts = splitPoints(headers)
     starts[2] = true // teacher: page 3 starts a new student
     const groups = groupPages(starts, headers, new Set([3]))
     expect(groups).toEqual([{ name: 'Ava R.', pages: [0, 1] }, { name: 'Student 1', pages: [2] }])
+  })
+})
+
+describe('typicalPageCount + pageCountLooksOff', () => {
+  it('flags papers two or more pages off the usual length', () => {
+    expect(typicalPageCount([9, 9, 10, 9, 2, 16])).toBe(9)
+    expect(pageCountLooksOff(2, 9)).toBe(true)
+    expect(pageCountLooksOff(16, 9)).toBe(true)
+    expect(pageCountLooksOff(10, 9)).toBe(false)
+    expect(pageCountLooksOff(8, 9)).toBe(false)
+    expect(pageCountLooksOff(2, 1)).toBe(false)
+    expect(pageCountLooksOff(3, 1)).toBe(true)
+    expect(pageCountLooksOff(5, null)).toBe(false)
+    expect(typicalPageCount([])).toBeNull()
   })
 })
 

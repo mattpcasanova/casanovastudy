@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -39,6 +39,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { signInPath } from '@/lib/sign-in-path'
+import { NextFormatCard, NextFormatDialog, canMakeAnotherFormat } from '@/components/next-format'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
@@ -88,6 +89,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   }, [studyGuide.parent_guide_id])
 
   const isOwner = user?.id === studyGuide.user_id
+  const showNextFormat = !!user && canMakeAnotherFormat(studyGuide)
+  const [nextFormatOpen, setNextFormatOpen] = useState(false)
   const isTeacherOwner = CLASSES_ENABLED && isOwner && user?.user_type === 'teacher'
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
@@ -340,6 +343,17 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
               }
             />
           )}
+          {showNextFormat && (
+            <Button
+              onClick={() => { setNextFormatOpen(true); setIsMenuOpen(false) }}
+              variant="outline"
+              className="bg-white hover:bg-blue-50 text-blue-700 hover:text-blue-800 border-blue-300 shadow-lg"
+              size="lg"
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              Make another format
+            </Button>
+          )}
           <Button
             onClick={() => { handlePrintToPDF(); setIsMenuOpen(false); }}
             className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white shadow-lg')}
@@ -461,7 +475,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}>{renderFormat()}</StudyResultsProvider>
           </ExplainProvider>
         </DesmosProvider>
+        {showNextFormat && <NextFormatCard guide={studyGuide} />}
       </div>
+      {showNextFormat && <NextFormatDialog guide={studyGuide} open={nextFormatOpen} onOpenChange={setNextFormatOpen} />}
 
       <p className="hidden pt-6 text-center text-[0.7rem] text-slate-400 print:block">Made with Casanova Study</p>
 

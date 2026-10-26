@@ -44,23 +44,89 @@ export interface PaperGroup {
 }
 
 /**
- * Where new papers start: a new name, or a first-looking page with no name.
- * A slightly different read of the same name ("Sean Millr") is the same
- * student; with a class roster, two reads matching different students split.
+ * Where new papers start. Every page is a candidate when it looks like a first
+ * page or carries a name (a slightly different read of the current paper's
+ * name, "Sean Millr", is the same student and never starts a paper; with a
+ * class roster, two reads matching different students split). Candidates are
+ * then weighed against the usual paper length: a class set's papers are all
+ * about the same length, so a "first page" that would make a 2-page paper in
+ * a set of 9-page papers is almost always a misread. Phone photos of a page
+ * held up in front of the stack show the next paper's cover underneath, and
+ * the header read picks that name up; one real stack of 25 papers came back
+ * with 45 candidates. With fewer than 3 confident first pages the length is
+ * unknown and every candidate splits.
  */
 export function splitPoints(headers: PageHeader[], roster?: RosterName[]): boolean[] {
-  let current: string | null = null
-  return headers.map((h, i) => {
-    if (i === 0) { current = h.name; return true }
+  const n = headers.length
+  if (!n) return []
+  // Candidate strength: a named first page is a sure thing; a first page with
+  // no readable name or a name read on an inside page is weaker.
+  const weight: number[] = new Array(n).fill(0)
+  let current: string | null = headers[0]?.name ?? null
+  for (let i = 1; i < n; i++) {
+    const h = headers[i]
     if (h.name) {
-      // A name repeated on every page of the same paper doesn't start a new one.
-      if (current && sameStudent(h.name, current, roster)) return false
+      if (current && sameStudent(h.name, current, roster)) continue
       current = h.name
-      return true
+      weight[i] = h.firstPage ? STRONG_START : NAME_ONLY_START
+    } else if (h.firstPage) {
+      current = null
+      weight[i] = FIRST_PAGE_START
     }
-    if (h.firstPage) { current = null; return true }
-    return false
-  })
+  }
+  const strong = [0, ...weight.map((w, i) => (w === STRONG_START ? i : -1)).filter((i) => i > 0)]
+  const gaps = strong.slice(1).map((s, k) => s - strong[k])
+  const typical = gaps.length >= 2 ? median(gaps) : null
+  if (typical === null) return weight.map((w, i) => i === 0 || w > 0)
+
+  // Best set of starts: each candidate's weight minus a penalty for every
+  // paper that is longer or shorter than the typical one.
+  const penalty = (len: number) => LENGTH_PENALTY * Math.abs(len - typical) / Math.max(1, typical)
+  const candidates = [0, ...weight.map((w, i) => (w > 0 && i > 0 ? i : -1)).filter((i) => i > 0)]
+  const best: number[] = new Array(candidates.length).fill(-Infinity)
+  const prev: number[] = new Array(candidates.length).fill(-1)
+  best[0] = 0
+  for (let j = 1; j < candidates.length; j++) {
+    for (let i = 0; i < j; i++) {
+      if (best[i] === -Infinity) continue
+      const score = best[i] - penalty(candidates[j] - candidates[i]) + weight[candidates[j]]
+      if (score > best[j]) { best[j] = score; prev[j] = i }
+    }
+  }
+  let last = 0
+  let top = -Infinity
+  for (let i = 0; i < candidates.length; i++) {
+    const score = best[i] - penalty(n - candidates[i])
+    if (score > top) { top = score; last = i }
+  }
+  const starts: boolean[] = new Array(n).fill(false)
+  for (let i = last; i >= 0; i = prev[i]) { starts[candidates[i]] = true; if (i === 0) break }
+  starts[0] = true
+  return starts
+}
+
+const STRONG_START = 3
+const FIRST_PAGE_START = 1.5
+const NAME_ONLY_START = 1
+// A paper twice (or half) the typical length costs more than a strong start is worth.
+const LENGTH_PENALTY = 4.5
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+/** The usual number of pages per paper in a set (median), or null for an empty set. */
+export function typicalPageCount(counts: number[]): number | null {
+  return counts.length ? median(counts) : null
+}
+
+/** A paper with clearly more or fewer pages than the others: a split to check. */
+export function pageCountLooksOff(count: number, typical: number | null): boolean {
+  if (typical === null) return false
+  if (typical < 3) return count >= typical + 2
+  return Math.abs(count - typical) >= 2
 }
 
 /** Papers from split points; names come from the first named page in each paper. */

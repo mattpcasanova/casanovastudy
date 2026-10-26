@@ -83,6 +83,7 @@ export default function Home() {
         materialsKind: data.materialsKind,
         planId: data.planId,
         planUnit: data.planUnit,
+        sourceGuideId: data.sourceGuideId,
         visuals: data.visuals,
         codeEditor: data.codeEditor,
         length: data.length,

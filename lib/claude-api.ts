@@ -794,8 +794,10 @@ export class ClaudeService {
 - Cover what someone at this level needs for this goal: core concepts, vocabulary, key facts/formulas/patterns, and how it gets tested or used. Stay accurate; if something varies (by curriculum, exam version, company, or edition), say so briefly.
 - Keep the scope to what they asked for. If the request is very broad (a whole exam or field), cover the highest-yield areas in depth rather than everything thinly, say what the guide covers, and end with a "## Keep Going" section listing 3-5 narrower follow-up guides they could make next (one line each). (Outline and summary formats only.)`
     } else {
-      const kindRules =
-        kind === 'assessment'
+      const kindRules = request.fromGuide
+        ? `
+- These materials are the learner's existing ${request.fromGuide.format} study guide "${request.fromGuide.title}". They studied it and now want the same material as a ${format}. Cover the same topics, terms, notation, level and scope; don't widen the topic unless their extra instructions ask for changes (those win). Rewrite everything for the new format: write fresh questions, cards and explanations instead of copying its items word for word (a quiz made from flashcards should test the ideas on the cards, not repeat the card text). Ignore its formatting markers (QUESTION:, CONCEPT:, IF A:, and so on); only the ideas carry over.`
+        : kind === 'assessment'
           ? `
 - These materials are an ASSESSMENT (a quiz, test, worksheet, or practice questions) the learner needs to prepare for; not notes. Do NOT just restate the questions. For each question or group of questions, identify the concept being tested and TEACH it, using accurate knowledge beyond the file where the file doesn't explain it. Show how to approach that kind of question (with a worked example), then give fresh practice modeled on the same skills. Never present the original questions' answers as the only thing to memorize.`
           : kind === 'topic_list'
@@ -2418,8 +2420,13 @@ Output only the questions.`
    * fill in the report details. Haiku, ~$0.002 per page.
    */
   async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }, roster: string[] = []): Promise<PageHeaderRead> {
+    // The list only helps read messy handwriting. An earlier version asked the
+    // model to "return that student's name" and it then picked a student for
+    // pages with no name at all (and an example name in the prompt, "Sean
+    // Miller", came back on nameless pages), which split a 25-paper class set
+    // into 45 papers. Hence the "still null" rule and no example names.
     const rosterNote = roster.length
-      ? `\nStudents in this class: ${roster.slice(0, 200).join('; ')}.\nIf the written name clearly fits one of these students (even if messy or only a first name and initial), return that student's name exactly as listed. Otherwise copy what is written. Never pick a student when no name is written.`
+      ? `\nStudents in this class: ${roster.slice(0, 200).join('; ')}.\nIf the name written on this sheet is one of them written messily, give it as listed; if the writing says a different name, copy the writing. A sheet with no name written stays null: never choose a student from this list for it.`
       : ''
     const response = await this.anthropic.messages.create({
       model: 'claude-haiku-4-5',
@@ -2428,13 +2435,14 @@ Output only the questions.`
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
-          { type: 'text', text: `This is one page from a stack of student exam papers. Look mostly at the top of the page.
-1. name: the student's name written there (in a name field or at the top), copied exactly but WITHOUT any class period ("Sean Miller P2" -> "Sean Miller"). null if there is none or it is unreadable. Never a teacher name, school name or exam title.${rosterNote}
-2. firstPage: does this look like the FIRST page of a paper (a name or date field, an exam title, or "Question 1" near the top)?
-3. title: the exam or quiz title printed at the top (e.g. "Unit 3 Test: Stoichiometry"), without the course name. null if none.
+          { type: 'text', text: `This photo shows one page from a stack of student exam papers. Read ONLY the sheet that fills most of the photo. Other papers showing at its edges, underneath it or in the background are different pages: ignore everything on them, including any names.
+Answer about this sheet:
+1. firstPage: is this the FIRST page of a paper? True only when the printed header is on this sheet: a Name / Date / Period blank, or the exam title with the first question under it. Inside pages (later questions, free-response sections, pages of working) are false, even when another paper's header shows behind them.
+2. name: the student's name handwritten in that Name blank on this sheet, copied exactly as written, without any class period written after it. null when this sheet has no Name blank, the blank is empty, or the writing is unreadable. Never a teacher name, a school name, the exam title, or a name from another paper in the photo.${rosterNote}
+3. title: the exam or quiz title printed at the top of this sheet (e.g. "Unit 3 Test: Stoichiometry"), without the course name. null if none.
 4. course: the class or course name if printed (e.g. "AP Chemistry"); if not printed, the school subject the questions are clearly about (e.g. "Chemistry"). null if unclear.
-5. period: the class period if written (e.g. "Period 2", "P2", "Pd 3" -> "2", "2", "3"). null if none.
-Reply with JSON only: {"name": string|null, "firstPage": boolean, "title": string|null, "course": string|null, "period": string|null}` },
+5. period: the class period if written on this sheet (e.g. "Period 2", "P2", "Pd 3" -> "2", "2", "3"). null if none.
+Reply with JSON only: {"firstPage": boolean, "name": string|null, "title": string|null, "course": string|null, "period": string|null}` },
         ],
       }],
     })
@@ -2444,9 +2452,11 @@ Reply with JSON only: {"name": string|null, "firstPage": boolean, "title": strin
     try {
       const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
       const name = str(parsed.name, 80)
+      // A name no longer forces firstPage: a name read on an inside page is a
+      // weaker split signal that lib/grading/batch.ts weighs against the usual paper length.
       return {
-        name,
-        firstPage: parsed.firstPage === true || !!name,
+        name: name && /^(name|name:|n\/a|none|null)$/i.test(name) ? null : name,
+        firstPage: parsed.firstPage === true,
         title: str(parsed.title, 120),
         course: str(parsed.course, 80),
         period: str(parsed.period, 12),

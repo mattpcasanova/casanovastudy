@@ -36,9 +36,16 @@ export async function POST(request: NextRequest) {
   const hasLegacyFiles = body.files && body.files.length > 0
   // Photos and scanned pages, prepared in the browser and uploaded to Cloudinary.
   const hasImages = Array.isArray(body.images) && body.images.length > 0
+  // "Make another format": the existing guide's own content is the source material.
+  // Guides are readable by link (public SELECT), so any guide the student can open works.
+  let sourceGuide: { title: string; format: string; content: string } | null = null
+  if (typeof body.sourceGuideId === 'string' && /^[0-9a-f-]{36}$/i.test(body.sourceGuideId)) {
+    const { data } = await supabase.from('study_guides').select('title, format, content, custom_content').eq('id', body.sourceGuideId).single()
+    if (data) sourceGuide = { title: data.title, format: data.format, content: guideSourceText(data).slice(0, 60000) }
+  }
   // Students can type what they want to study instead of uploading files.
   const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
-  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && !hasImages && studyRequest.length < 3) {
+  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && !hasImages && !sourceGuide && studyRequest.length < 3) {
     return sseError('Upload a file or describe what you want to study', 400)
   }
   if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
@@ -80,6 +87,10 @@ export async function POST(request: NextRequest) {
         // 3. Handle legacy files format (if any)
         if (hasLegacyFiles && !hasCloudinaryFiles && !hasDirectContent) {
           allContent.push(...body.files!.map((f: { name: string; content: string }) => ({ name: f.name, content: f.content })))
+        }
+
+        if (sourceGuide?.content.trim()) {
+          allContent.push({ name: `Existing ${sourceGuide.format} guide: ${sourceGuide.title}`, content: sourceGuide.content })
         }
 
         // 4. Photos and scanned pages go to Claude as images.
@@ -128,13 +139,14 @@ export async function POST(request: NextRequest) {
           additionalInstructions: body.additionalInstructions,
           studyRequest: studyRequest || undefined,
           goal: body.goal && GOAL_VALUES.includes(body.goal) ? body.goal : undefined,
-          sourcePolicy: body.sourcePolicy === 'expand' ? 'expand' : 'strict',
+          sourcePolicy: body.sourcePolicy === 'expand' || sourceGuide ? 'expand' : 'strict',
           materialsKind: MATERIALS_KINDS.includes(body.materialsKind as MaterialsKind) ? (body.materialsKind as MaterialsKind) : undefined,
           visuals: body.visuals !== false,
           codeEditor: body.codeEditor !== false,
           length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
           images,
           learnerNote,
+          fromGuide: sourceGuide ? { title: sourceGuide.title, format: sourceGuide.format } : undefined,
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).
@@ -255,4 +267,12 @@ export async function POST(request: NextRequest) {
       'Connection': 'keep-alive',
     },
   })
+}
+
+/** A guide's content as plain source text (custom guides are stored as blocks). */
+function guideSourceText(g: { content: string | null; custom_content: unknown }): string {
+  if (g.content?.trim()) return g.content
+  if (!g.custom_content) return ''
+  // Drop editor ids/flags; the model only needs the words.
+  return JSON.stringify(g.custom_content, (key, value) => (key === 'id' || key === 'collapsed' ? undefined : value))
 }
