@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
           fetchUploadedImageBuffers(body.pages, MAX_PAGES),
         ])
         const student = [...toFiles(pageImages), ...textFiles(body.texts)]
+        const pageUrls = (Array.isArray(body.pages) ? body.pages : []).filter((p): p is { url: string; name?: string } => !!p && typeof (p as { url?: unknown }).url === 'string').slice(0, MAX_PAGES).map((p) => ({ url: p.url.slice(0, 500), name: String(p.name ?? '').slice(0, 200) }))
         if (!student.length) throw new Error('This paper has no pages')
 
         // Before the first marks appear Claude is reading the pages and thinking.
@@ -139,9 +140,14 @@ export async function POST(request: NextRequest) {
             exam_title: str(body.examTitle, 200),
             // The paper was graded once: its cost sits on the first member's row.
             token_usage: i === 0 && graded.usage ? { ...graded.usage, model: GRADING_MODEL, pages: student.length } : null,
+            // The pages, so the report can be regraded later (migration 074).
+            page_urls: pageUrls,
           }
         })
-        const { data: savedRows, error: saveError } = await createAdminClient().from('grading_results').insert(rows).select('id')
+        let inserted = await createAdminClient().from('grading_results').insert(rows).select('id')
+        // Before migration 074 runs, the column is missing: save without the pages.
+        if (inserted.error?.code === '42703') inserted = await createAdminClient().from('grading_results').insert(rows.map(({ page_urls: _p, ...r }) => r)).select('id')
+        const { data: savedRows, error: saveError } = inserted
         if (saveError || !savedRows?.length) throw new Error(`Could not save: ${saveError?.message ?? 'no rows'}`)
         const saved = savedRows[0]
         await rememberBatchSetup(user.id, batchId, body).catch((e) => console.error('Batch setup not saved:', e))

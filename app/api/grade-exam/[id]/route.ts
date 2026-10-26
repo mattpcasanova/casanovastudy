@@ -216,6 +216,8 @@ export async function GET(
         className: gradingResult.class_name,
         classPeriod: gradingResult.class_period,
         batchId: gradingResult.batch_id,
+        // Regrade needs the saved pages (migration 074) and the set's mark scheme.
+        canRegrade: requestUserId === gradingResult.user_id && Array.isArray(gradingResult.page_urls) && gradingResult.page_urls.length > 0 && !!gradingResult.batch_id,
         answerSheetFilename: gradingResult.answer_sheet_filename,
         studentExamFilename: gradingResult.student_exam_filename,
         totalMarks: Number(gradingResult.total_marks),

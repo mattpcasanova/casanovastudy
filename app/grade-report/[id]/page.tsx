@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Check, Clock, Download, Edit2, FileCheck, Loader2, Printer, SlidersHorizontal, Users } from "lucide-react"
+import { ArrowLeft, Check, Clock, Download, Edit2, FileCheck, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import NavigationHeader from "@/components/navigation-header"
@@ -40,6 +41,8 @@ interface GradingResult {
   pdfUrl: string | null
   createdAt: string
   isOwner: boolean
+  /** Saved pages + the set's mark scheme exist, so the owner can grade it again. */
+  canRegrade?: boolean
   linkedStudent: boolean
   groupId: string | null
   groupMembers: string[]
@@ -97,6 +100,13 @@ export default function GradeReportPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState('')
   const [applyToGroup, setApplyToGroup] = useState(true)
+  // Regrade: a note for the grader, then the paper is graded again from its saved pages.
+  const [regradeOpen, setRegradeOpen] = useState(false)
+  const [regradeNote, setRegradeNote] = useState('')
+  const [regrading, setRegrading] = useState(false)
+  const [regradeError, setRegradeError] = useState('')
+  const [regradeResult, setRegradeResult] = useState<{ totalBefore: number; totalAfter: number; changed: Array<{ question: string; before: number | null; after: number }> } | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
@@ -121,7 +131,24 @@ export default function GradeReportPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [id, user?.id, authLoading])
+  }, [id, user?.id, authLoading, reloadKey])
+
+  const regrade = async () => {
+    setRegrading(true); setRegradeError('')
+    try {
+      const res = await authFetch(`/api/grade-exam/${id}/regrade`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: regradeNote }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not regrade')
+      setRegradeResult({ totalBefore: data.totalBefore, totalAfter: data.totalAfter, changed: data.changed ?? [] })
+      setRegradeOpen(false)
+      setEditing(false)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setRegradeError(e instanceof Error ? e.message : 'Could not regrade')
+    } finally {
+      setRegrading(false)
+    }
+  }
 
   const applyToGroupRef = useRef(true)
   applyToGroupRef.current = applyToGroup && !!result?.groupId
@@ -242,6 +269,31 @@ export default function GradeReportPage() {
       <div className="container relative mx-auto -mt-16 px-4 pb-16 print:mt-0 print:p-0">
         <div className={cn("mx-auto grid gap-6", showOptions && canEdit ? "max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-4xl")}>
           <div className="space-y-4">
+            {regradeResult && (
+              <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 ring-1 ring-inset ring-emerald-200 print:hidden" role="status">
+                <p className="font-semibold">Regraded: {regradeResult.totalBefore} → {regradeResult.totalAfter} marks{regradeResult.changed.length ? `, ${regradeResult.changed.length} question${regradeResult.changed.length === 1 ? '' : 's'} changed` : ', no question changed'}.</p>
+                {regradeResult.changed.length > 0 && <p className="mt-1">{regradeResult.changed.map((c) => `Q${c.question}: ${c.before ?? '–'} → ${c.after}`).join(' · ')}</p>}
+              </div>
+            )}
+            <Dialog open={regradeOpen} onOpenChange={setRegradeOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Regrade this paper</DialogTitle>
+                  <DialogDescription>The paper is graded again from its pages against the set&apos;s mark scheme. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute.</DialogDescription>
+                </DialogHeader>
+                <label className="block text-sm">
+                  <span className="font-medium text-slate-800">Tell the grader what to look at (optional)</span>
+                  <textarea value={regradeNote} onChange={(e) => setRegradeNote(e.target.value)} rows={3} placeholder="e.g. Question 8 is circled C, not A. Accept 'bent' without an angle for 31d." className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-base" />
+                </label>
+                {regradeError && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{regradeError}</p>}
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button variant="ghost" className={actionButton} onClick={() => setRegradeOpen(false)} disabled={regrading}>Cancel</Button>
+                  <Button className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")} onClick={() => void regrade()} disabled={regrading}>
+                    {regrading ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Grading again…</> : <><RefreshCw className="mr-1.5 h-4 w-4" /> Regrade</>}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             {/* Toolbar */}
             <div className={cn(buttonRow, "rounded-2xl bg-white/95 p-2 shadow-lg shadow-blue-900/10 ring-1 ring-slate-200 print:hidden")}>
               {result.batchId && (
@@ -252,6 +304,11 @@ export default function GradeReportPage() {
               {canEdit && !editing && (
                 <Button onClick={() => setEditing(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
                   <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
+                </Button>
+              )}
+              {canEdit && result.canRegrade && !editing && (
+                <Button variant="ghost" onClick={() => { setRegradeNote(''); setRegradeError(''); setRegradeOpen(true) }} className={actionButton}>
+                  <RefreshCw className="mr-1.5 h-4 w-4" /> Regrade
                 </Button>
               )}
               {canEdit && (
