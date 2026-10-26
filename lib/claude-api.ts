@@ -16,6 +16,21 @@ export interface PageHeaderRead {
   period: string | null
 }
 
+/** A careful read of a paper's first page (readCoverName). */
+export interface CoverRead {
+  /** The sheet really is a paper's first page (printed header with a Name blank). */
+  firstPage: boolean
+  /** The name as handwritten, null when the blank is empty or unreadable. */
+  written: string | null
+  /** The class-list entry it is, exactly as listed, when a list was given. */
+  student: string | null
+  /** The model is confident `student` is right. */
+  sure: boolean
+  title: string | null
+  course: string | null
+  period: string | null
+}
+
 // Turn structured "specific control" directives into an instruction block the
 // custom-guide generator can honor. Returns '' when nothing is specified so the
 // model is free to design the guide itself ("generic" mode).
@@ -2499,6 +2514,59 @@ Reply with JSON only: {"firstPage": boolean, "name": string|null, "title": strin
       }
     } catch {
       return { name: null, firstPage: false, title: null, course: null, period: null }
+    }
+  }
+
+  /**
+   * Read the name on a paper's first page carefully: GRADING_MODEL (Sonnet
+   * 5.5) with the class list, ~$0.01 a page. Haiku's per-page read is fine
+   * for finding where papers start, but on real phone photos (rotated covers,
+   * messy handwriting) it misread most names and, given a class list, kept
+   * returning the same few students. Run on the first page of each paper
+   * once the stack is split.
+   */
+  async readCoverName(image: { mediaType: GuideImage['mediaType']; data: string }, roster: string[] = []): Promise<CoverRead> {
+    const rosterNote = roster.length
+      ? `\nStudents in this class: ${roster.slice(0, 200).join('; ')}.`
+      : ''
+    const response = await this.anthropic.messages.create({
+      model: GRADING_MODEL,
+      max_tokens: 400,
+      thinking: { type: 'between_tools' } as unknown as Anthropic.ThinkingConfigParam,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
+          { type: 'text', text: `This should be the first page of one student's exam paper (the photo may be rotated). Look at the sheet that fills the photo and ignore any other papers visible around or under it. If it is a first page, find the Name blank in its printed header and read the handwritten name in it.${rosterNote}
+Reply with JSON only:
+{"firstPage": true if this sheet is a paper's first page (its printed header has a Name blank, or the exam title with the first question under it), false if it is an inside page,
+ "written": the name exactly as written in this sheet's Name blank, without any class period after it (null if the blank is empty or unreadable, or this is not a first page),
+ "student": ${roster.length ? 'the class-list entry this handwriting is, exactly as listed, or null if it fits none of them' : 'null'},
+ "sure": true only if you are confident of the match,
+ "title": the exam or quiz title printed at the top (without the course name) or null,
+ "course": the class or course name if printed, else the school subject the questions are about, or null,
+ "period": the class period written on the page ("Period 2", "P2" -> "2") or null}` },
+        ],
+      }],
+    })
+    const text = response.content.find(b => b.type === 'text')
+    const raw = text && text.type === 'text' ? text.text : ''
+    const str = (v: unknown, n: number) => (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null' ? v.trim().slice(0, n) : null)
+    try {
+      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
+      const student = str(parsed.student, 80)
+      return {
+        firstPage: parsed.firstPage !== false,
+        written: str(parsed.written, 80),
+        // Only a name that is really on the list counts as a match.
+        student: student && roster.some((r) => r.trim().toLowerCase() === student.toLowerCase()) ? student : null,
+        sure: parsed.sure === true,
+        title: str(parsed.title, 120),
+        course: str(parsed.course, 80),
+        period: str(parsed.period, 12),
+      }
+    } catch {
+      return { firstPage: true, written: null, student: null, sure: false, title: null, course: null, period: null }
     }
   }
 

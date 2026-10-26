@@ -59,57 +59,75 @@ export interface PaperGroup {
 export function splitPoints(headers: PageHeader[], roster?: RosterName[]): boolean[] {
   const n = headers.length
   if (!n) return []
+  const same = (i: number, j: number) => !!headers[i]?.name && !!headers[j]?.name && sameStudent(headers[j].name!, headers[i].name!, roster)
   // Candidate strength: a named first page is a sure thing; a first page with
   // no readable name or a name read on an inside page is weaker.
-  const weight: number[] = new Array(n).fill(0)
-  let current: string | null = headers[0]?.name ?? null
-  for (let i = 1; i < n; i++) {
-    const h = headers[i]
-    if (h.name) {
-      if (current && sameStudent(h.name, current, roster)) continue
-      current = h.name
-      weight[i] = h.firstPage ? STRONG_START : NAME_ONLY_START
-    } else if (h.firstPage) {
-      current = null
-      weight[i] = FIRST_PAGE_START
-    }
-  }
-  const strong = [0, ...weight.map((w, i) => (w === STRONG_START ? i : -1)).filter((i) => i > 0)]
-  const gaps = strong.slice(1).map((s, k) => s - strong[k])
-  const typical = gaps.length >= 2 ? median(gaps) : null
-  if (typical === null) return weight.map((w, i) => i === 0 || w > 0)
+  const weight = headers.map((h, i) => (i === 0 ? STRONG_START : h.name ? (h.firstPage ? STRONG_START : NAME_ONLY_START) : h.firstPage ? FIRST_PAGE_START : 0))
+  const candidates = weight.map((w, i) => (w > 0 ? i : -1)).filter((i) => i >= 0)
 
-  // Best set of starts: each candidate's weight minus a penalty for every
-  // paper that is longer or shorter than the typical one.
-  const penalty = (len: number) => LENGTH_PENALTY * Math.abs(len - typical) / Math.max(1, typical)
-  const candidates = [0, ...weight.map((w, i) => (w > 0 && i > 0 ? i : -1)).filter((i) => i > 0)]
-  const best: number[] = new Array(candidates.length).fill(-Infinity)
-  const prev: number[] = new Array(candidates.length).fill(-1)
-  best[0] = 0
-  for (let j = 1; j < candidates.length; j++) {
-    for (let i = 0; i < j; i++) {
-      if (best[i] === -Infinity) continue
-      const score = best[i] - penalty(candidates[j] - candidates[i]) + weight[candidates[j]]
-      if (score > best[j]) { best[j] = score; prev[j] = i }
+  // Sure first pages (a repeat of the current paper's name is not one) tell
+  // the usual paper length. With fewer than 4 of them every candidate splits,
+  // except a repeat of the current paper's name.
+  const strong: number[] = []
+  for (const i of candidates) {
+    if (i === 0 || (headers[i].name && headers[i].firstPage && !same(strong[strong.length - 1], i))) strong.push(i)
+  }
+  const gaps = strong.slice(1).map((s, k) => s - strong[k])
+  if (gaps.length < 3) {
+    let current = 0
+    return headers.map((h, i) => {
+      if (i === 0) return true
+      if (!weight[i] || (h.name && same(current, i))) return false
+      current = i
+      return true
+    })
+  }
+
+  // The best set of starts: each candidate's weight (a repeat of the paper's
+  // name counts against it) minus a penalty for every paper shorter or longer
+  // than the typical one. Short is the sign of a misread (a 2-page paper in a
+  // set of 9-page ones); long is softer, since extra sheets happen. The
+  // typical length is whichever gap between sure first pages explains the
+  // stack best.
+  let bestStarts: boolean[] | null = null
+  let bestScore = -Infinity
+  for (const typical of new Set(gaps)) {
+    const penalty = (len: number) => (len < typical ? SHORT_PENALTY * (typical - len) : LONG_PENALTY * (len - typical)) / typical
+    const best: number[] = new Array(candidates.length).fill(-Infinity)
+    const prev: number[] = new Array(candidates.length).fill(-1)
+    best[0] = 0
+    for (let j = 1; j < candidates.length; j++) {
+      for (let i = 0; i < j; i++) {
+        if (best[i] === -Infinity) continue
+        const gain = same(candidates[i], candidates[j]) ? -SAME_NAME_PENALTY : weight[candidates[j]]
+        const score = best[i] - penalty(candidates[j] - candidates[i]) + gain
+        if (score > best[j]) { best[j] = score; prev[j] = i }
+      }
     }
+    let last = 0
+    let top = -Infinity
+    for (let i = 0; i < candidates.length; i++) {
+      const score = best[i] - penalty(n - candidates[i])
+      if (score > top) { top = score; last = i }
+    }
+    if (top <= bestScore) continue
+    bestScore = top
+    const starts: boolean[] = new Array(n).fill(false)
+    for (let i = last; i >= 0; i = prev[i]) { starts[candidates[i]] = true; if (i === 0) break }
+    starts[0] = true
+    bestStarts = starts
   }
-  let last = 0
-  let top = -Infinity
-  for (let i = 0; i < candidates.length; i++) {
-    const score = best[i] - penalty(n - candidates[i])
-    if (score > top) { top = score; last = i }
-  }
-  const starts: boolean[] = new Array(n).fill(false)
-  for (let i = last; i >= 0; i = prev[i]) { starts[candidates[i]] = true; if (i === 0) break }
-  starts[0] = true
-  return starts
+  return bestStarts!
 }
 
 const STRONG_START = 3
 const FIRST_PAGE_START = 1.5
 const NAME_ONLY_START = 1
-// A paper twice (or half) the typical length costs more than a strong start is worth.
-const LENGTH_PENALTY = 4.5
+// Per typical length of shortfall / excess: a split that leaves a 2-page paper
+// in a set of 9-page ones costs more than a strong start is worth.
+const SHORT_PENALTY = 4.5
+const LONG_PENALTY = 3
+const SAME_NAME_PENALTY = 4.5
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)

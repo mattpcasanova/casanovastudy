@@ -35,7 +35,7 @@ import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
 import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox, buttonRow } from "@/components/grading/grading-ui"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
-import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, remainingSeconds, naturalCompare, resultsCsv, splitPoints, type PageHeader } from "@/lib/grading/batch"
+import { estimateGradingSeconds, groupPages, measuredSecondsPerPage, mostCommon, pageCountLooksOff, remainingSeconds, naturalCompare, resultsCsv, splitPoints, typicalPageCount, type PageHeader } from "@/lib/grading/batch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
 import { cn } from "@/lib/utils"
@@ -228,6 +228,10 @@ function BatchGrading() {
     })
   }, [starts, headers, removed, names, rosterNames, groups])
 
+  // Most papers in a set have the same number of pages; one that doesn't is a split to check.
+  const typicalPages = useMemo(() => typicalPageCount(papers.filter((p) => !p.stamp).map((p) => p.pages.length)), [papers])
+  const oddPapers = papers.filter((p) => !p.stamp && pageCountLooksOff(p.pages.length, typicalPages))
+
   // Stamped copies from several classes: one class set (and results page) per class.
   const paperClasses = useMemo(() => {
     const seen = new Map<string, string>()
@@ -410,7 +414,7 @@ function BatchGrading() {
         const res = await authFetch("/api/grade-batch/split", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pages: unread, roster: rosterNames.map(fullName) }),
+          body: JSON.stringify({ pages: unread, roster: rosterNames }),
         })
         const data = await res.json().catch(() => ({}))
         if (isPlanBlock(data)) { openPremium(data); setPhase("setup"); return }
@@ -636,6 +640,7 @@ function BatchGrading() {
               <input type="checkbox" checked={sortByName} onChange={(e) => setSortByName(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               Put pages in file-name order (keeps phone photos in the order you took them)
             </label>
+            <p className="mt-2 text-sm text-slate-500">A scanner (or the copier&apos;s Scan to Email) is still the most reliable way to get a big stack in. Photographing with a phone? Lay each page flat on the desk, not held up in front of the stack: the next paper&apos;s name shows through and can be read as this one&apos;s.</p>
             {namedFiles > 0 && (
               <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" checked={onePerFile} onChange={(e) => setOnePerFileChoice(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
@@ -674,7 +679,7 @@ function BatchGrading() {
             <div>
               <h2 className={cn(fontDisplay, "text-3xl font-semibold text-slate-900")}>{papers.length} student{papers.length === 1 ? "" : "s"} found</h2>
               <p className="text-sm text-slate-600">
-                {pages.length - removed.size} pages. {phase === "review" ? "Check the names and pages, then grade. Use the scissors on a page that starts a new student." : `${done.length} of ${papers.length} graded${failed.length ? `, ${failed.length} failed` : ""}.`}
+                {pages.length - removed.size} pages{typicalPages !== null && papers.length > 2 ? `, usually ${typicalPages} per paper` : ""}. {phase === "review" ? (oddPapers.length ? `${oddPapers.length} paper${oddPapers.length === 1 ? " has" : "s have"} an unusual number of pages: check where ${oddPapers.length === 1 ? "it starts" : "they start"}. Use the scissors on a page that starts a new student.` : "Check the names and pages, then grade. Use the scissors on a page that starts a new student.") : `${done.length} of ${papers.length} graded${failed.length ? `, ${failed.length} failed` : ""}.`}
               </p>
             </div>
             <div className={buttonRow}>
@@ -903,6 +908,7 @@ function BatchGrading() {
                         {paper.stamp && <span className="rounded-full bg-white/80 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">Name stamp{paperClasses.size > 1 && paper.stamp.className ? ` · ${paperClasses.get(paper.stamp.classId ?? "")}` : ""}</span>}
                         {headers[paper.key]?.fromFile && !paper.stamp && <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-sm font-semibold text-sky-700 ring-1 ring-sky-200">{headers[paper.key]?.fromClassroom ? "From Google Classroom" : "From file name"}</span>}
                         {paper.missing.length > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">Missing page{paper.missing.length === 1 ? "" : "s"} {paper.missing.join(", ")}</span>}
+                        {!paper.stamp && pageCountLooksOff(paper.pages.length, typicalPages) && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">{paper.pages.length} page{paper.pages.length === 1 ? "" : "s"}, most have {typicalPages}: check the split</span>}
                         {phase === "review" && !groupOpen.has(paper.key) && !paper.others.length && (
                           <button type="button" onClick={() => setGroupOpen((s) => new Set(s).add(paper.key))} className={actionButton}><UsersRound className="h-4 w-4" />Group work?</button>
                         )}

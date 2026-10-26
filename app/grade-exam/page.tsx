@@ -21,7 +21,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { matchRoster, parseName } from "@/lib/grading/names"
+import { fullName, matchRoster, parseName } from "@/lib/grading/names"
 import type { RosterRow } from "@/lib/classes/server"
 
 interface GradingResult {
@@ -131,7 +131,7 @@ export default function GradeExamPage() {
       const res = await authFetch("/api/grading/read-header", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: await blobToBase64(page.blob) }),
+        body: JSON.stringify({ image: await blobToBase64(page.blob), roster: roster.map(fullName) }),
       })
       if (!res.ok) return
       const read: { name: string | null; title: string | null; course: string | null; period: string | null } = await res.json()
