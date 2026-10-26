@@ -7,7 +7,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, CreditCard, FileText, HelpCircle, History, Layers, List, Puzzle, ScrollText, SlidersHorizontal, Target } from "lucide-react"
+import { ArrowRight, CreditCard, FileText, HelpCircle, History, List, Puzzle, ScrollText, SlidersHorizontal, Target } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
@@ -141,37 +141,5 @@ export function NextFormatDialog({ guide, open, onOpenChange, initialFormat }: {
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-const chip = "flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50"
-
-/** Shown under a guide: one chip per other format, each opening the dialog. */
-export function NextFormatCard({ guide }: { guide: StudyGuideRecord }) {
-  const [open, setOpen] = useState(false)
-  const [picked, setPicked] = useState<NextFormat | null>(null)
-  const options = NEXT_FORMATS.filter((f) => f.value !== guide.format).slice(0, 3)
-
-  return (
-    <section className="mx-auto mt-10 max-w-3xl rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 print:hidden">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><Layers className="h-5 w-5" /></span>
-        <div>
-          <h2 className="font-semibold text-slate-900">Study it another way</h2>
-          <p className="text-sm text-slate-600">Turn {guide.format === "flashcards" ? "these flashcards" : `this ${FORMAT_NAMES[guide.format] ?? "guide"}`} into a new guide on the same material.</p>
-        </div>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {options.map((f) => (
-          <button key={f.value} type="button" onClick={() => { setPicked(f.value); setOpen(true) }} className={chip}>
-            <f.icon className="h-4 w-4 text-slate-500" />{f.label}
-          </button>
-        ))}
-        <button type="button" onClick={() => { setPicked(null); setOpen(true) }} className={chip}>
-          <Layers className="h-4 w-4 text-slate-500" />Other format
-        </button>
-      </div>
-      <NextFormatDialog guide={guide} open={open} onOpenChange={setOpen} initialFormat={picked} />
-    </section>
   )
 }

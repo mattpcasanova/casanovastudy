@@ -5,9 +5,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Bell, Download, Loader2, ShieldCheck, Smile, Trash2 } from "lucide-react"
-import { AvatarPicker, UserAvatar } from "@/components/profile/avatar"
-import { actionButton } from "@/components/grading/grading-ui"
+import { Bell, Download, Loader2, ShieldCheck, Trash2 } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -30,7 +28,6 @@ export default function AccountPage() {
 function Account() {
   const { user, signOut } = useAuth()
   const [downloading, setDownloading] = useState(false)
-  const [avatarOpen, setAvatarOpen] = useState(false)
   const [confirm, setConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,15 +70,10 @@ function Account() {
       <main className="container mx-auto max-w-3xl space-y-6 px-4 py-10">
         <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>Account &amp; privacy</h1>
 
-        <section className="flex flex-wrap items-center gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
-          {user && <UserAvatar user={user} className="h-16 w-16 text-xl ring-1 ring-slate-200" />}
-          <div className="min-w-[12rem] flex-1">
-            <p className="text-lg font-semibold text-slate-900">{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.email}</p>
-            <p className="text-slate-600">{user?.email}</p>
-            <p className="mt-1 text-sm capitalize text-slate-500">{user?.user_type}</p>
-          </div>
-          <button type="button" className={actionButton} onClick={() => setAvatarOpen(true)}><Smile className="h-4 w-4" />Change avatar</button>
-          <AvatarPicker open={avatarOpen} onOpenChange={setAvatarOpen} />
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
+          <p className="text-lg font-semibold text-slate-900">{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.email}</p>
+          <p className="text-slate-600">{user?.email}</p>
+          <p className="mt-1 text-sm capitalize text-slate-500">{user?.user_type}</p>
         </section>
 
         {user && <RemindersSection userId={user.id} />}

@@ -4,7 +4,7 @@
 //  - Highlight text inside the guide: on desktop an "Explain" pill appears
 //    next to the selection; on phones (where the OS owns the selection menu)
 //    the always-visible dock button turns into "Explain selection".
-//  - The dock's "Ask AI" button opens the panel to type a question.
+//  - The dock's "Get help" button opens the panel to type a question.
 //  - Quiz/practice/Learn feedback boxes show an ExplainButton ("Why?").
 // Answers stream from /api/explain into a side panel (desktop) or bottom
 // sheet (phone), with quick follow-ups. The thread lives in memory only.
@@ -14,6 +14,7 @@
 // panel says the teacher can see what they ask. The route enforces it too
 // (403 code 'ai_off'), e.g. for the same guide opened without ?assignment=.
 
+import { supabase } from '@/lib/supabase'
 import { useReading } from '@/components/reading/reading-provider'
 import { speak, speechSupported, textForSpeech } from '@/lib/reading/speech'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -72,8 +73,8 @@ function useFinePointer(): boolean {
   return fine
 }
 
-export function ExplainProvider({ guideId, children }: { guideId: string; children: ReactNode }) {
-  const { user } = useAuth()
+export function ExplainProvider({ guideId, children, dockExtra }: { guideId: string; children: ReactNode; /** Another button for the dock, above Calculator (e.g. Study it another way). */ dockExtra?: ReactNode }) {
+  const { user, loading: authLoading } = useAuth()
   const desmos = useDesmos()
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -86,15 +87,31 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<{ text: string; context: string; rect: DOMRect } | null>(null)
   const finePointer = useFinePointer()
-  // One-time tip so students learn they can highlight text (remembered per browser).
+  // One-time tip so students learn they can highlight text. Shown once ever:
+  // it counts as seen the moment it appears, remembered in this browser and,
+  // when signed in, on the account (auth user_metadata.seen_help_tip), so a
+  // new device or a cleared school Chromebook doesn't show it again.
   const [showTip, setShowTip] = useState(false)
   useEffect(() => {
-    try { if (!localStorage.getItem(TIP_KEY)) setShowTip(true) } catch { /* storage unavailable */ }
-  }, [])
-  const dismissTip = useCallback(() => {
-    setShowTip(false)
-    try { localStorage.setItem(TIP_KEY, '1') } catch { /* storage unavailable */ }
-  }, [])
+    if (authLoading) return
+    let cancelled = false
+    void (async () => {
+      try { if (localStorage.getItem(TIP_KEY)) return } catch { return }
+      // getUser asks the server: the session saved in this browser can predate the flag.
+      const { data: { session } } = await supabase.auth.getSession()
+      const fresh = session ? (await supabase.auth.getUser()).data.user : null
+      if (cancelled) return
+      if (fresh?.user_metadata?.seen_help_tip) {
+        try { localStorage.setItem(TIP_KEY, '1') } catch { /* storage unavailable */ }
+        return
+      }
+      setShowTip(true)
+      try { localStorage.setItem(TIP_KEY, '1') } catch { /* storage unavailable */ }
+      if (session) void supabase.auth.updateUser({ data: { seen_help_tip: true } })
+    })()
+    return () => { cancelled = true }
+  }, [authLoading])
+  const dismissTip = useCallback(() => setShowTip(false), [])
   const turnsRef = useRef<Turn[]>([])
   turnsRef.current = turns
   const assignedAi = useAssignmentAi()
@@ -189,10 +206,11 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
     return (
       <ExplainContext.Provider value={null}>
         <div ref={rootRef}>{children}</div>
-        <div aria-hidden className={cn('print:hidden', desmos ? 'h-20' : 'h-0')} />
-        {desmos && (
-          <div className="fixed bottom-4 left-4 z-40 sm:bottom-6 sm:left-6 print:hidden">
-            <button
+        <div aria-hidden className={cn('print:hidden', desmos || dockExtra ? 'h-20' : 'h-0')} />
+        {(desmos || dockExtra) && (
+          <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2 sm:bottom-6 sm:left-6 print:hidden">
+            {dockExtra}
+            {desmos && <button
               type="button"
               onClick={desmos.open}
               onPointerEnter={desmos.preload}
@@ -200,7 +218,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:border-blue-300 hover:text-blue-700"
             >
               <Calculator className="h-4 w-4 text-blue-600" /> Calculator
-            </button>
+            </button>}
           </div>
         )}
       </ExplainContext.Provider>
@@ -243,12 +261,13 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
     <ExplainContext.Provider value={api}>
       <div ref={rootRef}>{children}</div>
       {/* Room to scroll the last answer/Next button clear of the floating dock. */}
-      <div aria-hidden className={cn('print:hidden', desmos ? 'h-28' : 'h-24', 'sm:h-12')} />
+      <div aria-hidden className={cn('print:hidden', desmos && dockExtra ? 'h-40' : desmos || dockExtra ? 'h-28' : 'h-24', 'sm:h-12')} />
       {pill}
 
       {/* Dock: always visible, bottom-left (the guide's menu is bottom-right). */}
       {!(open && !finePointer) && (
         <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2 sm:bottom-6 sm:left-6 print:hidden">
+          {dockExtra}
           {desmos && (
             <button
               type="button"
@@ -265,8 +284,8 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
               <p className="font-semibold">Stuck on something?</p>
               <p className="mt-1 text-white/80">
                 {finePointer
-                  ? 'Highlight any text in this guide, then click Explain. You can also ask about any graph or model with its Explain button, or click Ask AI to type a question.'
-                  : 'Press and hold any text to select it, then tap Explain selection. Graphs and models have their own Explain button, and Ask AI lets you type a question.'}
+                  ? 'Highlight any text in this guide, then click Explain. You can also ask about any graph or model with its Explain button, or click Get help to type a question.'
+                  : 'Press and hold any text to select it, then tap Explain selection. Graphs and models have their own Explain button, and Get help lets you type a question.'}
               </p>
               <button type="button" onClick={dismissTip} className="mt-2.5 rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold hover:bg-white/25">Got it</button>
               <span className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-slate-900" />
@@ -286,7 +305,7 @@ export function ExplainProvider({ guideId, children }: { guideId: string; childr
             )}
           >
             <MessageCircleQuestion className={cn('h-4 w-4', touchSelection ? 'text-sky-300' : 'text-blue-600')} />
-            {touchSelection ? 'Explain selection' : 'Ask AI'}
+            {touchSelection ? 'Explain selection' : 'Get help'}
           </button>
         </div>
       )}

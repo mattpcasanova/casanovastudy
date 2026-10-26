@@ -39,7 +39,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { signInPath } from '@/lib/sign-in-path'
-import { NextFormatCard, NextFormatDialog, canMakeAnotherFormat } from '@/components/next-format'
+import { NextFormatDialog, canMakeAnotherFormat } from '@/components/next-format'
 import { ReadingProvider, ReadingSettingsButton, ReadingSurface } from '@/components/reading/reading-provider'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
@@ -474,11 +474,21 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
         {isOwner && user?.user_type === 'teacher' && <AssignBar guide={studyGuide} />}
         <div className="mx-auto max-w-3xl"><LearnCallout guide={studyGuide} /></div>
         <DesmosProvider guideId={studyGuide.id} mode={calculatorMode} showButton={false}>
-          <ExplainProvider guideId={studyGuide.id}>
+          <ExplainProvider
+            guideId={studyGuide.id}
+            dockExtra={showNextFormat ? (
+              <button
+                type="button"
+                onClick={() => setNextFormatOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:border-blue-300 hover:text-blue-700"
+              >
+                <Layers className="h-4 w-4 text-blue-600" /> Study it another way
+              </button>
+            ) : undefined}
+          >
             <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}><ReadingSurface>{renderFormat()}</ReadingSurface></StudyResultsProvider>
           </ExplainProvider>
         </DesmosProvider>
-        {showNextFormat && <NextFormatCard guide={studyGuide} />}
       </div>
       {showNextFormat && <NextFormatDialog guide={studyGuide} open={nextFormatOpen} onOpenChange={setNextFormatOpen} />}
 

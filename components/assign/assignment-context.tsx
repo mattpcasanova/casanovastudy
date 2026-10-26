@@ -90,9 +90,9 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
           {mine.dueAt && <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" />Due {dueText(mine.dueAt)}</span>}
           {mine.maxAttempts != null && <span>Attempt {Math.min(mine.attempts + 1, mine.maxAttempts)} of {mine.maxAttempts}{mine.attemptsLeft === 0 ? " (all used)" : ""}</span>}
           {mine.grading === "mastery" && <span>Graded on how many topics you master</span>}
-          {mine.aiHelp === "off" && <span className="inline-flex items-center gap-1.5"><MessageCircleOff className="h-4 w-4" />AI help is off</span>}
-          {mine.aiHelp === "tutor" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />AI help: hints only. Your teacher can see what you ask</span>}
-          {mine.aiHelp === "full" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Your teacher can see what you ask the AI</span>}
+          {mine.aiHelp === "off" && <span className="inline-flex items-center gap-1.5"><MessageCircleOff className="h-4 w-4" />Get help is off for this assignment</span>}
+          {mine.aiHelp === "tutor" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Get help: hints only. Your teacher can see what you ask</span>}
+          {mine.aiHelp === "full" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Your teacher can see what you ask in Get help</span>}
           {best && <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" />Best so far: {best}</span>}
           {focusOn && focus.state === "on" && <span className="inline-flex items-center gap-1.5 font-medium"><Eye className="h-4 w-4" />Focus mode: leaving this page is recorded</span>}
           {focusOn && focus.state === "on" && focus.finished && (
