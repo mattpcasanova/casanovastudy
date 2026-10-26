@@ -75,6 +75,7 @@ export function NextFormatDialog({ guide, open, onOpenChange, initialFormat }: {
       difficultyLevel: difficulty === "easier" || difficulty === "hard" ? difficulty : undefined,
       sourceGuide: { id: guide.id, title: guide.title, format: guide.format },
       additionalInstructions: changes.trim() || undefined,
+      language: guide.language ?? "en",
       autoStart,
     }))
   }

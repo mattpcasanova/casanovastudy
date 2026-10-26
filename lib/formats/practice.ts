@@ -220,7 +220,8 @@ export function normalizeAnswer(s: string): string {
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '') // accents: "élan" ≈ "elan"
     .replace(/[^a-z0-9.+\-/ ]/g, ' ')
-    .replace(/^(the|a|an)\s+/, '')
+    // Leading articles, also in the other guide languages ("la mitocondria" ≈ "mitocondria").
+    .replace(/^(the|a|an|el|la|los|las|un|una|unos|unas|le|les|une|des|o|os|as|um|uma)\s+/, '')
     .replace(/\s+/g, ' ')
     .trim()
 }

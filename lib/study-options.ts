@@ -93,6 +93,29 @@ export function normalizeDifficulty(value: unknown): GuideDifficulty {
   return DIFFICULTIES.includes(value as GuideDifficulty) ? (value as GuideDifficulty) : 'standard'
 }
 
+/**
+ * Language the guide is written in. 'en-es' = English with Spanish support for
+ * English language learners (key terms translated, a short Spanish recap).
+ * Saved on study_guides.language so Explain, hints and refills match it.
+ */
+export type GuideLanguage = 'en' | 'es' | 'en-es' | 'ht' | 'pt' | 'fr'
+export const GUIDE_LANGUAGES: Array<{ value: GuideLanguage; label: string; name: string; speech: string }> = [
+  { value: 'en', label: 'English', name: 'English', speech: 'en-US' },
+  { value: 'es', label: 'Español (Spanish)', name: 'Spanish', speech: 'es-US' },
+  { value: 'en-es', label: 'English with Spanish support', name: 'English with Spanish support', speech: 'en-US' },
+  { value: 'ht', label: 'Kreyòl ayisyen (Haitian Creole)', name: 'Haitian Creole', speech: 'ht-HT' },
+  { value: 'pt', label: 'Português (Portuguese)', name: 'Portuguese', speech: 'pt-BR' },
+  { value: 'fr', label: 'Français (French)', name: 'French', speech: 'fr-FR' },
+]
+
+export function normalizeLanguage(value: unknown): GuideLanguage {
+  return GUIDE_LANGUAGES.some((l) => l.value === value) ? (value as GuideLanguage) : 'en'
+}
+
+export function languageName(value: unknown): string {
+  return GUIDE_LANGUAGES.find((l) => l.value === normalizeLanguage(value))!.name
+}
+
 // Grade 8 and under: from the level picker, or from the title/topic when the
 // level was left blank ("Help my 6th grader study math").
 const YOUNG_TEXT = /middle school|elementary|\b[1-8](st|nd|rd|th)[ -]grade|\b(first|second|third|fourth|fifth|sixth|seventh|eighth) grade|\bgrade [1-8]\b/i

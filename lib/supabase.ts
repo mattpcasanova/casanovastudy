@@ -69,6 +69,7 @@ export interface StudyGuideRecord {
   content: string
   topic_focus?: string
   difficulty_level?: string
+  language?: string // GuideLanguage (migration 071); default en
   additional_instructions?: string
   file_count: number
   token_usage?: {

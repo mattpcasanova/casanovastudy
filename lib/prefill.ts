@@ -18,6 +18,8 @@ export interface GuidePrefill {
   sourceGuide?: { id: string; title: string; format: string }
   /** Goes in "Extra instructions" (e.g. the student's "anything to change?"). */
   additionalInstructions?: string
+  /** Guide language (GuideLanguage) to keep, e.g. a Spanish guide's next guide. */
+  language?: string
   /** false = fill in the form and wait (the student wants to adjust more). Default true. */
   autoStart?: boolean
 }

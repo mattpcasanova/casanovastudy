@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat, type GuideImage } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
-import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, type GuideDifficulty } from '@/lib/study-options'
+import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, languageName, type GuideDifficulty, type GuideLanguage } from '@/lib/study-options'
 import { sniffImageType } from '@/lib/uploads/server-images'
 import { looksLikeHeic } from '@/lib/uploads/kinds'
 import { markingStyleInstructions, type MarkingStyle } from '@/lib/grading/marking-style'
@@ -417,6 +417,37 @@ function difficultyInstructions(format: string, difficulty: GuideDifficulty | un
     }
     if (difficulty === 'easier') {
       return `DIFFICULTY: FOUNDATIONS (the learner struggled with these concepts). Build up in small steps: level 1 = one idea, one step, with the numbers kept simple; level 2 = two steps; level 3 = a typical test question. Write LESSON lines as a clear first explanation with a tiny example, and make IF feedback name the exact step that went wrong.`
+// Guide language (study_guides.language). The parsers read English markers, so
+// those stay English while everything the learner reads is translated.
+const KEEP_MARKERS = `Keep the app's structural markers exactly as written in the format rules, in English, because the app reads them: line labels (MC_QUESTION:, TF_QUESTION:, SA_QUESTION:, Correct Answer:, Answer:, Explanation:, Hint:, CONCEPT:, LESSON:, Q:, IF A:, ANSWER:, HINT:, REFILL:, UNIT:, GOAL:, COVERS:, FORMAT:, TIME:, EVENT:, WHAT:, WHY:, MATCH:, FILL:, ORDER:, SORT:, WRITE_CODE: and the like), option letters A) B) C) D), true/false answers (always the English word True or False after "Answer:"), fence names and figure spec keys (kind:, x:, node:, and so on; their label text may be translated), and code. Math notation stays as it is.`
+
+/** One line for the Explain tutor: answer in the guide's language (or the student's). */
+export function explainLanguage(language: GuideLanguage | undefined): string {
+  if (!language || language === 'en') return 'Answer in English, unless the student writes to you in another language; then answer in theirs.'
+  if (language === 'en-es') return 'The student is still learning English (their first language is Spanish). Use plain English with short sentences, put the Spanish for key terms in parentheses, and end with one short sentence starting "En español:" that restates the main point. If they write to you in Spanish, answer fully in Spanish.'
+  return `This guide is in ${languageName(language)}. Answer in ${languageName(language)}, even when the request below is in English (the app's buttons send English requests), unless the student types to you in another language. Keep math notation and any Desmos expressions as they are.`
+}
+
+export function languageInstructions(language: GuideLanguage | undefined): string {
+  if (!language || language === 'en') return ''
+  if (language === 'en-es') {
+    return `LANGUAGE: ENGLISH WITH SPANISH SUPPORT. The learner is still learning English; their first language is Spanish, and their class and tests are in English.
+- Write in clear, plain English: short sentences, everyday words, no idioms. Keep the subject's real terms, since they will see them on tests.
+- The first time each key term appears in a section, add its Spanish translation in parentheses, e.g. photosynthesis (fotosíntesis). Flashcard backs end with the Spanish term.
+- Explanations, lessons and callouts end with one short sentence in Spanish that restates the main idea, starting with "En español:".
+- Questions and answer options stay in English only (that is how their tests are written).
+- ${KEEP_MARKERS}`
+  }
+  const name = languageName(language)
+  const variety = language === 'es'
+    ? ' Use clear, neutral Latin American Spanish, as used in US schools.'
+    : language === 'pt' ? ' Use Brazilian Portuguese.' : language === 'ht' ? ' Use standard Haitian Creole spelling (Kreyòl ayisyen).' : ''
+  return `LANGUAGE: Write the whole guide in ${name}.${variety}
+- Everything the learner reads is in ${name}: the title, headings, questions, answer options, explanations, hints, flashcards, lessons, callout labels and figure labels.
+- The first time a key term appears that the learner will also see in English (on English-language tests such as AP or state exams), add the English term in parentheses once.
+- ${KEEP_MARKERS}`
+}
+
     }
     return ''
   }
@@ -847,8 +878,10 @@ ${request.learnerNote}
 ` : ''}${content?.trim() ? `
 MATERIALS:
 ${content}
+${languageInstructions(request.language)}
+
 ` : ''}
-Write the complete ${format} study guide now, following the format and style rules exactly. Output only the guide markdown; no preamble.`
+Write the complete ${format} study guide now${request.language && request.language !== 'en' ? ` (in ${languageName(request.language)}, markers in English)` : ''}, following the format and style rules exactly. Output only the guide markdown; no preamble.`
   }
 
   private getFormatInstructions(format: StudyGuideFormat): string {
@@ -2324,6 +2357,7 @@ LESSON (what this concept covers): ${params.concept.lesson || '(none)'}
 QUESTIONS THE STUDENT HAS ALREADY SEEN ON THIS CONCEPT (match their style and scope; never repeat or lightly reword them):
 ${params.existing.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 ${params.missed.length ? `
+    language?: GuideLanguage
 MISTAKES THE STUDENT JUST MADE (aim the new questions at these misunderstandings, from fresh angles):
 ${params.missed.map((m) => `- Question: ${m.question}\n  They answered: ${m.given}\n  Correct: ${m.correct}`).join('\n')}
 ` : ''}
@@ -2343,7 +2377,9 @@ EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
 For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False. Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
 Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else, including x-bar and p-hat ($$\\bar{x}$$, $$\\hat{p}$$; never x̄ or p̂). Never calculator notation like x^2. Never use em dashes.
-Output only the questions.`
+${params.language && params.language !== 'en' ? `
+${languageInstructions(params.language)}
+` : ''}Output only the questions.`
 
     const response = await this.anthropic.beta.messages.stream({
       model: 'claude-sonnet-5-5',
@@ -2368,10 +2404,10 @@ Output only the questions.`
    * Returns strict JSON parsed from the model; caller validates the shape.
    */
   /** Streams a short tutor explanation for the Explain panel (text deltas only). */
-  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; learnerNote?: string; assignedTutor?: boolean; turns: ExplainTurn[] }): AsyncGenerator<string> {
+  async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; language?: GuideLanguage; learnerNote?: string; assignedTutor?: boolean; turns: ExplainTurn[] }): AsyncGenerator<string> {
     const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
     const audience = explainAudience(params.gradeLevel, [params.guideTitle, params.topic].filter(Boolean).join('\n'))
-    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${EXPLAIN_RULES}${params.assignedTutor ? `\n\n${ASSIGNED_TUTOR_RULES}` : ''}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
+    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${explainLanguage(params.language)}\n${EXPLAIN_RULES}${params.assignedTutor ? `\n\n${ASSIGNED_TUTOR_RULES}` : ''}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
     const stream = this.anthropic.beta.messages.stream({
       model: GUIDE_MODEL,
       max_tokens: 4000,
@@ -2611,7 +2647,7 @@ Grade the student's answer:
 - 50-79: partially correct
 - 0-49: incorrect
 
-Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. Give 1-2 sentences of constructive feedback addressed to the student. Never use em dashes.
+Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. An answer written in another language counts the same if it is right. Give 1-2 sentences of constructive feedback addressed to the student, in the language the question is written in. Never use em dashes.
 
 Respond with ONLY a JSON object, no other text:
 {"score": <integer 0-100>, "feedback": "<1-2 sentences>"}`

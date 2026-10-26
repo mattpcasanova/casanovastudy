@@ -8,6 +8,7 @@ export interface StudyGuideData {
   planId?: string // generated from a study plan unit
   planUnit?: string
   sourceGuideId?: string // "Make another format": build from this existing guide's content
+  language?: string // GuideLanguage (lib/study-options.ts); default 'en'
   studyGuideName: string
   subject: string
   gradeLevel: string
@@ -60,6 +61,7 @@ export interface StudyGuideRequest {
   planId?: string // parent study plan guide id
   planUnit?: string // PlanUnit.key within that plan
   sourceGuideId?: string // existing guide whose content is the source material
+  language?: string // GuideLanguage; validated with normalizeLanguage
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models
   codeEditor?: boolean // false = no runnable code exercises
@@ -127,6 +129,8 @@ export interface ClaudeApiRequest {
   learnerNote?: string
   /** Built from an existing guide ("Make another format"); its content is the MATERIALS. */
   fromGuide?: { title: string; format: string }
+  /** Language the guide is written in (GuideLanguage); 'en' or missing = English. */
+  language?: import('@/lib/study-options').GuideLanguage
 }
 
 export interface GuideImage {

@@ -284,3 +284,10 @@ Hint: It came from an ancient bacterium.`)
     expect(acts[0].explanation).toBe('Mitochondria run cellular respiration.')
   })
 })
+
+describe('answers in other languages', () => {
+  it('ignores accents and leading articles', () => {
+    expect(isBlankCorrect('mitocondria', ['la mitocondria'])).toBe(true)
+    expect(isBlankCorrect('fotosintesis', ['fotosíntesis'])).toBe(true)
+  })
+})

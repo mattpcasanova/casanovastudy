@@ -98,17 +98,28 @@ function emojiHint(text: string): CalloutKind | null {
   return null
 }
 
+// Callout labels in the other guide languages (es, fr, pt, ht; lib/study-options GUIDE_LANGUAGES).
+const CHECK_INTL = /compru[eé]ba|verifica|ponte a prueba|pruébate|autoevaluación|vérifie|teste-toi|auto-?évaluation|verifique|teste-se|tcheke|teste tèt/
+const WARNING_INTL = /error|cuidado|trampa|atención|evita|erreur|attention|piège|erro|armadilha|atansyon|erè|pyèj/
+const KEYTERM_INTL = /término|definición|vocabulario|idea clave|fórmula|regla\b|ley\b|terme|définition|vocabulaire|termo|definição|vocabulário|mo kle|definisyon/
+const EXAMPLE_INTL = /ejemplo|analogía|imagina|piensa en|exemple|analogie|exemplo|analogia|egzanp/
+const TIP_INTL = /consejo|estrategia|examen|conseil|stratégie|dica|estratégia|konsèy/
+const REMEMBER_INTL = /recuerda|truco|conexión|nota\b|rappel|souviens|lembre|sonje/
+// "Answer:" in a Check yourself box, in any guide language.
+const ANSWER_WORD = '(?:sample )?(?:answer|respuesta|réponse|reponse|resposta|repons)'
+const ANSWER_LINE = new RegExp(`^\\s*(\\*\\*)?\\s*${ANSWER_WORD}\\s*:?\\s*(\\*\\*)?\\s*:?\\s*`, 'i')
+
 function classifyCallout(label: string, body: string, hint: CalloutKind | null): CalloutKind {
   const t = `${label} ${body.slice(0, 80)}`.toLowerCase()
   const l = label.toLowerCase()
-  if (/check yourself|quick check|self[- ]check|try it|practice|exam pattern|test yourself/.test(l)) return 'check'
-  if (/trap|mistake|warning|careful|caution|avoid|pitfall|misconception|don['’]t/.test(l)) return 'warning'
-  if (/key term|definition|vocab|key idea|big idea|term box|define|formula|law\b|rule\b|principle/.test(l)) return 'keyterm'
-  if (/analogy|example|think of|imagine|real[- ]world|applied|application|case/.test(l)) return 'example'
-  if (/tip|exam|strategy|study|test focus|how to use/.test(l)) return 'tip'
-  if (/remember|memory|mnemonic|trick|connection|relates|link|compare|note|recall/.test(l)) return 'remember'
+  if (/check yourself|quick check|self[- ]check|try it|practice|exam pattern|test yourself/.test(l) || CHECK_INTL.test(l)) return 'check'
+  if (/trap|mistake|warning|careful|caution|avoid|pitfall|misconception|don['’]t/.test(l) || WARNING_INTL.test(l)) return 'warning'
+  if (/key term|definition|vocab|key idea|big idea|term box|define|formula|law\b|rule\b|principle/.test(l) || KEYTERM_INTL.test(l)) return 'keyterm'
+  if (/analogy|example|think of|imagine|real[- ]world|applied|application|case/.test(l) || EXAMPLE_INTL.test(l)) return 'example'
+  if (/tip|exam|strategy|study|test focus|how to use/.test(l) || TIP_INTL.test(l)) return 'tip'
+  if (/remember|memory|mnemonic|trick|connection|relates|link|compare|note|recall/.test(l) || REMEMBER_INTL.test(l)) return 'remember'
   if (hint) return hint
-  if (/\banswer:/.test(t)) return 'check'
+  if (new RegExp(`(^|\\s)${ANSWER_WORD}:`).test(t)) return 'check'
   // "**Osmosis:** diffusion of water…" — a short unknown label reads as a term.
   if (label && label.split(/\s+/).length <= 4 && body.trim()) return 'keyterm'
   if (/analogy|think of it/.test(t)) return 'example'
@@ -154,9 +165,9 @@ function calloutBlock(quoteLines: string[]): string[] {
   let bodyLines = body
   if (kind === 'check') {
     // Split question / answer on the first "Answer:" marker.
-    const idx = body.findIndex((l) => /^\s*(\*\*)?\s*(sample )?answer\s*:?\s*(\*\*)?\s*:?/i.test(l))
+    const idx = body.findIndex((l) => ANSWER_LINE.test(l))
     if (idx >= 0) {
-      const answerFirst = body[idx].replace(/^\s*(\*\*)?\s*(sample )?answer\s*:?\s*(\*\*)?\s*:?\s*/i, '')
+      const answerFirst = body[idx].replace(ANSWER_LINE, '')
       bodyLines = [...body.slice(0, idx), CHECK_ANSWER_SEPARATOR, answerFirst, ...body.slice(idx + 1)]
     }
   }
@@ -188,8 +199,8 @@ function normalizeHeading(line: string): string | null {
 // Models sometimes write "> **Check yourself:** …", a blank line, then a
 // separate "> **Answer:** …" quote. Join them so the answer stays hidden
 // behind the Reveal button instead of showing as its own callout.
-const QUOTE_ANSWER = /^>\s*(\*\*)?\s*answer\s*:?/i
-const QUOTE_CHECK = /^>\s*(\*\*)?\s*(check yourself|quick check|self[- ]check|test yourself)/i
+const QUOTE_ANSWER = new RegExp(`^>\\s*(\\*\\*)?\\s*${ANSWER_WORD}\\s*:?`, 'i')
+const QUOTE_CHECK = /^>\s*(\*\*)?\s*(check yourself|quick check|self[- ]check|test yourself|compru[eé]ba|ponte a prueba|pruébate|vérifie|teste-toi|verifique|teste-se|tcheke)/i
 function joinSplitCheckAnswers(lines: string[]): string[] {
   const out: string[] = []
   let inCheck = false // inside a check quote that has no answer yet

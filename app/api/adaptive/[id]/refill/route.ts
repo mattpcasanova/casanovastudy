@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeLanguage } from '@/lib/study-options'
 import { ClaudeService } from '@/lib/claude-api'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const supabase = createAdminClient()
   const { data: row } = await supabase
     .from('study_guides')
-    .select('id, user_id, format, title, subject, grade_level, content')
+    .select('id, user_id, format, title, subject, grade_level, content, language')
     .eq('id', id)
     .maybeSingle()
   if (!row || row.format !== 'adaptive') return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       missed,
       level,
       count: BATCH,
+      language: normalizeLanguage(row.language),
     })
     // Parse the batch on its own (under a stand-in concept) and keep the well-formed, gradeable ones.
     const fresh = parseAdaptive(`CONCEPT: ${concept.name}\n\n${text}`).questions

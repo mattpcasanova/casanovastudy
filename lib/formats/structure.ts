@@ -12,7 +12,7 @@
 // others), so cards are defined relative to the first heading seen inside a
 // group rather than by absolute depth. Headings inside code fences are ignored.
 
-import { detectTier, type Tier } from './design'
+import { TIER_WORD, detectTier, type Tier } from './design'
 import { plainText } from './normalize'
 
 export interface GuideCard {
@@ -205,7 +205,7 @@ export function parseGuideStructure(md: string): GuideStructure {
 export function groupDisplayTitle(title: string): string {
   const t = plainText(title)
     .replace(/^(?:section|part|tier|priority|level)\s*\d*\s*[:.\-–—]?\s*/i, '')
-    .replace(/^(essential|important|supporting)\b\s*[:.\-–—]?\s*/i, '')
+    .replace(new RegExp(TIER_WORD.source + /\s*[:.\-–—]?\s*/.source, 'i'), '')
     .trim()
   if (/^(content|concepts?|section|ideas|material|topics|flashcards|questions|details|knowledge)?$/i.test(t)) return ''
   return t

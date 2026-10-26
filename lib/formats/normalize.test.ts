@@ -196,3 +196,21 @@ describe('figure groups', () => {
     expect(normalizeGuideMarkdown(md)).not.toContain('graph-group')
   })
 })
+
+describe('guides in other languages', () => {
+  it('classifies Spanish callouts and splits a Spanish check answer', () => {
+    expect(normalizeGuideMarkdown('> **Cuidado:** No confundas masa con peso.')).toMatch(/^~~~~callout-warning/m)
+    expect(normalizeGuideMarkdown('> **Ejemplo:** Una pelota que cae.')).toMatch(/^~~~~callout-example/m)
+    const out = normalizeGuideMarkdown('> **Compruébalo:** ¿Qué orgánulo produce energía?\n\n> **Respuesta:** La mitocondria.')
+    expect(out.match(/~~~~callout-check/g)).toHaveLength(1)
+    expect(out).toContain(CHECK_ANSWER_SEPARATOR)
+  })
+
+  it('groups Spanish and Haitian Creole tier headings', () => {
+    const md = '# Guía\n\n## Esencial: La célula\n\n### 1.1 Membrana\nTexto.\n\n## Importante\n\n### 2.1 Núcleo\nTexto.\n\n## Esansyèl: Selil\n\n### 3.1 Manbran\nTèks.'
+    const groups = parseGuideStructure(normalizeGuideMarkdown(md)).blocks.filter((b) => b.type === 'group')
+    expect(groups.map((g) => g.type === 'group' && g.tier)).toEqual(['essential', 'important', 'essential'])
+    expect(groupDisplayTitle('Esencial: La célula')).toBe('La célula')
+    expect(groupDisplayTitle('Importantes')).toBe('')
+  })
+})

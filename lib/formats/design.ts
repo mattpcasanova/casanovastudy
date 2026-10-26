@@ -60,6 +60,9 @@ export const tierStyles: Record<Tier, TierStyle> = {
   },
 }
 
+// Tier words in every guide language (English, Spanish, French, Portuguese, Haitian Creole).
+export const TIER_WORD = /^(essential|esenciales|esencial|essentielles?|essentiels?|essenciais|essencial|esansyèl|important(?:es|e|s)?|enpòtan|supporting|complementari[oa]s?|de apoyo|complémentaires?|complementares|complementar|sipò)(?![a-zà-ÿ])/
+
 // Detect a section's exam-priority tier from its title (emoji or keyword).
 // The tier word must lead the heading (after an optional "Section 2:" /
 // "Tier 1 —" prefix) so e.g. "Why This Is Important" isn't treated as a group.
@@ -72,8 +75,10 @@ export function detectTier(title: string): Tier | null {
     .replace(/[*_]/g, "")
     .replace(/^\s*(?:section|part|tier|priority|level)\s*\d*\s*[:.\-–—]?\s*/, "")
     .trim()
-  const m = t.match(/^(essential|important|supporting)\b/)
-  return m ? (m[1] as Tier) : null
+  const m = t.match(TIER_WORD)
+  if (!m) return null
+  if (/^(essential|esencial|essentiel|essencia|esansy)/.test(m[1])) return "essential"
+  return /^(important|enp)/.test(m[1]) ? "important" : "supporting"
 }
 
 // Strip the leading tier emoji from a title for clean display.

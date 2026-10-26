@@ -58,7 +58,7 @@ import { fontDisplay } from "@/lib/formats/design"
 import type { StudyGuideData } from "@/types"
 import { supabase } from "@/lib/supabase"
 import { extractMaterialExcerpt } from "@/lib/material-excerpt"
-import { SUBJECTS, LEVEL_GROUPS, GOALS, type StudyGoal, type MaterialsKind } from "@/lib/study-options"
+import { SUBJECTS, LEVEL_GROUPS, GOALS, GUIDE_LANGUAGES, normalizeLanguage, type GuideLanguage, type StudyGoal, type MaterialsKind } from "@/lib/study-options"
 import { parsePlan, unitStudyRequest } from "@/lib/formats/plan"
 import { takePrefill } from "@/lib/prefill"
 import { useAuth } from "@/lib/auth"
@@ -74,6 +74,7 @@ import { ClassworkStrip } from "@/components/student/classwork"
 import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
+const LANGUAGE_PREF_KEY = "cs:pref:language"
 const CODE_EDITOR_PREF_KEY = "cs:pref:code-editor"
 
 type GuideLength = "short" | "medium" | "long"
@@ -322,6 +323,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const [strictSources, setStrictSources] = useState(true)
   const [length, setLength] = useState<GuideLength>("medium")
   const [difficulty, setDifficulty] = useState<GuideDifficulty>("standard")
+  // Language of the guide; remembered so a Spanish-speaking student picks it once.
+  const [language, setLanguageState] = useState<GuideLanguage>("en")
+  const setLanguage = (value: string) => {
+    const next = normalizeLanguage(value)
+    setLanguageState(next)
+    try { localStorage.setItem(LANGUAGE_PREF_KEY, next) } catch { /* storage unavailable */ }
+  }
+  useEffect(() => {
+    try { setLanguageState(normalizeLanguage(localStorage.getItem(LANGUAGE_PREF_KEY))) } catch { /* storage unavailable */ }
+  }, [])
   // Graphs/models on by default; the last choice is remembered on this device.
   const [visuals, setVisualsState] = useState(true)
   const setVisuals = (on: boolean) => {
@@ -377,6 +388,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
     if (p.difficultyLevel) setDifficulty(p.difficultyLevel)
     if (p.sourceGuide) setSourceGuide(p.sourceGuide)
+    if (p.language) setLanguageState(normalizeLanguage(p.language))
     if (p.additionalInstructions) { setAdditionalInstructions(p.additionalInstructions); setShowMore(true) }
     setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : p.source === "class-area" ? "class" : p.source === "from-guide" ? "from" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
     if (p.autoStart !== false) setAutoStart(true)
@@ -614,6 +626,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       planId: planLink && format !== "plan" ? planLink.planId : undefined,
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       sourceGuideId: sourceGuide?.id,
+      language,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
       codeEditor,
@@ -1002,7 +1015,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </SelectContent>
                 </Select>
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <Label htmlFor="studyGuideName" className="mb-2 block text-base font-semibold text-slate-800">
                   Name <span className="font-normal text-slate-400">(optional)</span>
                 </Label>
@@ -1014,6 +1027,17 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   disabled={isGenerating}
                   className="h-12 text-base"
                 />
+              </div>
+              <div>
+                <Label className="mb-2 block text-base font-semibold text-slate-800">Language</Label>
+                <Select value={language} onValueChange={setLanguage} disabled={isGenerating}>
+                  <SelectTrigger aria-label="Language" className="h-12 w-full bg-white text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GUIDE_LANGUAGES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

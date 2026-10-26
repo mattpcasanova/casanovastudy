@@ -4,7 +4,7 @@ import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
-import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, type MaterialsKind } from '@/lib/study-options'
+import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, normalizeLanguage, type MaterialsKind } from '@/lib/study-options'
 import { hasPremiumFeatures, meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { consentBlockResponse } from '@/lib/consent'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
           images,
           learnerNote,
           fromGuide: sourceGuide ? { title: sourceGuide.title, format: sourceGuide.format } : undefined,
+          language: normalizeLanguage(body.language),
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).
@@ -217,6 +218,7 @@ export async function POST(request: NextRequest) {
             content: fullContent,
             topic_focus: body.topicFocus || (studyRequest ? studyRequest.slice(0, 200) : undefined),
             difficulty_level: normalizeDifficulty(body.difficultyLevel),
+            language: normalizeLanguage(body.language),
             additional_instructions: body.additionalInstructions,
             file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0),
             token_usage: usage,
