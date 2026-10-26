@@ -9,7 +9,7 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils"
 import { AI_HELP_OPTIONS, dayCount, type AiHelp } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[] }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[] }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; url: string; created_at: string; class_id: string }
   students: Student[]
@@ -78,6 +78,13 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
 
   const patch = async (body: Record<string, unknown>) => {
     await authFetch(`/api/practice-assignments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    await load()
+  }
+
+  // The wrong student is on this name: unlink it (their runs here move to their own class or are removed).
+  const notThem = async (s: Student) => {
+    if (!data) return
+    await authFetch(`/api/classes/${data.assignment.class_id}/roster/${s.rosterId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unlink: true }) })
     await load()
   }
 
@@ -170,9 +177,15 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             <li key={s.rosterId} className="flex flex-wrap items-center gap-3 py-3 text-sm">
               <Link href={`/teacher/classes/${a.class_id}/students/${s.rosterId}`} className="min-w-[10rem] flex-1 font-medium text-slate-900 hover:text-blue-700">
                 {displayName(s, nameOrder)}
-                {s.linkedVia === "picked" && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
+                {s.account && !s.account.matches ? null : s.linkedVia === "picked" && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
                 {!s.linked && <span className="ml-2 text-xs font-normal text-slate-400">hasn&apos;t opened the link</span>}
               </Link>
+              {s.account && !s.account.matches && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1 pl-2.5 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
+                  <AlertTriangle className="h-3.5 w-3.5" />Signed in as {s.account.name || "someone else"}
+                  <button type="button" onClick={() => void notThem(s)} className="h-7 rounded-full bg-white px-2.5 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
+                </span>
+              )}
               <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", (STATUS[s.status] ?? STATUS.not_started).cls)}>{(STATUS[s.status] ?? STATUS.not_started).label}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}</span>
               {s.aiUses.length > 0
                 ? <button type="button" onClick={() => setAiFor(s)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200 hover:bg-violet-100"><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>

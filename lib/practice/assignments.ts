@@ -1,6 +1,8 @@
 // Assigned practice: codes, grading kind, attempts, statuses and the
 // "which student are you?" match for share links. Pure; unit-tested.
 
+import { nameScore, normalizeName } from '@/lib/grading/names'
+
 export type PracticeGrading = 'percent' | 'mastery'
 
 export const ASSIGNABLE_FORMATS = ['quiz', 'practice', 'adaptive'] as const
@@ -67,6 +69,41 @@ export function sameStudentId(typed: string, onRoster: string | null): boolean {
   if (!onRoster || !typed.trim()) return false
   const a = digits(typed), b = digits(onRoster)
   return a && b ? a === b : alnum(typed) === alnum(onRoster)
+}
+
+const emailDomain = (e: string | null | undefined) => (e ?? '').trim().toLowerCase().split('@')[1] ?? ''
+
+/**
+ * Can this sign-in pick this class-list name on a share link? Not when the
+ * list has a different address on the same domain as theirs: that's another
+ * student's school account (a 5th-period student on the 7th-period link
+ * once claimed 7th-period names). A personal address (icloud, gmail) can
+ * still pick, since the list only knows school emails.
+ */
+export function canPickName(signInEmail: string | null | undefined, rosterEmail: string | null | undefined): boolean {
+  const mine = (signInEmail ?? '').trim().toLowerCase()
+  const theirs = (rosterEmail ?? '').trim().toLowerCase()
+  if (!mine || !theirs || mine === theirs) return true
+  return emailDomain(mine) !== emailDomain(theirs)
+}
+
+const lastToken = (s: string) => normalizeName(s).replace(/[.']/g, '').split(' ').filter(Boolean)
+
+/**
+ * Is this class-list name plausibly the signed-in student (their account's
+ * first + last name)? The picker only offers these, so a student who opens
+ * the wrong link sees "ask your teacher" instead of strangers to pick from.
+ * Lenient on purpose: middle names, nicknames, typos and a matching last
+ * name with the same first letter all pass.
+ */
+export function couldBeStudent(account: { firstName?: string | null; lastName?: string | null }, roster: { firstName: string; lastName: string }): boolean {
+  const first = (account.firstName ?? '').trim(), last = (account.lastName ?? '').trim()
+  if (!first && !last) return false
+  if (nameScore(`${first} ${last}`, `${roster.firstName} ${roster.lastName}`) >= 0.6) return true
+  // Same last name (any part of a two-part one) with the same first letter.
+  const mine = lastToken(last), theirs = lastToken(roster.lastName)
+  const sameLast = mine.some((t) => t.length > 1 && theirs.includes(t))
+  return sameLast && normalizeName(first)[0] === normalizeName(roster.firstName)[0]
 }
 
 /** "Lianna W." for the name picker on a share link: enough to find yourself, not the whole roster's names. */

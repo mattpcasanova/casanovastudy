@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { authFetch } from "@/lib/auth-fetch"
 import { parseClassImport } from "@/lib/classes/import"
-import { RosterFileHelp } from "./roster-file-help"
+import { NoEmailNote, RosterFileHelp } from "./roster-file-help"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { cn } from "@/lib/utils"
 
@@ -111,6 +111,7 @@ export function ImportClassesDialog({ open, onOpenChange, onImported }: {
                     </li>
                   ))}
                 </ul>
+                <NoEmailNote students={preview.classes.flatMap((c) => c.students)} className="m-3" />
               </div>
             )
           )}

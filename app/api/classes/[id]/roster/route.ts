@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
-import { addRosterNames, linkRosterByEmail, loadRoster, ownedClass, syncRosterWithEnrollments } from '@/lib/classes/server'
+import { accountNames, addRosterNames, linkRosterByEmail, loadRoster, ownedClass, syncRosterWithEnrollments } from '@/lib/classes/server'
 import { parseRosterPaste } from '@/lib/classes/roster'
+import { couldBeStudent } from '@/lib/practice/assignments'
 
 // A class roster (names; students who joined with the code are linked).
 // GET also links any students who joined since the last visit. Owner only.
@@ -14,7 +15,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const cls = await ownedClass(supabase, user.id, id)
   if (!cls) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
   await syncRosterWithEnrollments(supabase, id)
-  const roster = await loadRoster(supabase, id)
+  const rows = await loadRoster(supabase, id)
+  // Who is signed in on each linked name, flagged when it can't be them (someone picked the wrong name).
+  const accounts = await accountNames(supabase, rows.map((r) => r.studentUserId))
+  const roster = rows.map((r) => {
+    const acc = r.studentUserId ? accounts.get(r.studentUserId) : undefined
+    return acc ? { ...r, account: { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: couldBeStudent(acc, r) } } : r
+  })
   return NextResponse.json({ class: cls, roster }, { headers: { 'Cache-Control': 'no-store' } })
 }
 

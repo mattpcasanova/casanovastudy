@@ -48,7 +48,7 @@ async function makeUser(kind, first, last) {
   const anon = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } })
   const { data: signin, error: signinErr } = await anon.auth.signInWithPassword({ email, password })
   if (signinErr) throw signinErr
-  return { id: data.user.id, session: signin.session }
+  return { id: data.user.id, email, session: signin.session }
 }
 
 const client = (session) => async (method, path, body) => {
@@ -99,8 +99,8 @@ async function main() {
 
   console.log('\n== Student opens the link ==')
   r = await a('GET', `/api/practice/${asg.code}`)
-  check('unmatched student gets the name picker (assigned names only)', r.json?.state === 'pick' && r.json.names.length === 2 && !r.json.names.some((n) => n.label.startsWith('Noah')), JSON.stringify(r.json))
-  check('picker shows first name + initial and asks Lianna for an ID', r.json.names.some((n) => n.label === 'Lianna W.' && n.needsId) && r.json.names.some((n) => n.label === 'Mya A.' && !n.needsId))
+  check('unmatched student gets the name picker with only her own name (not classmates, not unassigned)', r.json?.state === 'pick' && r.json.names.length === 1, JSON.stringify(r.json))
+  check('picker shows first name + initial and asks Lianna for an ID', r.json.names?.[0]?.label === 'Lianna W.' && r.json.names[0].needsId)
   r = await a('POST', `/api/practice/${asg.code}`, { rosterId: lianna.id, studentId: '123' })
   check('wrong student ID is refused', r.status === 400)
   r = await a('POST', `/api/practice/${asg.code}`, { rosterId: lianna.id, studentId: '0616-137-944' })
@@ -110,7 +110,54 @@ async function main() {
   r = await b('POST', `/api/practice/${asg.code}`, { rosterId: lianna.id, studentId: '616137944' })
   check('a taken name cannot be claimed again', r.status === 409)
   r = await b('GET', `/api/practice/${asg.code}`)
-  check('the other student only sees the unclaimed name', r.json?.state === 'pick' && r.json.names.length === 1 && r.json.names[0].label === 'Mya A.')
+  check('a student whose name is not on the list gets no names to pick', r.json?.state === 'no_match' && !r.json.names && r.json.accountName === 'Sam Other', JSON.stringify(r.json))
+  r = await b('POST', `/api/practice/${asg.code}`, { rosterId: mya.id })
+  check('and cannot claim a name that is not theirs', r.status === 409, JSON.stringify(r.json))
+  const stuM = await makeUser('student', 'Mia', 'Adams')
+  r = await client(stuM.session)('GET', `/api/practice/${asg.code}`)
+  check('a near spelling of their name (Mia for Mya) is offered, and only that one', r.json?.state === 'pick' && r.json.names.length === 1 && r.json.names[0].label === 'Mya A.', JSON.stringify(r.json))
+
+  console.log('\n== Another period\'s link ==')
+  // A 5th-period student on the 7th-period link once claimed 7th-period names.
+  const stuC = await makeUser('student', 'Cara', 'Period')
+  const stuD = await makeUser('student', 'Dev', 'Nobody')
+  const c = client(stuC.session), d = client(stuD.session)
+  const { data: cls2 } = await admin.from('classes').insert({ teacher_id: teacher.id, name: 'E2E Stats', period: '2', enrollment_code: 'E2F' + Math.random().toString(36).slice(2, 5).toUpperCase() }).select('id').single()
+  created.classId2 = cls2.id
+  const { data: roster2 } = await admin.from('class_roster').insert([
+    { class_id: cls2.id, first_name: 'Cara', last_name: 'Period', email: stuC.email },
+    { class_id: cls2.id, first_name: 'Ava', last_name: 'Bee', email: `e2e-ava-${Date.now()}@example.com` },
+  ]).select('id, first_name')
+  r = await t('POST', '/api/practice-assignments', { guideId: guide.id, classId: cls2.id, rosterIds: roster2.map((x) => x.id) })
+  const asg2 = r.json?.assignment
+  check('same guide assigned to period 2', r.status === 200 && !!asg2?.code, JSON.stringify(r.json))
+  r = await c('GET', `/api/practice/${asg.code}`)
+  check('period 2 student on the period 1 link is sent to their own link, no names offered', r.json?.state === 'other_class' && r.json.other?.code === asg2.code && !r.json.names, JSON.stringify(r.json))
+  r = await c('POST', `/api/practice/${asg.code}`, { rosterId: mya.id })
+  check('and cannot claim a period 1 name', r.status === 409, JSON.stringify(r.json))
+  r = await d('GET', `/api/practice/${asg2.code}`)
+  check('names with another school account\'s email are never offered', r.json?.state === 'not_assigned', JSON.stringify(r.json))
+  r = await d('POST', `/api/practice/${asg2.code}`, { rosterId: roster2.find((x) => x.first_name === 'Ava').id })
+  check('nor can they be claimed', r.status === 409, JSON.stringify(r.json))
+  r = await c('GET', `/api/practice/${asg2.code}`)
+  check('their own link links them by email', r.json?.state === 'ready', JSON.stringify(r.json))
+
+  console.log('\n== Teacher spots a wrong link ==')
+  // As it was before the picker checked names: Cara (period 2) sitting on Mya's period 1 name, with a run.
+  await admin.from('class_roster').update({ student_user_id: stuC.id, linked_via: 'picked' }).eq('id', mya.id)
+  const { data: wrongRun } = await admin.from('practice_attempts').insert({ assignment_id: asg.id, roster_id: mya.id, student_user_id: stuC.id, correct: 3, total: 4, pct: 75, counted: true, finished_at: new Date().toISOString() }).select('id').single()
+  r = await t('GET', `/api/classes/${cls.id}/roster`)
+  const rosterMya = r.json?.roster?.find((x) => x.id === mya.id), rosterLianna = r.json?.roster?.find((x) => x.id === lianna.id)
+  check('class list shows who is signed in on a name, flagged when it cannot be them', rosterMya?.account?.name === 'Cara Period' && rosterMya.account.matches === false && rosterLianna?.account?.matches === true, JSON.stringify([rosterMya, rosterLianna]))
+  r = await t('GET', `/api/practice-assignments/${asg.id}`)
+  check('the practice page flags it too', r.json?.students?.find((x) => x.rosterId === mya.id)?.account?.matches === false)
+  r = await t('PATCH', `/api/classes/${cls.id}/roster/${mya.id}`, { unlink: true })
+  const { data: movedRun } = await admin.from('practice_attempts').select('assignment_id, roster_id').eq('id', wrongRun.id).maybeSingle()
+  const caraRow = roster2.find((x) => x.first_name === 'Cara')
+  check('"Not them" unlinks the name and moves the run to her own class', r.status === 200 && movedRun?.assignment_id === asg2.id && movedRun.roster_id === caraRow.id, JSON.stringify(movedRun))
+  r = await t('GET', `/api/practice-assignments/${asg.id}`)
+  const myaAfter = r.json?.students?.find((x) => x.rosterId === mya.id)
+  check('Mya is back to not started, with no one on her name', myaAfter && !myaAfter.linked && !myaAfter.best && !myaAfter.account, JSON.stringify(myaAfter))
 
   console.log('\n== AI help ==')
   const explain = async (session, prompt, extra = {}) => {
@@ -264,6 +311,7 @@ async function cleanup() {
   if (created.teacherId) await admin.from('batch_student_status').delete().eq('user_id', created.teacherId)
   if (created.teacherId) await admin.from('grading_batches').delete().eq('user_id', created.teacherId)
   if (created.classId) await admin.from('classes').delete().eq('id', created.classId)
+  if (created.classId2) await admin.from('classes').delete().eq('id', created.classId2)
   if (created.guideId) await admin.from('study_guides').delete().eq('id', created.guideId)
   if (created.quizId) await admin.from('study_guides').delete().eq('id', created.quizId)
   for (const id of created.users) await admin.auth.admin.deleteUser(id)

@@ -18,6 +18,8 @@ export interface RosterRow {
   email: string | null
   /** Left the class mid-year: hidden by default, graded work kept. */
   left: boolean
+  /** The linked account's own name, and whether it could be this student (roster GET only). */
+  account?: { name: string; matches: boolean }
   linked: boolean
 }
 
@@ -29,6 +31,14 @@ export async function ownedClass(supabase: SupabaseClient, teacherId: string, cl
     .eq('id', classId)
     .maybeSingle()
   return data && data.teacher_id === teacherId ? data : null
+}
+
+/** The names on these student accounts (as they typed them), for "signed in as" on teacher pages. */
+export async function accountNames(supabase: SupabaseClient, userIds: Array<string | null | undefined>): Promise<Map<string, { firstName: string; lastName: string }>> {
+  const ids = [...new Set(userIds.filter((x): x is string => !!x))]
+  if (!ids.length) return new Map()
+  const { data } = await supabase.from('user_profiles').select('id, first_name, last_name').in('id', ids)
+  return new Map((data ?? []).map((p) => [p.id as string, { firstName: (p.first_name as string | null) ?? '', lastName: (p.last_name as string | null) ?? '' }]))
 }
 
 export async function loadRoster(supabase: SupabaseClient, classId: string): Promise<RosterRow[]> {

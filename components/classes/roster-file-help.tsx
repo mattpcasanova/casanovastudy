@@ -75,3 +75,18 @@ export function RosterFileHelp({ className }: { className?: string }) {
     </details>
   )
 }
+
+/**
+ * Shown under an import preview when some names have no school email and no
+ * student ID: those students can only be matched by picking their own name
+ * on a share link, which is where wrong-name mix-ups happen.
+ */
+export function NoEmailNote({ students, className }: { students: Array<{ email?: string | null; studentNumber?: string | null }>; className?: string }) {
+  const bare = students.filter((s) => !s.email && !s.studentNumber).length
+  if (!bare) return null
+  return (
+    <p className={cn("rounded-lg bg-amber-50 p-3 text-sm text-amber-900", className)}>
+      {bare === students.length ? "This list has no school emails or student IDs" : `${bare} of ${students.length} students have no school email or student ID`}, so those students will have to pick their own name when they open your links. Add a school email column (Google Classroom&apos;s grade download has one) and they&apos;re matched to their account automatically.
+    </p>
+  )
+}

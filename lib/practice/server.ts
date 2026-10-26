@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
-import { assignmentOpen, bestAttempt, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
+import { accountNames } from '@/lib/classes/server'
+import { assignmentOpen, bestAttempt, couldBeStudent, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
 
 export interface AssignmentRow {
   id: string
@@ -46,12 +47,13 @@ const masteryDetail = (d: unknown) => {
 /** Per-student progress on assignments (teacher views). */
 export async function assignmentProgress(supabase: SupabaseClient, assignments: AssignmentRow[]) {
   const ids = assignments.map((a) => a.id)
-  if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
   const [{ data: who }, { data: tries }] = await Promise.all([
     supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email)').in('assignment_id', ids),
     supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at, detail').in('assignment_id', ids),
   ])
-  const out = new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  const accounts = await accountNames(supabase, (who ?? []).map((w) => ((Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null)?.student_user_id))
+  const out = new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
   for (const a of assignments) {
     const rows = (who ?? []).filter((w) => w.assignment_id === a.id)
     out.set(a.id, rows.map((w) => {
@@ -66,6 +68,10 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         name: `${r?.first_name ?? ''} ${r?.last_name ?? ''}`.trim(),
         linked: !!r?.student_user_id,
         linkedVia: r?.linked_via ?? null,
+        account: (() => {
+          const acc = r?.student_user_id ? accounts.get(r.student_user_id) : undefined
+          return acc ? { name: `${acc.firstName} ${acc.lastName}`.trim(), matches: couldBeStudent(acc, { firstName: r!.first_name, lastName: r!.last_name }) } : null
+        })(),
         studentNumber: r?.student_number ?? null,
         email: r?.email ?? null,
         status: practiceStatus(list, a.due_at),
@@ -133,4 +139,36 @@ export async function aiUsesFor(supabase: SupabaseClient, assignmentId: string):
     out.set(r.roster_id as string, list)
   }
   return out
+}
+
+/**
+ * A teacher unlinked a name from the wrong student's account ("Not them"):
+ * that account's practice runs and AI messages under the name aren't the
+ * real student's. Move them to the account's own name on the same guide in
+ * another of this teacher's classes (they opened another period's link),
+ * else delete them, so the real student isn't scored on someone else's work.
+ */
+export async function moveWrongPractice(supabase: SupabaseClient, teacherId: string, rosterId: string, userId: string): Promise<void> {
+  const [{ data: tries }, { data: uses }] = await Promise.all([
+    supabase.from('practice_attempts').select('assignment_id').eq('roster_id', rosterId).eq('student_user_id', userId),
+    supabase.from('assignment_ai_uses').select('assignment_id').eq('roster_id', rosterId).eq('student_user_id', userId),
+  ])
+  const assignmentIds = [...new Set([...(tries ?? []), ...(uses ?? [])].map((t) => t.assignment_id as string))]
+  if (!assignmentIds.length) return
+  const { data: from } = await supabase.from('practice_assignments').select('id, study_guide_id').in('id', assignmentIds)
+  const { data: theirs } = await supabase
+    .from('practice_assignment_students')
+    .select('assignment_id, roster_id, class_roster!inner(student_user_id), practice_assignments!inner(teacher_id, study_guide_id)')
+    .eq('class_roster.student_user_id', userId)
+    .eq('practice_assignments.teacher_id', teacherId)
+    .neq('roster_id', rosterId)
+  for (const a of from ?? []) {
+    const target = (theirs ?? []).find((t) => ((Array.isArray(t.practice_assignments) ? t.practice_assignments[0] : t.practice_assignments) as { study_guide_id: string }).study_guide_id === a.study_guide_id)
+    for (const table of ['practice_attempts', 'assignment_ai_uses']) {
+      const rows = target
+        ? supabase.from(table).update({ assignment_id: target.assignment_id, roster_id: target.roster_id })
+        : supabase.from(table).delete()
+      await rows.eq('assignment_id', a.id).eq('roster_id', rosterId).eq('student_user_id', userId)
+    }
+  }
 }

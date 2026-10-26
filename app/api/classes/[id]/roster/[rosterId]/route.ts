@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { linkRosterByEmail, ownedClass } from '@/lib/classes/server'
+import { moveWrongPractice } from '@/lib/practice/server'
 
 // Rename a roster name, or unlink it from a student account. Owner only.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; rosterId: string }> }) {
@@ -16,7 +17,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const update: Record<string, unknown> = {}
   if (typeof body.firstName === 'string') update.first_name = body.firstName.trim().slice(0, 60)
   if (typeof body.lastName === 'string') update.last_name = body.lastName.trim().slice(0, 60)
-  if (body.unlink === true) update.student_user_id = null
+  if (body.unlink === true) { update.student_user_id = null; update.linked_via = null }
   if (typeof body.email === 'string') {
     const email = body.email.trim().toLowerCase()
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That email doesn\'t look right' }, { status: 400 })
@@ -26,6 +27,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (typeof body.left === 'boolean') update.left_at = body.left ? new Date().toISOString() : null
   if (!Object.keys(update).length) return NextResponse.json({ error: 'Nothing to change' }, { status: 400 })
 
+  // Unlinking the wrong student: their practice under this name goes with them.
+  if (body.unlink === true) {
+    const { data: was } = await supabase.from('class_roster').select('student_user_id').eq('id', rosterId).eq('class_id', id).maybeSingle()
+    if (was?.student_user_id) await moveWrongPractice(supabase, user.id, rosterId, was.student_user_id as string)
+  }
   const { error: dbError } = await supabase.from('class_roster').update(update).eq('id', rosterId).eq('class_id', id)
   if (dbError) return NextResponse.json({ error: dbError.code === '23505' ? 'That name is already on the roster' : 'Could not save' }, { status: dbError.code === '23505' ? 409 : 500 })
   // A new email links the account with that email straight away.

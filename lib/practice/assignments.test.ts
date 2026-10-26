@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentOpen, describeAiUse, attemptsLeft, bestAttempt, normalizeAiHelp, strictestAiHelp, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
+import { assignmentOpen, canPickName, couldBeStudent, describeAiUse, attemptsLeft, bestAttempt, normalizeAiHelp, strictestAiHelp, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
 
 const at = (pct: number, finishedAt: string, counted = true) => ({ pct, correct: pct, total: 100, counted, finishedAt })
 
@@ -36,6 +36,25 @@ describe('assigned practice', () => {
   it('picker names show first name and last initial', () => {
     expect(pickerName('Lianna Christine', 'Wysocki')).toBe('Lianna W.')
     expect(pickerName('Mya', '')).toBe('Mya')
+  })
+  it('only offers names that could be the signed-in student', () => {
+    const n = (firstName: string, lastName: string) => ({ firstName, lastName })
+    expect(couldBeStudent(n('diego', 'martinez'), n('Diego', 'Martinez Briceno'))).toBe(true)
+    expect(couldBeStudent(n('Gaby', 'Amador'), n('Gabriella (Gaby)', 'Amador'))).toBe(true)
+    expect(couldBeStudent(n('Jaden', 'Adhiya'), n('Jayden', 'Adhiya'))).toBe(true)
+    expect(couldBeStudent(n('Lianna', 'Wysocki'), n('Lianna Christine', 'Wysocki'))).toBe(true)
+    // The 5th-period students who took 7th-period names (2026-10-23).
+    expect(couldBeStudent(n('Matthew', 'Mogollon'), n('Joel', 'Alexandre'))).toBe(false)
+    expect(couldBeStudent(n('emily', 'solis'), n('Nathalie', 'Delasota'))).toBe(false)
+    expect(couldBeStudent(n('James', 'Reyes'), n('Harmony', 'Grey'))).toBe(false)
+    expect(couldBeStudent(n('Kambree', 'Silvera'), n('Ayson', 'Swaby'))).toBe(false)
+    expect(couldBeStudent(n('', ''), n('Mya', 'Adams'))).toBe(false)
+  })
+  it("never lets one school account pick another school account's name", () => {
+    expect(canPickName('kambree.s@somerset.colegia.org', 'ayson.s@somerset.colegia.org')).toBe(false)
+    expect(canPickName('Ayson.S@Somerset.Colegia.org', 'ayson.s@somerset.colegia.org')).toBe(true)
+    expect(canPickName('madison@icloud.com', 'madison.g@somerset.colegia.org')).toBe(true)
+    expect(canPickName('kid@somerset.colegia.org', null)).toBe(true)
   })
 })
 

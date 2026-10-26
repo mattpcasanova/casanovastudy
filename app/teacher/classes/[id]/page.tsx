@@ -8,7 +8,7 @@ import { AssignedPracticeList } from "@/components/assign/assigned-practice-list
 import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, Link2, Loader2, Pencil, RefreshCw, Trash2, Unlink, UserPlus } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,7 @@ import type { RosterRow } from "@/lib/classes/server"
 import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
 import type { ClassArea } from "@/lib/classes/areas"
 import { ClassAreas } from "@/components/classes/class-areas"
-import { RosterFileHelp } from "@/components/classes/roster-file-help"
+import { NoEmailNote, RosterFileHelp } from "@/components/classes/roster-file-help"
 import { parseRosterPaste } from "@/lib/classes/roster"
 import { ClassGradebook } from "@/components/classes/class-gradebook"
 import type { GradebookRow, GradebookTest } from "@/lib/classes/gradebook"
@@ -220,6 +220,7 @@ function ClassView({ id }: { id: string }) {
                     : "No student names found. The file needs a name column (Student, Name, or First and Last)."}
                 </p>
               )}
+              {pastePreview && <NoEmailNote students={pastePreview} className="mt-2" />}
               <div className="mt-2 flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                   Choose a CSV
@@ -246,7 +247,7 @@ function ClassView({ id }: { id: string }) {
                     if (await patchRow(row, fields)) await load() // reload: a new email may have linked their account
                   }}
                   onUnlink={async () => {
-                    if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null } : x)) ?? null)
+                    if (await patchRow(row, { unlink: true })) setRoster((r) => r?.map((x) => (x.id === row.id ? { ...x, linked: false, studentUserId: null, account: undefined } : x)) ?? null)
                   }}
                   onRemove={() => void removeRow(row)}
                 />
@@ -400,14 +401,14 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
   }
 
   return (
-    <li className="group flex items-center gap-2 py-2">
+    <li className="group flex flex-wrap items-center gap-2 py-2">
       <Link href={`/teacher/classes/${classId}/students/${row.id}`} className="min-w-0 flex-1 rounded-md text-sm text-slate-900 hover:text-blue-700">
         <span className="group-hover:underline">{row.lastName ? <><span className="font-medium">{row.lastName}</span>, {row.firstName}</> : <span className="font-medium">{row.firstName}</span>}</span>
         {row.studentNumber && <span className="ml-2 text-xs text-slate-400">ID {row.studentNumber}</span>}
         {row.email && <span className="ml-2 hidden text-xs text-slate-400 sm:inline">{row.email}</span>}
         {row.left && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Left</span>}
       </Link>
-      {row.linked && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title="Linked to the student's Casanova Study account"><Link2 className="h-3 w-3" />Linked</span>}
+      {row.linked && row.account?.matches !== false && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" title={row.account?.name ? `Signed in as ${row.account.name}` : "Linked to the student's Casanova Study account"}><Link2 className="h-3 w-3" />Linked</span>}
       {confirm ? (
         <span className="flex items-center gap-1 text-xs">
           <button type="button" onClick={onRemove} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove</button>
@@ -419,6 +420,13 @@ function RosterItem({ row, classId, onSave, onUnlink, onRemove }: {
           {row.linked && <button type="button" onClick={onUnlink} className="rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Unlink account" title="Unlink this student's account"><Unlink className="h-3.5 w-3.5" /></button>}
           <button type="button" onClick={() => setConfirm(true)} className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${row.firstName}`}><Trash2 className="h-3.5 w-3.5" /></button>
         </span>
+      )}
+      {row.linked && row.account?.matches === false && (
+        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="min-w-[12rem] flex-1">Signed in as <span className="font-semibold">{row.account.name || "a student with no name"}</span>. Is that {row.firstName}?</span>
+          <button type="button" onClick={onUnlink} className="h-9 rounded-lg bg-white px-3 text-sm font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
+        </div>
       )}
     </li>
   )
