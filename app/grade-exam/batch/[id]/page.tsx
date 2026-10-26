@@ -7,7 +7,8 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookUp, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
+import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, Trash2 } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
 import type { ExportRow } from "@/lib/grading/exports"
@@ -244,29 +245,40 @@ function BatchResults({ id }: { id: string }) {
           <p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading results…</p>
         ) : (
           <>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-              <div>
+            {/* Title row: what this is, and the one thing most teachers come here to do. */}
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
                 <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}% · <Link href={`/grade-exam/batch/${id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></p>
               </div>
+              <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
+            </div>
+            {/* Toolbar: papers and marks on the left, how the list is shown on the right. */}
+            <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
               <div className={buttonRow}>
                 <Link href={`/grade-exam/batch?batch=${id}${classInfo ? `&class=${classInfo.id}` : ""}`} className={actionButton}><FilePlus2 />Add more papers</Link>
-                <button type="button" className={actionButton} onClick={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap />Grade scale</button>
-                <button type="button" className={actionButton} onClick={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff />Extra credit / points off</button>
-                <button type="button" className={actionButton} onClick={() => setAcceptOpen(true)}><ListChecks />Accept another answer</button>
-                <select
-                  aria-label="Sort students"
-                  value={sort === "score" ? "score" : nameOrder}
-                  onChange={(e) => { const v = e.target.value; if (v === "score") setSort("score"); else { setSort("name"); setNameOrder(v === "first" ? "first" : "last") } }}
-                  className={cn(selectBox, "pr-9")}
-                >
-                  <option value="last">Sort by last name</option>
-                  <option value="first">Sort by first name</option>
-                  <option value="score">Sort by score</option>
-                </select>
-                <button type="button" className={actionButton} onClick={downloadCsv}><Download />CSV</button>
-                <button type="button" className={actionButtonPrimary} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className={actionButton}><Diff />Adjust marks<ChevronDown className="opacity-60" /></button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64 rounded-xl p-1.5">
+                    <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => { setScale(normalizeScale(first?.grade_scale) ?? DEFAULT_SCALE); setScaleOpen((o) => !o) }}><GraduationCap className="mr-2 h-4 w-4" />Grade scale</DropdownMenuItem>
+                    <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => { setEditingAdjustment(null); setAdjustOpen(true) }}><Diff className="mr-2 h-4 w-4" />Extra credit / points off</DropdownMenuItem>
+                    <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => setAcceptOpen(true)}><ListChecks className="mr-2 h-4 w-4" />Accept another answer</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <button type="button" className={actionButton} onClick={downloadCsv}><Download />Download CSV</button>
               </div>
+              <select
+                aria-label="Sort students"
+                value={sort === "score" ? "score" : nameOrder}
+                onChange={(e) => { const v = e.target.value; if (v === "score") setSort("score"); else { setSort("name"); setNameOrder(v === "first" ? "first" : "last") } }}
+                className={cn(selectBox, "w-full pr-9 sm:w-auto")}
+              >
+                <option value="last">Sort by last name</option>
+                <option value="first">Sort by first name</option>
+                <option value="score">Sort by score</option>
+              </select>
             </div>
             {scaleOpen && scale && (
               <div className="mt-4 max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
