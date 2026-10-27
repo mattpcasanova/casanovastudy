@@ -25,12 +25,13 @@ let uploaded = 0, failed = 0
 async function moveOne(url: string, owner: string, name: string): Promise<string | null> {
   if (map[url]) return map[url]
   const ext = (name.match(/\.[a-z0-9]{1,5}$/i)?.[0] ?? url.match(/\.[a-z0-9]{1,5}$/i)?.[0] ?? '.jpg').toLowerCase()
-  const path = `${owner}/migrated/${createHash('sha1').update(url).digest('hex').slice(0, 20)}${ext}`
-  if (!apply) return path
+  if (!apply) return `${owner}/migrated/${createHash('sha1').update(url).digest('hex').slice(0, 20)}${ext}`
   const res = await fetch(url)
   if (!res.ok) { console.error('  could not fetch', url, res.status); failed++; return null }
   const buffer = Buffer.from(await res.arrayBuffer())
-  const contentType = buffer[0] === 0xff && buffer[1] === 0xd8 ? 'image/jpeg' : buffer[0] === 0x89 && buffer[1] === 0x50 ? 'image/png' : ext === '.pdf' ? 'application/pdf' : 'application/octet-stream'
+  const isPdf = buffer.subarray(0, 4).toString() === '%PDF'
+  const contentType = buffer[0] === 0xff && buffer[1] === 0xd8 ? 'image/jpeg' : buffer[0] === 0x89 && buffer[1] === 0x50 ? 'image/png' : isPdf || ext === '.pdf' ? 'application/pdf' : 'application/octet-stream'
+  const path = `${owner}/migrated/${createHash('sha1').update(url).digest('hex').slice(0, 20)}${isPdf && ext !== '.pdf' ? '.pdf' : ext}`
   const { error } = await sb.storage.from(UPLOAD_BUCKET).upload(path, buffer, { contentType, upsert: true })
   if (error) { console.error('  upload failed', url, error.message); failed++; return null }
   map[url] = path
