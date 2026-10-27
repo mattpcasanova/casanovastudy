@@ -9,7 +9,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { BookOpen, Check, Loader2, Share2, X } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { actionButton, actionButtonPrimary, selectBox } from "@/components/grading/grading-ui"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
 import { sortClasses } from "@/lib/classes/sort"
 import { schoolYearFor } from "@/lib/classes/years"
@@ -39,7 +39,7 @@ export function ShareClassDialog({ open, onOpenChange, guide, shares, onChanged 
   onChanged: () => void | Promise<void>
 }) {
   const [classes, setClasses] = useState<ClassOption[] | null>(null)
-  const [classId, setClassId] = useState("")
+  const [pickedIds, setPickedIds] = useState<Set<string>>(new Set())
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -53,22 +53,21 @@ export function ShareClassDialog({ open, onOpenChange, guide, shares, onChanged 
       const list = ((data.classes ?? []) as ClassOption[]).filter((c) => !c.is_archived && (!c.school_year || c.school_year === year))
       const sorted = sortClasses(list.map((c) => ({ ...c, period: c.period ?? null })))
       setClasses(sorted)
-      const first = sorted.find((c) => !shares.some((s) => s.classId === c.id))
-      if (first && !classId) setClassId(first.id)
     })()
-  }, [open, classes, shares, classId])
+  }, [open, classes])
 
   const share = async () => {
-    if (!classId) return
+    if (!pickedIds.size) return
     setBusy(true); setError("")
     try {
-      const res = await authFetch("/api/shared-guides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, studyGuideId: guide.id, note }) })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || "Could not share it")
+      for (const classId of pickedIds) {
+        const res = await authFetch("/api/shared-guides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, studyGuideId: guide.id, note }) })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || "Could not share it")
+      }
       await onChanged()
       setNote("")
-      const next = classes?.find((c) => c.id !== classId && !shares.some((s) => s.classId === c.id))
-      setClassId(next?.id ?? "")
+      setPickedIds(new Set())
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not share it")
     } finally {
@@ -107,16 +106,30 @@ export function ShareClassDialog({ open, onOpenChange, guide, shares, onChanged 
           <p className="text-sm text-slate-600">Shared with every class.</p>
         ) : (
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-800">Class
-              <select value={classId} onChange={(e) => setClassId(e.target.value)} className={cn(selectBox, "mt-1 w-full pr-9")}>
-                {left.map((c) => <option key={c.id} value={c.id}>{classLabel(c)}</option>)}
-              </select>
-            </label>
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-800">Classes</p>
+                {left.length > 1 && <button type="button" onClick={() => setPickedIds(pickedIds.size === left.length ? new Set() : new Set(left.map((c) => c.id)))} className="text-xs font-semibold text-blue-700 hover:underline">{pickedIds.size === left.length ? "None" : "All of them"}</button>}
+              </div>
+              <ul className="mt-1 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {left.map((c) => {
+                  const on = pickedIds.has(c.id)
+                  return (
+                    <li key={c.id}>
+                      <label className={cn("flex h-10 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-sm", on ? "bg-blue-50 text-blue-900 ring-1 ring-blue-200" : "bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50")}>
+                        <input type="checkbox" checked={on} onChange={() => setPickedIds((prev) => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })} className="h-4 w-4 rounded border-slate-300" />
+                        <span className="min-w-0 flex-1 truncate">{classLabel(c)}</span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
             <label className="block text-sm font-semibold text-slate-800">A note for them <span className="font-normal text-slate-500">(optional)</span>
               <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Use this to review before Friday's test" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
             </label>
             {error && <p className="text-sm text-rose-600">{error}</p>}
-            <button type="button" onClick={() => void share()} disabled={busy || !classId} className={cn(actionButtonPrimary, "w-full")}>{busy ? <Loader2 className="animate-spin" /> : <Share2 />}Share with this class</button>
+            <button type="button" onClick={() => void share()} disabled={busy || !pickedIds.size} className={cn(actionButtonPrimary, "w-full")}>{busy ? <Loader2 className="animate-spin" /> : <Share2 />}{pickedIds.size > 1 ? `Share with ${pickedIds.size} classes` : "Share with this class"}</button>
           </div>
         )}
       </DialogContent>

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 
 interface ClassOption { id: string; name: string; period: string | null; school_year?: string; is_archived?: boolean; created_at?: string }
 interface RosterRow { id: string; firstName: string; lastName: string; linked: boolean; left: boolean; email: string | null; studentNumber: string | null }
-export interface CreatedAssignment { id: string; code: string; url: string; title: string }
+export interface CreatedAssignment { id: string; code: string; url: string; title: string; classLabel?: string }
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 const inDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d) }
@@ -55,6 +55,9 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<CreatedAssignment | null>(null)
+  // Other classes that get the same assignment, whole class each (one assignment per class).
+  const [extraClasses, setExtraClasses] = useState<Set<string>>(new Set())
+  const [createdAll, setCreatedAll] = useState<CreatedAssignment[]>([])
   const [qr, setQr] = useState("")
   const [copied, setCopied] = useState(false)
   const mastery = guide.format === "adaptive"
@@ -98,30 +101,49 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   }
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
+  const classLabel = (id: string) => { const c = classes?.find((x) => x.id === id); return c ? `${c.name}${c.period ? ` (P${c.period})` : ""}` : "" }
+
+  const createOne = async (forClass: string, rosterIds: string[]): Promise<CreatedAssignment | { error: string }> => {
+    const res = await authFetch("/api/practice-assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guideId: guide.id,
+        classId: forClass,
+        rosterIds,
+        title,
+        dueAt: dueOn ? new Date(`${dueDay}T${dueTime}`).toISOString() : null,
+        maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
+        aiHelp,
+        focusMode,
+        source: preset?.source,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { error: data.error || "Could not assign it" }
+    return { id: data.assignment.id, code: data.assignment.code, url: data.assignment.url, title: data.assignment.title, classLabel: classLabel(forClass) }
+  }
+
   const submit = async () => {
     setBusy(true)
     setError("")
     try {
-      const res = await authFetch("/api/practice-assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          guideId: guide.id,
-          classId,
-          rosterIds: chosen.map((r) => r.id),
-          title,
-          dueAt: dueOn ? new Date(`${dueDay}T${dueTime}`).toISOString() : null,
-          maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
-          aiHelp,
-          focusMode,
-          source: preset?.source,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { setError(data.error || "Could not assign it"); return }
-      const a = { id: data.assignment.id, code: data.assignment.code, url: data.assignment.url, title: data.assignment.title }
-      setCreated(a)
-      onCreated?.(a)
+      const first = await createOne(classId, chosen.map((r) => r.id))
+      if ("error" in first) { setError(first.error); return }
+      const all: CreatedAssignment[] = [first]
+      // The other classes get everyone on their list.
+      for (const id of extraClasses) {
+        const res = await authFetch(`/api/classes/${id}/roster`, { cache: "no-store" })
+        const data = await res.json().catch(() => ({}))
+        const ids = ((data.roster ?? []) as RosterRow[]).filter((r) => !r.left).map((r) => r.id)
+        if (!ids.length) continue
+        const made = await createOne(id, ids)
+        if ("error" in made) { setError(`${classLabel(id)}: ${made.error}`); break }
+        all.push(made)
+      }
+      setCreatedAll(all)
+      setCreated(first)
+      onCreated?.(first)
     } finally {
       setBusy(false)
     }
@@ -129,7 +151,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
 
   const close = (o: boolean) => {
     onOpenChange(o)
-    if (!o) { setCreated(null); setQr(""); setCopied(false) }
+    if (!o) { setCreated(null); setCreatedAll([]); setExtraClasses(new Set()); setQr(""); setCopied(false) }
   }
 
   const ready = chosen.filter((r) => r.linked).length
@@ -149,13 +171,30 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
 
         {created ? (
           <div className="-mx-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-900">{created.url}</code>
-              <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(created.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
-                {copied ? <><Check />Copied</> : <><Copy />Copy link</>}
-              </button>
-            </div>
+            {createdAll.length > 1 ? (
+              <ul className="space-y-2">
+                {createdAll.map((a) => (
+                  <li key={a.id} className={cn("flex flex-wrap items-center gap-2 rounded-xl p-2 ring-1 ring-inset", created.id === a.id ? "bg-blue-50 ring-blue-200" : "bg-white ring-slate-200")}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{a.classLabel}</span>
+                      <code className="block truncate text-xs text-slate-600">{a.url}</code>
+                    </span>
+                    <button type="button" className={actionButton} onClick={() => setCreated(a)} aria-pressed={created.id === a.id}>QR</button>
+                    <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}><Copy />Copy</button>
+                  </li>
+                ))}
+                {copied && <li className="text-sm text-emerald-700">Copied.</li>}
+              </ul>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-900">{created.url}</code>
+                <button type="button" className={actionButtonPrimary} onClick={async () => { await navigator.clipboard.writeText(created.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                  {copied ? <><Check />Copied</> : <><Copy />Copy link</>}
+                </button>
+              </div>
+            )}
             {qr && <img src={qr} alt={`QR code for ${created.url}`} className="mx-auto h-56 w-56 rounded-xl ring-1 ring-slate-200" />}
+            {createdAll.length > 1 && <p className="text-center text-xs text-slate-500">QR code for {created.classLabel}. Each class has its own link and assignment page.</p>}
             <ClassroomPracticePanel assignmentId={created.id} students={chosen.length} compact />
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
               {chosen.length} student{chosen.length === 1 ? "" : "s"}: {ready} already have a linked account.
@@ -209,6 +248,21 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   )}
                 </div>
               )}
+              {classId && classes && classes.length > 1 && (
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-700">Also give it to <span className="font-normal text-slate-500">(everyone in those classes, same settings)</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {classes.filter((c) => c.id !== classId).map((c) => {
+                      const on = extraClasses.has(c.id)
+                      return (
+                        <button key={c.id} type="button" aria-pressed={on} className={chip(on)} onClick={() => setExtraClasses((prev) => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })}>
+                          {c.name}{c.period ? ` (P${c.period})` : ""}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="mb-1.5 text-sm font-medium text-slate-700">Due</p>
                 <div className="flex flex-wrap gap-2">
@@ -260,7 +314,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">
               <button type="button" className={actionButton} onClick={() => close(false)}>Cancel</button>
               <button type="button" className={actionButtonPrimary} disabled={busy || !classId || !chosen.length || !title.trim()} onClick={() => void submit()}>
-                {busy ? <Loader2 className="animate-spin" /> : null}Assign to {chosen.length || ""} student{chosen.length === 1 ? "" : "s"}
+                {busy ? <Loader2 className="animate-spin" /> : null}{extraClasses.size ? `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"} + ${extraClasses.size} class${extraClasses.size === 1 ? "" : "es"}` : `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"}`}
               </button>
             </div>
           </>
