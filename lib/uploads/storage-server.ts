@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase-server'
-import { UPLOAD_BUCKET, isUploadPath, ownsUploadPath } from './refs'
+import { UPLOAD_BUCKET, isUploadPath, ownsUploadPath, pickUploadRefs } from './refs'
 
 export class UploadAccessError extends Error {}
 
@@ -36,4 +36,19 @@ export async function removeUserUploads(supabase: SupabaseClient, userId: string
     }
   }
   return removed
+}
+
+/**
+ * Signed, time-limited links to a user's uploads, for the browser to show them
+ * (the bucket is private). Items that aren't well-formed paths in `ownerId`'s
+ * folder are left out, order is kept. Default: one hour.
+ */
+export async function signUploads(list: unknown, ownerId: string, max: number, expiresIn = 3600): Promise<Array<{ url: string; name: string }>> {
+  const refs = pickUploadRefs(list, max).filter((r) => ownsUploadPath(r.path, ownerId))
+  if (!refs.length) return []
+  const { data, error } = await createAdminClient().storage.from(UPLOAD_BUCKET).createSignedUrls(refs.map((r) => r.path), expiresIn)
+  if (error || !data) { console.error('Signing uploads failed:', error?.message); return [] }
+  const out: Array<{ url: string; name: string }> = []
+  refs.forEach((r, i) => { const url = data[i]?.signedUrl; if (url) out.push({ url, name: r.name }) })
+  return out
 }

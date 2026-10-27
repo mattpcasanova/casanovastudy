@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Check, Clock, Edit2, FileCheck, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
+import { ArrowLeft, Check, Clock, Edit2, FileCheck, FileSearch, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -23,6 +23,8 @@ import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/repo
 import type { GradeScale } from "@/lib/grading/scale"
 import { actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { lateLabel } from "@/lib/grading/late"
+import { PaperViewer } from "@/components/grading/report/paper-viewer"
+import { pageForQuestion, pickPaperPages, type PaperPage } from "@/lib/grading/paper-pages"
 
 interface GradingResult {
   id: string
@@ -42,6 +44,8 @@ interface GradingResult {
   isOwner: boolean
   /** Saved pages + the set's answer key exist, so the owner can grade it again. */
   canRegrade?: boolean
+  /** The paper's pages as signed links (owner only; empty when none were saved). */
+  pages?: PaperPage[]
   linkedStudent: boolean
   groupId: string | null
   groupMembers: string[]
@@ -106,9 +110,17 @@ export default function GradeReportPage() {
   const [regradeError, setRegradeError] = useState('')
   const [regradeResult, setRegradeResult] = useState<{ totalBefore: number; totalAfter: number; changed: Array<{ question: string; before: number | null; after: number }> } | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  // The paper beside the report (signed page links from the API, teacher only).
+  const [paperOpen, setPaperOpen] = useState(false)
+  const [paperPage, setPaperPage] = useState(0)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
+  const pages = pickPaperPages(result?.pages)
+  const showPageFor = useCallback((questionIndex: number) => {
+    setPaperPage(pageForQuestion(questionIndex, draft?.breakdown.length ?? 0, pages.length))
+    setPaperOpen(true)
+  }, [draft?.breakdown.length, pages.length])
 
   useEffect(() => {
     if (!id || authLoading) return
@@ -266,8 +278,8 @@ export default function GradeReportPage() {
       </div>
 
       <div className="container relative mx-auto -mt-16 px-4 pb-16 print:mt-0 print:p-0">
-        <div className={cn("mx-auto grid gap-6", showOptions && canEdit ? "max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-4xl")}>
-          <div className="space-y-4">
+        <div className={cn("mx-auto grid gap-6", paperOpen && pages.length ? "max-w-[1700px] lg:grid-cols-[minmax(0,1fr)_minmax(380px,44%)]" : showOptions && canEdit ? "max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-4xl")}>
+          <div className="min-w-0 space-y-4">
             {regradeResult && (
               <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 ring-1 ring-inset ring-emerald-200 print:hidden" role="status">
                 <p className="font-semibold">Regraded: {regradeResult.totalBefore} → {regradeResult.totalAfter} marks{regradeResult.changed.length ? `, ${regradeResult.changed.length} question${regradeResult.changed.length === 1 ? '' : 's'} changed` : ', no question changed'}.</p>
@@ -303,6 +315,11 @@ export default function GradeReportPage() {
               {canEdit && !editing && (
                 <Button onClick={() => setEditing(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
                   <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
+                </Button>
+              )}
+              {canEdit && pages.length > 0 && (
+                <Button variant="ghost" aria-pressed={paperOpen} onClick={() => setPaperOpen((o) => !o)} className={cn(actionButton, paperOpen && "bg-blue-50 text-blue-800 ring-blue-300 hover:bg-blue-50")}>
+                  <FileSearch className="mr-1.5 h-4 w-4" /> {paperOpen ? 'Hide the paper' : 'View the paper'}
                 </Button>
               )}
               {canEdit && result.canRegrade && !editing && (
@@ -357,7 +374,7 @@ export default function GradeReportPage() {
                   )}
                 </div>
               )}
-              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} />
+              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} />
             </div>
 
             {editing && canEdit && (
@@ -384,8 +401,13 @@ export default function GradeReportPage() {
             )}
           </div>
 
+          {paperOpen && pages.length > 0 && canEdit && (
+            <div className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
+              <PaperViewer pages={pages} page={paperPage} onPage={setPaperPage} studentName={studentName} onClose={() => setPaperOpen(false)} />
+            </div>
+          )}
           {showOptions && canEdit && (
-            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-blue-900/5 print:hidden lg:sticky lg:top-4">
+            <aside className={cn("h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-blue-900/5 print:hidden", paperOpen && pages.length ? "lg:col-start-1" : "lg:sticky lg:top-4")}>
               <h3 className={cn(fontDisplay, "mb-4 text-lg font-semibold text-slate-900")}>Customize report</h3>
               <ReportOptions
                 settings={settings}
