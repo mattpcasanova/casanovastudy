@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Terminal, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,10 @@ import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { useAssignmentFinish } from '@/components/assign/assignment-context'
+import { useAssignmentCounts, useAssignmentFinish } from '@/components/assign/assignment-context'
+import { useRunProgress } from '@/lib/use-run-progress'
+import { cleanPracticeRun, type PracticeRun } from '@/lib/run-progress-rules'
+import { ResumeStrip } from './resume-strip'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill } from '@/lib/prefill'
 import { missedPrefill, missedQuestionsFromGuide } from '@/lib/learner/missed'
@@ -35,6 +38,8 @@ interface PracticeFormatProps {
   subject: string
   title?: string
   gradeLevel?: string
+  /** Saves the run as it goes (left in class, finished at home). */
+  studyGuideId?: string
 }
 
 const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof Puzzle }> = {
@@ -49,7 +54,15 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
 
 type Outcome = { correct: boolean; note?: string; given?: string }
 
-export default function PracticeFormat({ content, subject, title, gradeLevel }: PracticeFormatProps) {
+/** The run's activities in play order: a retry subset, with "come back to it" ones moved to the end. */
+function playOrder(all: PracticeActivity[], subset: string[] | null, later: string[]): PracticeActivity[] {
+  const base = subset ? all.filter((a) => subset.includes(a.id)) : all
+  if (later.length === 0) return base
+  const putOff = later.map((id) => base.find((a) => a.id === id)).filter((a): a is PracticeActivity => !!a)
+  return [...base.filter((a) => !later.includes(a.id)), ...putOff]
+}
+
+export default function PracticeFormat({ content, subject, title, gradeLevel, studyGuideId }: PracticeFormatProps) {
   const all = useMemo(() => parsePractice(content), [content])
   const router = useRouter()
   // What this student got wrong here last time (their latest answer to each activity).
@@ -61,6 +74,7 @@ export default function PracticeFormat({ content, subject, title, gradeLevel }: 
   return (
     <PracticeSession
       activities={all}
+      progressKey={studyGuideId}
       lastMissed={missedIds.length ? {
         ids: missedIds,
         topics: history?.topics ?? [],
@@ -81,10 +95,13 @@ export function PracticeSession({
   variant = 'page',
   title,
   lastMissed,
+  progressKey,
 }: {
   activities: PracticeActivity[]
   variant?: 'page' | 'inline'
   title?: string
+  /** Guide id: save the run as it goes and put it back on return (page variant). */
+  progressKey?: string
   /** Activities the student got wrong last time, for the "Retry those" nudge (page variant). */
   lastMissed?: { ids: string[]; topics: string[]; newQuiz: () => void }
 }) {
@@ -92,12 +109,7 @@ export function PracticeSession({
   const [subset, setSubset] = useState<string[] | null>(null)
   // Activities the student put off ("Come back to it") move to the end of the run.
   const [later, setLater] = useState<string[]>([])
-  const activities = useMemo(() => {
-    const base = subset ? all.filter((a) => subset.includes(a.id)) : all
-    if (later.length === 0) return base
-    const putOff = later.map((id) => base.find((a) => a.id === id)).filter((a): a is PracticeActivity => !!a)
-    return [...base.filter((a) => !later.includes(a.id)), ...putOff]
-  }, [all, subset, later])
+  const activities = useMemo(() => playOrder(all, subset, later), [all, subset, later])
   const [index, setIndex] = useState(0)
   const [results, setResults] = useState<Record<string, Outcome>>({})
   const [checked, setChecked] = useState(false)
@@ -110,6 +122,38 @@ export function PracticeSession({
 
   const done = index >= activities.length
   const current = activities[Math.min(index, activities.length - 1)]
+
+  // Save the run as it goes; put a saved one back (started in class, finished at home).
+  const counts = useAssignmentCounts()
+  const ids = useMemo(() => all.map((a) => a.id), [all])
+  const cleanRun = useCallback((raw: unknown) => cleanPracticeRun(raw, ids), [ids])
+  const progress = useRunProgress<PracticeRun>(variant === 'page' ? progressKey : undefined, 'practice', cleanRun)
+  const [resumed, setResumed] = useState(false)
+  useEffect(() => {
+    const run = progress.restored
+    if (!run) return
+    const order = playOrder(all, run.subset, run.later)
+    // An activity answered but not yet continued past: start on the next one.
+    const at = run.results[order[run.index]?.id] ? run.index + 1 : run.index
+    setSubset(run.subset)
+    setLater(run.later)
+    setResults(run.results)
+    setIndex(at)
+    setChecked(false)
+    setStreak(run.streak)
+    setBestStreak(run.bestStreak)
+    setRound((r) => r + 1)
+    logged.current = new Set(Object.keys(run.results))
+    reported.current = false
+    setResumed(true)
+  }, [progress.restored, all])
+  const { save: saveRun, clear: clearRun } = progress
+  useEffect(() => {
+    if (done || (index === 0 && !Object.keys(results).length && !later.length)) return
+    saveRun({ index, results, later, subset, streak, bestStreak })
+  }, [done, index, results, later, subset, streak, bestStreak, saveRun])
+  // A finished run is over: the results screen shows it, and next time starts fresh.
+  useEffect(() => { if (done) clearRun() }, [done, clearRun])
   // Assigned practice: a full run on the practice page counts (not inline blocks or missed-only retries).
   const reportAssignment = useAssignmentFinish()
   const reported = useRef(false)
@@ -134,6 +178,7 @@ export function PracticeSession({
     }
     setResults((r) => ({ ...r, [current.id]: { correct, note, ...(given ? { given } : {}) } }))
     setChecked(true)
+    setResumed(false)
     const next = correct ? streak + 1 : 0
     setStreak(next)
     setBestStreak((b) => Math.max(b, next))
@@ -161,6 +206,8 @@ export function PracticeSession({
 
   const restart = (ids: string[] | null) => {
     reported.current = false
+    setResumed(false)
+    clearRun()
     setSubset(ids)
     setLater([])
     logged.current = new Set()
@@ -315,7 +362,11 @@ export function PracticeSession({
   return (
     <>
     <div ref={topRef} className={cn(displaySerif.variable, 'mx-auto max-w-3xl scroll-mt-6 space-y-5 print:hidden')}>
-      {!subset && lastMissed && (
+      {resumed && !done && (
+        <ResumeStrip done={Object.keys(results).length} total={activities.length} noun="activity" onStartOver={counts ? undefined : () => restart(null)} />
+      )}
+      {/* Not over a run in progress: its own answers would show up as "last time", and Retry would drop it. */}
+      {!subset && lastMissed && !resumed && !counts && (
         <WeakSpotBanner count={lastMissed.ids.length} topics={lastMissed.topics} noun="activity" onRetry={() => restart(lastMissed.ids)} onNewQuiz={lastMissed.newQuiz} />
       )}
       {/* Progress */}

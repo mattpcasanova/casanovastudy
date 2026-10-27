@@ -44,7 +44,13 @@ import {
   Target,
   Blocks,
   LayoutGrid,
+  ClipboardCheck,
+  Bookmark,
 } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
+import { AssignmentRow, practiceHref, useClasswork } from '@/components/student/classwork'
+import { dueLabel } from '@/lib/student/classwork-rules'
+import type { StudentPractice } from '@/lib/student/classwork'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay } from '@/lib/formats/design'
@@ -254,6 +260,38 @@ export default function MyGuidesPage() {
   }, [studyGuides])
 
   const selecting = selectedIds.size > 0
+
+  // Where a guide came from: assigned by a teacher, shared with their class, or saved from someone.
+  const classwork = useClasswork()
+  const [origins, setOrigins] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!user) return
+    let live = true
+    void authFetch('/api/study-guides/origins', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { origins: {} }))
+      .then((d) => { if (live) setOrigins(d.origins ?? {}) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [user])
+  const teacherOfClass = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.teacherName])), [classwork])
+  const classNameOf = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.name])), [classwork])
+  const assignedByGuide = useMemo(() => {
+    const map = new Map<string, StudentPractice>()
+    // Open work first, so a guide assigned twice points at the one still to do.
+    const list = [...(classwork?.assignments ?? [])].sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
+    for (const a of list) if (!map.has(a.guideId)) map.set(a.guideId, a)
+    return map
+  }, [classwork])
+  const sharedByGuide = useMemo(() => new Map((classwork?.shared ?? []).map((g) => [g.guideId, g])), [classwork])
+  const openAssignments = (classwork?.assignments ?? []).filter((a) => a.status === 'not_started' || a.status === 'missing')
+  const originOf = (guide: StudyGuideRecord): { kind: 'assigned'; a: StudentPractice; teacher: string | null } | { kind: 'from'; name: string } | null => {
+    const a = assignedByGuide.get(guide.id) ?? (guide.copied_from ? assignedByGuide.get(guide.copied_from) : undefined)
+    if (a) return { kind: 'assigned', a, teacher: teacherOfClass.get(a.classId) ?? null }
+    const shared = guide.copied_from ? sharedByGuide.get(guide.copied_from) : undefined
+    const teacher = shared ? teacherOfClass.get(shared.classId) : null
+    if (teacher) return { kind: 'from', name: teacher }
+    return origins[guide.id] ? { kind: 'from', name: origins[guide.id] } : null
+  }
   // Titles of the user's study plans, to label guides made from a plan unit.
   const planTitles = useMemo(() => {
     const map: Record<string, string> = {}
@@ -280,6 +318,19 @@ export default function MyGuidesPage() {
       />
 
       <div className="container mx-auto px-4 py-8">
+        {/* Assigned work still to do lives here too: students look for it in My Guides. */}
+        {openAssignments.length > 0 && (
+          <section className="mb-8 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><ClipboardCheck className="h-5 w-5 text-emerald-700" /> Assigned to you</h2>
+              <Link href="/my-class" className="text-sm font-semibold text-blue-700 hover:text-blue-800">All class work <ArrowRight className="inline h-4 w-4" /></Link>
+            </div>
+            <div className="space-y-2">
+              {openAssignments.map((a) => <AssignmentRow key={a.id} a={a} className={classNameOf.get(a.classId) ?? null} />)}
+            </div>
+          </section>
+        )}
+
         {/* Toolbar */}
         {!authLoading && !guidesLoading && studyGuides.length > 0 && (
           <div className="mb-6 space-y-3">
@@ -365,10 +416,11 @@ export default function MyGuidesPage() {
                 const isSelected = selectedIds.has(guide.id)
                 const details = [displaySubject(guide.subject), displayLevel(guide.grade_level)].filter(Boolean)
                 const parentTitle = guide.parent_guide_id ? planTitles[guide.parent_guide_id] : undefined
+                const origin = originOf(guide)
                 return (
                   <article
                     key={guide.id}
-                    onClick={() => (selecting ? toggleSelection(guide.id) : router.push(getGuideUrl(guide)))}
+                    onClick={() => (selecting ? toggleSelection(guide.id) : router.push(origin?.kind === 'assigned' ? practiceHref(origin.a) : getGuideUrl(guide)))}
                     className={cn(
                       'group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
                       isSelected ? 'border-blue-500 ring-4 ring-blue-500/15' : 'border-slate-200 hover:border-slate-300',
@@ -386,6 +438,20 @@ export default function MyGuidesPage() {
                     {/* Body */}
                     <div className="flex flex-1 flex-col p-5">
                       <h3 className={cn(fontDisplay, 'line-clamp-2 text-lg font-semibold leading-snug text-slate-900')}>{guide.title}</h3>
+                      {origin?.kind === 'assigned' && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+                          <ClipboardCheck className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">
+                            {origin.teacher ? `Assigned by ${origin.teacher}` : 'Assigned to you'}
+                            {origin.a.status === 'done' ? ' · Done' : origin.a.dueAt ? ` · ${dueLabel(origin.a.dueAt)}` : ''}
+                          </span>
+                        </p>
+                      )}
+                      {origin?.kind === 'from' && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                          <Bookmark className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">From {origin.name}</span>
+                        </p>
+                      )}
                       {parentTitle && (
                         <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-teal-700">
                           <MapIcon className="h-3.5 w-3.5" /> {guide.plan_unit ? `Unit ${guide.plan_unit.replace(/^u/, '')} · ` : ''}{parentTitle}

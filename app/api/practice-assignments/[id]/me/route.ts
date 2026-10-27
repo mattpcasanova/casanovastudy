@@ -17,7 +17,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!a) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const rosterId = await myAssignedRow(supabase, a.id, user.id)
   if (!rosterId) return NextResponse.json({ error: 'Not assigned to you' }, { status: 403 })
-  const [{ data: tries }, rule] = await Promise.all([supabase.from('practice_attempts').select('pct, correct, total, counted, finished_at').eq('assignment_id', a.id).eq('roster_id', rosterId).order('finished_at'), aiRuleForGuide(supabase, user.id, a.study_guide_id)])
+  const [{ data: tries }, rule, { data: teacher }] = await Promise.all([
+    supabase.from('practice_attempts').select('pct, correct, total, counted, finished_at').eq('assignment_id', a.id).eq('roster_id', rosterId).order('finished_at'),
+    aiRuleForGuide(supabase, user.id, a.study_guide_id),
+    supabase.from('user_profiles').select('first_name, last_name').eq('id', a.teacher_id).maybeSingle(),
+  ])
   const list = (tries ?? []).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
   return NextResponse.json({
     title: a.title,
@@ -31,5 +35,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     status: practiceStatus(list, a.due_at),
     aiHelp: rule?.aiHelp ?? 'full',
     focusMode: !!a.focus_mode,
+    teacherName: teacher ? [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || null : null,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

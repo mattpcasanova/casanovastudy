@@ -46,6 +46,7 @@ import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
 import LearnCallout from '@/components/learn/learn-callout'
 import { AssignBar } from '@/components/assign/assign-bar'
+import { useAssignedBy } from "@/components/assign/assignment-context"
 import { ShareBar } from "@/components/assign/share-class"
 import { ASSIGNABLE_FORMATS } from "@/lib/practice/assignments"
 import { DesmosProvider } from '@/components/desmos/desmos-calculator'
@@ -97,7 +98,9 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const isTeacherOwner = CLASSES_ENABLED && isOwner && user?.user_type === 'teacher'
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
-  const canSave = user && !isOwner
+  // Not on assigned work: the assignment banner says where it lives, and a copy has no assignment.
+  const assignedBy = useAssignedBy()
+  const canSave = user && !isOwner && !assignedBy
   // Already saved? Then the banner offers their copy instead of saving again.
   const [savedCopyId, setSavedCopyId] = useState<string | null>(null)
   useEffect(() => {
@@ -109,7 +112,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       .catch(() => {})
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studyGuide.id, user?.id])
+  }, [studyGuide.id, user?.id, !!assignedBy])
   const fmt = FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary
   // Desmos only where the real test gives one (math/science); none for plans/timelines.
   const calculatorMode = studyGuide.format === 'plan' || studyGuide.format === 'timeline'
@@ -243,11 +246,11 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'flashcards':
         return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
-        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} />
+        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':
-        return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} />
+        return <PracticeFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} />
       case 'plan':
         return <PlanFormat content={studyGuide.content} studyGuideId={studyGuide.id} title={studyGuide.title} subject={studyGuide.subject} gradeLevel={studyGuide.grade_level} isOwner={isOwner} />
       case 'cheatsheet':

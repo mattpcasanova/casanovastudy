@@ -1,13 +1,16 @@
 "use client"
 
 // Assigned practice while a student does it: opened as
-// /study-guide/<id>?assignment=<assignmentId>. Shows who assigned it, the due
+// /study-guide/<id>?assignment=<assignmentId>, or without the param (from My
+// Guides, a bookmark, a saved copy): /api/practice-assignments/for-guide finds
+// the student's assignment on this guide, or sends a copy back to the original. Shows who assigned it, the due
 // date and attempts, and saves the score when a run finishes (quiz, practice
 // and adaptive call useAssignmentFinish). Outside an assignment it's a no-op.
 // Also carries the teacher's AI help setting for the Explain panel
 // (useAssignmentAi); /api/explain enforces it either way.
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { CalendarClock, CheckCircle2, ClipboardCheck, Eye, Maximize2, MessageCircleOff, MessageCircleQuestion } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
 import { FocusGate, FocusNotices, useFocusMode } from "./focus-mode"
@@ -24,12 +27,13 @@ interface Mine {
   status: string
   aiHelp: "off" | "tutor" | "full"
   focusMode: boolean
+  teacherName: string | null
 }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
 type Finish = (score: { correct: number; total: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
 
-const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"] } | null>(null)
+const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; teacherName: string | null } | null>(null)
 
 /** Report a finished run of assigned practice (no-op when not assigned). */
 export function useAssignmentFinish(): Finish | null {
@@ -39,6 +43,17 @@ export function useAssignmentFinish(): Finish | null {
 /** The AI help setting on this assigned work, or null outside an assignment. */
 export function useAssignmentAi(): Mine["aiHelp"] | null {
   return useContext(Ctx)?.aiHelp ?? null
+}
+
+/** True while this run will be sent to the teacher (assigned, attempts left): players then don't offer Start over mid-run. */
+export function useAssignmentCounts(): boolean {
+  return useContext(Ctx)?.counts ?? false
+}
+
+/** Who assigned this guide to the student (null outside an assignment). */
+export function useAssignedBy(): { teacherName: string | null } | null {
+  const c = useContext(Ctx)
+  return c ? { teacherName: c.teacherName } : null
 }
 
 const dueText = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
@@ -51,10 +66,26 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   const focusOn = !!mine?.focusMode && mine.attemptsLeft !== 0
   const focus = useFocusMode(id, focusOn)
 
+  const router = useRouter()
   useEffect(() => {
-    const a = new URLSearchParams(window.location.search).get("assignment")
-    if (!a || !/^[0-9a-f-]{36}$/i.test(a)) return
+    let a = new URLSearchParams(window.location.search).get("assignment")
     void (async () => {
+      if (!a || !/^[0-9a-f-]{36}$/i.test(a)) {
+        // Opened without the link's ?assignment= (My Guides, history, a saved copy): find it.
+        const found = await authFetch(`/api/practice-assignments/for-guide?guideId=${guideId}`, { cache: "no-store" })
+        if (!found.ok) return
+        const hit = (await found.json().catch(() => null)) as { assignmentId?: string; guideId?: string } | null
+        if (!hit?.assignmentId || !hit.guideId) return
+        if (hit.guideId !== guideId) {
+          // Their saved copy of an assigned guide: the assignment, its progress and score live on the original.
+          router.replace(`/study-guide/${hit.guideId}?assignment=${hit.assignmentId}`)
+          return
+        }
+        a = hit.assignmentId
+        const url = new URL(window.location.href)
+        url.searchParams.set("assignment", a)
+        window.history.replaceState(window.history.state, "", url)
+      }
       const res = await authFetch(`/api/practice-assignments/${a}/me`, { cache: "no-store" })
       if (!res.ok) return
       const data = (await res.json()) as Mine
@@ -62,7 +93,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
       setId(a)
       setMine(data)
     })()
-  }, [guideId])
+  }, [guideId, router])
 
   const focusFinished = focus.runFinished
   const finish = useCallback<Finish>((score) => {
@@ -83,10 +114,10 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   if (!id || !mine) return <>{children}</>
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
-    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp }}>
+    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, teacherName: mine.teacherName ?? null }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
-          <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />Assigned: {mine.title}</span>
+          <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />{mine.teacherName ? `Assigned by ${mine.teacherName}` : "Assigned"}: {mine.title}</span>
           {mine.dueAt && <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" />Due {dueText(mine.dueAt)}</span>}
           {mine.maxAttempts != null && <span>Attempt {Math.min(mine.attempts + 1, mine.maxAttempts)} of {mine.maxAttempts}{mine.attemptsLeft === 0 ? " (all used)" : ""}</span>}
           {mine.grading === "mastery" && <span>Graded on how many topics you master</span>}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
+import { myAssignmentOnGuides } from '@/lib/practice/server'
 
 interface CopyRequest {
   studyGuideId: string
@@ -76,6 +77,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Assigned to them? Their work belongs on the assigned guide (a copy has no
+    // assignment, so answers there never reached the teacher), so don't copy it.
+    const assigned = await myAssignmentOnGuides(supabase, userId, [originalGuide.id, ...(originalGuide.copied_from ? [originalGuide.copied_from] : [])])
+    if (assigned) {
+      return NextResponse.json(
+        { error: "This is assigned to you, so it's already in My Guides and My Classes.", assigned: true, studyGuideUrl: `/study-guide/${assigned.guideId}?assignment=${assigned.assignmentId}` },
+        { status: 409 }
+      )
+    }
+
     // Already saved? Open that copy instead of making another (7th graders
     // pressed Save 6-8 times on one shared guide; nothing told them it was done).
     const existing = await existingCopy(supabase, userId, originalGuide)
@@ -98,6 +109,8 @@ export async function POST(request: NextRequest) {
         file_count: originalGuide.file_count,
         custom_content: originalGuide.custom_content,
         language: originalGuide.language,
+        // The guide's original author, even when copying a copy.
+        copied_from: originalGuide.copied_from ?? originalGuide.id,
         user_id: userId,
       })
       .select()

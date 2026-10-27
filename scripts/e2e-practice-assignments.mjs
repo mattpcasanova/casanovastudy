@@ -187,6 +187,27 @@ async function main() {
   const { data: tPeek } = await asTeacher.from('assignment_ai_uses').select('id').eq('assignment_id', asg.id)
   check('the teacher can read it for her assignment', tPeek?.length === 1)
 
+  console.log('\n== Opened without the link (2026-10-27) ==')
+  r = await a('GET', `/api/practice-assignments/for-guide?guideId=${created.guideId}`)
+  check('the guide finds her assignment without ?assignment=', r.json?.assignmentId === asg.id && r.json.guideId === created.guideId, JSON.stringify(r.json))
+  r = await a('POST', '/api/study-guides/copy', { studyGuideId: created.guideId })
+  check('assigned work is not copied to My Guides', r.status === 409 && r.json?.assigned === true && r.json.studyGuideUrl?.includes(asg.id), JSON.stringify(r.json))
+  const { data: oldCopy, error: copyErr } = await admin.from('study_guides').insert({ user_id: stuA.id, title: 'Binomial practice', subject: 'mathematics', grade_level: '12th', format: 'quiz', content: '## Q\n', file_count: 0, copied_from: created.guideId }).select('id').single()
+  if (copyErr) throw copyErr
+  r = await a('GET', `/api/practice-assignments/for-guide?guideId=${oldCopy.id}`)
+  check('a copy saved before points back to the assigned original', r.json?.assignmentId === asg.id && r.json.guideId === created.guideId, JSON.stringify(r.json))
+  r = await a('GET', '/api/study-guides/origins')
+  check('My Guides says who the copy came from (teacher by full name)', r.json?.origins?.[oldCopy.id] === 'E2E Teacher', JSON.stringify(r.json))
+  await admin.from('study_guides').delete().eq('id', oldCopy.id)
+  r = await client(stuB.session)('GET', `/api/practice-assignments/for-guide?guideId=${created.guideId}`)
+  check('a student not assigned it gets nothing', r.json?.assignmentId === null, JSON.stringify(r.json))
+  const asLianna = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${stuA.session.access_token}` } } })
+  const savedRun = { run: { mode: 'practice', index: 2, answers: { q1: 'A' }, checked: { q1: true }, hinted: {}, saScores: {}, marked: [], subset: null }, updatedAt: Date.now() }
+  const { error: saveErr } = await asLianna.from('study_progress').upsert({ user_id: stuA.id, study_guide_id: created.guideId, kind: 'quiz', data: savedRun }, { onConflict: 'user_id,study_guide_id,kind' })
+  const { data: back } = await asLianna.from('study_progress').select('data').eq('study_guide_id', created.guideId).eq('kind', 'quiz').maybeSingle()
+  check('a quiz run in progress saves to her account', !saveErr && back?.data?.run?.index === 2, saveErr?.message)
+  await admin.from('study_progress').delete().eq('user_id', stuA.id)
+
   console.log('\n== Attempts ==')
   r = await a('GET', `/api/practice-assignments/${asg.id}/me`)
   check('student sees due date and 2 attempts left', r.json?.attemptsLeft === 2 && !!r.json?.dueAt && r.json.status === 'not_started', JSON.stringify(r.json))

@@ -81,6 +81,7 @@ export interface StudyGuideRecord {
   published_at?: string
   custom_content?: CustomGuideContent
   parent_guide_id?: string | null // set when generated from a study plan unit
+  copied_from?: string | null // "Save to My Guides" copy: the original guide (migration 076)
   plan_unit?: string | null
   created_at: string
   updated_at: string

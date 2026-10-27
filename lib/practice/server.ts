@@ -125,6 +125,34 @@ export async function myAssignedRow(supabase: SupabaseClient, assignmentId: stri
 }
 
 /**
+ * The student's assignment on any of these guides (a guide, or the original a
+ * saved copy came from), so opening it from My Guides or a copy still counts.
+ * Prefers one that's still open (attempts left, not long past due), newest first.
+ */
+export async function myAssignmentOnGuides(supabase: SupabaseClient, userId: string, guideIds: string[]): Promise<{ assignmentId: string; guideId: string } | null> {
+  if (!guideIds.length) return null
+  const { data: rows } = await supabase
+    .from('practice_assignment_students')
+    .select('assignment_id, roster_id, class_roster!inner(student_user_id), practice_assignments!inner(study_guide_id, max_attempts, due_at, created_at)')
+    .eq('class_roster.student_user_id', userId)
+    .in('practice_assignments.study_guide_id', guideIds)
+  if (!rows?.length) return null
+  type A = { study_guide_id: string; max_attempts: number | null; due_at: string | null; created_at: string }
+  const one = (r: (typeof rows)[number]) => (Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as A
+  const { data: tries } = await supabase
+    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at')
+    .in('assignment_id', [...new Set(rows.map((r) => r.assignment_id as string))])
+    .eq('student_user_id', userId)
+  const ranked = rows.map((r) => {
+    const a = one(r)
+    const list: Attempt[] = (tries ?? []).filter((t) => t.assignment_id === r.assignment_id && t.roster_id === r.roster_id)
+      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+    return { assignmentId: r.assignment_id as string, guideId: a.study_guide_id, open: assignmentOpen(a.max_attempts, list, a.due_at), createdAt: a.created_at }
+  }).sort((x, y) => Number(y.open) - Number(x.open) || y.createdAt.localeCompare(x.createdAt))
+  return { assignmentId: ranked[0].assignmentId, guideId: ranked[0].guideId }
+}
+
+/**
  * The AI rule for this student on this guide: the strictest setting among
  * their open assignments on it (assignmentOpen), wherever they opened the
  * guide from, so a second tab without ?assignment= gets the same rule.

@@ -22,7 +22,10 @@ import { GraphFence } from './graph-figure'
 import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
+import { useAssignmentCounts, useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
+import { useRunProgress } from '@/lib/use-run-progress'
+import { cleanQuizRun, type QuizRun } from '@/lib/run-progress-rules'
+import { ResumeStrip } from './resume-strip'
 import { WeakSpotBanner } from './weak-spot-banner'
 
 interface QuizFormatProps {
@@ -30,6 +33,8 @@ interface QuizFormatProps {
   subject: string
   title?: string
   gradeLevel?: string
+  /** Saves the run as it goes (left in class, finished at home). */
+  studyGuideId?: string
 }
 
 export { parseQuizContent, type Question } from '@/lib/formats/quiz'
@@ -44,7 +49,7 @@ type Mode = 'practice' | 'test'
 
 const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer' }
 
-export default function QuizFormat({ content, subject, title, gradeLevel }: QuizFormatProps) {
+export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
   const router = useRouter()
@@ -83,6 +88,36 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
     logResult({ source: 'quiz', itemId: `q:${q.id}`, itemKind: q.type, topic: q.section, correct, score })
   }
 
+  // Save the run as it goes; put a saved one back (started in class, finished at home).
+  const counts = useAssignmentCounts()
+  const ids = useMemo(() => allQuestions.map((q) => q.id), [allQuestions])
+  const cleanRun = useCallback((raw: unknown) => cleanQuizRun(raw, ids), [ids])
+  const progress = useRunProgress<QuizRun>(studyGuideId, 'quiz', cleanRun)
+  const [resumed, setResumed] = useState(false)
+  useEffect(() => {
+    const run = progress.restored
+    if (!run) return
+    setSubset(run.subset)
+    setMode(run.mode)
+    setIndex(run.index)
+    setAnswers(run.answers)
+    setChecked(run.checked)
+    setHinted(run.hinted)
+    setSaScores(run.saScores)
+    setMarked(new Set(run.marked))
+    setFinished(false)
+    // Answers already revealed in practice mode were logged when they were checked.
+    logged.current = new Set(Object.keys(run.checked))
+    setResumed(true)
+  }, [progress.restored])
+  const { save: saveRun, clear: clearRun } = progress
+  useEffect(() => {
+    if (finished || (index === 0 && !Object.keys(answers).length && !marked.size)) return
+    saveRun({ mode, index, answers, checked, hinted, saScores, marked: [...marked], subset })
+  }, [finished, mode, index, answers, checked, hinted, saScores, marked, subset, saveRun])
+  // A finished run is over: the results screen shows it, and next time starts fresh.
+  useEffect(() => { if (finished) clearRun() }, [finished, clearRun])
+
   const scoreShortAnswer = async (q: ShortAnswerQuestion): Promise<ShortAnswerScore | null> => {
     const studentAnswer = answers[q.id]
     if (!studentAnswer?.trim()) return null
@@ -109,6 +144,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
   const choose = (q: Question, value: string) => {
     if (finished || (mode === 'practice' && checked[q.id])) return
     setAnswers((a) => ({ ...a, [q.id]: value }))
+    setResumed(false)
     // Practice mode: objective questions check themselves on click.
     if (mode === 'practice' && q.type !== 'sa') {
       setChecked((c) => ({ ...c, [q.id]: true }))
@@ -150,6 +186,8 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
   }
 
   const restart = (ids: string[] | null) => {
+    clearRun()
+    setResumed(false)
     setSubset(ids)
     logged.current = new Set()
     setAnswers({})
@@ -208,7 +246,11 @@ export default function QuizFormat({ content, subject, title, gradeLevel }: Quiz
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
-      {!subset && lastMissed.length > 0 && (
+      {resumed && Object.keys(answers).length > 0 && (
+        <ResumeStrip done={questions.filter((q) => answers[q.id]?.trim()).length} total={questions.length} noun="question" onStartOver={counts ? undefined : () => restart(null)} />
+      )}
+      {/* Not over a run in progress: its own answers would show up as "last time", and Retry would drop it. */}
+      {!subset && lastMissed.length > 0 && !resumed && !counts && (
         <WeakSpotBanner
           count={lastMissed.length}
           topics={history?.topics ?? []}
