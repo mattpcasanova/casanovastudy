@@ -42,8 +42,11 @@ import { cn } from "@/lib/utils"
 
 // About 40 students x 11 pages; a 36-student class of 9-page papers is 324.
 const MAX_PAGES = 450
-// Papers graded at once after the first (which runs alone to write the prompt cache).
-const CONCURRENCY = 5
+// Papers graded at once. The cached instructions + answer key are written by
+// /api/grade-batch/warm before the set starts (the first paper used to run
+// alone for that, about a minute of waiting). The split step already runs 8
+// Sonnet workers without rate-limit trouble.
+const CONCURRENCY = 8
 
 interface Page {
   label: string
@@ -603,10 +606,27 @@ function BatchGrading() {
     const worker = async () => {
       while (next < queue.length && !stopRef.current) await gradeOne(queue[next++])
     }
-    // The first paper runs alone so it writes the cached instructions + mark
-    // scheme; the rest then read that cache (~10% of the input price).
-    if (queue.length > 1) await gradeOne(queue[next++])
+    // Write the cached instructions + answer key first (a few seconds), so
+    // every paper reads it at ~10% of the input price and they all start at
+    // once. If this fails, the papers just write the cache themselves.
+    if (queue.length > 1) await warmGradingCache()
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length - next) }, worker))
+  }
+
+  const warmGradingCache = async () => {
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 30000)
+      await authFetch("/api/grade-batch/warm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markScheme: schemeForGrading, additionalComments: notes, markingStyle }),
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+    } catch (e) {
+      console.warn("Grading cache warm skipped:", e)
+    }
   }
 
   const estimate = estimateGradingSeconds(papers.map((p) => p.pages.length), CONCURRENCY)

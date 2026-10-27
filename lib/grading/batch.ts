@@ -246,12 +246,16 @@ const DEFAULT_SECONDS_PER_PAGE = 5
 
 const paperSeconds = (pages: number, perPage: number) => PAPER_BASE_SECONDS + perPage * Math.max(1, pages)
 
-/** A rough grading time: the first paper runs alone, then `concurrency` at a time, ~15 s + 5 s per page each. */
+/** Seconds to write the cached answer key before the papers start (the page calls /api/grade-batch/warm). */
+const WARM_SECONDS = 5
+
+/** A rough grading time: a few seconds to warm the cache, then `concurrency` papers at a time, ~15 s + 5 s per page each (never less than the longest paper). */
 export function estimateGradingSeconds(pagesPerPaper: number[], concurrency: number, secondsPerPage = DEFAULT_SECONDS_PER_PAGE): number {
   if (!pagesPerPaper.length) return 0
-  const [first, ...rest] = pagesPerPaper
-  const restSeconds = rest.reduce((s, n) => s + paperSeconds(n, secondsPerPage), 0) / Math.max(1, concurrency)
-  return Math.round(paperSeconds(first, secondsPerPage) + restSeconds)
+  const each = pagesPerPaper.map((n) => paperSeconds(n, secondsPerPage))
+  const shared = each.reduce((s, n) => s + n, 0) / Math.max(1, concurrency)
+  const warm = pagesPerPaper.length > 1 ? WARM_SECONDS : 0
+  return Math.round(warm + Math.max(Math.max(...each), shared))
 }
 
 /** Seconds per page measured from finished papers (each paper also has a fixed ~15 s), or undefined before any finish. */

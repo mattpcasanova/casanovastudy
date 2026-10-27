@@ -156,11 +156,14 @@ describe('mostCommon', () => {
 })
 
 describe('estimateGradingSeconds', () => {
-  it('runs the first paper alone, then the rest in parallel', () => {
+  it('warms the cache, then grades the papers in parallel', () => {
     expect(estimateGradingSeconds([], 3)).toBe(0)
+    // One paper: no warm-up, 15 + 9*5
     expect(estimateGradingSeconds([9], 3)).toBe(60)
-    // 5 students x 9 pages: 60 + 4*60/3
-    expect(estimateGradingSeconds([9, 9, 9, 9, 9], 3)).toBe(140)
+    // 5 students x 9 pages: 5 + 5*60/3
+    expect(estimateGradingSeconds([9, 9, 9, 9, 9], 3)).toBe(105)
+    // Never less than the longest paper
+    expect(estimateGradingSeconds([9, 1], 3)).toBe(65)
   })
 })
 
