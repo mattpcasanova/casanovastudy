@@ -76,6 +76,8 @@ import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 const VISUALS_PREF_KEY = "cs:pref:visuals"
 const LANGUAGE_PREF_KEY = "cs:pref:language"
 const CODE_EDITOR_PREF_KEY = "cs:pref:code-editor"
+/** Premium shows its monthly guide count on the homepage once fewer than this are left. */
+const PREMIUM_GUIDES_WARN_UNDER = 10
 
 type GuideLength = "short" | "medium" | "long"
 const LENGTH_OPTIONS: { value: GuideLength; label: string }[] = [
@@ -364,6 +366,10 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   const { plan, isPremium, openPremium } = usePlan()
   const freeGuides = plan && !isPremium ? plan.usage.guide : null
   const freeGuidesLeft = freeGuides ? Math.max(0, freeGuides.limit - freeGuides.used) : null
+  // Premium's fair-use cap is shown once it's close, so a student is never surprised by it.
+  const premiumGuides = plan && isPremium ? plan.usage.guide : null
+  const premiumGuidesLeft = premiumGuides ? Math.max(0, premiumGuides.limit - premiumGuides.used) : null
+  const premiumGuidesLow = premiumGuidesLeft !== null && premiumGuidesLeft < PREMIUM_GUIDES_WARN_UNDER
   // Adaptive practice has its own free allowance (1 a week), separate from guides.
   const freeAdaptive = plan && !isPremium ? plan.usage.adaptive : null
   // Arrivals that recommend a guide (prefill, study plan unit) build it right
@@ -1215,6 +1221,12 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 : `You've used this week's free adaptive session. Next one unlocks ${formatReset(freeAdaptive.resetsAt) ?? "soon"}.`}
               {" "}
               <button type="button" onClick={() => openPremium()} className="font-semibold text-blue-700 hover:underline">Premium</button>
+            </p>
+          ) : premiumGuides && premiumGuidesLow ? (
+            <p className={cn("text-sm font-medium", premiumGuidesLeft ? "text-slate-600" : "text-amber-700")}>
+              {premiumGuidesLeft
+                ? `${premiumGuidesLeft} of ${premiumGuides.limit} guides left this month`
+                : `You've made this month's ${premiumGuides.limit} guides. The next one unlocks ${formatReset(premiumGuides.resetsAt) ?? "soon"}.`}
             </p>
           ) : freeGuides && (
             <p className={cn("text-sm font-medium", freeGuidesLeft ? "text-slate-600" : "text-amber-700")}>

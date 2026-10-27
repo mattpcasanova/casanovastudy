@@ -21,7 +21,7 @@ export function PlanMenuItems() {
         </span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
           {isPremium
-            ? `Until ${formatDate(plan.premiumUntil)}`
+            ? `Until ${formatDate(plan.premiumUntil)} · ${Math.max(0, g.limit - g.used)} of ${g.limit} guides left this month · ${Math.max(0, e.limit - e.used)} of ${e.limit} explanations left today`
             : `${Math.max(0, g.limit - g.used)} of ${g.limit} guides left this week · ${Math.max(0, e.limit - e.used)} of ${e.limit} explanations left today`}
         </span>
       </button>
