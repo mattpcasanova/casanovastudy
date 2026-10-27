@@ -28,6 +28,9 @@ function cleanQuestion(raw: unknown): GradedQuestion | string {
   const level = str(q.level, 20)
   if (markCodes) out.markCodes = markCodes
   if (level) out.level = level
+  // The grader's "look at this" note and whether the teacher has: edits must not lose them.
+  const check = str(q.check, 160)
+  if (check) { out.check = check; if (q.checked === true) out.checked = true }
   if (q.ao && typeof q.ao === 'object') {
     const ao: Record<string, number> = {}
     for (const [k, v] of Object.entries(q.ao as Record<string, unknown>).slice(0, 8)) {

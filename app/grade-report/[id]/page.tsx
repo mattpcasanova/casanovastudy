@@ -374,7 +374,7 @@ export default function GradeReportPage() {
                   )}
                 </div>
               )}
-              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} />
+              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} owner={canEdit} />
             </div>
 
             {editing && canEdit && (

@@ -90,7 +90,8 @@ const NO_PAPER_TONE: Record<string, string> = {
 }
 
 /** Questions where the grader said it wasn't sure of its reading ("Check:" lines). */
-const checksFor = (r: { grade_breakdown: GradedQuestion[] | null }) => (r.grade_breakdown ?? []).filter((q) => q.check).length
+// Flags the teacher has not confirmed on the report yet.
+const checksFor = (r: { grade_breakdown: GradedQuestion[] | null }) => (r.grade_breakdown ?? []).filter((q) => q.check && !q.checked).length
 
 export default function BatchResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, FileSearch, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, FileSearch, Plus, Trash2 } from "lucide-react"
+import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { applyTags, type GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
 import type { ReportSettings } from "@/lib/grading/report-settings"
@@ -122,7 +123,7 @@ function Editable({ value, onChange, editing, placeholder, className }: {
  * The grade report itself: what the teacher edits on screen and what prints.
  * Display toggles and branding come from the teacher's report settings.
  */
-export function ReportDocument({ draft, onChange, editing, settings, date, onShowPage }: {
+export function ReportDocument({ draft, onChange, editing, settings, date, onShowPage, owner = false }: {
   draft: ReportDraft
   onChange: (patch: Partial<ReportDraft>) => void
   editing: boolean
@@ -130,6 +131,8 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
   date: string
   /** The paper's pages are available: "Show the page" on a flagged question opens the viewer at its likely page. */
   onShowPage?: (questionIndex: number) => void
+  /** The teacher who owns the report: can confirm "Check this" flags (saved on the breakdown). */
+  owner?: boolean
 }) {
   const totals = reportTotals(draft)
   const showGrade = settings.showGrade && hasGrades(draft.scale)
@@ -262,14 +265,9 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                   ) : (
                     <span className="font-semibold">{label(q.questionNumber)}</span>
                   )}
-                  {q.check && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 py-0.5 pl-2 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 print:hidden" title={q.check}>
-                      Check this: {q.check}
-                      {onShowPage ? (
-                        <button type="button" onClick={() => onShowPage(i)} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-amber-900 ring-1 ring-inset ring-amber-300 hover:bg-amber-50" aria-label={`Show the page for question ${label(q.questionNumber)}`}>
-                          <FileSearch className="h-3.5 w-3.5" /> Show the page
-                        </button>
-                      ) : <span className="w-1" />}
+                  {q.check && q.checked && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200 print:hidden" title={q.check}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Checked
                     </span>
                   )}
                   {!editing && settings.showMarkCodes && q.markCodes && (
@@ -330,6 +328,32 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                   </span>
                 )}
               </div>
+
+              {q.check && !q.checked && owner && (
+                <div className="mb-3 flex flex-col gap-3 rounded-xl bg-amber-50 p-3 ring-1 ring-inset ring-amber-200 print:hidden sm:flex-row sm:items-center" role="note">
+                  <AlertTriangle className="hidden h-5 w-5 shrink-0 text-amber-600 sm:block" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 text-sm text-amber-950">
+                    <span className="font-semibold">Check this.</span> {q.check}
+                  </p>
+                  <div className="flex shrink-0 gap-2">
+                    {onShowPage && (
+                      <button type="button" onClick={() => onShowPage(i)} className={actionButton} aria-label={`Show the page for question ${label(q.questionNumber)}`}>
+                        <FileSearch /> Show the page
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setQuestion(i, { checked: true })} className={cn(actionButtonPrimary, "bg-amber-700 hover:bg-amber-800")} aria-label={`Mark question ${label(q.questionNumber)} as checked`}>
+                      <Check /> Checked it
+                    </button>
+                  </div>
+                </div>
+              )}
+              {q.check && q.checked && owner && (
+                <p className="mb-3 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 print:hidden">
+                  <span>The grader had asked: {q.check}</span>
+                  {onShowPage && <button type="button" onClick={() => onShowPage(i)} className="font-semibold text-slate-700 underline-offset-2 hover:underline">Show the page</button>}
+                  <button type="button" onClick={() => setQuestion(i, { checked: false })} className="font-semibold text-slate-700 underline-offset-2 hover:underline">Not checked yet</button>
+                </p>
+              )}
 
               {editing ? (
                 <div className="space-y-2">

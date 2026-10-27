@@ -21,6 +21,8 @@ export interface GradedQuestion {
   ao?: Record<string, number>
   /** The grader wasn't sure it read the answer right ("Check: faint circle on C"); the teacher should look. */
   check?: string
+  /** The teacher looked at the page and confirmed (or fixed) the mark; set on the report. */
+  checked?: boolean
 }
 
 // "**Question 1a**, Mark: 2/2 - text", "Question 1a: Mark 2/2", "2b, Mark: 1/3 — text",
