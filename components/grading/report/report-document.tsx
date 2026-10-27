@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, FileSearch, Plus, Trash2 } from "lucide-react"
 import { applyTags, type GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
 import type { ReportSettings } from "@/lib/grading/report-settings"
@@ -122,12 +122,14 @@ function Editable({ value, onChange, editing, placeholder, className }: {
  * The grade report itself: what the teacher edits on screen and what prints.
  * Display toggles and branding come from the teacher's report settings.
  */
-export function ReportDocument({ draft, onChange, editing, settings, date }: {
+export function ReportDocument({ draft, onChange, editing, settings, date, onShowPage }: {
   draft: ReportDraft
   onChange: (patch: Partial<ReportDraft>) => void
   editing: boolean
   settings: ReportSettings
   date: string
+  /** The paper's pages are available: "Show the page" on a flagged question opens the viewer at its likely page. */
+  onShowPage?: (questionIndex: number) => void
 }) {
   const totals = reportTotals(draft)
   const showGrade = settings.showGrade && hasGrades(draft.scale)
@@ -261,7 +263,14 @@ export function ReportDocument({ draft, onChange, editing, settings, date }: {
                     <span className="font-semibold">{label(q.questionNumber)}</span>
                   )}
                   {q.check && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 print:hidden" title={q.check}>Check this: {q.check}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 py-0.5 pl-2 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300 print:hidden" title={q.check}>
+                      Check this: {q.check}
+                      {onShowPage ? (
+                        <button type="button" onClick={() => onShowPage(i)} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-amber-900 ring-1 ring-inset ring-amber-300 hover:bg-amber-50" aria-label={`Show the page for question ${label(q.questionNumber)}`}>
+                          <FileSearch className="h-3.5 w-3.5" /> Show the page
+                        </button>
+                      ) : <span className="w-1" />}
+                    </span>
                   )}
                   {!editing && settings.showMarkCodes && q.markCodes && (
                     <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">{q.markCodes}</span>

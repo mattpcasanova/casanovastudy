@@ -13,7 +13,7 @@ const ROOT = new URL('..', import.meta.url).pathname
 const require = createRequire(`${ROOT}/package.json`)
 const { createClient } = require('@supabase/supabase-js')
 const { chromium } = require('playwright')
-const BASE = 'http://localhost:3000'
+const BASE = process.env.BASE_URL || 'http://localhost:3000'
 const args = process.argv.slice(2)
 const OUT = args.find((a) => !a.startsWith('--')) ?? '/tmp/mobile-grading'
 const WIDTH = Number(args[args.indexOf('--width') + 1]) || 390

@@ -9,6 +9,21 @@ import { loadRoster, ownedClass } from '@/lib/classes/server'
 import { matchRoster, parseName } from '@/lib/grading/names'
 import { groupMembersFrom, type GroupMember } from '@/lib/grading/group'
 import { randomUUID } from 'crypto'
+import { UPLOAD_BUCKET, uploadPath, type UploadRef } from '@/lib/uploads/refs'
+
+/** Stores the paper's image pages in the teacher's uploads folder; returns refs in page order (pages that fail to upload are skipped). */
+async function savePages(files: Array<{ buffer: Buffer; name: string; type: string }>, userId: string): Promise<UploadRef[]> {
+  const images = files.filter((f) => f.type.startsWith('image/')).slice(0, 60)
+  if (!images.length) return []
+  const bucket = createAdminClient().storage.from(UPLOAD_BUCKET)
+  const saved = await Promise.all(images.map(async (f): Promise<UploadRef | null> => {
+    const path = uploadPath(userId, 'grading-pages', f.name || 'page.jpg')
+    const { error } = await bucket.upload(path, f.buffer, { contentType: f.type, upsert: false })
+    if (error) { console.error('Page not kept:', f.name, error.message); return null }
+    return { path, name: f.name }
+  }))
+  return saved.filter((r): r is UploadRef => !!r)
+}
 
 // Vercel config for longer timeout and larger body size (for image uploads)
 export const maxDuration = 300 // 5 minutes (requires Vercel Pro for >60s)
@@ -158,6 +173,12 @@ export async function POST(request: NextRequest) {
 
         const percentage = graded.percentage
 
+        // Keep the pages (the teacher's folder of the private uploads bucket) so
+        // the report can show the paper beside the marks. Only after a successful
+        // grading, so a failed one leaves nothing behind; a failed upload only
+        // loses the page from the viewer, never the grading.
+        const pageUrls = await savePages(studentExamBuffers, userId!)
+
         // Determine student name: use metadata if provided, otherwise extract from original filename
         let studentName = 'Student'
         if (studentFirstName || studentLastName) {
@@ -220,7 +241,8 @@ export async function POST(request: NextRequest) {
             class_period: classPeriod || null,
             exam_title: examTitle || null,
             ...classLink,
-            token_usage: usage ? { ...usage, model: GRADING_MODEL, pages: studentExamFiles.length + markSchemeFiles.length } : null
+            token_usage: usage ? { ...usage, model: GRADING_MODEL, pages: studentExamFiles.length + markSchemeFiles.length } : null,
+            page_urls: pageUrls.length ? pageUrls : null,
           })
           .select()
           .single()
