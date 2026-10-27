@@ -79,6 +79,11 @@ describe('sanitizeAnswers', () => {
       { id: 'q:q-0', correct: true },
       { id: 'p:3', correct: false, given: 'B' },
     ])
+    expect(sanitizeAnswers([{ id: 'p:4', correct: false, score: 0.8333, given: '5 of 6 pairs on the first try' }, { id: 'p:5', correct: true, score: 0.5 }, { id: 'p:6', correct: false, score: 7 }])).toEqual([
+      { id: 'p:4', correct: false, given: '5 of 6 pairs on the first try', score: 0.83 },
+      { id: 'p:5', correct: true },
+      { id: 'p:6', correct: false },
+    ])
     expect(sanitizeAnswers('nope')).toBeNull()
     expect(sanitizeAnswers([])).toBeNull()
   })
@@ -117,6 +122,14 @@ describe('practicePapers', () => {
     // Everyone is under 60% on Limiting Reagent, the weakest topic.
     expect(groups.find((g) => g.kind === 'reteach')?.topic).toBe('Limiting Reagent')
     expect(groups.flatMap((g) => g.students).every((s) => s.rosterId)).toBe(true)
+  })
+})
+
+describe('practicePapers partial credit', () => {
+  it('gives a multi-part activity its share of the mark', () => {
+    const [paper] = practicePapers(qs, [{ rosterId: 'r9', name: 'Dee', complete: true, answers: [{ id: 'q:q-0', correct: false, score: 0.83, given: '5 of 6 pairs on the first try' }] }])
+    expect(paper.breakdown[0].marksAwarded).toBe(0.83)
+    expect(paper.breakdown[0].explanation).toBe('Partly right (5 of 6 pairs on the first try).')
   })
 })
 

@@ -25,7 +25,8 @@ export interface ReportQuestion {
 }
 
 /** One answer in a finished run (first answer per question). */
-export interface PracticeAnswer { id: string; correct: boolean; given?: string }
+/** `score`: partial credit (0-1) on a multi-part activity that wasn't fully right. */
+export interface PracticeAnswer { id: string; correct: boolean; given?: string; score?: number }
 
 export interface StudentRun {
   rosterId: string
@@ -106,7 +107,8 @@ export function sanitizeAnswers(v: unknown): PracticeAnswer[] | null {
     if (!/^[qpa]:/.test(id) || seen.has(id) || typeof a?.correct !== 'boolean') continue
     seen.add(id)
     const given = typeof a.given === 'string' && a.given.trim() ? a.given.trim().slice(0, 300) : undefined
-    out.push({ id, correct: a.correct, ...(given ? { given } : {}) })
+    const score = !a.correct && typeof a.score === 'number' && a.score > 0 && a.score < 1 ? Math.round(a.score * 100) / 100 : undefined
+    out.push({ id, correct: a.correct, ...(given ? { given } : {}), ...(score ? { score } : {}) })
   }
   return out.length ? out : null
 }
@@ -122,9 +124,9 @@ export function practicePapers(questions: ReportQuestion[], runs: StudentRun[]):
       const given = givenText(q, a?.given)
       breakdown.push({
         questionNumber: q.label,
-        marksAwarded: a?.correct ? 1 : 0,
+        marksAwarded: a?.correct ? 1 : a?.score ?? 0,
         marksPossible: 1,
-        explanation: a?.correct ? '' : !a ? 'Not answered.' : given ? `Answered "${given}"; the answer is "${q.answer}".` : `Got it wrong; the answer is "${q.answer}".`,
+        explanation: a?.correct ? '' : !a ? 'Not answered.' : a.score ? `Partly right${given ? ` (${given})` : ''}.` : given ? `Answered "${given}"; the answer is "${q.answer}".` : `Got it wrong; the answer is "${q.answer}".`,
       })
     }
     return { id: r.rosterId, name: r.name, rosterId: r.rosterId, breakdown }

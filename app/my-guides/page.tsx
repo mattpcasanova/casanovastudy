@@ -154,10 +154,11 @@ export default function MyGuidesPage() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredAndSortedGuides.length) {
+    const pickable = filteredAndSortedGuides.filter(isMine)
+    if (selectedIds.size === pickable.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(filteredAndSortedGuides.map(g => g.id)))
+      setSelectedIds(new Set(pickable.map(g => g.id)))
     }
   }
 
@@ -206,9 +207,86 @@ export default function MyGuidesPage() {
 
 
 
+  // Where a guide came from: assigned by a teacher, shared with their class, or saved from someone.
+  const classwork = useClasswork()
+  const [origins, setOrigins] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!user) return
+    let live = true
+    void authFetch('/api/study-guides/origins', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { origins: {} }))
+      .then((d) => { if (live) setOrigins(d.origins ?? {}) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [user])
+  const teacherOfClass = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.teacherName])), [classwork])
+  const classNameOf = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.name])), [classwork])
+  const assignedByGuide = useMemo(() => {
+    const map = new Map<string, StudentPractice>()
+    // Open work first, so a guide assigned twice points at the one still to do.
+    const list = [...(classwork?.assignments ?? [])].sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
+    for (const a of list) if (!map.has(a.guideId)) map.set(a.guideId, a)
+    return map
+  }, [classwork])
+  const sharedByGuide = useMemo(() => new Map((classwork?.shared ?? []).map((g) => [g.guideId, g])), [classwork])
+  const openAssignments = (classwork?.assignments ?? []).filter((a) => a.status === 'not_started' || a.status === 'missing')
+  type Origin = { kind: 'assigned'; a: StudentPractice; teacher: string | null } | { kind: 'shared'; name: string | null } | { kind: 'from'; name: string }
+  const originOf = (guide: StudyGuideRecord): Origin | null => {
+    const a = assignedByGuide.get(guide.id) ?? (guide.copied_from ? assignedByGuide.get(guide.copied_from) : undefined)
+    if (a) return { kind: 'assigned', a, teacher: teacherOfClass.get(a.classId) ?? null }
+    const shared = sharedByGuide.get(guide.id) ?? (guide.copied_from ? sharedByGuide.get(guide.copied_from) : undefined)
+    if (shared) return { kind: 'shared', name: teacherOfClass.get(shared.classId) ?? null }
+    return origins[guide.id] ? { kind: 'from', name: origins[guide.id] } : null
+  }
+
+  // Guides teachers assigned or shared show here too, without a copy (one version, so
+  // the work always counts). A copy saved before stands in for its original.
+  const [teacherGuides, setTeacherGuides] = useState<StudyGuideRecord[]>([])
+  // Students: hold the cards until these are in too, so nothing pops in after the page shows.
+  // The tab's last copy shows at once on a return visit.
+  const [teacherReady, setTeacherReady] = useState(false)
+  const teacherKey = user ? `cs:teacher-guides:${user.id}` : null
+  useEffect(() => {
+    if (!teacherKey) return
+    try {
+      const cached = sessionStorage.getItem(teacherKey)
+      if (cached) { setTeacherGuides(JSON.parse(cached)); setTeacherReady(true) }
+    } catch {}
+    // Never hold the page for long if class work can't load.
+    const t = setTimeout(() => setTeacherReady(true), 5000)
+    return () => clearTimeout(t)
+  }, [teacherKey])
+  const keepTeacherGuides = (list: StudyGuideRecord[]) => {
+    setTeacherGuides(list)
+    setTeacherReady(true)
+    try { if (teacherKey) sessionStorage.setItem(teacherKey, JSON.stringify(list)) } catch {}
+  }
+  useEffect(() => {
+    if (!classwork || !user || guidesLoading) return
+    const dated = new Map<string, string>() // guide id -> when it was given to them
+    for (const x of [...classwork.assignments, ...(classwork.shared ?? [])]) {
+      if (!dated.has(x.guideId) || dated.get(x.guideId)! < x.createdAt) dated.set(x.guideId, x.createdAt)
+    }
+    const have = new Set(studyGuides.flatMap((g) => [g.id, g.copied_from].filter((v): v is string => !!v)))
+    const ids = [...dated.keys()].filter((id) => !have.has(id))
+    if (!ids.length) { keepTeacherGuides([]); return }
+    let live = true
+    void supabase.from('study_guides').select('*').in('id', ids).then(({ data }) => {
+      if (live) keepTeacherGuides(((data ?? []) as StudyGuideRecord[]).map((g) => ({ ...g, created_at: dated.get(g.id) ?? g.created_at })))
+    })
+    return () => { live = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classwork, user, studyGuides, guidesLoading])
+  const loading = authLoading || guidesLoading || (user?.user_type !== 'teacher' && !teacherReady)
+  const allGuides = useMemo(() => [...studyGuides, ...teacherGuides], [studyGuides, teacherGuides])
+  const isMine = (guide: StudyGuideRecord) => guide.user_id === user?.id
+  const [fromTeachers, setFromTeachers] = useState(false)
+  const teacherCount = allGuides.filter((g) => { const o = originOf(g); return o?.kind === 'assigned' || o?.kind === 'shared' }).length
+
   // Filtered and sorted study guides
   const filteredAndSortedGuides = useMemo(() => {
-    let filtered = [...studyGuides]
+    let filtered = [...allGuides]
+    if (fromTeachers) filtered = filtered.filter((g) => { const o = originOf(g); return o?.kind === 'assigned' || o?.kind === 'shared' })
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -245,53 +323,23 @@ export default function MyGuidesPage() {
     })
 
     return filtered
-  }, [studyGuides, subjectFilter, formatFilter, sortBy, searchQuery])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGuides, fromTeachers, subjectFilter, formatFilter, sortBy, searchQuery, classwork, origins])
 
   // Get unique subjects from study guides
   const availableSubjects = useMemo(() => {
-    const subjects = new Set(studyGuides.map(guide => guide.subject))
+    const subjects = new Set(allGuides.map(guide => guide.subject))
     return Array.from(subjects).sort()
-  }, [studyGuides])
+  }, [allGuides])
 
   const formatCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const g of studyGuides) counts[g.format] = (counts[g.format] || 0) + 1
+    for (const g of allGuides) counts[g.format] = (counts[g.format] || 0) + 1
     return counts
-  }, [studyGuides])
+  }, [allGuides])
 
   const selecting = selectedIds.size > 0
 
-  // Where a guide came from: assigned by a teacher, shared with their class, or saved from someone.
-  const classwork = useClasswork()
-  const [origins, setOrigins] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (!user) return
-    let live = true
-    void authFetch('/api/study-guides/origins', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { origins: {} }))
-      .then((d) => { if (live) setOrigins(d.origins ?? {}) })
-      .catch(() => {})
-    return () => { live = false }
-  }, [user])
-  const teacherOfClass = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.teacherName])), [classwork])
-  const classNameOf = useMemo(() => new Map((classwork?.classes ?? []).map((c) => [c.id, c.name])), [classwork])
-  const assignedByGuide = useMemo(() => {
-    const map = new Map<string, StudentPractice>()
-    // Open work first, so a guide assigned twice points at the one still to do.
-    const list = [...(classwork?.assignments ?? [])].sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
-    for (const a of list) if (!map.has(a.guideId)) map.set(a.guideId, a)
-    return map
-  }, [classwork])
-  const sharedByGuide = useMemo(() => new Map((classwork?.shared ?? []).map((g) => [g.guideId, g])), [classwork])
-  const openAssignments = (classwork?.assignments ?? []).filter((a) => a.status === 'not_started' || a.status === 'missing')
-  const originOf = (guide: StudyGuideRecord): { kind: 'assigned'; a: StudentPractice; teacher: string | null } | { kind: 'from'; name: string } | null => {
-    const a = assignedByGuide.get(guide.id) ?? (guide.copied_from ? assignedByGuide.get(guide.copied_from) : undefined)
-    if (a) return { kind: 'assigned', a, teacher: teacherOfClass.get(a.classId) ?? null }
-    const shared = guide.copied_from ? sharedByGuide.get(guide.copied_from) : undefined
-    const teacher = shared ? teacherOfClass.get(shared.classId) : null
-    if (teacher) return { kind: 'from', name: teacher }
-    return origins[guide.id] ? { kind: 'from', name: origins[guide.id] } : null
-  }
   // Titles of the user's study plans, to label guides made from a plan unit.
   const planTitles = useMemo(() => {
     const map: Record<string, string> = {}
@@ -302,6 +350,7 @@ export default function MyGuidesPage() {
     setSubjectFilter('all')
     setFormatFilter('all')
     setSearchQuery('')
+    setFromTeachers(false)
   }
 
   return (
@@ -310,8 +359,8 @@ export default function MyGuidesPage() {
 
       <LibraryHeader
         title="My Guides"
-        subtitle="Everything you've made, ready to study."
-        count={studyGuides.length}
+        subtitle={teacherCount ? "Everything you've made or your teachers gave you." : "Everything you've made, ready to study."}
+        count={allGuides.length}
         noun="guide"
         actionHref="/"
         actionLabel="New guide"
@@ -319,7 +368,7 @@ export default function MyGuidesPage() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Assigned work still to do lives here too: students look for it in My Guides. */}
-        {openAssignments.length > 0 && (
+        {!loading && openAssignments.length > 0 && (
           <section className="mb-8 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><ClipboardCheck className="h-5 w-5 text-emerald-700" /> Assigned to you</h2>
@@ -332,7 +381,7 @@ export default function MyGuidesPage() {
         )}
 
         {/* Toolbar */}
-        {!authLoading && !guidesLoading && studyGuides.length > 0 && (
+        {!loading && allGuides.length > 0 && (
           <div className="mb-6 space-y-3">
             <div className="flex flex-col gap-3 sm:flex-row">
               <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search your guides…" />
@@ -363,7 +412,10 @@ export default function MyGuidesPage() {
               </div>
             </div>
             <div className="-mx-4 flex items-center gap-2.5 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
-              <FilterChip active={formatFilter === 'all'} onClick={() => setFormatFilter('all')} count={studyGuides.length} icon={<LayoutGrid />}>All</FilterChip>
+              <FilterChip active={formatFilter === 'all' && !fromTeachers} onClick={() => { setFormatFilter('all'); setFromTeachers(false) }} count={allGuides.length} icon={<LayoutGrid />}>All</FilterChip>
+              {teacherCount > 0 && (
+                <FilterChip active={fromTeachers} onClick={() => setFromTeachers((v) => !v)} count={teacherCount} icon={<ClipboardCheck />} tile="bg-emerald-50 text-emerald-700">From your teachers</FilterChip>
+              )}
               {(Object.keys(FORMAT_CARD) as Array<keyof typeof FORMAT_CARD>).filter((f) => formatCounts[f]).map((f) => {
                 const Icon = FORMAT_CARD[f].icon
                 return (
@@ -373,23 +425,23 @@ export default function MyGuidesPage() {
                 )
               })}
               <span className="ml-auto hidden text-sm text-slate-500 sm:block">
-                {filteredAndSortedGuides.length !== studyGuides.length && `${filteredAndSortedGuides.length} shown · `}
+                {filteredAndSortedGuides.length !== allGuides.length && `${filteredAndSortedGuides.length} shown · `}
                 <button type="button" onClick={toggleSelectAll} className="ml-2 inline-flex h-11 items-center rounded-2xl bg-white px-4 font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 transition hover:text-slate-900 hover:shadow-md hover:ring-slate-300">
-                  {selectedIds.size === filteredAndSortedGuides.length && selecting ? 'Deselect all' : 'Select'}
+                  {selectedIds.size === filteredAndSortedGuides.filter(isMine).length && selecting ? 'Deselect all' : 'Select'}
                 </button>
               </span>
             </div>
           </div>
         )}
 
-        {(authLoading || guidesLoading) && <CardSkeletonGrid />}
+        {loading && <CardSkeletonGrid />}
 
         {error && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-800">{error}</div>
         )}
 
         {/* Empty state */}
-        {!authLoading && !guidesLoading && !error && studyGuides.length === 0 && (
+        {!loading && !error && allGuides.length === 0 && (
           <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><BookOpen className="h-8 w-8" /></span>
             <h3 className={cn(fontDisplay, 'text-2xl font-semibold text-slate-900')}>No study guides yet</h3>
@@ -400,7 +452,7 @@ export default function MyGuidesPage() {
           </div>
         )}
 
-        {!authLoading && !guidesLoading && !error && studyGuides.length > 0 && (
+        {!loading && !error && allGuides.length > 0 && (
           filteredAndSortedGuides.length === 0 ? (
             <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-12 text-center">
               <Filter className="mb-3 h-10 w-10 text-slate-300" />
@@ -420,7 +472,7 @@ export default function MyGuidesPage() {
                 return (
                   <article
                     key={guide.id}
-                    onClick={() => (selecting ? toggleSelection(guide.id) : router.push(origin?.kind === 'assigned' ? practiceHref(origin.a) : getGuideUrl(guide)))}
+                    onClick={() => (selecting && isMine(guide) ? toggleSelection(guide.id) : router.push(origin?.kind === 'assigned' ? practiceHref(origin.a) : getGuideUrl(guide)))}
                     className={cn(
                       'group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
                       isSelected ? 'border-blue-500 ring-4 ring-blue-500/15' : 'border-slate-200 hover:border-slate-300',
@@ -433,7 +485,8 @@ export default function MyGuidesPage() {
                       <span className={cn('absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold shadow-sm', meta.text)}>
                         <Icon className="h-3.5 w-3.5" /> {meta.label}
                       </span>
-                      <SelectToggle selected={isSelected} selecting={selecting} onToggle={() => toggleSelection(guide.id)} className="absolute right-3 top-3" />
+                      {/* Teachers' guides can't be deleted from here, so they can't be picked. */}
+                      {isMine(guide) && <SelectToggle selected={isSelected} selecting={selecting} onToggle={() => toggleSelection(guide.id)} className="absolute right-3 top-3" />}
                     </div>
                     {/* Body */}
                     <div className="flex flex-1 flex-col p-5">
@@ -445,6 +498,11 @@ export default function MyGuidesPage() {
                             {origin.teacher ? `Assigned by ${origin.teacher}` : 'Assigned to you'}
                             {origin.a.status === 'done' ? ' · Done' : origin.a.dueAt ? ` · ${dueLabel(origin.a.dueAt)}` : ''}
                           </span>
+                        </p>
+                      )}
+                      {origin?.kind === 'shared' && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-blue-800">
+                          <BookOpen className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{origin.name ? `From ${origin.name}` : 'From your teacher'}</span>
                         </p>
                       )}
                       {origin?.kind === 'from' && (

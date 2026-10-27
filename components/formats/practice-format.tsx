@@ -52,7 +52,18 @@ const KIND_META: Record<PracticeActivity['kind'], { label: string; icon: typeof 
   write: { label: 'Write the code', icon: Terminal },
 }
 
-type Outcome = { correct: boolean; note?: string; given?: string }
+type Outcome = { correct: boolean; note?: string; given?: string; score?: number }
+/**
+ * How an activity reports its answer. Multi-part activities (matching, order,
+ * sort, several blanks) give partial credit: `score` is the share of parts right
+ * (0-1), so an activity is always worth 1 point but 5 of 6 pairs earns 0.83.
+ */
+type Done = (correct: boolean, note?: string, given?: string, score?: number) => void
+/** Points earned on one activity (1 when fully right). */
+const pointsFor = (o?: Outcome) => (!o ? 0 : o.correct ? 1 : o.score ?? 0)
+/** "4.83" for fractional totals, "5" for whole ones. */
+const points = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''))
+const partNote = (right: number, total: number, what: string) => `Partly right: ${right} of ${total} ${what}.`
 
 /** The run's activities in play order: a retry subset, with "come back to it" ones moved to the end. */
 function playOrder(all: PracticeActivity[], subset: string[] | null, later: string[]): PracticeActivity[] {
@@ -160,11 +171,12 @@ export function PracticeSession({
   useEffect(() => {
     if (!done || reported.current || !reportAssignment || variant !== 'page' || subset || !activities.length) return
     reported.current = true
-    const answers = activities.filter((a) => results[a.id]).map((a) => ({ id: `p:${a.id}`, correct: !!results[a.id].correct, ...(results[a.id].given ? { given: results[a.id].given } : {}) }))
-    reportAssignment({ correct: activities.filter((a) => results[a.id]?.correct).length, total: activities.length, detail: { answers } })
+    const answers = activities.filter((a) => results[a.id]).map((a) => ({ id: `p:${a.id}`, correct: !!results[a.id].correct, ...(results[a.id].given ? { given: results[a.id].given } : {}), ...(results[a.id].score ? { score: results[a.id].score } : {}) }))
+    const earned = Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100
+    reportAssignment({ correct: earned, total: activities.length, detail: { answers } })
   }, [done, reportAssignment, variant, subset, activities, results])
 
-  const record = (correct: boolean, note?: string, given?: string) => {
+  const record: Done = (correct, note, given, score) => {
     if (!current) return
     if (!logged.current.has(current.id)) {
       logged.current.add(current.id)
@@ -174,9 +186,11 @@ export function PracticeSession({
         itemKind: current.kind,
         topic: current.topic || title,
         correct,
+        ...(score !== undefined && !correct ? { score } : {}),
       })
     }
-    setResults((r) => ({ ...r, [current.id]: { correct, note, ...(given ? { given } : {}) } }))
+    const part = !correct && score !== undefined && score > 0 ? { score: Math.round(score * 100) / 100 } : {}
+    setResults((r) => ({ ...r, [current.id]: { correct, note, ...(given ? { given } : {}), ...part } }))
     setChecked(true)
     setResumed(false)
     const next = correct ? streak + 1 : 0
@@ -236,7 +250,7 @@ export function PracticeSession({
 
   if (all.length === 0) return null
 
-  const correctCount = activities.filter((a) => results[a.id]?.correct).length
+  const correctCount = points(Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100)
   // Printing swaps the one-at-a-time session for a full worksheet + answer key.
   const worksheet = <PracticeWorksheet activities={all} title={inline ? title : undefined} className={cn('hidden print:block', inline && 'my-4')} />
 
@@ -262,7 +276,7 @@ export function PracticeSession({
           key={a.id}
           className={cn(
             'h-full flex-1 rounded-full transition-colors duration-300',
-            results[a.id] ? (results[a.id].correct ? 'bg-emerald-500' : 'bg-rose-400') : i === index ? 'bg-orange-300' : inline ? 'bg-orange-100' : 'bg-slate-100'
+            results[a.id] ? (results[a.id].correct ? 'bg-emerald-500' : results[a.id].score ? 'bg-amber-400' : 'bg-rose-400') : i === index ? 'bg-orange-300' : inline ? 'bg-orange-100' : 'bg-slate-100'
           )}
         />
       ))}
@@ -424,8 +438,8 @@ export function activityAnswer(a: PracticeActivity): string | undefined {
 export function ActivityBody({ activity, checked, onDone, onContinue, compact = false, autoFocus = true }: {
   activity: PracticeActivity
   checked: boolean
-  /** `given`: what they picked or typed (choice and fill), for the teacher's report on assigned practice. */
-  onDone: (correct: boolean, note?: string, given?: string) => void
+  /** `given`: what they picked or typed, for the teacher's report on assigned practice; `score`: partial credit (0-1). */
+  onDone: Done
   onContinue: () => void
   compact?: boolean
   autoFocus?: boolean
@@ -459,7 +473,7 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
 
 // ── Activities ──────────────────────────────────────────────────────────────
 
-function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: (correct: boolean, note?: string) => void }) {
+function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: Done }) {
   const terms = useMemo(() => activity.pairs.map((p, i) => ({ ...p, i })), [activity])
   const defs = useMemo(() => seededShuffle(terms, activity.id), [terms, activity.id])
   const [selTerm, setSelTerm] = useState<number | null>(null)
@@ -475,8 +489,11 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: (co
       setMatched(next)
       if (next.size === terms.length && !finished.current) {
         finished.current = true
+        // Each wrong tap costs one pair's share of the point.
         const m = mistakes.current
-        onDone(m === 0, m ? `All matched, with ${m} miss${m === 1 ? '' : 'es'}. Try it clean next time.` : undefined)
+        const n = terms.length
+        const right = Math.max(0, n - m)
+        onDone(m === 0, m ? `All matched, with ${m} miss${m === 1 ? '' : 'es'}: ${right} of ${n} pairs count.` : undefined, m ? `${right} of ${n} pairs on the first try` : undefined, m ? right / n : undefined)
       }
     } else {
       mistakes.current++
@@ -532,7 +549,7 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: (co
   )
 }
 
-function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
+function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: Done; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
   const blanks = activity.parts.filter((p): p is { answers: string[] } => typeof p !== 'string')
   const [values, setValues] = useState<string[]>(() => blanks.map(() => ''))
   const firstInput = useRef<HTMLInputElement>(null)
@@ -544,7 +561,9 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
   const results = blanks.map((b, k) => isBlankCorrect(values[k], b.answers))
   const check = () => {
     if (checked || values.every((v) => !v.trim())) return
-    onDone(results.every(Boolean), undefined, values.map((v) => v.trim()).join(' / '))
+    const right = results.filter(Boolean).length
+    const partial = blanks.length > 1 && right > 0 && right < blanks.length
+    onDone(right === blanks.length, partial ? partNote(right, blanks.length, 'blanks') : undefined, values.map((v) => v.trim()).join(' / '), partial ? right / blanks.length : undefined)
   }
 
   let k = -1
@@ -595,7 +614,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
   )
 }
 
-function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onDone: (c: boolean) => void; checked: boolean }) {
+function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onDone: Done; checked: boolean }) {
   const [items, setItems] = useState(() => seededShuffle(activity.items, activity.id))
   const move = (from: number, to: number) => {
     if (to < 0 || to >= items.length) return
@@ -640,12 +659,16 @@ function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onD
           </ol>
         </div>
       )}
-      {!checked && <Button onClick={() => onDone(items.every((_, i) => correctAt(i)))} className="mt-5 bg-orange-700 text-white hover:bg-orange-800">Check order</Button>}
+      {!checked && <Button onClick={() => {
+        const right = items.filter((_, i) => correctAt(i)).length
+        const partial = right > 0 && right < items.length
+        onDone(right === items.length, partial ? partNote(right, items.length, 'in the right place') : undefined, `${right} of ${items.length} in the right place`, partial ? right / items.length : undefined)
+      }} className="mt-5 bg-orange-700 text-white hover:bg-orange-800">Check order</Button>}
     </div>
   )
 }
 
-function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDone: (c: boolean) => void; checked: boolean }) {
+function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDone: Done; checked: boolean }) {
   const all = useMemo(
     () => seededShuffle(activity.buckets.flatMap((b, bi) => b.items.map((text) => ({ key: `${bi}:${text}`, text, bucket: bi }))), activity.id),
     [activity]
@@ -717,7 +740,11 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
       </div>
       {!checked && (
         <Button
-          onClick={() => onDone(all.every((x) => placed[x.key] === x.bucket))}
+          onClick={() => {
+            const right = all.filter((x) => placed[x.key] === x.bucket).length
+            const partial = right > 0 && right < all.length
+            onDone(right === all.length, partial ? partNote(right, all.length, 'sorted right') : undefined, `${right} of ${all.length} sorted right`, partial ? right / all.length : undefined)
+          }}
           disabled={pool.length > 0}
           className="mt-5 bg-orange-700 text-white hover:bg-orange-800"
         >
@@ -810,8 +837,9 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
   inline?: boolean
   title?: string
 }) {
-  const correct = activities.filter((a) => results[a.id]?.correct).length
-  const pct = activities.length ? Math.round((correct / activities.length) * 100) : 0
+  const earned = Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100
+  const correct = points(earned)
+  const pct = activities.length ? Math.round((earned / activities.length) * 100) : 0
   const missed = activities.filter((a) => !results[a.id]?.correct)
   const message = pct >= 90 ? 'Outstanding. You really know this.' : pct >= 70 ? 'Nice work. A little more practice on the misses.' : pct >= 50 ? 'Good start. Run the missed ones again.' : 'Keep at it. Practice the missed activities.'
 
@@ -821,7 +849,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
     let t = topics.find((x) => x.name === name)
     if (!t) topics.push((t = { name, right: 0, total: 0 }))
     t.total++
-    if (results[a.id]?.correct) t.right++
+    t.right += pointsFor(results[a.id])
   }
 
   if (inline) {
@@ -873,7 +901,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
               <div key={t.name}>
                 <div className="mb-1 flex justify-between gap-2 text-sm">
                   <span className="truncate font-medium text-slate-700">{t.name}</span>
-                  <span className="shrink-0 tabular-nums text-slate-500">{t.right}/{t.total}</span>
+                  <span className="shrink-0 tabular-nums text-slate-500">{points(Math.round(t.right * 100) / 100)}/{t.total}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className={cn('h-full rounded-full', p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-400' : 'bg-rose-400')} style={{ width: `${p}%` }} />

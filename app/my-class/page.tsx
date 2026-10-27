@@ -31,6 +31,8 @@ function MyClass() {
   const router = useRouter()
   const data = useClasswork()
   const [showDone, setShowDone] = useState(false)
+  // With 2+ classes, chips narrow the page to one class (no separate class page).
+  const [only, setOnly] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.user_type === "teacher") router.replace("/teacher/classes")
@@ -40,11 +42,15 @@ function MyClass() {
     const c = data?.classes.find((x) => x.id === id)
     return c ? c.name : null
   }
-  const open = data ? openWork(data.assignments) : []
-  const tests = data?.missingTests ?? []
-  const todo = open.length + tests.length
-  const done = data ? data.assignments.filter((a) => a.status === "done" || a.status === "late") : []
   const many = (data?.classes.length ?? 0) > 1
+  const inClass = <T extends { classId: string | null }>(list: T[]) => (only ? list.filter((x) => x.classId === only) : list)
+  const assignments = data ? inClass(data.assignments) : []
+  const open = openWork(assignments)
+  const tests = data ? inClass(data.missingTests) : []
+  const done = assignments.filter((a) => a.status === "done" || a.status === "late")
+  const shared = data ? inClass(data.shared ?? []) : []
+  const reports = data ? inClass(data.reports) : []
+  const chosen = data?.classes.find((c) => c.id === only)
 
   return (
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
@@ -57,8 +63,23 @@ function MyClass() {
         <div className="container relative mx-auto max-w-5xl px-4">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight sm:text-5xl")}>My Classes</h1>
           <p className="mt-2 text-lg text-blue-50">
-            {!data ? " " : open.length ? `You have ${open.length} thing${open.length === 1 ? "" : "s"} to do.` : "You're all caught up."}
+            {!data ? " " : open.length ? `You have ${open.length} thing${open.length === 1 ? "" : "s"} to do${chosen ? ` in ${chosen.name}` : ""}.` : "You're all caught up."}
           </p>
+          {data && many && (
+            <div role="group" aria-label="Show one class" className="mt-5 flex flex-wrap gap-2">
+              {[{ id: null as string | null, label: "All classes" }, ...data.classes.map((c) => ({ id: c.id as string | null, label: c.period ? `${c.name} · P${c.period}` : c.name }))].map((c) => (
+                <button
+                  key={c.id ?? "all"}
+                  type="button"
+                  onClick={() => setOnly(c.id)}
+                  aria-pressed={only === c.id}
+                  className={cn("inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold transition", only === c.id ? "bg-white text-blue-800 shadow-sm" : "bg-white/15 text-white ring-1 ring-inset ring-white/40 hover:bg-white/25")}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -77,7 +98,7 @@ function MyClass() {
                 )}
                 {open.length === 0 && tests.length > 0 ? null : open.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-600">
-                    {data.assignments.length ? "Nothing left to do. Nice work." : "Nothing assigned yet. When your teacher assigns practice, it shows up here and on your home page."}
+                    {assignments.length ? "Nothing left to do. Nice work." : chosen ? "Nothing assigned in this class yet." : "Nothing assigned yet. When your teacher assigns practice, it shows up here and on your home page."}
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -98,22 +119,22 @@ function MyClass() {
                 )}
               </section>
 
-              {(data.shared?.length ?? 0) > 0 && (
+              {shared.length > 0 && (
                 <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><BookOpen className="h-5 w-5 text-blue-700" />From your teacher</h2>
                   <ul className="space-y-2">
-                    {data.shared!.map((g) => <li key={g.id}><SharedGuideRow g={g} className={many ? classNameOf(g.classId) : null} /></li>)}
+                    {shared.map((g) => <li key={g.id}><SharedGuideRow g={g} className={many ? classNameOf(g.classId) : null} /></li>)}
                   </ul>
                 </section>
               )}
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><FileCheck className="h-5 w-5 text-blue-700" />Reports from your teacher</h2>
-                {data.reports.length === 0 ? (
+                {reports.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-600">No reports yet. When your teacher grades a test and shares it, you&apos;ll see your marks and feedback here.</p>
                 ) : (
                   <ul className="space-y-2">
-                    {data.reports.map((r) => <li key={r.id}><ReportRow r={r} /></li>)}
+                    {reports.map((r) => <li key={r.id}><ReportRow r={r} /></li>)}
                   </ul>
                 )}
               </section>
@@ -126,12 +147,20 @@ function MyClass() {
               ) : (
                 <ul className="mb-3 space-y-1.5">
                   {data.classes.map((c) => (
-                    <li key={c.id} className="flex items-center gap-3 rounded-xl px-2 py-2">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-xs font-bold text-blue-700">{c.period ? `P${c.period}` : <Users className="h-4 w-4" />}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-slate-900">{c.name}</span>
-                        {c.teacherName && <span className="block truncate text-xs text-slate-500">{c.teacherName}</span>}
-                      </span>
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        disabled={!many}
+                        onClick={() => setOnly(only === c.id ? null : c.id)}
+                        aria-pressed={many ? only === c.id : undefined}
+                        className={cn("flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition", many && "hover:bg-blue-50", only === c.id && "bg-blue-50 ring-1 ring-inset ring-blue-200")}
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-xs font-bold text-blue-700">{c.period ? `P${c.period}` : <Users className="h-4 w-4" />}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-slate-900">{c.name}</span>
+                          {c.teacherName && <span className="block truncate text-xs text-slate-500">{c.teacherName}</span>}
+                        </span>
+                      </button>
                     </li>
                   ))}
                 </ul>

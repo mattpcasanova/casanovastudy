@@ -22,7 +22,7 @@ const flagKey = (userId: string) => `cs:classwork:${userId}`
 
 /** Forget the cached "in a class" answer (after joining a class). */
 export function forgetClassworkFlag(userId: string) {
-  try { sessionStorage.removeItem(flagKey(userId)) } catch {}
+  try { sessionStorage.removeItem(flagKey(userId)); sessionStorage.removeItem(dataKey(userId)) } catch {}
 }
 
 function remember(userId: string, d: Classwork) {
@@ -31,18 +31,25 @@ function remember(userId: string, d: Classwork) {
   } catch {}
 }
 
-/** The student's classwork, loaded once. Null while loading; students only. */
+const dataKey = (userId: string) => `cs:classwork-data:${userId}`
+
+/** The student's classwork. Null while loading; students only. The last copy this tab saw shows at once, then refreshes. */
 export function useClasswork(): Classwork | null {
   const { user } = useAuth()
   const [data, setData] = useState<Classwork | null>(null)
   useEffect(() => {
     if (!user || user.user_type === "teacher") return
+    try {
+      const cached = sessionStorage.getItem(dataKey(user.id))
+      if (cached) setData(JSON.parse(cached) as Classwork)
+    } catch {}
     let live = true
     void (async () => {
       const res = await authFetch("/api/student/classwork", { cache: "no-store" })
       if (!res.ok || !live) return
       const json = (await res.json()) as Classwork
       remember(user.id, json)
+      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify(json)) } catch {}
       setData(json)
     })()
     return () => { live = false }
@@ -81,6 +88,11 @@ export function statusLabel(a: StudentPractice): string {
   const [base] = STATUS[a.status] ?? STATUS.not_started
   if (!a.daysLate) return base
   return a.status === "late" ? `Turned in ${dayCount(a.daysLate)} late` : `Missing · ${dayCount(a.daysLate)} overdue`
+}
+
+const FORMAT_NAME: Record<string, string> = {
+  outline: "Outline", summary: "Summary", flashcards: "Flashcards", quiz: "Quiz", practice: "Practice", adaptive: "Adaptive practice",
+  plan: "Study plan", cheatsheet: "Cheat sheet", timeline: "Timeline", custom: "Custom guide",
 }
 
 export const practiceHref = (a: StudentPractice) => `/study-guide/${a.guideId}?assignment=${a.id}`
@@ -232,7 +244,7 @@ export function SharedGuideRow({ g, className }: { g: StudentSharedGuide; classN
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BookOpen className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{g.title}</span>
-        <span className="block truncate text-xs text-slate-500">{[g.format, className, g.note].filter(Boolean).join(" · ")}</span>
+        <span className="block truncate text-xs text-slate-500">{[FORMAT_NAME[g.format] ?? g.format, className, g.note].filter(Boolean).join(" · ")}</span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-600" />
     </Link>
