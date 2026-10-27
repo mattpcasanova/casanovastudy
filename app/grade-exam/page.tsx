@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, CheckCircle, Download, FileCheck, AlertCircle, Edit2, ScanText } from "lucide-react"
+import { Upload, CheckCircle, FileCheck, AlertCircle, Edit2, ScanText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { StreamingGenerationProgress } from "@/components/generation-progress"
 import NavigationHeader from "@/components/navigation-header"
@@ -26,8 +26,6 @@ import type { RosterRow } from "@/lib/classes/server"
 
 interface GradingResult {
   id?: string
-  pdfUrl: string
-  pdfDataUrl?: string
   totalMarks: number
   totalPossibleMarks: number
   gradeBreakdown: Array<{
@@ -475,7 +473,6 @@ export default function GradeExamPage() {
                     totalMarks: data.totalMarks,
                     totalPossibleMarks: data.totalPossibleMarks,
                     gradeBreakdown: data.gradeBreakdown,
-                    pdfUrl: '',
                   })
                 }
               }
@@ -896,28 +893,7 @@ export default function GradeExamPage() {
                   </div>
                 )}
 
-                {/* Download PDF Button */}
                 <div className="pt-6 border-t border-gray-200 space-y-3">
-                  <Button
-                    onClick={() => {
-                      if (gradingResult.pdfDataUrl) {
-                        const link = document.createElement('a')
-                        link.href = gradingResult.pdfDataUrl
-                        link.download = `Graded_Exam_${Date.now()}.pdf`
-                        document.body.appendChild(link)
-                        link.click()
-                        document.body.removeChild(link)
-                      } else if (gradingResult.pdfUrl) {
-                        window.open(gradingResult.pdfUrl, "_blank")
-                      }
-                    }}
-                    className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
-                    size="lg"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download Graded PDF
-                  </Button>
-
                   <Button
                     onClick={() => {
                       setGradingResult(null)

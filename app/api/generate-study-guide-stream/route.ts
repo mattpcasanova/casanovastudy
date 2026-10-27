@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
 import { ClaudeService } from '@/lib/claude-api'
-import { FileProcessor } from '@/lib/file-processing'
 import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
@@ -31,10 +30,9 @@ export async function POST(request: NextRequest) {
   // Validate before metering, so a bad request never uses up a guide.
   let body: StudyGuideRequest
   try { body = await request.json() } catch { return sseError('Invalid request', 400) }
-  const hasCloudinaryFiles = body.cloudinaryFiles && body.cloudinaryFiles.length > 0
   const hasDirectContent = body.directContent && body.directContent.length > 0
   const hasLegacyFiles = body.files && body.files.length > 0
-  // Photos and scanned pages, prepared in the browser and uploaded to Cloudinary.
+  // Photos and scanned pages, prepared in the browser and put in the uploads bucket.
   const hasImages = Array.isArray(body.images) && body.images.length > 0
   // "Make another format": the existing guide's own content is the source material.
   // Guides are readable by link (public SELECT), so any guide the student can open works.
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest) {
   }
   // Students can type what they want to study instead of uploading files.
   const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
-  if (!hasCloudinaryFiles && !hasDirectContent && !hasLegacyFiles && !hasImages && !sourceGuide && studyRequest.length < 3) {
+  if (!hasDirectContent && !hasLegacyFiles && !hasImages && !sourceGuide && studyRequest.length < 3) {
     return sseError('Upload a file or describe what you want to study', 400)
   }
   if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
@@ -67,25 +65,14 @@ export async function POST(request: NextRequest) {
         // Process files from multiple sources
         let allContent: Array<{ name: string; content: string }> = []
 
-        // 1. Process Cloudinary files (fetched and text-extracted server-side)
-        if (hasCloudinaryFiles && body.cloudinaryFiles) {
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your files...' }) + '\n\n'))
-          const processedFiles = await Promise.all(
-            body.cloudinaryFiles.map(async (cloudinaryFile) => {
-              return await FileProcessor.processFileFromUrl(cloudinaryFile.url, cloudinaryFile.filename)
-            })
-          )
-          allContent.push(...processedFiles.map(f => ({ name: f.name, content: f.content })))
-        }
-
-        // 2. Add directly processed content (already extracted client-side, bypassed Cloudinary)
+        // 1. Text read in the browser (lib/uploads/prepare.ts)
         if (hasDirectContent && body.directContent) {
           console.log('Adding direct content:', body.directContent.map((c) => c.name))
           allContent.push(...body.directContent)
         }
 
-        // 3. Handle legacy files format (if any)
-        if (hasLegacyFiles && !hasCloudinaryFiles && !hasDirectContent) {
+        // 2. Handle legacy files format (if any)
+        if (hasLegacyFiles && !hasDirectContent) {
           allContent.push(...body.files!.map((f: { name: string; content: string }) => ({ name: f.name, content: f.content })))
         }
 
@@ -97,7 +84,7 @@ export async function POST(request: NextRequest) {
         let images: Awaited<ReturnType<typeof fetchUploadedImages>> = []
         if (hasImages) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your photos...' }) + '\n\n'))
-          images = await fetchUploadedImages(body.images)
+          images = await fetchUploadedImages(body.images, user.id)
         }
 
         // Combine all content
@@ -220,7 +207,7 @@ export async function POST(request: NextRequest) {
             difficulty_level: normalizeDifficulty(body.difficultyLevel),
             language: normalizeLanguage(body.language),
             additional_instructions: body.additionalInstructions,
-            file_count: (body.cloudinaryFiles?.length || 0) + (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0),
+            file_count: (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0),
             token_usage: usage,
             user_id: user.id,
             parent_guide_id: parentGuideId,

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     .filter((t): t is { name?: unknown; content: string } => typeof (t as { content?: unknown })?.content === 'string' && String((t as { content: string }).content).trim().length > 0)
     .slice(0, 10)
     .map((t) => ({ buffer: Buffer.from(t.content.slice(0, 200000), 'utf-8'), name: String(t.name ?? 'answer key').slice(0, 120), type: 'text/plain' }))
-  const images = await fetchUploadedImageBuffers(markSchemeBody.images, MAX_PAGES)
+  const images = await fetchUploadedImageBuffers(markSchemeBody.images, MAX_PAGES, user.id)
   const markScheme: PaperFile[] = [...texts, ...images.map((img) => ({ buffer: img.buffer, name: img.name, type: img.mediaType }))]
   if (!markScheme.length) return NextResponse.json({ error: 'No answer key' }, { status: 400 })
 

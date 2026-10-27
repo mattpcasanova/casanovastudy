@@ -9,8 +9,8 @@ import StudyGuideGenerating from "@/components/study-guide-generating"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { StudyGuideData } from "@/types"
-import { ClientCompression } from "@/lib/client-compression"
-import { prepareMaterials, type PreparedImage } from "@/lib/uploads/prepare"
+import { uploadFiles } from "@/lib/uploads/client"
+import { prepareMaterials } from "@/lib/uploads/prepare"
 import { authFetch } from "@/lib/auth-fetch"
 import { isPlanBlock } from "@/lib/plan-rules"
 import { usePlan } from "@/components/plan/plan-provider"
@@ -58,10 +58,10 @@ export default function Home() {
         throw new Error('None of your files could be read. ' + prepared.problems.join(' '))
       }
 
-      let imageUploads: Array<{ url: string; name: string }> = []
+      let imageUploads: Array<{ path: string; name: string }> = []
       if (prepared.images.length) {
         setStatusMessage(prepared.images.length === 1 ? 'Uploading your photo...' : `Uploading ${prepared.images.length} photos and pages...`)
-        imageUploads = await uploadInBatches(prepared.images)
+        imageUploads = await uploadFiles(prepared.images.map((i) => ({ blob: i.blob, name: i.name })), 'guide-images', { concurrency: 4 })
       }
 
       setStatusMessage(data.files.length ? 'Files ready! Starting generation...' : 'Starting generation...')
@@ -189,19 +189,4 @@ export default function Home() {
       </main>
     </AuthGate>
   )
-}
-
-/** Uploads prepared photos/pages to Cloudinary, four at a time, keeping their order. */
-async function uploadInBatches(images: PreparedImage[]): Promise<Array<{ url: string; name: string }>> {
-  const out: Array<{ url: string; name: string }> = new Array(images.length)
-  let next = 0
-  const worker = async () => {
-    while (next < images.length) {
-      const i = next++
-      const up = await ClientCompression.uploadToCloudinary(images[i].blob, 'guide-images', images[i].name)
-      out[i] = { url: up.url, name: images[i].name }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(4, images.length) }, worker))
-  return out
 }

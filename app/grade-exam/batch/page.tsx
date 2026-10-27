@@ -29,7 +29,7 @@ import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth"
 import { authFetch } from "@/lib/auth-fetch"
-import { ClientCompression } from "@/lib/client-compression"
+import { uploadFiles } from "@/lib/uploads/client"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
 import { DropZone as KitDropZone, FileList, GradingHero, GradingModeSwitch, MarkSchemeNudge, StepCard, StepHeading, actionButton, actionButtonPrimary, primaryCta, selectBox, buttonRow } from "@/components/grading/grading-ui"
@@ -50,8 +50,8 @@ const CONCURRENCY = 8
 
 interface Page {
   label: string
-  /** Uploaded JPEG (photos, scanned pages) or extracted text (Word/PowerPoint/text papers). */
-  url?: string
+  /** Uploaded JPEG (photos, scanned pages; a path in the uploads bucket) or extracted text (Word/PowerPoint/text papers). */
+  path?: string
   text?: string
   thumb?: string
 }
@@ -68,7 +68,7 @@ type Phase = "setup" | "preparing" | "review" | "grading"
 
 type AnswerKey = { status: "none" | "drafting" | "ready" | "error"; text: string; error?: string }
 
-type Scheme = { texts: Array<{ name: string; content: string }>; images: Array<{ url: string; name: string }> }
+type Scheme = { texts: Array<{ name: string; content: string }>; images: Array<{ path: string; name: string }> }
 
 const ANSWER_KEY_NAME = "Answer key (drafted from the papers, checked by the teacher)"
 
@@ -363,7 +363,7 @@ function BatchGrading() {
     try {
       // Answer key: typed PDFs/Word read as text, photos and scans as images.
       const issues: string[] = []
-      let scheme = inheritedScheme && !markFiles.length ? markScheme : { texts: [] as Array<{ name: string; content: string }>, images: [] as Array<{ url: string; name: string }> }
+      let scheme = inheritedScheme && !markFiles.length ? markScheme : { texts: [] as Array<{ name: string; content: string }>, images: [] as Array<{ path: string; name: string }> }
       if (markFiles.length) {
         setStatus("Reading the answer key...")
         const prepared = await prepareMaterials(markFiles, { pdfMode: "auto", maxImages: 30, onProgress: setStatus })
@@ -455,7 +455,7 @@ function BatchGrading() {
       // Photos picked last-first (page 9 before page 1): turn the stack around so
       // each paper starts with its cover.
       const pageHeaders: PageHeader[] = imageHeaders.map((h) => h ?? { name: null, firstPage: false })
-      let imagePagesOut = uploaded.map((u, i) => ({ label: u.name, url: u.url, thumb: thumbs[i] }))
+      let imagePagesOut = uploaded.map((u, i) => ({ label: u.name, path: u.path, thumb: thumbs[i] }))
       if (looksReversed(pageHeaders)) {
         imagePagesOut = imagePagesOut.reverse()
         pageHeaders.reverse()
@@ -521,7 +521,7 @@ function BatchGrading() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pages: paperPages.filter((p) => p.url).map((p) => ({ url: p.url, name: p.label })),
+          pages: paperPages.filter((p) => p.path).map((p) => ({ path: p.path, name: p.label })),
           texts: paperPages.filter((p) => p.text).map((p) => ({ name: p.label, content: p.text })),
         }),
       })
@@ -545,7 +545,7 @@ function BatchGrading() {
     const update = (patch: Partial<PaperStatus>) => setResults((r) => ({ ...r, [paper.key]: { ...r[paper.key], ...patch } as PaperStatus }))
     setResults((r) => ({ ...r, [paper.key]: { state: "grading", message: attempt > 1 ? "Trying again" : "Starting", startedAt } }))
     try {
-      const imagePages = paper.pages.map((i) => pages[i]).filter((p) => p.url)
+      const imagePages = paper.pages.map((i) => pages[i]).filter((p) => p.path)
       const textPages = paper.pages.map((i) => pages[i]).filter((p) => p.text)
       const res = await authFetch("/api/grade-batch/paper", {
         method: "POST",
@@ -564,7 +564,7 @@ function BatchGrading() {
           groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
           classroom: classroomSource ?? undefined,
-          pages: imagePages.map((p) => ({ url: p.url, name: p.label })),
+          pages: imagePages.map((p) => ({ path: p.path, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
         }),
       })
@@ -1065,20 +1065,10 @@ function BatchGrading() {
   )
 }
 
-/** Uploads blobs to Cloudinary four at a time, keeping their order. */
-async function uploadAll(items: Array<{ blob: Blob; name: string }>, folder: string, onProgress: (n: number, total: number) => void) {
-  const out: Array<{ url: string; name: string }> = new Array(items.length)
-  let next = 0, finished = 0
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++
-      const up = await ClientCompression.uploadToCloudinary(items[i].blob, folder, items[i].name)
-      out[i] = { url: up.url, name: items[i].name }
-      onProgress(++finished, items.length)
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(6, items.length) }, worker))
-  return out
+/** Uploads blobs to the uploads bucket six at a time, keeping their order. */
+async function uploadAll(items: Array<{ blob: Blob; name: string }>, kind: string, onProgress: (n: number, total: number) => void) {
+  const uploaded = await uploadFiles(items, kind, { onProgress })
+  return uploaded.map((u, i) => ({ path: u.path, name: items[i].name }))
 }
 
 /** Group work on a paper: the members graded with it (first = the paper's name). */

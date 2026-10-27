@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { FileText, Loader2, Upload, X } from "lucide-react"
+import { uploadFile } from "@/lib/uploads/client"
 
 interface UploadedFile {
   url: string
@@ -42,16 +43,9 @@ export default function ImportMaterialDialog({
     setUploading(true)
     try {
       for (const file of Array.from(fileList).slice(0, 5 - files.length)) {
-        const fd = new FormData()
-        fd.append("file", file)
-        fd.append("folder", "casanovastudy/question-bank-imports")
-        const res = await fetch("/api/upload-to-cloudinary", { method: "POST", body: fd })
-        const json = await res.json()
-        if (!res.ok || !json.url) {
-          toast({ title: json.error ?? `Failed to upload ${file.name}`, variant: "destructive" })
-          continue
-        }
-        setFiles(prev => [...prev, { url: json.url, name: file.name, type: file.type }])
+        // `url` holds the file's path in the uploads bucket.
+        const up = await uploadFile(file, "question-bank", file.name)
+        setFiles(prev => [...prev, { url: up.path, name: file.name, type: file.type }])
       }
     } catch {
       toast({ title: "Upload failed", variant: "destructive" })

@@ -4,13 +4,7 @@ import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { consentBlockResponse } from '@/lib/consent'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
 import { ClaudeService } from '@/lib/claude-api'
-import { FileProcessor } from '@/lib/file-processing'
 import { CustomSection } from '@/lib/types/custom-guide'
-
-interface CloudinaryFile {
-  url: string
-  filename: string
-}
 
 // Helper to extract complete section objects from streaming JSON
 function extractCompleteSections(buffer: string, alreadyExtracted: number): { sections: CustomSection[], newExtractedCount: number } {
@@ -102,14 +96,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { description, subject, gradeLevel, existingContent, cloudinaryFiles, mode, controls, visuals, codeEditor } = body
+  const { description, subject, gradeLevel, existingContent, mode, controls, visuals, codeEditor } = body
   // Prepared in the browser (lib/uploads/prepare.ts): text from files, and uploaded photos/scanned pages.
   const directContent: Array<{ name: string; content: string }> = Array.isArray(body.directContent)
     ? body.directContent.filter((d: { content?: unknown }) => typeof d?.content === 'string').map((d: { name?: unknown; content: string }) => ({ name: String(d.name ?? 'file').slice(0, 120), content: d.content.slice(0, 200000) }))
     : []
   const imageList = Array.isArray(body.images) ? body.images : []
 
-  const hasFiles = (!!cloudinaryFiles && cloudinaryFiles.length > 0) || directContent.length > 0 || imageList.length > 0
+  const hasFiles = directContent.length > 0 || imageList.length > 0
   const hasControls = !!controls && Array.isArray(controls.formats) && controls.formats.length > 0
 
   // Debug logging
@@ -118,8 +112,7 @@ export async function POST(request: NextRequest) {
     subject,
     gradeLevel,
     mode,
-    hasCloudinaryFiles: hasFiles,
-    fileCount: cloudinaryFiles?.length || 0,
+    hasFiles,
     textFiles: directContent.length,
     images: imageList.length,
     hasControls,
@@ -153,100 +146,21 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Process Cloudinary files if provided (same as home page - /api/generate-study-guide-stream)
+        // Text read in the browser (lib/uploads/prepare.ts) and photos from the uploads bucket.
         let sourceContent = ''
-        let pdfDocuments: Array<{ buffer: Buffer; filename: string }> = [] // Fallback for PDFs that couldn't be text-extracted
-
-        if (cloudinaryFiles && cloudinaryFiles.length > 0) {
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-            type: 'progress',
-            message: 'Processing your source materials...'
-          }) + '\n\n'))
-
-          const processedTexts: string[] = []
-
-          for (const file of cloudinaryFiles as CloudinaryFile[]) {
-            console.log(`📄 Processing file from Cloudinary: ${file.filename}`)
-            console.log(`📄 URL: ${file.url}`)
-
-            try {
-              // Try normal text extraction first
-              const processedFile = await FileProcessor.processFileFromUrl(file.url, file.filename)
-              processedTexts.push(`--- ${processedFile.name} ---\n${processedFile.content}`)
-              console.log(`✅ Text extraction successful for ${file.filename}: ${processedFile.content.length} chars`)
-            } catch (extractionError) {
-              console.warn(`⚠️ Text extraction failed for ${file.filename}:`, extractionError instanceof Error ? extractionError.message : extractionError)
-
-              // Check if it's a PDF - if so, download the raw buffer for Claude's native PDF reading
-              const isPdf = file.filename.toLowerCase().endsWith('.pdf') || file.url.toLowerCase().includes('.pdf')
-
-              if (isPdf) {
-                console.log(`📄 Falling back to Claude's native PDF reading for ${file.filename}`)
-                controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-                  type: 'progress',
-                  message: `Using AI vision for ${file.filename}...`
-                }) + '\n\n'))
-
-                try {
-                  // Download the raw PDF buffer
-                  const response = await fetch(file.url)
-                  if (!response.ok) {
-                    throw new Error(`Failed to download PDF: ${response.status}`)
-                  }
-                  const arrayBuffer = await response.arrayBuffer()
-                  const buffer = Buffer.from(arrayBuffer)
-
-                  pdfDocuments.push({ buffer, filename: file.filename })
-                  console.log(`✅ PDF buffer downloaded for Claude vision: ${file.filename} (${buffer.length} bytes)`)
-                } catch (downloadError) {
-                  console.error(`❌ Failed to download PDF for vision fallback:`, downloadError)
-                  controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-                    type: 'error',
-                    message: `Failed to process ${file.filename}: ${extractionError instanceof Error ? extractionError.message : 'Unknown error'}`
-                  }) + '\n\n'))
-                  await releaseUsage(meter.eventId)
-                  controller.close()
-                  return
-                }
-              } else {
-                // Non-PDF file failed extraction - report error
-                controller.enqueue(encoder.encode('data: ' + JSON.stringify({
-                  type: 'error',
-                  message: extractionError instanceof Error ? extractionError.message : 'Failed to process source files'
-                }) + '\n\n'))
-                await releaseUsage(meter.eventId)
-                controller.close()
-                return
-              }
-            }
-          }
-
-          // Combine successfully extracted text
-          if (processedTexts.length > 0) {
-            sourceContent = processedTexts.join('\n\n')
-            console.log(`✅ Processed ${processedTexts.length} files with text extraction, total: ${sourceContent.length} chars`)
-          }
-
-          // Log if we have PDF documents for vision fallback
-          if (pdfDocuments.length > 0) {
-            console.log(`📄 ${pdfDocuments.length} PDF(s) will be sent directly to Claude for vision reading`)
-          }
-        }
-
-        // Text read in the browser, then photos/scanned pages.
         if (directContent.length) {
           sourceContent = [sourceContent, ...directContent.map(d => `--- ${d.name} ---\n${d.content}`)].filter(Boolean).join('\n\n')
         }
         let images: Awaited<ReturnType<typeof fetchUploadedImages>> = []
         if (imageList.length) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your photos...' }) + '\n\n'))
-          images = await fetchUploadedImages(imageList)
+          images = await fetchUploadedImages(imageList, user.id)
         }
 
         // Send progress update
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({
           type: 'progress',
-          message: (sourceContent || pdfDocuments.length > 0 || images.length > 0) ? 'Analyzing source materials...' : 'Generating your study guide...'
+          message: (sourceContent || images.length > 0) ? 'Analyzing source materials...' : 'Generating your study guide...'
         }) + '\n\n'))
 
         let fullContent = ''
@@ -263,8 +177,6 @@ export async function POST(request: NextRequest) {
           controls,
           visuals: visuals !== false,
           codeEditor: codeEditor !== false,
-          // Pass PDF documents for Claude's native PDF reading when text extraction failed
-          pdfDocuments: pdfDocuments.length > 0 ? pdfDocuments : undefined,
           images: images.length > 0 ? images : undefined,
         })
 

@@ -1,5 +1,6 @@
 import { createAdminClient } from './supabase-server'
 import { runGradingPipeline } from './grade-exam-pipeline'
+import { downloadUpload } from './uploads/storage-server'
 
 interface FileMeta {
   url: string
@@ -39,28 +40,23 @@ function sniffMime(buf: Buffer): string | null {
 }
 
 async function fetchAsBuffer(
-  url: string,
+  path: string,
   fallbackName: string,
   storedType?: string | null
 ): Promise<{ buffer: Buffer; name: string; type: string }> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
-  const ab = await res.arrayBuffer()
-  const buf = Buffer.from(ab)
+  // `path` is the file's location in the uploads bucket (stored in the old
+  // *_url columns). The rows themselves are access-checked, so no owner here.
+  const { buffer: buf, contentType } = await downloadUpload(path)
 
-  const urlFilename = url.split('/').pop()?.split('?')[0]
-  const name = urlFilename || fallbackName || 'file'
+  const name = path.split('/').pop() || fallbackName || 'file'
   const ext = (name.split('.').pop() ?? '').toLowerCase()
 
-  // Resolution order:
-  // 1. Stored type from DB (set by browser on upload — most accurate)
-  // 2. URL extension lookup
-  // 3. Magic-number sniffing (handles Cloudinary extension-less URLs)
-  // 4. Content-Type header (Cloudinary returns application/octet-stream — least useful)
+  // Resolution order: the type the browser stored, the extension, the file's
+  // first bytes, then what storage says.
   let type = storedType && storedType !== 'application/octet-stream' ? storedType : ''
   if (!type) type = EXT_MIMES[ext] ?? ''
   if (!type || type === 'application/octet-stream') type = sniffMime(buf) ?? ''
-  if (!type) type = res.headers.get('content-type') ?? 'application/octet-stream'
+  if (!type) type = contentType ?? 'application/octet-stream'
 
   return { buffer: buf, name, type }
 }
@@ -105,7 +101,7 @@ export async function gradeSubmission(submissionId: string): Promise<{ gradingRe
     .update({ status: 'grading', grading_error: null })
     .eq('id', submissionId)
 
-  // Fetch all files from Cloudinary into buffers
+  // Read every file from storage
   const markScheme = await fetchAsBuffer(assignment.mark_scheme_url, 'mark-scheme')
 
   const studentFiles = await Promise.all(

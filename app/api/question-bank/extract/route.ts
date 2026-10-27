@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { requireTeacher } from '@/lib/api-auth'
 import { extractQuestionsFromMaterial, type MaterialFile } from '@/lib/mastery/ai'
 import { FileProcessor } from '@/lib/file-processing'
+import { ownsUploadPath } from '@/lib/uploads/refs'
+import { downloadUpload } from '@/lib/uploads/storage-server'
 
 export const maxDuration = 300 // vision extraction over full documents
 
@@ -12,16 +14,6 @@ interface ExtractBody {
 
 const MAX_FILES = 5
 const MAX_FILE_BYTES = 30 * 1024 * 1024
-
-function isAllowedUrl(url: string): boolean {
-  try {
-    const u = new URL(url)
-    // Files come from the app's own Cloudinary upload flow
-    return u.protocol === 'https:' && u.hostname.endsWith('cloudinary.com')
-  } catch {
-    return false
-  }
-}
 
 // POST - Extract concept-tagged questions from uploaded material (PDF/images).
 // Everything lands as status='suggested' for review; questions that don't fit
@@ -33,7 +25,8 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ExtractBody
     const fileUrls = (body.file_urls ?? [])
-      .filter(f => f && typeof f.url === 'string' && isAllowedUrl(f.url))
+      // `url` is the file's path in the uploads bucket, and it must be the teacher's own.
+      .filter(f => f && typeof f.url === 'string' && ownsUploadPath(f.url, user.id))
       .slice(0, MAX_FILES)
     if (fileUrls.length === 0) {
       return NextResponse.json({ error: 'Upload at least one PDF or image first' }, { status: 400 })
@@ -54,9 +47,13 @@ export async function POST(request: NextRequest) {
     const files: MaterialFile[] = []
     for (const f of fileUrls) {
       const extension = (f.name ?? f.url).split('?')[0].split('.').pop()?.toLowerCase() ?? ''
+      let download: Awaited<ReturnType<typeof downloadUpload>>
+      try { download = await downloadUpload(f.url, user.id) } catch {
+        return NextResponse.json({ error: `Could not fetch ${f.name ?? 'file'}` }, { status: 400 })
+      }
       if (TEXT_EXTRACTED.has(extension)) {
         try {
-          const processed = await FileProcessor.processFileFromUrl(f.url, f.name ?? `file.${extension}`)
+          const processed = await FileProcessor.processFileFromBuffer(download.buffer, f.name ?? `file.${extension}`)
           files.push({ kind: 'text', text: processed.content, name: f.name })
         } catch (err) {
           console.error(`Text extraction failed for ${f.name}:`, err)
@@ -68,15 +65,11 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const res = await fetch(f.url)
-      if (!res.ok) {
-        return NextResponse.json({ error: `Could not fetch ${f.name ?? 'file'}` }, { status: 400 })
-      }
-      const buffer = Buffer.from(await res.arrayBuffer())
+      const buffer = download.buffer
       if (buffer.length > MAX_FILE_BYTES) {
         return NextResponse.json({ error: `${f.name ?? 'File'} is too large (30MB max)` }, { status: 400 })
       }
-      const mediaType = (f.type || res.headers.get('content-type') || 'application/pdf').split(';')[0]
+      const mediaType = (f.type || download.contentType || 'application/pdf').split(';')[0]
       files.push({ kind: 'document', buffer, mediaType, name: f.name })
     }
 

@@ -1,22 +1,25 @@
 // Live eval for the paper grader: which model + effort marks best for the money.
-// Grades the same handwritten papers (already uploaded to Cloudinary by a batch)
+// Grades the same handwritten papers (the pages a class set saved, page_urls)
 // against ONE shared answer key with each configuration, re-grades some papers
 // to measure run-to-run consistency, and records time and cost. Without a
 // teacher's own marks it can't say which config is "right", so it also writes
 // disagreements.md: every question where configs disagree, for the teacher to rule on.
-//   npx tsx --env-file=.env.local scripts/eval-grading.ts <outDir> <student,student,...> [repeatCount]
-// Students are Cloudinary file-name prefixes in grading-pages/ (e.g. Sean_Miller).
+//   npx tsx --env-file=.env.local scripts/eval-grading.ts <outDir> <batchId> <student,student,...> [repeatCount]
+// Students are names as graded in that set (case-insensitive).
 // ~$0.15-0.25 per 9-page paper per config.
 
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { ClaudeService, type GradingModelOptions } from '../lib/claude-api'
 import { gradePaper, type PaperFile } from '../lib/grading/grade-paper'
 import { normalizeQuestionKey } from '../lib/grading/parse'
+import { createClient } from '@supabase/supabase-js'
+import { UPLOAD_BUCKET } from '../lib/uploads/refs'
 
 const out = process.argv[2]
-const students = (process.argv[3] ?? '').split(',').filter(Boolean)
-const repeats = Number(process.argv[4] ?? 2) // how many papers each config grades twice
-if (!out || !students.length) throw new Error('usage: eval-grading.ts <outDir> <student,...> [repeatCount]')
+const batchId = process.argv[3]
+const students = (process.argv[4] ?? '').split(',').filter(Boolean)
+const repeats = Number(process.argv[5] ?? 2) // how many papers each config grades twice
+if (!out || !batchId || !students.length) throw new Error('usage: eval-grading.ts <outDir> <batchId> <student,...> [repeatCount]')
 mkdirSync(out, { recursive: true })
 
 const CONFIGS: Array<{ key: string; grading: GradingModelOptions }> = [
@@ -30,26 +33,23 @@ const PRICE = { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 }
 type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }
 const cost = (u: Usage | null) => !u ? 0 : (u.input_tokens * PRICE.input + u.output_tokens * PRICE.output + (u.cache_read_input_tokens ?? 0) * PRICE.cacheRead + (u.cache_creation_input_tokens ?? 0) * PRICE.cacheWrite) / 1e6
 
-async function cloudinaryPages(student: string): Promise<PaperFile[]> {
-  const { CLOUDINARY_API_KEY: k, CLOUDINARY_API_SECRET: s, CLOUDINARY_CLOUD_NAME: c } = process.env
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${c}/resources/raw/upload?prefix=grading-pages/${student}_p&max_results=100&direction=desc`, {
-    headers: { Authorization: 'Basic ' + Buffer.from(`${k}:${s}`).toString('base64') },
-  })
-  const data = await res.json() as { resources: Array<{ public_id: string; secure_url: string; created_at: string }> }
-  // The newest upload of each page only (a stack may have been uploaded more than once).
-  const byPage = new Map<number, { public_id: string; secure_url: string }>()
-  for (const r of data.resources) {
-    const page = Number(r.public_id.match(/_p(\d+)-[0-9a-f]{8}\.\w+$/)?.[1])
-    if (page && !byPage.has(page)) byPage.set(page, r)
-  }
-  const pages = [...byPage.entries()].sort((a, b) => a[0] - b[0])
+const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+async function batchPages(student: string): Promise<PaperFile[]> {
+  const { data: rows } = await sb.from('grading_results').select('student_name, page_urls').eq('batch_id', batchId)
+  const row = (rows ?? []).find((r) => String(r.student_name).toLowerCase() === student.toLowerCase())
+  const pages = (row?.page_urls ?? []) as Array<{ path: string; name: string }>
   if (!pages.length) throw new Error(`No pages for ${student}`)
-  return Promise.all(pages.map(async ([n, r]) => ({ buffer: Buffer.from(await (await fetch(r.secure_url)).arrayBuffer()), name: `${student} page ${n}`, type: 'image/jpeg' })))
+  return Promise.all(pages.map(async (p, i) => {
+    const { data, error } = await sb.storage.from(UPLOAD_BUCKET).download(p.path)
+    if (error || !data) throw new Error(`Could not load ${p.path}`)
+    return { buffer: Buffer.from(await data.arrayBuffer()), name: `${student} page ${i + 1}`, type: 'image/jpeg' }
+  }))
 }
 
 async function main() {
   const papers = new Map<string, PaperFile[]>()
-  for (const s of students) papers.set(s, await cloudinaryPages(s))
+  for (const s of students) papers.set(s, await batchPages(s))
   console.log('pages:', [...papers].map(([s, p]) => `${s}=${p.length}`).join(' '))
 
   // One answer key for every config, so differences come from the grader alone.

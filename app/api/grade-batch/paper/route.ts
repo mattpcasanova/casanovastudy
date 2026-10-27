@@ -4,6 +4,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { gradePaper, markingProgress, type PaperFile } from '@/lib/grading/grade-paper'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
+import { pickUploadRefs } from '@/lib/uploads/refs'
 import { createAdminClient } from '@/lib/supabase-server'
 import { gradingChoices, settingsFromRow } from '@/lib/grading/report-settings'
 import { matchRoster, parseName } from '@/lib/grading/names'
@@ -81,11 +82,11 @@ export async function POST(request: NextRequest) {
         const markSchemeBody = (body.markScheme ?? {}) as { texts?: unknown; images?: unknown }
         send({ type: 'status', message: 'Loading pages' })
         const [markImages, pageImages] = await Promise.all([
-          fetchUploadedImageBuffers(markSchemeBody.images, MAX_PAGES),
-          fetchUploadedImageBuffers(body.pages, MAX_PAGES),
+          fetchUploadedImageBuffers(markSchemeBody.images, MAX_PAGES, user.id),
+          fetchUploadedImageBuffers(body.pages, MAX_PAGES, user.id),
         ])
         const student = [...toFiles(pageImages), ...textFiles(body.texts)]
-        const pageUrls = (Array.isArray(body.pages) ? body.pages : []).filter((p): p is { url: string; name?: string } => !!p && typeof (p as { url?: unknown }).url === 'string').slice(0, MAX_PAGES).map((p) => ({ url: p.url.slice(0, 500), name: String(p.name ?? '').slice(0, 200) }))
+        const pageUrls = pickUploadRefs(body.pages, MAX_PAGES)
         if (!student.length) throw new Error('This paper has no pages')
 
         // Before the first marks appear Claude is reading the pages and thinking.
@@ -191,9 +192,7 @@ async function rememberBatchSetup(userId: string, batchId: string, body: Record<
   const texts = (Array.isArray(scheme.texts) ? scheme.texts : [])
     .filter((t): t is { name: string; content: string } => !!t && typeof t.name === 'string' && typeof t.content === 'string')
     .slice(0, 20).map((t) => ({ name: t.name.slice(0, 200), content: t.content.slice(0, 200_000) }))
-  const images = (Array.isArray(scheme.images) ? scheme.images : [])
-    .filter((i): i is { url: string; name?: string } => !!i && typeof i.url === 'string')
-    .slice(0, 40).map((i) => ({ url: i.url.slice(0, 500), name: String(i.name ?? '').slice(0, 200) }))
+  const images = pickUploadRefs(scheme.images, 40)
   const row: Record<string, unknown> = {
     batch_id: batchId,
     user_id: userId,

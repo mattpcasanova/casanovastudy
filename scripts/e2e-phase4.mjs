@@ -1,5 +1,5 @@
-// Phase 4 E2E: import-from-material. Uploads a real PDF through the app's
-// Cloudinary route, runs extraction, verifies concept-tagged suggestions +
+// Phase 4 E2E: import-from-material. Uploads a real PDF into the uploads
+// bucket as the teacher, runs extraction, verifies concept-tagged suggestions +
 // proposed-concept creation. Disposable teacher; full cleanup.
 import { readFileSync } from 'fs'
 import { createRequire } from 'module'
@@ -125,14 +125,13 @@ async function main() {
 
   console.log('\n== Upload PDF via app route ==')
   const pdfBytes = makeWorksheetPdf(WORKSHEET_LINES)
-  const fd = new FormData()
-  fd.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), 'e2e-worksheet.pdf')
-  fd.append('folder', 'casanovastudy/question-bank-imports')
-  const upRes = await fetch(`${BASE}/api/upload-to-cloudinary`, {
-    method: 'POST', headers: { Cookie: cookie }, body: fd,
-  })
-  const upJson = await upRes.json()
-  check('upload succeeded', upRes.ok && !!upJson.url, `got ${upRes.status}: ${JSON.stringify(upJson).slice(0, 200)}`)
+  const upload = async (bytes, name, type) => {
+    const path = `${created.teacherId}/question-bank/${name.replace(/\.[^.]+$/, '')}-${Math.random().toString(36).slice(2, 10)}${name.match(/\.[^.]+$/)[0]}`
+    const { error } = await anon.storage.from('uploads').upload(path, new Blob([bytes], { type }), { contentType: type })
+    return { url: error ? null : path, error }
+  }
+  const upJson = await upload(pdfBytes, 'e2e-worksheet.pdf', 'application/pdf')
+  check('upload succeeded', !!upJson.url, `got ${upJson.error?.message}`)
   if (!upJson.url) throw new Error('upload failed, aborting')
 
   console.log('\n== Extract ==')
@@ -154,21 +153,17 @@ async function main() {
   check('MC shapes valid', extracted.filter(r => r.type === 'multiple_choice').every(r =>
     Array.isArray(r.options) && typeof r.correct_answer.index === 'number' && r.correct_answer.index < r.options.length))
 
-  // Guard: non-cloudinary URL rejected
+  // Guard: a file outside the teacher's own uploads folder is rejected
   const badRes = await fetch(`${BASE}/api/question-bank/extract`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ file_urls: [{ url: 'https://evil.example.com/x.pdf' }] }),
   })
-  check('non-cloudinary URL rejected', badRes.status === 400, `got ${badRes.status}`)
+  check('outside path rejected', badRes.status === 400, `got ${badRes.status}`)
 
   console.log('\n== PowerPoint lecture (content only, no questions) ==')
   const pptxBytes = makeLecturePptx()
-  const fd2 = new FormData()
-  fd2.append('file', new Blob([pptxBytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), 'e2e-lecture.pptx')
-  fd2.append('folder', 'casanovastudy/question-bank-imports')
-  const up2 = await fetch(`${BASE}/api/upload-to-cloudinary`, { method: 'POST', headers: { Cookie: cookie }, body: fd2 })
-  const up2Json = await up2.json()
-  check('pptx upload accepted', up2.ok && !!up2Json.url, `got ${up2.status}: ${JSON.stringify(up2Json).slice(0, 200)}`)
+  const up2Json = await upload(pptxBytes, 'e2e-lecture.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+  check('pptx upload accepted', !!up2Json.url, `got ${up2Json.error?.message}`)
 
   const before = new Set(((await admin.from('concepts').select('id').eq('teacher_id', created.teacherId)).data ?? []).map(c => c.id))
   const ex2 = await fetch(`${BASE}/api/question-bank/extract`, {

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     : []
 
   try {
-    const images = await fetchUploadedImageBuffers(body.pages, MAX_PAGES)
+    const images = await fetchUploadedImageBuffers(body.pages, MAX_PAGES, user.id)
     if (!images.length && !texts.length) return NextResponse.json({ error: 'No pages to read' }, { status: 400 })
     const { key } = await new ClaudeService().draftAnswerKey(
       images.map((img) => ({ mediaType: img.mediaType, data: img.buffer.toString('base64') })),

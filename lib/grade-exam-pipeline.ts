@@ -9,8 +9,6 @@
 import { DEFAULT_SCALE, gradeFor } from '@/lib/grading/scale'
 import { FileProcessor } from './file-processing'
 import { ClaudeService } from './claude-api'
-import { PDFShiftPDFGenerator } from './pdfshift-pdf-generator'
-import { storePDF } from '@/app/api/pdf/[filename]/route'
 import { createAdminClient } from './supabase-server'
 import { parseGradingOutput } from './grading/parse'
 
@@ -37,8 +35,6 @@ export interface GradingPipelineInput {
 
 export interface GradingPipelineResult {
   id: string
-  pdfUrl: string
-  pdfDataUrl: string
   totalMarks: number
   totalPossibleMarks: number
   gradeBreakdown: GradeBreakdownItem[]
@@ -155,35 +151,6 @@ export async function runGradingPipeline(input: GradingPipelineInput): Promise<G
     }
   }
 
-  // Generate graded PDF
-  const gradingId = `graded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-  const pdfContent = generateGradingPDFContent(
-    gradingContent, totalMarks, totalPossibleMarks, gradeBreakdown,
-    markSchemeFile?.name ?? 'mark-scheme', primaryStudentFile.name, additionalComments
-  )
-
-  const pdfBuffer = await PDFShiftPDFGenerator.generatePDF({
-    id: gradingId,
-    title: `Graded Exam - ${primaryStudentFile.name}`,
-    content: pdfContent,
-    format: 'summary',
-    generatedAt: new Date(),
-    fileCount: 2,
-    subject: 'AICE Business',
-    gradeLevel: 'AICE Level',
-    tokenUsage: claudeResponse.usage,
-  })
-
-  if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
-    throw new Error('Failed to generate valid PDF buffer')
-  }
-
-  storePDF(gradingId, pdfBuffer)
-
-  const pdfDataUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`
-  const pdfUrl = `/api/pdf/${gradingId}.pdf`
-
   const percentage = totalPossibleMarks > 0 ? (totalMarks / totalPossibleMarks) * 100 : 0
   const grade = gradeFor(DEFAULT_SCALE, totalMarks, totalPossibleMarks)
 
@@ -206,7 +173,6 @@ export async function runGradingPipeline(input: GradingPipelineInput): Promise<G
       content: gradingContent,
       grade_breakdown: gradeBreakdown,
       additional_comments: additionalComments ?? null,
-      pdf_url: pdfUrl,
       token_usage: claudeResponse.usage,
     })
     .select()
@@ -218,8 +184,6 @@ export async function runGradingPipeline(input: GradingPipelineInput): Promise<G
 
   return {
     id: savedGrading.id,
-    pdfUrl,
-    pdfDataUrl,
     totalMarks,
     totalPossibleMarks,
     gradeBreakdown,
@@ -381,106 +345,4 @@ function cleanBreakdown(breakdown: GradeBreakdownItem[]): GradeBreakdownItem[] {
     explanation: item.explanation.replace(/\s+/g, ' ').trim().substring(0, 500) +
       (item.explanation.replace(/\s+/g, ' ').trim().length > 500 ? '...' : ''),
   }))
-}
-
-export function generateGradingPDFContent(
-  gradingContent: string,
-  totalMarks: number,
-  totalPossibleMarks: number,
-  gradeBreakdown: GradeBreakdownItem[],
-  markSchemeName: string,
-  studentExamName: string,
-  additionalComments?: string
-): string {
-  const percentage = totalPossibleMarks > 0 ? ((totalMarks / totalPossibleMarks) * 100).toFixed(1) : '0'
-  const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-
-  let grade = 'F'
-  let gradeColor = '#dc2626'
-  const percentNum = parseFloat(percentage)
-  if (percentNum >= 90) { grade = 'A'; gradeColor = '#059669' }
-  else if (percentNum >= 80) { grade = 'B'; gradeColor = '#3b82f6' }
-  else if (percentNum >= 70) { grade = 'C'; gradeColor = '#f59e0b' }
-  else if (percentNum >= 60) { grade = 'D'; gradeColor = '#f97316' }
-
-  const studentName = studentExamName.replace(/\.(pdf|docx)$/i, '').replace(/_/g, ' ')
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #111827; line-height: 1.5; padding: 24px; background: #fff; }
-.header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; }
-.student-name { font-size: 22px; font-weight: 700; color: #111827; }
-.date { font-size: 13px; color: #6b7280; }
-.score-banner { background: linear-gradient(135deg, ${gradeColor}15 0%, ${gradeColor}08 100%); border-left: 4px solid ${gradeColor}; padding: 20px 24px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-.score-main { display: flex; gap: 24px; align-items: center; }
-.grade-box { font-size: 48px; font-weight: 800; color: ${gradeColor}; line-height: 1; min-width: 70px; text-align: center; }
-.score-info { display: flex; flex-direction: column; gap: 4px; }
-.score-points { font-size: 20px; font-weight: 600; color: #111827; }
-.score-percent { font-size: 15px; color: #6b7280; }
-.section-title { font-size: 16px; font-weight: 700; color: #111827; margin: 24px 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
-.question { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; }
-.q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.q-number { font-size: 14px; font-weight: 700; color: #111827; }
-.q-score { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
-.q-feedback { font-size: 13px; color: #374151; line-height: 1.5; }
-.summary { margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.summary-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; }
-.summary-title { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-.summary-list { font-size: 13px; color: #374151; line-height: 1.6; }
-.summary-list li { margin-bottom: 4px; }
-.footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #9ca3af; }
-</style>
-</head>
-<body>
-<div class="header">
-  <div class="student-name">${studentName}</div>
-  <div class="date">${currentDate}</div>
-</div>
-<div class="score-banner">
-  <div class="score-main">
-    <div class="grade-box">${grade}</div>
-    <div class="score-info">
-      <div class="score-points">${totalMarks} / ${totalPossibleMarks} marks</div>
-      <div class="score-percent">${percentage}%</div>
-    </div>
-  </div>
-</div>
-<div class="section-title">Question Breakdown</div>
-${gradeBreakdown.map((item) => {
-  const qPercent = item.marksPossible > 0 ? ((item.marksAwarded / item.marksPossible) * 100) : 0
-  let color = '#dc2626', bg = '#dc262615'
-  if (qPercent >= 80) { color = '#059669'; bg = '#05966915' }
-  else if (qPercent >= 60) { color = '#3b82f6'; bg = '#3b82f615' }
-  else if (qPercent >= 40) { color = '#f59e0b'; bg = '#f59e0b15' }
-  return `<div class="question">
-  <div class="q-header">
-    <div class="q-number">Question ${item.questionNumber}</div>
-    <div class="q-score" style="background: ${bg}; color: ${color};">${item.marksAwarded}/${item.marksPossible} (${qPercent.toFixed(0)}%)</div>
-  </div>
-  <div class="q-feedback">${item.explanation}</div>
-</div>`
-}).join('')}
-<div class="summary">
-  <div class="summary-box">
-    <div class="summary-title">Strengths</div>
-    <ul class="summary-list">
-      ${gradeBreakdown.filter(q => q.marksPossible > 0 && (q.marksAwarded / q.marksPossible) >= 0.7).slice(0, 3)
-        .map(q => `<li>Question ${q.questionNumber}</li>`).join('') || '<li>Keep building on fundamentals</li>'}
-    </ul>
-  </div>
-  <div class="summary-box">
-    <div class="summary-title">Focus Areas</div>
-    <ul class="summary-list">
-      ${gradeBreakdown.filter(q => q.marksPossible > 0 && (q.marksAwarded / q.marksPossible) < 0.5).slice(0, 3)
-        .map(q => `<li>Question ${q.questionNumber}</li>`).join('') || '<li>Maintain strong performance</li>'}
-    </ul>
-  </div>
-</div>
-<div class="footer">CasanovaStudy Exam Grader • ${currentDate}</div>
-</body>
-</html>`
 }

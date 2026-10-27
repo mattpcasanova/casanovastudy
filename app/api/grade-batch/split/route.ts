@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
   let images
   try {
-    images = await fetchUploadedImageBuffers(pages, MAX_PAGES)
+    images = await fetchUploadedImageBuffers(pages, MAX_PAGES, user.id)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not load pages' }, { status: 400 })
   }

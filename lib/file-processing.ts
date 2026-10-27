@@ -797,47 +797,12 @@ export class FileProcessor {
   }
 
   /**
-   * Process a file from a Cloudinary URL
+   * Process a file that is already in memory (an upload read from storage).
    */
-  static async processFileFromUrl(url: string, filename: string): Promise<ProcessedFile> {
+  static async processFileFromBuffer(buffer: Buffer, filename: string): Promise<ProcessedFile> {
     try {
-      console.log('Processing file from Cloudinary URL:', url);
-      console.log('URL status check:', { url, filename });
-      
-      // Download file from Cloudinary
-      // Try the original URL first
-      let response = await fetch(url);
-      console.log('Fetch response:', { 
-        status: response.status, 
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      // If unauthorized, try with different URL format
-      if (!response.ok && response.status === 401) {
-        console.log('Trying alternative URL format...');
-        // Try removing the version parameter
-        const alternativeUrl = url.replace(/\/v\d+\//, '/');
-        console.log('Alternative URL:', alternativeUrl);
-        
-        response = await fetch(alternativeUrl);
-        console.log('Alternative fetch response:', { 
-          status: response.status, 
-          statusText: response.statusText,
-          ok: response.ok
-        });
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
-      }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Determine file type from URL or filename
-      const fileType = this.getFileTypeFromUrl(url, filename);
+      const fileType = this.getFileTypeFromUrl(filename, filename);
       let content = '';
 
       switch (fileType) {
@@ -869,8 +834,8 @@ export class FileProcessor {
       };
 
     } catch (error) {
-      console.error('Error processing file from URL:', error);
-      throw new Error(`Failed to process file from URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error processing file:', error);
+      throw new Error(`Failed to process file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

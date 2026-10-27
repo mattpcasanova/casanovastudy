@@ -10,6 +10,7 @@ import { paperDaysLate } from '@/lib/grading/late'
 import { acceptAnswerPlan, applyAcceptance, normalizeAnswerList, type AcceptAnswer } from '@/lib/grading/accept-answer'
 import { adjustedTotals, normalizeAdjustments, withAdjustment } from '@/lib/grading/adjustments'
 import type { GradedQuestion } from '@/lib/grading/parse'
+import { ownsUploadPath, pickUploadRefs } from '@/lib/uploads/refs'
 
 // A batch's results (the class results page): every paper with its per-question
 // breakdown, plus the saved class report and whether it still matches the marks. Owner only.
@@ -171,9 +172,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const texts = (Array.isArray(scheme.texts) ? scheme.texts : [])
       .filter((t): t is { name: string; content: string } => !!t && typeof t.name === 'string' && typeof t.content === 'string' && !!t.content.trim())
       .slice(0, 20).map((t) => ({ name: t.name.slice(0, 200), content: t.content.slice(0, 200_000) }))
-    const images = (Array.isArray(scheme.images) ? scheme.images : [])
-      .filter((i): i is { url: string; name?: string } => !!i && typeof i.url === 'string')
-      .slice(0, 40).map((i) => ({ url: i.url.slice(0, 500), name: String(i.name ?? '').slice(0, 200) }))
+    const images = pickUploadRefs(scheme.images, 40).filter((i) => ownsUploadPath(i.path, user.id))
     if (!texts.length && !images.length) return NextResponse.json({ error: 'The answer key is empty' }, { status: 400 })
     const { data: existing } = await supabase.from('grading_batches').select('user_id').eq('batch_id', id).maybeSingle()
     if (existing && existing.user_id !== user.id) return NextResponse.json({ error: 'Not found' }, { status: 404 })

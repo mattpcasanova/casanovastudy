@@ -231,7 +231,6 @@ export async function GET(
         additionalComments: gradingResult.additional_comments,
         teacherComment: gradingResult.teacher_comment,
         adjustments: normalizeAdjustments(gradingResult.adjustments),
-        pdfUrl: gradingResult.pdf_url,
         createdAt: gradingResult.created_at,
         updatedAt: gradingResult.updated_at,
         isOwner: requestUserId === gradingResult.user_id,

@@ -6,6 +6,7 @@
 
 import { createAdminClient } from '@/lib/supabase-server'
 import { removePhoneFiles } from '@/lib/scan-inbox/phone-server'
+import { removeUserUploads } from '@/lib/uploads/storage-server'
 
 export async function deleteAccount(userId: string): Promise<void> {
   const supabase = createAdminClient()
@@ -24,6 +25,8 @@ export async function deleteAccount(userId: string): Promise<void> {
   for (let i = 0; i < paths.length; i += 100) await supabase.storage.from('scan-inbox').remove(paths.slice(i, i + 100))
   const { data: phoneLinks } = await supabase.from('phone_upload_sessions').select('id, user_id').eq('user_id', userId)
   for (const s of phoneLinks ?? []) await removePhoneFiles(supabase, s, true)
+  // Photos and pages they uploaded (guides, grading) live in the uploads bucket.
+  await removeUserUploads(supabase, userId)
   const { error } = await supabase.auth.admin.deleteUser(userId)
   if (error) throw new Error(`Could not delete the account: ${error.message}`)
 }

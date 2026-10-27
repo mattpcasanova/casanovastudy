@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Check, Clock, Download, Edit2, FileCheck, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
+import { ArrowLeft, Check, Clock, Edit2, FileCheck, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -38,7 +38,6 @@ interface GradingResult {
   markingStyle: MarkingStyle
   teacherComment: string | null
   adjustments?: GradeAdjustment[]
-  pdfUrl: string | null
   createdAt: string
   isOwner: boolean
   /** Saved pages + the set's answer key exist, so the owner can grade it again. */
@@ -319,11 +318,6 @@ export default function GradeReportPage() {
               <Button variant="ghost" onClick={() => window.print()} className={actionButton}>
                 <Printer className="mr-1.5 h-4 w-4" /> Print
               </Button>
-              {result.pdfUrl && (
-                <Button variant="ghost" onClick={() => window.open(result.pdfUrl!, '_blank')} className={actionButton}>
-                  <Download className="mr-1.5 h-4 w-4" /> Graded PDF
-                </Button>
-              )}
               {canEdit && result.linkedStudent && (
                 <label className="flex items-center gap-2 rounded-lg px-2 text-sm text-slate-700">
                   <Switch checked={result.released} onCheckedChange={(v) => void setReleased(v)} />

@@ -17,7 +17,6 @@ const sections: LegalSection[] = [
       <ul>
         <li><strong>Account details:</strong> your name, email address, password (stored encrypted by our sign-in provider), whether you are a student or teacher, and your birth date (we ask everyone so we know who needs a parent&apos;s permission; teacher accounts are for adults).</li>
         <li><strong>Google sign-in:</strong> if you sign in with Google, we receive your name, email address and profile picture link from Google. We never see your Google password.</li>
-        <li><strong>School sign-in:</strong> if you sign in through your school (Colegia, which uses Clever), we receive your name, email and a school account ID from Clever.</li>
         <li><strong>What you study:</strong> topics and notes you type, files and photos you upload, and the study guides, quizzes and practice made from them.</li>
         <li><strong>How you answer:</strong> your answers in quizzes, practice and Learn mode. We use them to show your progress and weak spots and to focus new practice on what you find hard.</li>
         <li><strong>Questions to the AI tutor:</strong> what you ask the Explain helper, so it can answer. While you do practice a teacher assigned to you, that teacher can see what you asked (the AI panel says so), and can turn the helper off or limit it to hints for that assignment.</li>
@@ -52,13 +51,10 @@ const sections: LegalSection[] = [
     body: <>
       <p>We use these providers only to run Casanova Study. They may use the information only to provide their service to us:</p>
       <ul>
-        <li><strong>Supabase:</strong> database and sign-in</li>
+        <li><strong>Supabase:</strong> database, sign-in, and storage for uploaded files and photos</li>
         <li><strong>Vercel:</strong> website hosting and privacy-friendly analytics</li>
         <li><strong>Anthropic:</strong> the AI that writes guides, explains answers and grades</li>
-        <li><strong>Cloudinary:</strong> storage for uploaded files and photos</li>
         <li><strong>Resend:</strong> sending email</li>
-        <li><strong>PDFShift:</strong> turning a guide into a PDF when you ask</li>
-        <li><strong>Clever:</strong> school sign-in, if your school uses it</li>
         <li><strong>Desmos and PubChem:</strong> the calculator and molecule pictures load from them in your browser; we do not send them your personal information</li>
       </ul>
     </>,

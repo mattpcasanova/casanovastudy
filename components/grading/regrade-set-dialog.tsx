@@ -12,7 +12,7 @@ import { Loader2, RefreshCw, Upload } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
-import { ClientCompression } from "@/lib/client-compression"
+import { uploadFile } from "@/lib/uploads/client"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
 import { cn } from "@/lib/utils"
@@ -45,11 +45,11 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }
       if (keyFiles.length) {
         setStatus("Reading the answer key…")
         const prepared = await prepareMaterials(keyFiles, { pdfMode: "auto", maxImages: 30, onProgress: setStatus })
-        const images: Array<{ url: string; name: string }> = []
+        const images: Array<{ path: string; name: string }> = []
         for (const img of prepared.images) {
           setStatus(`Uploading answer key page ${images.length + 1} of ${prepared.images.length}…`)
-          const up = await ClientCompression.uploadToCloudinary(img.blob, "grading-mark-schemes", img.name)
-          images.push({ url: up.url, name: img.name })
+          const up = await uploadFile(img.blob, "grading-mark-schemes", img.name)
+          images.push({ path: up.path, name: img.name })
         }
         if (!prepared.texts.length && !images.length) throw new Error("That answer key couldn't be read. " + prepared.problems.join(" "))
         const res = await authFetch(`/api/grade-batch/${batchId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markScheme: { texts: prepared.texts, images } }) })

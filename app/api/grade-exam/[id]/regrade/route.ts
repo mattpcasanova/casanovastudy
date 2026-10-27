@@ -9,6 +9,7 @@ import { normalizeMarkingStyle } from '@/lib/grading/marking-style'
 import { adjustedTotals, normalizeAdjustments } from '@/lib/grading/adjustments'
 import { checkGrading, planBlockResponse } from '@/lib/plans'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
+import { pickUploadRefs, type UploadRef } from '@/lib/uploads/refs'
 
 // Grade one paper again, with a note from the teacher ("the circle on Q8 is
 // C", "accept 'bent' for 31d"), from the pages saved with the report
@@ -29,10 +30,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const supabase = createAdminClient()
   const { data: row } = await supabase.from('grading_results').select('*').eq('id', id).eq('user_id', user.id).maybeSingle()
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const pages = (Array.isArray(row.page_urls) ? row.page_urls : []) as Array<{ url: string; name?: string }>
+  const pages = pickUploadRefs(row.page_urls, 40)
   if (!pages.length) return NextResponse.json({ error: 'This report has no saved pages to grade from (it was graded before pages were kept).' }, { status: 409 })
   const { data: batch } = row.batch_id ? await supabase.from('grading_batches').select('mark_scheme, notes').eq('batch_id', row.batch_id).eq('user_id', user.id).maybeSingle() : { data: null }
-  const scheme = (batch?.mark_scheme ?? null) as { texts?: Array<{ name: string; content: string }>; images?: Array<{ url: string; name?: string }> } | null
+  const scheme = (batch?.mark_scheme ?? null) as { texts?: Array<{ name: string; content: string }>; images?: UploadRef[] } | null
   if (!scheme || (!scheme.texts?.length && !scheme.images?.length)) return NextResponse.json({ error: "The set's answer key wasn't saved, so the paper can't be regraded the same way." }, { status: 409 })
 
   const block = await checkGrading(user.id)
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const [schemeImages, pageImages] = await Promise.all([
-      fetchUploadedImageBuffers(scheme.images ?? [], 40),
-      fetchUploadedImageBuffers(pages, 40),
+      fetchUploadedImageBuffers(scheme.images ?? [], 40, user.id),
+      fetchUploadedImageBuffers(pages, 40, user.id),
     ])
     const toFiles = (list: typeof pageImages): PaperFile[] => list.map((img) => ({ buffer: img.buffer, name: img.name, type: img.mediaType }))
     const markScheme: PaperFile[] = [

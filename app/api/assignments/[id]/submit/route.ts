@@ -11,7 +11,7 @@ interface SubmitBody {
 const MAX_COMMENT_LEN = 2000
 
 // POST - Student submits files for an assignment.
-// Files must already be uploaded (e.g. to Cloudinary via /api/upload-to-cloudinary).
+// Files must already be in the uploads bucket (lib/uploads/client.ts); `url` holds the path.
 // Resubmissions overwrite the previous file_urls; status resets to 'submitted'.
 // If the assignment has a mark_scheme_url, auto-grading fires after the response.
 export async function POST(

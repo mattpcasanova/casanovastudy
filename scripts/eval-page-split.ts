@@ -3,7 +3,7 @@
 //
 //   npx tsx --env-file=.env.local scripts/eval-page-split.ts <pages.json> --truth 0,9,18 [--class <classId>] [--cached headers.json] [--out headers.json]
 //
-// pages.json: [{ "url": "<Cloudinary page url>" }, ...] in stack order.
+// pages.json: [{ "path": "<uploads bucket path>" }] or [{ "url": "<any url>" }], in stack order.
 // --truth: indexes of the real first pages (from looking at the photos).
 // --cached: reuse a headers file from an earlier run (no API calls).
 // Prints each page's read, then the split against the truth. ~$0.002 per page.
@@ -21,7 +21,11 @@ function arg(name: string): string | undefined {
 async function main() {
   const pagesFile = process.argv[2]
   if (!pagesFile || !arg('--truth')) throw new Error('usage: eval-page-split.ts <pages.json> --truth 0,9,18 [--class id] [--cached headers.json] [--out headers.json]')
-  const pages: Array<{ url: string }> = JSON.parse(readFileSync(pagesFile, 'utf8'))
+  const pages: Array<{ url?: string; path?: string }> = JSON.parse(readFileSync(pagesFile, 'utf8'))
+  const storage = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage.from('uploads')
+  const pageBytes = async (p: { url?: string; path?: string }) => p.path
+    ? Buffer.from(await (await storage.download(p.path)).data!.arrayBuffer())
+    : Buffer.from(await (await fetch(p.url!)).arrayBuffer())
   const truth = new Set(arg('--truth')!.split(',').map(Number))
   let roster: RosterName[] = []
   const classId = arg('--class')
@@ -43,8 +47,7 @@ async function main() {
     const worker = async () => {
       while (next < pages.length) {
         const i = next++
-        const res = await fetch(pages[i].url)
-        const buf = Buffer.from(await res.arrayBuffer())
+        const buf = await pageBytes(pages[i])
         try {
           const read = await claude.readPageHeader({ mediaType: 'image/jpeg', data: buf.toString('base64') }, roster.map(fullName))
           const split = read.name ? splitNameAndPeriod(read.name) : null

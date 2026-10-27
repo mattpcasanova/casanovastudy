@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
 import { processFile, MAX_TOTAL_UPLOAD_SIZE } from "@/lib/pdf-to-images"
+import { uploadFile } from "@/lib/uploads/client"
 import {
   ArrowLeft,
   Camera,
@@ -132,36 +133,11 @@ export default function FileUploadAssignment() {
     fetchAssignment()
   }, [authLoading, user, isStudent, router, fetchAssignment])
 
-  // Upload one File to Cloudinary via /api/upload-to-cloudinary.
-  // Returns the saved upload meta or throws with a useful error.
+  // Upload one File into the uploads bucket. `url` holds the storage path
+  // (the column keeps its old name).
   const uploadOne = async (file: File): Promise<UploadedFile> => {
-    const fd = new FormData()
-    fd.append("file", file)
-    fd.append("folder", "casanovastudy/submissions")
-
-    let res: Response
-    try {
-      res = await fetch("/api/upload-to-cloudinary", { method: "POST", body: fd })
-    } catch (err) {
-      throw new Error(`Network error: ${err instanceof Error ? err.message : 'fetch failed'}`)
-    }
-
-    // The Vercel platform returns a non-JSON body (HTML or empty) for a 413
-    // "request too large", so we have to handle that case explicitly before
-    // calling res.json().
-    if (res.status === 413) {
-      throw new Error('File is too large for the server. Try a smaller file or split into multiple pages.')
-    }
-    let json: { url?: string; error?: string; details?: string } = {}
-    try {
-      json = await res.json()
-    } catch {
-      throw new Error(`Upload failed (status ${res.status})`)
-    }
-    if (!res.ok || !json.url) {
-      throw new Error(json.details ?? json.error ?? `Upload failed (status ${res.status})`)
-    }
-    return { url: json.url, name: file.name, type: file.type || "application/octet-stream" }
+    const up = await uploadFile(file, "submissions", file.name)
+    return { url: up.path, name: file.name, type: file.type || "application/octet-stream" }
   }
 
   const uploadFiles = async (files: FileList | null) => {
@@ -302,9 +278,9 @@ export default function FileUploadAssignment() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {mySubmission.file_urls.map((f, i) => (
-                  <a key={i} href={f.url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+                  <span key={i} className="text-sm text-slate-700">
                     {f.name ?? `Page ${i + 1}`}
-                  </a>
+                  </span>
                 ))}
               </div>
               {mySubmission.student_comment && (

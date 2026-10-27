@@ -19,7 +19,7 @@ import { PremiumBadge } from "@/components/plan/premium-mark"
 interface SourceFileForAI {
   name: string
   content?: string
-  images?: Array<{ url: string; name: string }>
+  images?: Array<{ path: string; name: string }>
 }
 
 interface AIAssistantProps {

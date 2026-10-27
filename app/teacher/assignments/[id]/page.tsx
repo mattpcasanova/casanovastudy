@@ -541,9 +541,9 @@ export default function TeacherAssignmentDetailPage() {
                       {s.file_urls.length > 0 && (
                         <div className="flex items-center gap-3 flex-wrap text-xs">
                           {s.file_urls.map((f, i) => (
-                            <a key={i} href={f.url} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate max-w-xs">
+                            <span key={i} className="truncate max-w-xs">
                               {f.name ?? `Page ${i + 1}`}
-                            </a>
+                            </span>
                           ))}
                         </div>
                       )}

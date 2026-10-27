@@ -29,13 +29,6 @@ export interface ProcessedFile {
   processedSize: number
 }
 
-export interface CloudinaryFile {
-  url: string
-  filename: string
-  size: number
-  format: string
-}
-
 export interface DirectContent {
   name: string
   content: string
@@ -43,9 +36,8 @@ export interface DirectContent {
 
 export interface StudyGuideRequest {
   files?: ProcessedFile[]
-  cloudinaryFiles?: CloudinaryFile[]
-  directContent?: DirectContent[]  // Content processed client-side (bypasses Cloudinary)
-  images?: Array<{ url: string; name: string }> // Photos/scanned pages prepared in the browser (lib/uploads)
+  directContent?: DirectContent[]  // Text read in the browser (lib/uploads/prepare.ts)
+  images?: Array<{ path: string; name: string }> // Photos/scanned pages prepared in the browser and put in the uploads bucket (lib/uploads/client.ts)
   studyGuideName: string
   subject: string
   gradeLevel: string

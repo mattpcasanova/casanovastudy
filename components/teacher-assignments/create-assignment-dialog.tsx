@@ -19,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
 import { FileUp, Loader2, Target, Upload, X } from "lucide-react"
+import { uploadFile } from "@/lib/uploads/client"
 import MasteryConfigFields, {
   DEFAULT_MASTERY_CONFIG,
   type MasteryConfigValues,
@@ -170,20 +171,13 @@ export default function CreateAssignmentDialog({
     if (!file) return
     setUploadingMarkScheme(true)
     try {
-      const fd = new FormData()
-      fd.append("file", file)
-      fd.append("folder", "casanovastudy/mark-schemes")
-      const res = await fetch("/api/upload-to-cloudinary", { method: "POST", body: fd })
-      const json = await res.json()
-      if (!res.ok || !json.url) {
-        toast({ title: json.error ?? "Upload failed", variant: "destructive" })
-        return
-      }
-      setValues(v => ({ ...v, mark_scheme_url: json.url }))
+      // mark_scheme_url holds the file's path in the uploads bucket.
+      const up = await uploadFile(file, "mark-schemes", file.name)
+      setValues(v => ({ ...v, mark_scheme_url: up.path }))
       toast({ title: "Answer key uploaded" })
     } catch (err) {
       console.error(err)
-      toast({ title: "Network error", variant: "destructive" })
+      toast({ title: err instanceof Error ? err.message : "Upload failed", variant: "destructive" })
     } finally {
       setUploadingMarkScheme(false)
     }

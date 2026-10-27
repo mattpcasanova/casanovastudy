@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, BookmarkCheck, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers } from 'lucide-react'
+import { Share2, Printer, Trash2, Mail, BookmarkPlus, BookmarkCheck, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -78,7 +78,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isDownloading, setIsDownloading] = useState(false)
   const [parentPlan, setParentPlan] = useState<{ id: string; title: string } | null>(null)
 
   // Guides generated from a study plan unit link back to the plan.
@@ -183,40 +182,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
   const handlePrintToPDF = () => {
     window.print()
-  }
-
-  // Server renders this page in print mode via PDFShift, so the file matches Print.
-  const handleDownloadPDF = async () => {
-    setIsDownloading(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Sign in to download PDFs.')
-      const res = await fetch(`/api/pdf/guide/${studyGuide.id}`, {
-        credentials: 'omit',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error || 'Could not create the PDF.')
-      }
-      const url = URL.createObjectURL(await res.blob())
-      const match = res.headers.get('content-disposition')?.match(/filename="([^"]+)"/)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = match?.[1] || 'study-guide.pdf'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch (err) {
-      toast({
-        title: 'Download failed',
-        description: err instanceof Error ? err.message : 'Could not create the PDF.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDownloading(false)
-    }
   }
 
   const handleShare = async () => {
@@ -386,18 +351,6 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
             <Printer className="h-4 w-4 mr-2" />
             Print to PDF
           </Button>
-          {user && (
-            <Button
-              onClick={handleDownloadPDF}
-              disabled={isDownloading}
-              variant="outline"
-              className="bg-white hover:bg-gray-100 text-gray-700 hover:text-gray-900 border-gray-300 shadow-lg"
-              size="lg"
-            >
-              {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-              {isDownloading ? 'Preparing PDF…' : 'Download PDF'}
-            </Button>
-          )}
           <Button
             onClick={() => { handleShare(); setIsMenuOpen(false); }}
             variant="outline"

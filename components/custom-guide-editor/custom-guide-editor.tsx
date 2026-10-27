@@ -55,7 +55,7 @@ import { Segmented, ColorDots, fieldLabel } from "./editor-ui"
 import CustomFormat from "@/components/formats/custom-format"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
-import { ClientCompression } from "@/lib/client-compression"
+import { uploadFile } from "@/lib/uploads/client"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS } from "@/lib/uploads/kinds"
 import { deduplicateBlocks, countDuplicates } from "@/lib/deduplication"
@@ -167,7 +167,7 @@ interface SourceFile {
   name: string
   content: string // text read in the browser (lib/uploads/prepare.ts)
   size: number
-  images?: Array<{ url: string; name: string }> // photos / scanned pages, uploaded to Cloudinary
+  images?: Array<{ path: string; name: string }> // photos / scanned pages in the uploads bucket
 }
 
 interface StoredDraft {
@@ -368,10 +368,10 @@ function EditorContent({ onSave, onCancel, isEditing, isTeacher, sourceFiles, se
         // Same preparation as the homepage: text read here, photos shrunk and uploaded.
         const prepared = await prepareMaterials([file], { maxImages: Math.max(0, imageRoom) })
         errors.push(...prepared.problems)
-        const images: Array<{ url: string; name: string }> = []
+        const images: Array<{ path: string; name: string }> = []
         for (const img of prepared.images) {
-          const up = await ClientCompression.uploadToCloudinary(img.blob, 'custom-guides', img.name)
-          images.push({ url: up.url, name: img.name })
+          const up = await uploadFile(img.blob, 'custom-guides', img.name)
+          images.push({ path: up.path, name: img.name })
         }
         imageRoom -= images.length
         const content = prepared.texts.map(t => t.content).join('\n\n')
