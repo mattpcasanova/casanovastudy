@@ -41,7 +41,7 @@ export const NEW_REPORT_DAYS = 7
 export type StripItem<A> = { kind: 'practice'; a: A } | { kind: 'test'; t: MissingTest }
 
 /** The homepage strip: overdue practice, then tests not turned in, then upcoming practice (up to `max`), plus reports from the last week. */
-export function homeStrip<A extends StudentAssignment, R extends StudentReport>(assignments: A[], reports: R[], now = new Date(), max = 2, tests: MissingTest[] = []) {
+export function homeStrip<A extends StudentAssignment, R extends StudentReport, S extends StudentReport = StudentReport>(assignments: A[], reports: R[], now = new Date(), max = 2, tests: MissingTest[] = [], shared: S[] = []) {
   const open = openWork(assignments)
   const items: StripItem<A>[] = [
     ...open.filter((a) => a.status === 'missing').map((a) => ({ kind: 'practice' as const, a })),
@@ -49,7 +49,9 @@ export function homeStrip<A extends StudentAssignment, R extends StudentReport>(
     ...open.filter((a) => a.status !== 'missing').map((a) => ({ kind: 'practice' as const, a })),
   ]
   const fresh = reports.filter((r) => now.getTime() - Date.parse(r.createdAt) < NEW_REPORT_DAYS * DAY)
-  return { next: items.slice(0, max), moreOpen: Math.max(0, items.length - max), openCount: items.length, newReports: fresh }
+  // Guides the teacher shared this week (no grading) show while they're new.
+  const newShared = shared.filter((r) => now.getTime() - Date.parse(r.createdAt) < NEW_REPORT_DAYS * DAY)
+  return { next: items.slice(0, max), moreOpen: Math.max(0, items.length - max), openCount: items.length, newReports: fresh, newShared }
 }
 
 export interface MissingTest { batchId: string; title: string; classId: string; firstGraded: string; status: string | null; /** Set when the set came from a Google Classroom assignment. */ classroomUrl?: string | null }

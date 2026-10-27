@@ -12,6 +12,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { ASSIGNABLE_FORMATS } from "@/lib/practice/assignments"
 import { assignPresetFor, clearAssignPreset, type AssignPreset } from "@/lib/practice/preset"
 import { AssignDialog } from "./assign-dialog"
+import { ShareWithClassButton } from "./share-class"
 
 interface Listed { id: string; title: string; due_at: string | null; students: Array<{ status: string }> }
 
@@ -51,7 +52,10 @@ export function AssignBar({ guide }: { guide: { id: string; title: string; forma
           <p className="text-slate-700"><span className="font-semibold text-slate-900">Give this to students.</span> Assign it to a group or a class and get their scores back.</p>
         )}
       </div>
-      <button type="button" className={actionButtonPrimary} onClick={() => { setPreset(null); setOpen(true) }}><Send />Assign to students</button>
+      <div className="flex flex-wrap gap-2">
+        <ShareWithClassButton guide={guide} />
+        <button type="button" className={actionButtonPrimary} onClick={() => { setPreset(null); setOpen(true) }}><Send />Assign to students</button>
+      </div>
       <AssignDialog key={preset?.at ?? "none"} open={open} onOpenChange={(o) => { setOpen(o); if (!o) void load() }} guide={guide} preset={preset} />
     </div>
   )

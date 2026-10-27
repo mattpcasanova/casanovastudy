@@ -14,6 +14,7 @@ export interface StudentPractice {
   id: string; title: string; grading: string; dueAt: string | null; guideId: string; createdAt: string
   classId: string; status: string; daysLate: number; best: { pct: number; correct: number; total: number } | null
 }
+export interface StudentSharedGuide { id: string; guideId: string; title: string; format: string; note: string | null; classId: string; createdAt: string }
 export interface StudentReportRow {
   id: string; title: string; classId: string | null; className: string | null; teacherName: string | null
   marks: number; possible: number; pct: number; grade: string | null; createdAt: string; daysLate: number | null
@@ -99,8 +100,18 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
   const linkOf = new Map((setups ?? []).map((g) => [g.batch_id as string, classroomWorkUrl(g.classroom_course_id, g.classroom_work_id)]))
   const tests = found.map((t) => ({ ...t, classroomUrl: linkOf.get(t.batchId) ?? null }))
 
+  // Guides the teacher shared with the class (no grading), newest first.
+  const { data: sharedRows } = classes.length
+    ? await supabase.from('class_shared_guides').select('id, class_id, study_guide_id, note, created_at, study_guides(title, format)').in('class_id', classes.map((c) => c.id)).order('created_at', { ascending: false }).limit(100)
+    : { data: [] }
+  const shared: StudentSharedGuide[] = (sharedRows ?? []).map((r) => {
+    const g = (Array.isArray(r.study_guides) ? r.study_guides[0] : r.study_guides) as { title: string; format: string } | null
+    return { id: r.id as string, guideId: r.study_guide_id as string, title: g?.title ?? 'Study guide', format: g?.format ?? '', note: r.note as string | null, classId: r.class_id as string, createdAt: r.created_at as string }
+  })
+
   const openIds = new Set(classes.map((c) => c.id))
   return {
+    shared,
     classes: classes.map((c): StudentClass => ({ id: c.id, name: c.name, period: c.period, teacherName: teacherName.get(c.teacher_id) ?? null })),
     // Work from a class they've since left stays listed (it's still theirs).
     assignments: practice,

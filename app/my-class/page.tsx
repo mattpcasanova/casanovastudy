@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, ClipboardCheck, FileCheck, Loader2, Plus, Users } from "lucide-react"
+import { BookOpen, ChevronDown, ClipboardCheck, FileCheck, Loader2, Plus, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -15,7 +15,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
-import { AssignmentRow, MissingTestRow, ReportRow, useClasswork } from "@/components/student/classwork"
+import { AssignmentRow, MissingTestRow, ReportRow, SharedGuideRow, useClasswork } from "@/components/student/classwork"
 import { openWork } from "@/lib/student/classwork-rules"
 
 export default function MyClassPage() {
@@ -97,6 +97,15 @@ function MyClass() {
                   </div>
                 )}
               </section>
+
+              {(data.shared?.length ?? 0) > 0 && (
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><BookOpen className="h-5 w-5 text-blue-700" />From your teacher</h2>
+                  <ul className="space-y-2">
+                    {data.shared!.map((g) => <li key={g.id}><SharedGuideRow g={g} className={many ? classNameOf(g.classId) : null} /></li>)}
+                  </ul>
+                </section>
+              )}
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><FileCheck className="h-5 w-5 text-blue-700" />Reports from your teacher</h2>

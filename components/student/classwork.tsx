@@ -6,18 +6,18 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck } from "lucide-react"
+import { ArrowRight, BookOpen, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { lateLabel } from "@/lib/grading/late"
 import { dueLabel, homeStrip, type MissingTest } from "@/lib/student/classwork-rules"
-import type { StudentClass, StudentPractice, StudentReportRow } from "@/lib/student/classwork"
+import type { StudentClass, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
 
-export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[] }
+export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[] }
 
-const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0
+const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0 || (d.shared?.length ?? 0) > 0
 const flagKey = (userId: string) => `cs:classwork:${userId}`
 
 /** Forget the cached "in a class" answer (after joining a class). */
@@ -161,11 +161,13 @@ export function MissingTestRow({ t, className }: { t: MissingTest; className?: s
 export function ClassworkStrip() {
   const data = useClasswork()
   if (!data) return null
-  const { next, moreOpen, openCount, newReports } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [])
-  if (!next.length && !newReports.length) return null
+  const { next, moreOpen, openCount, newReports, newShared } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [], data.shared ?? [])
+  if (!next.length && !newReports.length && !newShared.length) return null
   const shownReports = newReports.slice(0, 2 - next.length)
   const moreReports = newReports.length - shownReports.length
-  const footer = [moreOpen > 0 && `${moreOpen} more to do`, moreReports > 0 && `${moreReports} new report${moreReports === 1 ? "" : "s"}`].filter(Boolean)
+  const shownShared = newShared.slice(0, Math.max(0, 2 - next.length - shownReports.length))
+  const moreShared = newShared.length - shownShared.length
+  const footer = [moreOpen > 0 && `${moreOpen} more to do`, moreReports > 0 && `${moreReports} new report${moreReports === 1 ? "" : "s"}`, moreShared > 0 && `${moreShared} more from your teacher`].filter(Boolean)
   return (
     <section aria-label="From your class" className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-blue-900/10 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -207,8 +209,32 @@ export function ClassworkStrip() {
             <ArrowRight className="h-4 w-4 shrink-0 text-blue-700" />
           </Link>
         ))}
+        {shownShared.map((g) => (
+          <Link key={g.id} href={`/study-guide/${g.guideId}`} className="group flex items-center gap-3 rounded-2xl bg-blue-50/50 p-3.5 ring-1 ring-inset ring-blue-200 transition hover:bg-blue-50">
+            <BookOpen className="h-5 w-5 shrink-0 text-blue-700" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{g.title}</span>
+              <span className="block truncate text-sm text-slate-600">{g.note || "From your teacher"}</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-blue-700" />
+          </Link>
+        ))}
       </div>
       {footer.length > 0 && <p className="mt-2 text-sm text-slate-500">{footer.join(" · ")}</p>}
     </section>
+  )
+}
+
+/** A guide the teacher shared with the class (no grading), on My Classes. */
+export function SharedGuideRow({ g, className }: { g: StudentSharedGuide; className?: string | null }) {
+  return (
+    <Link href={`/study-guide/${g.guideId}`} className="group flex items-center gap-3 rounded-2xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50/40">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BookOpen className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{g.title}</span>
+        <span className="block truncate text-xs text-slate-500">{[g.format, className, g.note].filter(Boolean).join(" · ")}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-600" />
+    </Link>
   )
 }

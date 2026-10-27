@@ -57,3 +57,11 @@ describe('missingTests', () => {
     expect(out.map((t) => [t.batchId, t.status])).toEqual([['fresh', 'missing']])
   })
 })
+
+describe('homeStrip shared guides', () => {
+  it('shows guides the teacher shared this week, not older ones', () => {
+    const now = new Date('2026-10-26T12:00:00Z')
+    const r = homeStrip([], [], now, 2, [], [{ id: 's1', title: 'Cheat sheet', createdAt: '2026-10-24T12:00:00Z' }, { id: 's2', title: 'Old', createdAt: '2026-10-01T12:00:00Z' }])
+    expect(r.newShared.map((s) => s.id)).toEqual(['s1'])
+  })
+})
