@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers } from 'lucide-react'
+import { Share2, Printer, Download, Loader2, Trash2, Mail, BookmarkPlus, BookmarkCheck, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -96,6 +96,18 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   // Allow saving if user is logged in and doesn't own the guide
   // This includes anonymous guides (user_id is null) and other users' guides
   const canSave = user && !isOwner
+  // Already saved? Then the banner offers their copy instead of saving again.
+  const [savedCopyId, setSavedCopyId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!canSave) { setSavedCopyId(null); return }
+    let cancelled = false
+    void authFetch(`/api/study-guides/copy?studyGuideId=${studyGuide.id}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { savedId: null }))
+      .then((d) => { if (!cancelled) setSavedCopyId(d.savedId ?? null) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studyGuide.id, user?.id])
   const fmt = FORMAT_META[studyGuide.format as keyof typeof FORMAT_META] ?? FORMAT_META.summary
   // Desmos only where the real test gives one (math/science); none for plans/timelines.
   const calculatorMode = studyGuide.format === 'plan' || studyGuide.format === 'timeline'
@@ -294,19 +306,23 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
           <div className="container mx-auto px-4 py-3">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-slate-700">
-                <BookmarkPlus className="h-5 w-5" />
+                {savedCopyId ? <BookmarkCheck className="h-5 w-5 text-emerald-600" /> : <BookmarkPlus className="h-5 w-5" />}
                 <span className="text-sm sm:text-base font-medium">
-                  Like this study guide? Save it to your collection.
+                  {savedCopyId ? 'This one is already in My Guides.' : 'Like this study guide? Save it to your collection.'}
                 </span>
               </div>
-              <Button
-                onClick={handleSaveToMyGuides}
-                disabled={isSaving}
-                className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white')}
-              >
-                <BookmarkPlus className="h-4 w-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Save to My Guides'}
-              </Button>
+              {savedCopyId ? (
+                <Button asChild variant="outline"><Link href={`/study-guide/${savedCopyId}`}><BookmarkCheck className="h-4 w-4 mr-2" />Open your copy</Link></Button>
+              ) : (
+                <Button
+                  onClick={handleSaveToMyGuides}
+                  disabled={isSaving}
+                  className={cn(fmt.accent.solid, fmt.accent.hover, 'text-white')}
+                >
+                  <BookmarkPlus className="h-4 w-4 mr-2" />
+                  {isSaving ? 'Saving...' : 'Save to My Guides'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -318,7 +334,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end print:hidden">
         {/* Expandable Menu */}
         <div className={`flex flex-col gap-2 mb-3 transition-all duration-300 ${isMenuOpen ? 'pointer-events-auto opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-4'}`}>
-          {canSave && (
+          {canSave && !savedCopyId && (
             <Button
               onClick={() => { handleSaveToMyGuides(); setIsMenuOpen(false); }}
               disabled={isSaving}
