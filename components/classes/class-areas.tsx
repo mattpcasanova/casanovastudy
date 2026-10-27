@@ -57,9 +57,9 @@ export function ClassAreas({ areas, className, setsWithoutReport, tests = [], te
           <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Where the class is struggling</h2>
           <p className="text-xs text-slate-500">By area, across every graded set for this class{setsWithoutReport > 0 ? `. ${setsWithoutReport} set${setsWithoutReport === 1 ? " has" : "s have"} no class report yet; open ${setsWithoutReport === 1 ? "it" : "them"} to include ${setsWithoutReport === 1 ? "it" : "them"}.` : "."}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
         {tests.length > 1 && onTest && (
-          <select value={test} onChange={(e) => onTest(e.target.value)} className={cn(selectBox, "max-w-full pr-9")} aria-label="Which test">
+          <select value={test} onChange={(e) => onTest(e.target.value)} className={cn(selectBox, "w-full max-w-full pr-9 sm:w-auto sm:max-w-xs")} aria-label="Which test">
             <option value="">All tests</option>
             {tests.map((t) => <option key={t.batchId} value={t.batchId}>{t.title}</option>)}
           </select>

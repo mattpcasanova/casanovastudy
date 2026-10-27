@@ -169,15 +169,15 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                 </section>
 
                 <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h2 className="font-semibold text-slate-900">Practice on your material</h2>
-                  <p className="text-xs text-slate-500">Only questions they answered in guides you made (practice sets, reteach practice, guides you shared). Nothing from their other studying.</p>
+                  <h2 className="font-semibold text-slate-900">Practice you assigned</h2>
+                  <p className="text-xs text-slate-500">Only their answers on guides you assigned to them. Nothing from their other studying.</p>
                   {!data.practice ? (
                     <p className="mt-2 flex items-start gap-2 text-sm text-slate-500">
                       <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                      Shows once they join this class with its code.
+                      Shows once you assign them practice and they do it.
                     </p>
                   ) : data.practice.answered === 0 ? (
-                    <p className="mt-2 text-sm text-slate-500">No practice on your guides yet.</p>
+                    <p className="mt-2 text-sm text-slate-500">Nothing answered on assigned practice yet.</p>
                   ) : (
                     <div className="mt-3 space-y-3 text-sm">
                       <div className="flex flex-wrap gap-x-4 gap-y-1">

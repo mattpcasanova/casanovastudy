@@ -62,7 +62,7 @@ export function ClassGradebook({ tests, rows, className, classId }: { tests: Gra
   if (!tests.length) return null
 
   return (
-    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section id="gradebook" className="scroll-mt-24 mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Gradebook</h2>

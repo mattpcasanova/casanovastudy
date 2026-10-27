@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { assignedGuidesByRoster } from '@/lib/practice/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { areaBatchesFor, loadRoster, ownedClass } from '@/lib/classes/server'
@@ -73,12 +74,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .filter((a): a is NonNullable<typeof a> => !!a)
     .sort((a, b) => a.pct - b.pct)
 
-  // Practice on the teacher's own material (guides this teacher made: shared
-  // guides, practice sets, reteach practice), never their other studying.
-  // Only when they joined this class with its code.
+  // Their answers on guides this teacher assigned to them (a direct relation),
+  // never their other studying, not even on the teacher's other guides.
   let practice = null
-  if (student.studentUserId && enrollment) {
-    const { data: guides } = await supabase.from('study_guides').select('id, title').eq('user_id', user.id).limit(2000)
+  const assigned = student.studentUserId ? [...((await assignedGuidesByRoster(supabase, user.id, [rosterId])).get(rosterId) ?? [])] : []
+  if (student.studentUserId && assigned.length) {
+    const { data: guides } = await supabase.from('study_guides').select('id, title').in('id', assigned)
     const titleOf = new Map((guides ?? []).map((g) => [g.id as string, g.title as string]))
     const ids = [...titleOf.keys()]
     const rows: Array<{ study_guide_id: string; correct: boolean; answered_at: string }> = []

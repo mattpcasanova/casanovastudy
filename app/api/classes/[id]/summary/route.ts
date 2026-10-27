@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { ownedClass } from '@/lib/classes/server'
+import { assignedGuidesByRoster } from '@/lib/practice/server'
 import { classWeakSpots } from '@/lib/classes/weak-spots'
 import { buildProfile, type AnswerRow } from '@/lib/learner/profile'
 import { classAreas, type AreaBatch } from '@/lib/classes/areas'
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [{ data: graded }, { data: roster }] = await Promise.all([
     supabase.from('grading_results').select('batch_id, exam_title, created_at, percentage, released, roster_id, student_name, grade_breakdown').eq('class_id', id).eq('user_id', user.id).not('batch_id', 'is', null).order('created_at', { ascending: false }).limit(2000),
-    supabase.from('class_roster').select('student_user_id').eq('class_id', id).not('student_user_id', 'is', null),
+    supabase.from('class_roster').select('id, student_user_id').eq('class_id', id).not('student_user_id', 'is', null),
   ])
 
   const batches = new Map<string, { id: string; title: string | null; createdAt: string; papers: number; total: number; released: boolean }>()
@@ -31,17 +32,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     batches.set(r.batch_id, b)
   }
 
+  // Weak spots only from answers on guides this teacher assigned to each student (never their other studying).
   const studentIds = (roster ?? []).map((r) => r.student_user_id as string)
   let weakSpots: ReturnType<typeof classWeakSpots> = []
   if (studentIds.length) {
-    const { data: rows } = await supabase
-      .from('study_results')
-      .select('user_id, subject, topic, correct, answered_at')
-      .in('user_id', studentIds)
-      .order('answered_at', { ascending: false })
-      .limit(20000)
+    const assigned = await assignedGuidesByRoster(supabase, user.id, (roster ?? []).map((r) => r.id as string))
+    const guidesOf = new Map((roster ?? []).map((r) => [r.student_user_id as string, assigned.get(r.id as string) ?? new Set<string>()]))
+    const allGuides = [...new Set([...assigned.values()].flatMap((s) => [...s]))]
+    const rows = allGuides.length
+      ? (await supabase.from('study_results').select('user_id, study_guide_id, subject, topic, correct, answered_at').in('user_id', studentIds).in('study_guide_id', allGuides).order('answered_at', { ascending: false }).limit(20000)).data
+      : []
     const byStudent = new Map<string, AnswerRow[]>()
     for (const r of rows ?? []) {
+      if (!guidesOf.get(r.user_id)?.has(r.study_guide_id)) continue
       const list = byStudent.get(r.user_id) ?? []
       list.push(r)
       byStudent.set(r.user_id, list)

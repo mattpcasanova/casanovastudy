@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, Plus, Users, ClipboardCheck } from "lucide-react"
+import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, Plus, TrendingUp, Users, ClipboardCheck } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -142,6 +142,11 @@ function TeacherHome() {
                 <h2 className="font-semibold text-slate-900">Your classes <span className="font-normal text-slate-500">{data.year}</span></h2>
                 <Link href="/teacher/classes" className={actionButton}><Users />Manage classes</Link>
               </div>
+              <Link href="/teacher/progress" className="mb-3 flex items-center gap-3 rounded-2xl bg-blue-50 p-3 text-sm text-blue-900 hover:bg-blue-100">
+                <TrendingUp className="h-5 w-5 shrink-0 text-blue-700" />
+                <span className="min-w-0 flex-1"><span className="block font-semibold">How your classes are doing</span><span className="block text-xs text-blue-800">Trends by course, period and student, and what to focus on.</span></span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-blue-600" />
+              </Link>
               {data.classes.length === 0 ? (
                 <Link href="/teacher/classes" className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 hover:bg-blue-50">
                   <Plus className="h-4 w-4 text-blue-700" />Add your classes (import a CSV or Google Classroom) so names match automatically.

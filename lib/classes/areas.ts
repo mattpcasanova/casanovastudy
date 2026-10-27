@@ -8,6 +8,8 @@ import { normalizeQuestionKey, type GradedQuestion } from '@/lib/grading/parse'
 
 export interface AreaBatch {
   batchId: string
+  /** The class the set was graded for (teacher progress groups batches by it). */
+  classId?: string | null
   title: string | null
   createdAt: string
   topics: Array<{ name: string; questions: string[] }>

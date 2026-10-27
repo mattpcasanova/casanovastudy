@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth"
 import { useConsentStep } from "@/lib/use-consent"
 import { hasReturnTo, takeReturnTo } from "@/lib/return-to"
 
-const LANDING = ["/", "/teach", "/progress"]
+const LANDING = ["/", "/teach", "/progress", "/teacher/progress"]
 
 export function ReturnToResume() {
   const { user, loading } = useAuth()

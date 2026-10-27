@@ -87,6 +87,31 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
   return out
 }
 
+/**
+ * Guides this teacher assigned, per roster row (rosterId -> guide ids). Teacher
+ * views of a student's own studying only cover these: a guide the teacher gave
+ * them is a direct relation; anything else they study is theirs (Matt, 2026-10-26).
+ */
+export async function assignedGuidesByRoster(supabase: SupabaseClient, teacherId: string, rosterIds?: string[]): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>()
+  if (rosterIds && !rosterIds.length) return out
+  const { data: assignments } = await supabase.from('practice_assignments').select('id, study_guide_id').eq('teacher_id', teacherId)
+  const guideOf = new Map((assignments ?? []).map((a) => [a.id as string, a.study_guide_id as string]))
+  if (!guideOf.size) return out
+  const ids = [...guideOf.keys()]
+  for (let i = 0; i < ids.length; i += 100) {
+    let q = supabase.from('practice_assignment_students').select('assignment_id, roster_id').in('assignment_id', ids.slice(i, i + 100))
+    if (rosterIds) q = q.in('roster_id', rosterIds)
+    const { data } = await q.limit(20000)
+    for (const row of data ?? []) {
+      const set = out.get(row.roster_id as string) ?? new Set<string>()
+      set.add(guideOf.get(row.assignment_id as string)!)
+      out.set(row.roster_id as string, set)
+    }
+  }
+  return out
+}
+
 /** The roster row through which this user is assigned this practice, if any. */
 export async function myAssignedRow(supabase: SupabaseClient, assignmentId: string, userId: string) {
   const { data } = await supabase

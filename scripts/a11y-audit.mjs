@@ -145,6 +145,7 @@ async function main() {
   const pages = {
     teacher: [
       '/teach', '/teacher/classes', `/teacher/classes/${s.cls.id}`, `/teacher/classes/${s.cls.id}/students/${s.sean.id}`,
+      '/teacher/progress', '/teacher/progress/a11y%20audit%20class%20safe%20to%20delete',
       '/grade-exam/batch', '/grade-exam', `/grade-exam/batch/${created.batchId}`, `/grade-exam/batch/${created.batchId}/reteach`,
       `/grade-report/${s.results[0].id}`, '/graded-exams', '/my-guides', s.assignment ? `/teacher/practice/${s.assignment.id}` : null,
       `/study-guide/${s.quizId}`,

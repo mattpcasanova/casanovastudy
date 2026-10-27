@@ -21,6 +21,8 @@ import type { RosterRow } from "@/lib/classes/server"
 import type { ClassWeakSpot } from "@/lib/classes/weak-spots"
 import type { ClassArea } from "@/lib/classes/areas"
 import { ClassAreas } from "@/components/classes/class-areas"
+import { FocusList } from "@/components/teacher/progress/focus-list"
+import { focusSuggestions, setSummaries, studentTrends, type PracticeSummary, type ScoreRow } from "@/lib/teacher/progress"
 import { NoEmailNote, RosterFileHelp } from "@/components/classes/roster-file-help"
 import { parseRosterPaste } from "@/lib/classes/roster"
 import { ClassGradebook } from "@/components/classes/class-gradebook"
@@ -51,6 +53,7 @@ function ClassView({ id }: { id: string }) {
   const [weakSpots, setWeakSpots] = useState<ClassWeakSpot[]>([])
   const [linkedStudents, setLinkedStudents] = useState(0)
   const [areas, setAreas] = useState<ClassArea[]>([])
+  const [allAreas, setAllAreas] = useState<ClassArea[]>([])
   const [setsWithoutReport, setSetsWithoutReport] = useState(0)
   const [gradebook, setGradebook] = useState<{ tests: GradebookTest[]; rows: GradebookRow[] } | null>(null)
   const [areaTest, setAreaTest] = useState("")
@@ -92,6 +95,7 @@ function ClassView({ id }: { id: string }) {
       setWeakSpots(summary.weakSpots ?? [])
       setLinkedStudents(summary.linkedStudents ?? 0)
       setAreas(summary.areas ?? [])
+      setAllAreas(summary.areas ?? [])
       setSetsWithoutReport(summary.setsWithoutReport ?? 0)
     }
   }, [id])
@@ -104,6 +108,25 @@ function ClassView({ id }: { id: string }) {
     const res = await authFetch(`/api/classes/${id}/summary${batch ? `?batch=${batch}` : ""}`, { cache: "no-store" })
     if (res.ok) setAreas((await res.json()).areas ?? [])
   }
+
+  // What to focus on, from what the page already loaded (same rules as /teacher/progress).
+  const suggestions = useMemo(() => {
+    if (!cls || !gradebook) return []
+    const rows: ScoreRow[] = []
+    const practice: PracticeSummary[] = []
+    for (const t of gradebook.tests) {
+      if (t.kind === "practice") {
+        const cells = gradebook.rows.map((r) => r.cells[t.batchId]).filter(Boolean)
+        practice.push({ id: t.batchId, title: t.title, classId: cls.id, dueAt: null, assigned: cells.length, done: cells.filter((c) => c.kind === "practice").length, missing: cells.filter((c) => c.kind === "status" && c.status === "missing").length })
+        continue
+      }
+      for (const r of gradebook.rows) {
+        const c = r.cells[t.batchId]
+        if (c?.kind === "paper") rows.push({ batchId: t.batchId, classId: cls.id, title: t.title, createdAt: t.date, rosterId: r.rosterId, name: r.name, pct: c.pct })
+      }
+    }
+    return focusSuggestions({ classes: [{ id: cls.id, name: cls.name, period: cls.period }], sets: setSummaries(rows), areas: allAreas, students: studentTrends(rows), practice, weakSpots })
+  }, [cls, gradebook, allAreas, weakSpots])
 
   const saveDetails = async (schoolYear: string, course: string) => {
     const res = await fetch(`/api/classes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ school_year: schoolYear, course }) })
@@ -183,7 +206,7 @@ function ClassView({ id }: { id: string }) {
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{cls.name}</h1>
           <p className="text-slate-600">
             {[cls.school_year, cls.period && `Period ${cls.period}`, `${roster.filter((r) => !r.left).length} student${roster.filter((r) => !r.left).length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
-            {" · "}<Link href={`/teacher/courses/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="font-medium text-blue-700 hover:underline">{courseName(cls.name, cls.course)} across years</Link>
+            {" · "}<Link href={`/teacher/progress/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="font-medium text-blue-700 hover:underline">{courseName(cls.name, cls.course)} across periods and years</Link>
           </p>
         </div>
         <Button asChild className={cn(actionButtonPrimary, "h-11 w-full bg-blue-600 px-5 hover:bg-blue-700 sm:w-auto")}><Link href={`/grade-exam/batch?class=${cls.id}`}><ClipboardList className="mr-2 h-4 w-4" />Grade this class</Link></Button>
@@ -305,11 +328,12 @@ function ClassView({ id }: { id: string }) {
           {/* Weak spots: a card once there are some, otherwise one quiet line under the join code. */}
           {weakSpots.length === 0 ? (
             <p className="px-1 text-sm text-slate-500">
-              {linkedStudents === 0 ? "Weak spots show here once students join with the code and study." : `No weak spots yet across ${linkedStudents} linked student${linkedStudents === 1 ? "" : "s"}.`}
+              {linkedStudents === 0 ? "Weak spots show here from practice you assign, once students do it." : `No weak spots yet on assigned practice across ${linkedStudents} linked student${linkedStudents === 1 ? "" : "s"}.`}
             </p>
           ) : (
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>Top weak spots</h2>
+            <p className="text-xs text-slate-500">From their answers on practice you assigned.</p>
             {(
               <ul className="mt-2 space-y-2">
                 {weakSpots.map((s) => (
@@ -324,6 +348,14 @@ function ClassView({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {suggestions.length > 0 && (
+        <section className="mt-6">
+          <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>What to focus on</h2>
+          <p className="mb-3 text-xs text-slate-500">From this class&apos;s numbers. <Link href={`/teacher/progress/${encodeURIComponent(courseKey(cls.name, cls.course))}`} className="font-medium text-blue-700 hover:underline">Compare with your other periods</Link></p>
+          <FocusList suggestions={suggestions} ctx={() => ({ name: cls.name, classes: [{ id: cls.id, name: cls.name, period: cls.period }], areas: allAreas, studentsHref: "#gradebook" })} />
+        </section>
+      )}
 
       {gradebook && <ClassGradebook tests={gradebook.tests} rows={gradebook.rows} className={cls.name} classId={cls.id} />}
 

@@ -145,24 +145,47 @@ export async function linkRosterByEmail(supabase: SupabaseClient, classId: strin
 }
 
 /** Graded sets (with their class-report topics) for some classes, ready for classAreas. */
+/** One graded paper as read from grading_results, for areaBatchesFromRows. */
+export interface AreaPaperRow {
+  batch_id: string
+  class_id?: string | null
+  exam_title: string | null
+  created_at: string
+  roster_id: string | null
+  student_name: string | null
+  grade_breakdown: unknown
+}
+
+/** Papers grouped into sets, keeping only sets whose class report (topics) exists. Pure. */
+export function areaBatchesFromRows(rows: AreaPaperRow[], topicsOf: Map<string, AreaBatch['topics']>): AreaBatch[] {
+  const batchIds = [...new Set(rows.map((r) => r.batch_id))]
+  return batchIds.filter((b) => topicsOf.has(b)).map((b) => {
+    const mine = rows.filter((r) => r.batch_id === b)
+    return {
+      batchId: b,
+      classId: mine[0]?.class_id ?? null,
+      title: mine[0]?.exam_title ?? null,
+      createdAt: mine.reduce((min, r) => (r.created_at < min ? r.created_at : min), mine[0]?.created_at ?? ''),
+      topics: topicsOf.get(b)!,
+      papers: mine.map((r) => ({ rosterId: r.roster_id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })),
+    }
+  })
+}
+
+/** Topics from each set's class report, by batch id. */
+export async function topicsForBatches(supabase: SupabaseClient, userId: string, batchIds: string[]): Promise<Map<string, AreaBatch['topics']>> {
+  if (!batchIds.length) return new Map()
+  const { data: reports } = await supabase.from('grading_batch_insights').select('batch_id, data').in('batch_id', batchIds).eq('user_id', userId)
+  return new Map((reports ?? []).map((r) => [r.batch_id as string, (r.data as ClassInsightsAI)?.topics ?? []]))
+}
+
 export async function areaBatchesFor(supabase: SupabaseClient, userId: string, classIds: string[]): Promise<AreaBatch[]> {
   if (!classIds.length) return []
   const { data: graded } = await supabase
     .from('grading_results')
-    .select('batch_id, exam_title, created_at, roster_id, student_name, grade_breakdown')
+    .select('batch_id, class_id, exam_title, created_at, roster_id, student_name, grade_breakdown')
     .in('class_id', classIds).eq('user_id', userId).not('batch_id', 'is', null).limit(10000)
-  const batchIds = [...new Set((graded ?? []).map((r) => r.batch_id as string))]
-  if (!batchIds.length) return []
-  const { data: reports } = await supabase.from('grading_batch_insights').select('batch_id, data').in('batch_id', batchIds).eq('user_id', userId)
-  const topicsOf = new Map((reports ?? []).map((r) => [r.batch_id as string, (r.data as ClassInsightsAI)?.topics ?? []]))
-  return batchIds.filter((b) => topicsOf.has(b)).map((b) => {
-    const rows = (graded ?? []).filter((r) => r.batch_id === b)
-    return {
-      batchId: b,
-      title: rows[0]?.exam_title ?? null,
-      createdAt: rows.reduce((min, r) => (r.created_at < min ? r.created_at : min), rows[0]?.created_at ?? ''),
-      topics: topicsOf.get(b)!,
-      papers: rows.map((r) => ({ rosterId: r.roster_id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })),
-    }
-  })
+  const rows = (graded ?? []) as AreaPaperRow[]
+  const topicsOf = await topicsForBatches(supabase, userId, [...new Set(rows.map((r) => r.batch_id))])
+  return areaBatchesFromRows(rows, topicsOf)
 }

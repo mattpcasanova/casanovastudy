@@ -197,7 +197,7 @@ function YearSections({ classes: unsorted, onRolledOver }: { classes: ClassRecor
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="mb-2 text-sm font-semibold text-slate-800">Courses across years</p>
           <div className="flex flex-wrap gap-2">
-            {courses.map(([key, name]) => <Link key={key} href={`/teacher/courses/${encodeURIComponent(key)}`} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 hover:bg-blue-100">{name}</Link>)}
+            {courses.map(([key, name]) => <Link key={key} href={`/teacher/progress/${encodeURIComponent(key)}`} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 hover:bg-blue-100">{name}</Link>)}
           </div>
           <p className="mt-2 text-xs text-slate-500">See where each year&apos;s students struggled, side by side.</p>
         </div>

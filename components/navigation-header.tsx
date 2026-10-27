@@ -54,7 +54,7 @@ export default function NavigationHeader() {
     setMobileMenuOpen(false)
   }, [pathname])
 
-    const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes')
+    const isMyTeachersActive = (pathname?.startsWith('/my-teachers') || pathname?.startsWith('/teacher')) && !pathname?.startsWith('/teacher/classes') && !pathname?.startsWith('/teacher/progress')
   const isMyStudentsActive = pathname?.startsWith('/my-students')
   const isMyClassesActive = pathname?.startsWith('/teacher/classes')
   const isStudentClassesActive = pathname?.startsWith('/my-classes') || (pathname?.startsWith('/classes') && !pathname?.startsWith('/classes/join'))
@@ -101,7 +101,7 @@ export default function NavigationHeader() {
                 { href: isTeacher ? '/?new=1' : '/', label: 'New Guide', icon: Plus, active: pathname === '/', show: true },
                 { href: '/create-guide', label: 'Custom Builder', icon: PenSquare, active: !!pathname?.startsWith('/create-guide'), show: mounted && !!user },
                 { href: '/my-guides', label: 'My Guides', icon: FileText, active: !!(pathname?.startsWith('/my-guides') || pathname?.startsWith('/study-guide')), show: mounted && !!user },
-                { href: '/progress', label: 'Progress', icon: TrendingUp, active: !!pathname?.startsWith('/progress'), show: mounted && !!user },
+                { href: isTeacher ? '/teacher/progress' : '/progress', label: 'Progress', icon: TrendingUp, active: !!(pathname?.startsWith('/progress') || pathname?.startsWith('/teacher/progress')), show: mounted && !!user },
                 { href: '/my-class', label: 'My Classes', icon: Users, active: !!pathname?.startsWith('/my-class'), show: mounted && !!user && !isTeacher && inClass },
               ].filter((l) => l.show).map(({ href, label, icon: Icon, active }) => (
                 <Button
@@ -408,9 +408,9 @@ export default function NavigationHeader() {
                   <span className="text-sm font-medium">My Guides</span>
                 </Link>
                 <Link
-                  href="/progress"
+                  href={isTeacher ? '/teacher/progress' : '/progress'}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    pathname?.startsWith('/progress') ? 'bg-white/20' : 'hover:bg-white/10'
+                    pathname?.startsWith('/progress') || pathname?.startsWith('/teacher/progress') ? 'bg-white/20' : 'hover:bg-white/10'
                   }`}
                 >
                   <TrendingUp className="h-4 w-4 flex-shrink-0" />

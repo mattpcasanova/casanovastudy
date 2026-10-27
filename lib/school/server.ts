@@ -11,7 +11,7 @@ export interface AdminSchool { domain: string; schoolName: string | null }
 type Page<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>
 
 /** PostgREST returns at most 1000 rows per request; page through the rest. */
-async function fetchAll<T>(page: (from: number, to: number) => Page<T>): Promise<T[]> {
+export async function fetchAll<T>(page: (from: number, to: number) => Page<T>): Promise<T[]> {
   const out: T[] = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await page(from, from + 999)
@@ -22,7 +22,7 @@ async function fetchAll<T>(page: (from: number, to: number) => Page<T>): Promise
 }
 
 /** Same, over ids in chunks so `.in(...)` URLs stay short. */
-async function fetchByIds<T>(ids: string[], page: (chunk: string[], from: number, to: number) => Page<T>): Promise<T[]> {
+export async function fetchByIds<T>(ids: string[], page: (chunk: string[], from: number, to: number) => Page<T>): Promise<T[]> {
   const out: T[] = []
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100)

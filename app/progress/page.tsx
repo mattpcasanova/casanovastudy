@@ -44,8 +44,13 @@ function Progress() {
   // null = all subjects; OTHER = answers from guides without a subject.
   const [subject, setSubject] = useState<string | null>(null)
 
+  // Teachers get their students' progress instead (same nav link).
   useEffect(() => {
-    if (!user) return
+    if (user?.user_type === "teacher") router.replace("/teacher/progress")
+  }, [user, router])
+
+  useEffect(() => {
+    if (!user || user.user_type === "teacher") return
     void (async () => {
       await flushResults() // answers still waiting in this browser
       const { data, error: dbError } = await supabase
