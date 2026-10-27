@@ -23,7 +23,7 @@ import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { useAssignmentCounts, useAssignmentFinish } from '@/components/assign/assignment-context'
+import { TurnedInCard, useAssignmentCounts, useAssignmentFinish } from '@/components/assign/assignment-context'
 import { useRunProgress } from '@/lib/use-run-progress'
 import { cleanPracticeRun, type PracticeRun } from '@/lib/run-progress-rules'
 import { ResumeStrip } from './resume-strip'
@@ -878,6 +878,7 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
+      {!isRetry && <TurnedInCard />}
       <div className="animate-fade-up rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
         <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600"><Trophy className="h-7 w-7" /></span>
         <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry complete' : 'Practice complete'}</p>

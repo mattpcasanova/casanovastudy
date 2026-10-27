@@ -25,8 +25,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const rosterId = await myAssignedRow(supabase, id, user.id)
   if (!rosterId) return NextResponse.json({ error: 'Not assigned to you' }, { status: 403 })
 
-  const { data: prior } = await supabase.from('practice_attempts').select('pct, correct, total, counted, finished_at').eq('assignment_id', id).eq('roster_id', rosterId)
-  const list = (prior ?? []).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+  const { data: prior } = await supabase.from('practice_attempts').select('pct, correct, total, counted, auto, finished_at').eq('assignment_id', id).eq('roster_id', rosterId)
+  const list = (prior ?? []).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
   const left = attemptsLeft(a.max_attempts, list)
   const counted = left == null || left > 0
   const pct = Math.round((correct / total) * 1000) / 10

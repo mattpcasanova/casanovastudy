@@ -6,6 +6,8 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { accountNames } from '@/lib/classes/server'
 import type { FocusEvent } from './focus'
+import { savedRunsFor, sendUnfinishedAtDue } from './auto-submit'
+import type { RunCount } from './assignments'
 import { assignmentOpen, bestAttempt, couldBeStudent, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
 
 export interface AssignmentRow {
@@ -46,23 +48,49 @@ const masteryDetail = (d: unknown) => {
   return mastered || notMastered ? { mastered, notMastered } : null
 }
 
-/** Per-student progress on assignments (teacher views). */
+
+export interface StudentProgress {
+  rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null
+  account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null
+  status: string; daysLate: number; attempts: number
+  best: { pct: number; correct: number; total: number; detail: unknown } | null
+  lastAt: string | null
+  /** Started but not finished (saved run), while nothing is turned in. */
+  inProgress: RunCount | null
+  /** Status incomplete: what they had answered when it was sent at the due date. */
+  incomplete: RunCount | null
+}
+
+const autoCount = (d: unknown, total: number): RunCount | null => {
+  const auto = (d as { auto?: { answered?: number; unit?: string } } | null)?.auto
+  return auto && typeof auto.answered === 'number' ? { answered: auto.answered, total, unit: auto.unit === 'activities' ? 'activities' : 'questions' } : null
+}
+
+/** Per-student progress on assignments (teacher views). Sends unfinished runs whose due date has passed first. */
 export async function assignmentProgress(supabase: SupabaseClient, assignments: AssignmentRow[]) {
   const ids = assignments.map((a) => a.id)
-  if (!ids.length) return new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  if (!ids.length) return new Map<string, StudentProgress[]>()
+  await sendUnfinishedAtDue(supabase, ids)
   const [{ data: who }, { data: tries }] = await Promise.all([
     supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email, account_confirmed_at)').in('assignment_id', ids),
-    supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at, detail').in('assignment_id', ids),
+    supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at, detail').in('assignment_id', ids),
   ])
+  // Started and not turned in: their saved run (adaptive totals are concepts, so show questions answered only).
+  const rosterOf = (w: { class_roster: unknown }) => (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null
+  const waiting = (who ?? []).filter((w) => rosterOf(w)?.student_user_id && !(tries ?? []).some((t) => t.assignment_id === w.assignment_id && t.roster_id === w.roster_id && t.counted))
+  const runs = await savedRunsFor(supabase, [...new Set(assignments.filter((a) => waiting.some((w) => w.assignment_id === a.id)).map((a) => a.study_guide_id))], [...new Set(waiting.map((w) => rosterOf(w)!.student_user_id!))])
   const accounts = await accountNames(supabase, (who ?? []).map((w) => ((Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null)?.student_user_id))
-  const out = new Map<string, Array<{ rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate: number; attempts: number; best: { pct: number; correct: number; total: number; detail: unknown } | null; lastAt: string | null }>>()
+  const out = new Map<string, StudentProgress[]>()
   for (const a of assignments) {
     const rows = (who ?? []).filter((w) => w.assignment_id === a.id)
     out.set(a.id, rows.map((w) => {
       const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null; student_number: string | null; email: string | null; account_confirmed_at: string | null } | null
       const mine = (tries ?? []).filter((t) => t.assignment_id === a.id && t.roster_id === w.roster_id)
-      const list: Array<Attempt & { detail: unknown }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string, detail: t.detail }))
+      const list: Array<Attempt & { detail: unknown }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string, detail: t.detail }))
       const best = bestAttempt(list)
+      const status = practiceStatus(list, a.due_at)
+      const saved = r?.student_user_id && !list.some((t) => t.counted) ? runs.get(`${a.study_guide_id}|${r.student_user_id}`) : undefined
+      const sent = status === 'incomplete' ? list.find((t) => t.auto && t.counted) : undefined
       return {
         rosterId: w.roster_id as string,
         firstName: r?.first_name ?? '',
@@ -76,12 +104,14 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         })(),
         studentNumber: r?.student_number ?? null,
         email: r?.email ?? null,
-        status: practiceStatus(list, a.due_at),
+        status,
         daysLate: practiceDaysLate(list, a.due_at),
-        attempts: list.filter((t) => t.counted).length,
+        attempts: list.filter((t) => t.counted && !t.auto).length,
         best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: masteryDetail(best.detail) } : null,
         lastAt: list.map((t) => t.finishedAt).sort().pop() ?? null,
-      }
+        inProgress: saved ? { answered: saved.score.answered, total: a.grading === 'mastery' ? 0 : saved.score.total, unit: saved.score.unit } : null,
+        incomplete: sent ? autoCount(sent.detail, a.grading === 'mastery' ? 0 : sent.total) : null,
+      } satisfies StudentProgress
     }).sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName)))
   }
   return out
@@ -140,13 +170,13 @@ export async function myAssignmentOnGuides(supabase: SupabaseClient, userId: str
   type A = { study_guide_id: string; max_attempts: number | null; due_at: string | null; created_at: string }
   const one = (r: (typeof rows)[number]) => (Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as A
   const { data: tries } = await supabase
-    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at')
+    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at')
     .in('assignment_id', [...new Set(rows.map((r) => r.assignment_id as string))])
     .eq('student_user_id', userId)
   const ranked = rows.map((r) => {
     const a = one(r)
     const list: Attempt[] = (tries ?? []).filter((t) => t.assignment_id === r.assignment_id && t.roster_id === r.roster_id)
-      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
     return { assignmentId: r.assignment_id as string, guideId: a.study_guide_id, open: assignmentOpen(a.max_attempts, list, a.due_at), createdAt: a.created_at }
   }).sort((x, y) => Number(y.open) - Number(x.open) || y.createdAt.localeCompare(x.createdAt))
   return { assignmentId: ranked[0].assignmentId, guideId: ranked[0].guideId }
@@ -166,13 +196,13 @@ export async function aiRuleForGuide(supabase: SupabaseClient, userId: string, g
     .eq('practice_assignments.study_guide_id', guideId)
   if (!rows?.length) return null
   const { data: tries } = await supabase
-    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, finished_at')
+    .from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at')
     .in('assignment_id', [...new Set(rows.map((r) => r.assignment_id as string))])
     .eq('student_user_id', userId)
   const open = rows.filter((r) => {
     const a = (Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as { max_attempts: number | null; due_at: string | null }
     const list: Attempt[] = (tries ?? []).filter((t) => t.assignment_id === r.assignment_id && t.roster_id === r.roster_id)
-      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+      .map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
     return assignmentOpen(a.max_attempts, list, a.due_at)
   })
   const aiHelp = strictestAiHelp(open.map((r) => normalizeAiHelp(((Array.isArray(r.practice_assignments) ? r.practice_assignments[0] : r.practice_assignments) as { ai_help: string }).ai_help)))

@@ -11,7 +11,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CalendarClock, CheckCircle2, ClipboardCheck, Eye, Maximize2, MessageCircleOff, MessageCircleQuestion } from "lucide-react"
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, Eye, Loader2, Maximize2, MessageCircleOff, MessageCircleQuestion, RotateCcw } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
 import { FocusGate, FocusNotices, useFocusMode } from "./focus-mode"
 
@@ -28,12 +28,20 @@ interface Mine {
   aiHelp: "off" | "tutor" | "full"
   focusMode: boolean
   teacherName: string | null
+  /** What they had answered, sent for them at the due date (status incomplete). */
+  sentAtDue: { answered: number; total: number; pct: number } | null
 }
+
+/** The run just finished, as sent to the teacher (shown by TurnedInCard on the results screen). */
+type Submission =
+  | { state: "sending" }
+  | { state: "sent"; correct: number; total: number; counted: boolean; attemptsLeft: number | null; best: Mine["best"]; late: boolean }
+  | { state: "error"; message: string; score: Parameters<Finish>[0] }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
 type Finish = (score: { correct: number; total: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
 
-const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; teacherName: string | null } | null>(null)
+const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
 
 /** Report a finished run of assigned practice (no-op when not assigned). */
 export function useAssignmentFinish(): Finish | null {
@@ -61,7 +69,7 @@ const dueText = (iso: string) => new Date(iso).toLocaleString([], { weekday: "sh
 export function AssignmentProvider({ guideId, children }: { guideId: string; children: React.ReactNode }) {
   const [id, setId] = useState<string | null>(null)
   const [mine, setMine] = useState<Mine | null>(null)
-  const [saved, setSaved] = useState<string>("")
+  const [submission, setSubmission] = useState<Submission | null>(null)
   // Focus mode only matters while there's an attempt left to count.
   const focusOn = !!mine?.focusMode && mine.attemptsLeft !== 0
   const focus = useFocusMode(id, focusOn)
@@ -99,22 +107,21 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   const finish = useCallback<Finish>((score) => {
     if (!id || score.total <= 0) return
     focusFinished()
+    setSubmission({ state: "sending" })
     void (async () => {
-      const res = await authFetch(`/api/practice-assignments/${id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(score) })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { setSaved(data.error || "Your score couldn't be saved. Tell your teacher."); return }
-      const pct = Math.round((score.correct / score.total) * 100)
-      setMine((m) => (m ? { ...m, attempts: m.attempts + (data.counted ? 1 : 0), attemptsLeft: data.attemptsLeft, best: data.best ?? m.best, status: "done" } : m))
-      setSaved(data.counted
-        ? `Sent to your teacher: ${mine?.grading === "mastery" ? `${score.correct} of ${score.total} topics mastered` : `${score.correct}/${score.total} (${pct}%)`}.`
-        : "You've used all your attempts, so this one wasn't sent. Your best score still counts.")
+      const res = await authFetch(`/api/practice-assignments/${id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(score) }).catch(() => null)
+      const data = res ? await res.json().catch(() => ({})) : {}
+      if (!res?.ok) { setSubmission({ state: "error", message: data.error || "Your score couldn't be sent.", score }); return }
+      const late = !!mine?.dueAt && Date.now() > Date.parse(mine.dueAt)
+      setMine((m) => (m ? { ...m, attempts: m.attempts + (data.counted ? 1 : 0), attemptsLeft: data.attemptsLeft, best: data.best ?? m.best, status: late ? "late" : "done", sentAtDue: null } : m))
+      setSubmission({ state: "sent", correct: score.correct, total: score.total, counted: !!data.counted, attemptsLeft: data.attemptsLeft ?? null, best: data.best ?? null, late })
     })()
-  }, [id, mine?.grading, focusFinished])
+  }, [id, mine?.dueAt, focusFinished])
 
   if (!id || !mine) return <>{children}</>
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
-    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, teacherName: mine.teacherName ?? null }}>
+    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
           <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />{mine.teacherName ? `Assigned by ${mine.teacherName}` : "Assigned"}: {mine.title}</span>
@@ -131,12 +138,76 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
               <Maximize2 className="h-4 w-4" />Full screen for another attempt
             </button>
           )}
-          {saved && <span className="w-full font-medium" aria-live="polite">{saved}</span>}
+          {mine.status === "incomplete" && mine.sentAtDue && (
+            <span className="w-full font-medium">
+              You didn&apos;t finish by the due date, so what you&apos;d answered was sent ({mine.sentAtDue.total ? `${mine.sentAtDue.answered} of ${mine.sentAtDue.total}` : mine.sentAtDue.answered} answered, {Math.round(mine.sentAtDue.pct)}%). Finish it to raise your score; it will count as late.
+            </span>
+          )}
+          {submission?.state === "sent" && <span className="w-full font-medium" aria-live="polite">{submission.counted ? "Turned in. Your teacher has your score." : "You've used all your attempts, so this one wasn't sent."}</span>}
         </div>
       </div>
       {focusOn && focus.state === "gate" && <FocusGate title={mine.title} onStart={() => void focus.start()} />}
       {focusOn && focus.state === "on" && <FocusNotices notice={focus.notice} onDismiss={focus.dismissNotice} outOfFullscreen={focus.outOfFullscreen} onBackToFullscreen={() => void focus.backToFullscreen()} />}
       {children}
     </Ctx.Provider>
+  )
+}
+
+const scoreText = (grading: Mine["grading"], correct: number, total: number) =>
+  grading === "mastery" ? `${correct} of ${total} topics mastered` : `${Number.isInteger(correct) ? correct : correct.toFixed(2).replace(/0$/, "")}/${total} (${Math.round((correct / total) * 100)}%)`
+
+/**
+ * The "turned in" moment at the top of a results screen: sending, sent to the
+ * teacher (score, best, attempts left), not counted (attempts used up), or a
+ * failed send with Try again. Nothing outside an assignment or before a finish.
+ */
+export function TurnedInCard() {
+  const c = useContext(Ctx)
+  const s = c?.submission
+  if (!c || !s) return null
+  const to = c.teacherName ? `to ${c.teacherName}` : "to your teacher"
+  if (s.state === "sending") {
+    return (
+      <div role="status" className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-slate-700 ring-1 ring-inset ring-slate-200 print:hidden">
+        <Loader2 className="h-5 w-5 animate-spin text-slate-500" /> Sending your score {to}…
+      </div>
+    )
+  }
+  if (s.state === "error") {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl bg-rose-50 p-4 text-rose-900 ring-1 ring-inset ring-rose-200 print:hidden">
+        <AlertTriangle className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 flex-1"><span className="font-semibold">Not sent yet.</span> {s.message} Your answers are still here.</span>
+        <button type="button" onClick={() => c.finish(s.score)} className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-rose-700 px-4 text-sm font-semibold text-white hover:bg-rose-800"><RotateCcw className="h-4 w-4" />Try again</button>
+      </div>
+    )
+  }
+  if (!s.counted) {
+    return (
+      <div role="status" className="flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-inset ring-amber-200 print:hidden">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <span>
+          <span className="font-semibold">This run wasn&apos;t sent: you&apos;ve used all your attempts.</span>{" "}
+          {s.best ? `Your best score, ${c.grading === "mastery" ? `${s.best.correct} of ${s.best.total} topics` : `${Math.round(s.best.pct)}%`}, is the one that counts.` : "Your earlier score is the one that counts."} Practicing more still helps.
+        </span>
+      </div>
+    )
+  }
+  const better = s.best && Math.round(s.best.pct) > Math.round((s.correct / s.total) * 100)
+  return (
+    <div role="status" className="flex items-start gap-4 rounded-2xl bg-emerald-50 p-5 text-emerald-950 ring-1 ring-inset ring-emerald-200 print:hidden">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"><CheckCircle2 className="h-6 w-6" /></span>
+      <span className="min-w-0">
+        <span className="block text-lg font-semibold">Turned in {to}{s.late ? " (late)" : ""}</span>
+        <span className="block">Score sent: {scoreText(c.grading, s.correct, s.total)}.{better && s.best ? ` Your best, ${Math.round(s.best.pct)}%, is the one that counts.` : ""}</span>
+        <span className="mt-1 block text-sm text-emerald-800">
+          {s.attemptsLeft == null
+            ? "You can go again any time; your best score counts."
+            : s.attemptsLeft > 0
+              ? `You have ${s.attemptsLeft} more attempt${s.attemptsLeft === 1 ? "" : "s"} if you want to raise it; your best score counts.`
+              : "That was your last attempt. You can still practice; it won't change your score."}
+        </span>
+      </span>
+    </div>
   )
 }

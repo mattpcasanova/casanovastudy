@@ -32,7 +32,7 @@ function only<T>(v: unknown, ids: Set<string>, keep: (x: unknown) => x is T): Re
 
 // ── Practice ────────────────────────────────────────────────────────────────
 
-export type PracticeOutcome = { correct: boolean; note?: string; given?: string }
+export type PracticeOutcome = { correct: boolean; note?: string; given?: string; score?: number }
 export interface PracticeRun {
   index: number
   results: Record<string, PracticeOutcome>

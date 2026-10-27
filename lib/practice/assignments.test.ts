@@ -27,6 +27,20 @@ describe('assigned practice', () => {
     expect(practiceStatus([], due, Date.parse('2026-10-21T00:00:00Z'))).toBe('not_started')
     expect(practiceStatus([], null)).toBe('not_started')
   })
+  it('a run sent at the due date is incomplete, scores, and uses no attempt', () => {
+    const due = '2026-10-22T03:59:00Z'
+    const auto = { ...at(35, due), auto: true }
+    expect(practiceStatus([auto], due)).toBe('incomplete')
+    expect(practiceDaysLate([auto], due, Date.parse('2026-10-25T00:00:00Z'))).toBe(0)
+    expect(bestAttempt([auto])?.pct).toBe(35)
+    expect(attemptsLeft(1, [auto])).toBe(1)
+    // Finishing it afterwards: late, and the better score counts.
+    const finished = at(80, '2026-10-23T20:00:00Z')
+    expect(practiceStatus([auto, finished], due)).toBe('late')
+    expect(practiceDaysLate([auto, finished], due)).toBe(2)
+    expect(bestAttempt([auto, finished])?.pct).toBe(80)
+    expect(attemptsLeft(1, [auto, finished])).toBe(0)
+  })
   it('matches student IDs loosely', () => {
     expect(sameStudentId(' 0616-137-944 ', '616137944')).toBe(true)
     expect(sameStudentId('616137945', '616137944')).toBe(false)

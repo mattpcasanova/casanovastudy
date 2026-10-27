@@ -17,6 +17,7 @@ const LABEL: Record<string, [string, string]> = {
   late: ["Turned in late", "bg-amber-50 text-amber-900 ring-amber-200"],
   missing: ["Missing", "bg-rose-50 text-rose-800 ring-rose-200"],
   not_started: ["To do", "bg-blue-50 text-blue-800 ring-blue-200"],
+  incomplete: ["Sent unfinished · finish it", "bg-orange-50 text-orange-900 ring-orange-200"],
 }
 
 export function MyAssignments() {

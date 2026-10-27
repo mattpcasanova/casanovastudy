@@ -17,25 +17,32 @@ export function makeCode(random: () => number = Math.random): string {
   return out
 }
 
-export interface Attempt { pct: number; correct: number; total: number; counted: boolean; finishedAt: string }
+/** `auto`: sent for the student at the due date with whatever they had answered (unfinished run). */
+export interface Attempt { pct: number; correct: number; total: number; counted: boolean; finishedAt: string; auto?: boolean }
 
 /** The attempt that counts for the grade: best counted one. */
 export function bestAttempt<T extends Attempt>(attempts: T[]): T | null {
   return attempts.filter((a) => a.counted).reduce<T | null>((best, a) => (!best || a.pct > best.pct ? a : best), null)
 }
 
+/** Attempts the student used up: finished runs that counted (a run sent for them at the due date doesn't use one). */
 export function attemptsLeft(maxAttempts: number | null, attempts: Attempt[]): number | null {
   if (maxAttempts == null) return null
-  return Math.max(0, maxAttempts - attempts.filter((a) => a.counted).length)
+  return Math.max(0, maxAttempts - attempts.filter((a) => a.counted && !a.auto).length)
 }
 
-export type PracticeStatus = 'done' | 'late' | 'missing' | 'not_started'
+export type PracticeStatus = 'done' | 'late' | 'missing' | 'not_started' | 'incomplete'
 
-/** Done (on time), late (first finished after the due date), missing (due date passed, nothing finished), not started. */
+/**
+ * Done (on time), late (first finished after the due date), incomplete (never
+ * finished; what they had answered was sent at the due date), missing (due date
+ * passed, nothing at all), not started.
+ */
 export function practiceStatus(attempts: Attempt[], dueAt: string | null, now = Date.now()): PracticeStatus {
-  const counted = attempts.filter((a) => a.counted).sort((a, b) => a.finishedAt.localeCompare(b.finishedAt))
+  const counted = attempts.filter((a) => a.counted && !a.auto).sort((a, b) => a.finishedAt.localeCompare(b.finishedAt))
   const due = dueAt ? Date.parse(dueAt) : null
   if (counted.length) return due != null && Date.parse(counted[0].finishedAt) > due ? 'late' : 'done'
+  if (attempts.some((a) => a.counted && a.auto)) return 'incomplete'
   return due != null && now > due ? 'missing' : 'not_started'
 }
 
@@ -48,10 +55,29 @@ export function daysLate(dueAt: string | null | undefined, at: string | number |
   return Number.isFinite(over) && over > 0 ? Math.ceil(over / DAY) : 0
 }
 
+/** How far along a run is: answered of total (total 0 = unknown, e.g. adaptive, where the total is concepts). */
+export interface RunCount { answered: number; total: number; unit: 'activities' | 'questions' }
+
+/** "7 of 20 answered" / "12 questions answered". */
+export function runCountText(c: RunCount): string {
+  return c.total > 0 ? `${c.answered} of ${c.total} answered` : `${c.answered} ${c.answered === 1 ? c.unit.replace(/s$/, '').replace(/ie$/, 'y') : c.unit} answered`
+}
+
+/**
+ * The teacher's status chip text: "Done", "Incomplete · 7 of 20 answered"
+ * (sent at the due date), "In progress · 7 of 20 answered" (started, nothing
+ * turned in), else the plain status.
+ */
+export function progressStatusText(s: { status: string; inProgress?: RunCount | null; incomplete?: RunCount | null }, labels: Record<string, string>): string {
+  if (s.status === 'incomplete') return s.incomplete ? `${labels.incomplete} · ${runCountText(s.incomplete)}` : labels.incomplete
+  if (s.inProgress && (s.status === 'not_started' || s.status === 'missing')) return `In progress · ${runCountText(s.inProgress)}`
+  return labels[s.status] ?? labels.not_started
+}
+
 /** Days late for practiceStatus: late = first finished run vs the due date, missing = now vs the due date. */
 export function practiceDaysLate(attempts: Attempt[], dueAt: string | null, now = Date.now()): number {
   const status = practiceStatus(attempts, dueAt, now)
-  if (status === 'late') return daysLate(dueAt, attempts.filter((a) => a.counted).map((a) => a.finishedAt).sort()[0])
+  if (status === 'late') return daysLate(dueAt, attempts.filter((a) => a.counted && !a.auto).map((a) => a.finishedAt).sort()[0])
   if (status === 'missing') return daysLate(dueAt, now)
   return 0
 }

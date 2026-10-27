@@ -8,6 +8,7 @@ import { firstGradedBySet, lateDaysByPaper } from '@/lib/grading/late'
 import { missingTests } from './classwork-rules'
 import { schoolYearFor } from '@/lib/classes/years'
 import { classroomWorkUrl } from '@/lib/google/links'
+import { sendUnfinishedAtDue } from '@/lib/practice/auto-submit'
 
 export interface StudentClass { id: string; name: string; period: string | null; teacherName: string | null }
 export interface StudentPractice {
@@ -37,9 +38,10 @@ export async function assignedPracticeFor(supabase: SupabaseClient, userId: stri
   type Row = { id: string; class_id: string; title: string; grading: string; due_at: string | null; max_attempts: number | null; study_guide_id: string; created_at: string }
   const list = (links ?? []).map((l) => (Array.isArray(l.practice_assignments) ? l.practice_assignments[0] : l.practice_assignments) as Row)
   const ids = list.map((a) => a.id)
-  const { data: tries } = ids.length ? await supabase.from('practice_attempts').select('assignment_id, pct, correct, total, counted, finished_at').in('assignment_id', ids).eq('student_user_id', userId) : { data: [] }
+  await sendUnfinishedAtDue(supabase, ids)
+  const { data: tries } = ids.length ? await supabase.from('practice_attempts').select('assignment_id, pct, correct, total, counted, auto, finished_at').in('assignment_id', ids).eq('student_user_id', userId) : { data: [] }
   return list.map((a) => {
-    const mine = (tries ?? []).filter((t) => t.assignment_id === a.id).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, finishedAt: t.finished_at as string }))
+    const mine = (tries ?? []).filter((t) => t.assignment_id === a.id).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
     return { id: a.id, title: a.title, grading: a.grading, dueAt: a.due_at, guideId: a.study_guide_id, createdAt: a.created_at, classId: a.class_id, status: practiceStatus(mine, a.due_at), daysLate: practiceDaysLate(mine, a.due_at), best: bestAttempt(mine) }
   }).sort((x, y) => (x.status === 'done' ? 1 : 0) - (y.status === 'done' ? 1 : 0) || (x.dueAt ?? '9').localeCompare(y.dueAt ?? '9'))
 }

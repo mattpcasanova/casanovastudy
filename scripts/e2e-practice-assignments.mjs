@@ -9,7 +9,7 @@ import { createRequire } from 'module'
 const ROOT = new URL('..', import.meta.url).pathname
 const require = createRequire(`${ROOT}/package.json`)
 const { createClient } = require('@supabase/supabase-js')
-const BASE = 'http://localhost:3000'
+const BASE = process.env.E2E_BASE || 'http://localhost:3000'
 
 const env = {}
 for (const line of readFileSync(`${ROOT}/.env.local`, 'utf8').split('\n')) {
@@ -325,6 +325,41 @@ async function main() {
   r = await t('DELETE', `/api/practice-assignments/${asg.id}`)
   const { count } = await admin.from('practice_attempts').select('id', { count: 'exact', head: true }).eq('assignment_id', asg.id)
   check('delete removes it and its attempts', r.status === 200 && count === 0)
+
+  console.log('\n== In progress, and unfinished work sent at the due date (2026-10-27) ==')
+  const PRACTICE = '## Cells\n\nMATCH: Match each organelle to its job\n- Nucleus = Stores DNA\n- Mitochondria = Makes ATP\n- Ribosome = Builds proteins\n\nFILL: Cellular respiration happens in the {{mitochondria}}.\n\nMC_QUESTION: Which organelle builds proteins?\nA) Nucleus\nB) Ribosome\nCorrect Answer: B\n'
+  const { data: pg } = await admin.from('study_guides').insert({ user_id: teacher.id, title: 'Cells practice', subject: 'biology', grade_level: '9th', format: 'practice', content: PRACTICE, file_count: 0 }).select('id').single()
+  created.practiceGuideId = pg.id
+  r = await t('POST', '/api/practice-assignments', { guideId: pg.id, classId: cls.id, rosterIds: [lianna.id], maxAttempts: 1, dueAt: new Date(Date.now() + 86400000).toISOString() })
+  const due = r.json?.assignment
+  check('practice assigned with one attempt', !!due?.id, JSON.stringify(r.json))
+  // Lianna answers 2 of 3 in class (partial credit on the matching), then leaves.
+  const run = { updatedAt: Date.now(), run: { index: 2, results: { 'p-0': { correct: false, score: 0.67, given: '2 of 3 pairs on the first try' }, 'p-1': { correct: true, given: 'mitochondria' } }, later: [], subset: null, streak: 1, bestStreak: 1 } }
+  await admin.from('study_progress').upsert({ user_id: stuA.id, study_guide_id: pg.id, kind: 'practice', data: run }, { onConflict: 'user_id,study_guide_id,kind' })
+  r = await t('GET', `/api/practice-assignments/${due.id}`)
+  let row = r.json?.students?.find((x) => x.rosterId === lianna.id)
+  check('teacher sees her in progress, 2 of 3 answered', row?.status === 'not_started' && row.inProgress?.answered === 2 && row.inProgress.total === 3 && !row.incomplete, JSON.stringify(row))
+  // The due date passes.
+  await admin.from('practice_assignments').update({ due_at: new Date(Date.now() - 3600000).toISOString() }).eq('id', due.id)
+  r = await t('GET', `/api/practice-assignments/${due.id}`)
+  row = r.json?.students?.find((x) => x.rosterId === lianna.id)
+  check('after the due date it was sent: incomplete, 1.67/3', row?.status === 'incomplete' && row.best?.correct === 1.67 && row.best.total === 3 && row.incomplete?.answered === 2 && row.attempts === 0, JSON.stringify(row))
+  r = await t('GET', `/api/practice-assignments/${due.id}`)
+  const { count: sentCount } = await admin.from('practice_attempts').select('id', { count: 'exact', head: true }).eq('assignment_id', due.id)
+  check('sent once, however often the page loads', sentCount === 1)
+  r = await t('GET', `/api/classes/${cls.id}/gradebook`)
+  const cell = r.json?.rows?.find((x) => x.rosterId === lianna.id)?.cells?.[due.id]
+  check('gradebook shows the score, marked incomplete', cell?.kind === 'practice' && Math.round(cell.pct) === 56 && cell.incomplete === true, JSON.stringify(cell))
+  r = await a('GET', `/api/practice-assignments/${due.id}/me`)
+  check('she sees it was sent, and still has her attempt', r.json?.status === 'incomplete' && r.json.attemptsLeft === 1 && r.json.sentAtDue?.answered === 2, JSON.stringify(r.json))
+  r = await a('GET', '/api/student/classwork')
+  check('it stays in her to-do list as sent unfinished', r.json?.assignments?.find((x) => x.id === due.id)?.status === 'incomplete')
+  r = await a('POST', `/api/practice-assignments/${due.id}/attempts`, { correct: 3, total: 3 })
+  check('finishing it afterwards counts', r.json?.counted === true && r.json.best?.pct === 100 && r.json.attemptsLeft === 0, JSON.stringify(r.json))
+  r = await t('GET', `/api/practice-assignments/${due.id}`)
+  row = r.json?.students?.find((x) => x.rosterId === lianna.id)
+  check('teacher now sees it late with the better score', row?.status === 'late' && row.best?.pct === 100 && row.attempts === 1, JSON.stringify(row))
+  await admin.from('study_progress').delete().eq('user_id', stuA.id)
 }
 
 async function cleanup() {
@@ -335,6 +370,7 @@ async function cleanup() {
   if (created.classId2) await admin.from('classes').delete().eq('id', created.classId2)
   if (created.guideId) await admin.from('study_guides').delete().eq('id', created.guideId)
   if (created.quizId) await admin.from('study_guides').delete().eq('id', created.quizId)
+  if (created.practiceGuideId) await admin.from('study_guides').delete().eq('id', created.practiceGuideId)
   for (const id of created.users) await admin.auth.admin.deleteUser(id)
 }
 

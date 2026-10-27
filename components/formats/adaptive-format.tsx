@@ -10,7 +10,7 @@
 import { ReadAloudButton } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useAssignmentFinish } from "@/components/assign/assignment-context"
+import { TurnedInCard, useAssignmentFinish } from "@/components/assign/assignment-context"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Target, Trophy, XCircle, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -252,7 +252,12 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
       difficultyLevel: option.difficulty,
       detail: nextDetail(option),
     }))
-    return <DoneCard progress={progress} summary={summary} next={next} onNext={open} onRestart={restart} />
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <TurnedInCard />
+        <DoneCard progress={progress} summary={summary} next={next} onNext={open} onRestart={restart} />
+      </div>
+    )
   }
 
   const q = current?.question

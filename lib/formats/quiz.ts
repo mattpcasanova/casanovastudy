@@ -188,3 +188,10 @@ export function parseQuizContent(content: string): Question[] {
   return questions
 }
 
+
+/** A multiple-choice or true/false answer as the quiz player stores it (the option text, or 'true'/'false'). */
+export function isObjectiveCorrect(q: Question, answer: string | undefined): boolean {
+  if (q.type === 'mc') return answer === q.correctAnswer
+  if (q.type === 'tf') return answer === (q.correctAnswer ? 'true' : 'false')
+  return false
+}

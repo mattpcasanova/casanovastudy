@@ -12,7 +12,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { lateLabel } from "@/lib/grading/late"
-import { dueLabel, homeStrip, type MissingTest } from "@/lib/student/classwork-rules"
+import { dueLabel, homeStrip, isOpenWork, type MissingTest } from "@/lib/student/classwork-rules"
 import type { StudentClass, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
 
 export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[] }
@@ -82,11 +82,12 @@ export const STATUS: Record<string, [string, string]> = {
   late: ["Turned in late", "bg-amber-50 text-amber-900 ring-amber-200"],
   missing: ["Missing", "bg-rose-50 text-rose-800 ring-rose-200"],
   not_started: ["To do", "bg-blue-50 text-blue-800 ring-blue-200"],
+  incomplete: ["Sent unfinished · finish it", "bg-orange-50 text-orange-900 ring-orange-200"],
 }
 
 export function statusLabel(a: StudentPractice): string {
   const [base] = STATUS[a.status] ?? STATUS.not_started
-  if (!a.daysLate) return base
+  if (!a.daysLate || a.status === "incomplete") return base
   return a.status === "late" ? `Turned in ${dayCount(a.daysLate)} late` : `Missing · ${dayCount(a.daysLate)} overdue`
 }
 
@@ -100,7 +101,7 @@ export const practiceHref = (a: StudentPractice) => `/study-guide/${a.guideId}?a
 /** One assigned practice row (My Classes page). */
 export function AssignmentRow({ a, className }: { a: StudentPractice; className?: string | null }) {
   const [, cls] = STATUS[a.status] ?? STATUS.not_started
-  const open = a.status === "not_started" || a.status === "missing"
+  const open = isOpenWork(a.status)
   return (
     <Link href={practiceHref(a)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 p-3.5 transition hover:border-blue-300 hover:bg-blue-50/40">
       <span className="min-w-0 flex-1">

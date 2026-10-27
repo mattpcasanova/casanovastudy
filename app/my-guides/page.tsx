@@ -49,7 +49,7 @@ import {
 } from 'lucide-react'
 import { authFetch } from '@/lib/auth-fetch'
 import { AssignmentRow, practiceHref, useClasswork } from '@/components/student/classwork'
-import { dueLabel } from '@/lib/student/classwork-rules'
+import { dueLabel, openWork } from '@/lib/student/classwork-rules'
 import type { StudentPractice } from '@/lib/student/classwork'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -229,7 +229,7 @@ export default function MyGuidesPage() {
     return map
   }, [classwork])
   const sharedByGuide = useMemo(() => new Map((classwork?.shared ?? []).map((g) => [g.guideId, g])), [classwork])
-  const openAssignments = (classwork?.assignments ?? []).filter((a) => a.status === 'not_started' || a.status === 'missing')
+  const openAssignments = openWork(classwork?.assignments ?? [])
   type Origin = { kind: 'assigned'; a: StudentPractice; teacher: string | null } | { kind: 'shared'; name: string | null } | { kind: 'from'; name: string }
   const originOf = (guide: StudyGuideRecord): Origin | null => {
     const a = assignedByGuide.get(guide.id) ?? (guide.copied_from ? assignedByGuide.get(guide.copied_from) : undefined)

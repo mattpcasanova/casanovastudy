@@ -4,7 +4,7 @@
 export interface StudentAssignment {
   id: string
   title: string
-  status: string // done | late | missing | not_started
+  status: string // done | late | missing | not_started | incomplete
   dueAt: string | null
   daysLate?: number
 }
@@ -14,11 +14,15 @@ export interface StudentReport { id: string; title: string; createdAt: string }
 const DAY = 24 * 60 * 60 * 1000
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 
-/** Still to do: missing first (most overdue first), then by due date, undated last. */
+/** Still open for the student: not started, missing, or sent unfinished at the due date (finishing still counts). */
+export const isOpenWork = (status: string) => status === 'not_started' || status === 'missing' || status === 'incomplete'
+const overdue = (status: string) => status === 'missing' || status === 'incomplete'
+
+/** Still to do: overdue first (missing, then sent unfinished), then by due date, undated last. */
 export function openWork<T extends StudentAssignment>(list: T[]): T[] {
   return list
-    .filter((a) => a.status === 'not_started' || a.status === 'missing')
-    .sort((a, b) => (a.status === 'missing' ? 0 : 1) - (b.status === 'missing' ? 0 : 1) || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'))
+    .filter((a) => isOpenWork(a.status))
+    .sort((a, b) => (overdue(a.status) ? 0 : 1) - (overdue(b.status) ? 0 : 1) || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'))
 }
 
 /** "Due today", "Due tomorrow", "Due Fri", "Due Oct 30", "2 days overdue". */

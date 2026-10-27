@@ -19,10 +19,10 @@ import { ReadAloudButton } from '@/components/reading/reading-provider'
 import { questionForSpeech } from '@/lib/reading/speech'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
-import { parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
+import { isObjectiveCorrect, parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { useAssignmentCounts, useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
+import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
 import { useRunProgress } from '@/lib/use-run-progress'
 import { cleanQuizRun, type QuizRun } from '@/lib/run-progress-rules'
 import { ResumeStrip } from './resume-strip'
@@ -484,12 +484,6 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   )
 }
 
-function isObjectiveCorrect(q: Question, answer: string | undefined): boolean {
-  if (q.type === 'mc') return answer === q.correctAnswer
-  if (q.type === 'tf') return answer === (q.correctAnswer ? 'true' : 'false')
-  return false
-}
-
 function pickedLabel(q: Question, answer: string | undefined): string | undefined {
   if (!answer) return undefined
   if (q.type === 'tf') return answer === 'true' ? 'True' : 'False'
@@ -686,6 +680,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
+      {!isRetry && <TurnedInCard />}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
           <div className="relative h-32 w-32 shrink-0">

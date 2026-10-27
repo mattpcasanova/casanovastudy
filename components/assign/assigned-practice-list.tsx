@@ -41,7 +41,7 @@ export function AssignedPracticeList({ classId, rosterId }: { classId: string; r
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-base font-semibold text-slate-900 group-hover:text-blue-700">{a.title}</span>
                     <span className="flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
-                      {me ? (me.best ? (a.grading === "mastery" ? `${me.best.correct}/${me.best.total} topics mastered` : `Best ${Math.round(me.best.pct)}%`) : me.status === "missing" ? "Missing" : "Not done yet") : `${done} of ${a.students.length} done`}
+                      {me ? (me.best ? (me.status === "incomplete" ? `Incomplete · ${Math.round(me.best.pct)}%` : a.grading === "mastery" ? `${me.best.correct}/${me.best.total} topics mastered` : `Best ${Math.round(me.best.pct)}%`) : me.status === "missing" ? "Missing" : "Not done yet") : `${done} of ${a.students.length} done`}
                       {a.due_at && <span className="inline-flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" />due {new Date(a.due_at).toLocaleDateString([], { month: "short", day: "numeric" })}</span>}
                     </span>
                   </span>

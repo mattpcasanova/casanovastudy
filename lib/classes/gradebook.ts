@@ -43,7 +43,7 @@ export interface GradebookPractice {
 export type GradebookCell =
   | { kind: 'paper'; gradingId: string; marks: number; possible: number; pct: number; grade: string; /** Set when the paper came in late (0 = same day as the set). */ daysLate?: number }
   | { kind: 'status'; status: string; daysLate?: number }
-  | { kind: 'practice'; assignmentId: string; marks: number; possible: number; pct: number; late: boolean; daysLate?: number }
+  | { kind: 'practice'; assignmentId: string; marks: number; possible: number; pct: number; late: boolean; daysLate?: number; /** Never finished: what they had answered was sent at the due date. */ incomplete?: boolean }
 
 export interface GradebookRow {
   key: string
@@ -102,7 +102,7 @@ export function buildGradebook(
     if (p.best) {
       t.papers += 1
       t.total += p.best.pct
-      row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
+      row.cells[p.assignmentId] = { kind: 'practice', assignmentId: p.assignmentId, marks: p.best.correct, possible: p.best.total, pct: p.best.pct, late: p.status === 'late', ...(p.daysLate ? { daysLate: p.daysLate } : {}), ...(p.status === 'incomplete' ? { incomplete: true } : {}) }
     } else if (p.status === 'missing') {
       row.cells[p.assignmentId] = { kind: 'status', status: 'missing', ...(p.daysLate ? { daysLate: p.daysLate } : {}) }
     } else if (p.status === 'not_started') {

@@ -25,10 +25,10 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { AI_HELP_OPTIONS, dayCount, type AiHelp } from "@/lib/practice/assignments"
+import { AI_HELP_OPTIONS, dayCount, progressStatusText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[] }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; url: string; created_at: string; class_id: string }
   students: Student[]
@@ -41,7 +41,10 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   late: { label: "Late", cls: "bg-amber-50 text-amber-900 ring-amber-200" },
   missing: { label: "Missing", cls: "bg-rose-50 text-rose-800 ring-rose-200" },
   not_started: { label: "Not turned in yet", cls: "bg-slate-100 text-slate-700 ring-slate-300" },
+  incomplete: { label: "Incomplete", cls: "bg-orange-50 text-orange-900 ring-orange-200" },
 }
+const IN_PROGRESS_CLS = "bg-blue-50 text-blue-800 ring-blue-200"
+const STATUS_TEXT = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v.label]))
 const AI_KIND: Record<string, string> = {
   typed: "Typed",
   highlight: "Highlighted",
@@ -115,6 +118,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{a.title}</h1>
           <p className="text-slate-600">
             {students.length} student{students.length === 1 ? "" : "s"} · {students.filter((s) => s.status === "done" || s.status === "late").length} done
+            {students.some((s) => s.status === "incomplete") && <> · {students.filter((s) => s.status === "incomplete").length} incomplete</>}
+            {students.some((s) => s.inProgress && (s.status === "not_started" || s.status === "missing")) && <> · {students.filter((s) => s.inProgress && (s.status === "not_started" || s.status === "missing")).length} in progress</>}
             {avg != null && <> · average {a.grading === "mastery" ? `${Math.round(avg)}% of topics mastered` : `${Math.round(avg)}%`}</>}
             {students.some((s) => s.aiUses.length) && <> · {students.filter((s) => s.aiUses.length).length} used AI help</>}
             {students.some((s) => focusChip(summarizeFocus(s.focus))) && <> · {students.filter((s) => focusChip(summarizeFocus(s.focus))).length} left the page</>}
@@ -206,7 +211,12 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                   <button type="button" onClick={() => void notThem(s)} className="h-7 rounded-full bg-white px-2.5 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
                 </span>
               )}
-              <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", (STATUS[s.status] ?? STATUS.not_started).cls)}>{(STATUS[s.status] ?? STATUS.not_started).label}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}</span>
+              <span
+                className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", s.inProgress && (s.status === "not_started" || s.status === "missing") ? IN_PROGRESS_CLS : (STATUS[s.status] ?? STATUS.not_started).cls)}
+                title={s.status === "incomplete" ? "Never finished: what they had answered was sent at the due date (unanswered count as 0). If they finish it, that counts as late and the better score is kept." : s.inProgress ? "Started and saved, not turned in yet" : undefined}
+              >
+                {progressStatusText(s, STATUS_TEXT)}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}
+              </span>
               {s.aiUses.length > 0
                 ? <button type="button" onClick={() => setAiFor(s)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200 hover:bg-violet-100"><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
                 : null}
