@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, Loader2, Ticket } from 'lucide-react'
+import { Check, Clock, Loader2, Ticket } from 'lucide-react'
 import { PremiumMark } from './premium-mark'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/lib/auth'
@@ -138,12 +138,14 @@ function PremiumDialog({ state, plan, onClose, onRedeemed }: {
   const block = state?.block ?? null
   const premium = plan?.tier === 'premium'
   const reset = formatReset(block?.resetsAt)
+  // Plans off: the safety caps (lib/plans.ts GUIDE_SAFETY) are a daily limit for everyone, not a Premium thing.
+  const safetyOnly = !PLANS_ENABLED && block?.code === 'limit_reached'
   const title = redeemedUntil
     ? "You're on Premium"
     : state?.redeemOnly
       ? 'Redeem a code'
       : block?.code === 'limit_reached'
-        ? premium ? "You've reached a limit" : "You've hit your free limit"
+        ? safetyOnly ? "That's enough for today" : premium ? "You've reached a limit" : "You've hit your free limit"
         : block
           ? "That's part of Premium"
           : 'Casanova Study Premium'
@@ -153,18 +155,20 @@ function PremiumDialog({ state, plan, onClose, onRedeemed }: {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-100">
-            {state?.redeemOnly && !redeemedUntil ? <Ticket className="h-5 w-5" /> : <PremiumMark className="h-7 w-7 bg-transparent" />}
+            {state?.redeemOnly && !redeemedUntil ? <Ticket className="h-5 w-5" /> : safetyOnly ? <Clock className="h-5 w-5" /> : <PremiumMark className="h-7 w-7 bg-transparent" />}
           </span>
           <DialogTitle className="text-xl">{title}</DialogTitle>
           {!redeemedUntil && block && (
             <DialogDescription className="text-base text-slate-600">
               {block.error}
-              {reset && (block.kind === 'guide' ? ` Your next one unlocks ${reset}.` : block.kind === 'explain' ? ` More unlock ${reset}.` : '')}
+              {reset && !safetyOnly && (block.kind === 'guide' ? ` Your next one unlocks ${reset}.` : block.kind === 'explain' ? ` More unlock ${reset}.` : '')}
             </DialogDescription>
           )}
         </DialogHeader>
 
-        {redeemedUntil ? (
+        {safetyOnly ? (
+          <button type="button" onClick={onClose} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">Back to studying</button>
+        ) : redeemedUntil ? (
           <div className="space-y-4">
             <p className="text-slate-700">Your code worked. You have Premium until <span className="font-semibold">{formatDate(redeemedUntil)}</span>.</p>
             <button type="button" onClick={onClose} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">Start studying</button>

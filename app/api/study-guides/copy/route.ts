@@ -52,6 +52,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Already saved? Open that copy instead of making another (7th graders
+    // pressed Save 6-8 times on one shared guide; nothing told them it was done).
+    const { data: mine } = await supabase
+      .from('study_guides')
+      .select('id, content, custom_content')
+      .eq('user_id', userId)
+      .eq('title', originalGuide.title)
+      .eq('format', originalGuide.format)
+      .limit(20)
+    const existing = (mine ?? []).find((g) => g.content === originalGuide.content && JSON.stringify(g.custom_content ?? null) === JSON.stringify(originalGuide.custom_content ?? null))
+    if (existing) {
+      return NextResponse.json({ success: true, alreadySaved: true, studyGuide: existing, studyGuideUrl: `/study-guide/${existing.id}` })
+    }
+
     // Create a copy with the new user's ID
     const { data: newGuide, error: insertError } = await supabase
       .from('study_guides')
@@ -65,6 +79,8 @@ export async function POST(request: NextRequest) {
         difficulty_level: originalGuide.difficulty_level,
         additional_instructions: originalGuide.additional_instructions,
         file_count: originalGuide.file_count,
+        custom_content: originalGuide.custom_content,
+        language: originalGuide.language,
         user_id: userId,
       })
       .select()

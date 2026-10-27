@@ -119,8 +119,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
 
       const data = await response.json()
       toast({
-        title: "Success!",
-        description: "Study guide saved to your collection.",
+        title: data.alreadySaved ? "Already in My Guides" : "Saved to My Guides",
+        description: data.alreadySaved ? "You saved this one before. Opening your copy." : user.user_type === 'teacher' ? "It's yours now: assign it to a class from the bar at the top." : "Find it any time under My Guides.",
       })
       router.push(data.studyGuideUrl)
     } catch (error) {
@@ -430,7 +430,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Study Guide</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete "{studyGuide.title}"? This action cannot be undone.
+                    Are you sure you want to delete &ldquo;{studyGuide.title}&rdquo;? This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

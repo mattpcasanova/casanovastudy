@@ -13,6 +13,10 @@ import { PLANS_ENABLED } from '@/lib/features'
 import { PLAN_LIMITS, limitMessage, premiumOnlyReason, type MeteredKind, type PlanBlock, type PlanTier } from '@/lib/plan-rules'
 
 const EXPLAIN_SAFETY = { limit: 150, days: 1 }
+// While plans are off nobody is metered, but a class of 7th graders can still
+// make guides for fun all period (2026-10-22: 223 generated in two days, 142
+// never opened). Per user per day; the message says more unlock tomorrow.
+export const GUIDE_SAFETY = { guide: { limit: 8, days: 1 }, adaptive: { limit: 4, days: 1 } } as const
 
 // Adaptive practice AI steps, capped per user per day on every plan (and while
 // plans are off). Each session also stops at ADAPTIVE_RULES.maxRefills refills.
@@ -84,7 +88,17 @@ export interface Metered {
  */
 export async function meterGuide(userId: string, opts: { format?: string; length?: string; difficulty?: string; customAi?: boolean }): Promise<Metered> {
   const adaptive = opts.format === 'adaptive'
-  if (!PLANS_ENABLED) return { block: null, eventId: await record(userId, adaptive ? 'adaptive' : 'guide') }
+  if (!PLANS_ENABLED) {
+    const kind = adaptive ? 'adaptive' : 'guide'
+    const c = await consume(userId, kind, GUIDE_SAFETY[kind])
+    if (c.allowed) return { block: null, eventId: c.eventId }
+    return { eventId: null, block: {
+      error: adaptive
+        ? `You've started ${c.limit} adaptive practice sessions today. Your sessions are saved in My Guides, and more unlock tomorrow.`
+        : `You've made ${c.limit} guides today. They're all saved in My Guides, and more unlock tomorrow.`,
+      code: 'limit_reached', kind, limit: c.limit, resetsAt: c.resetsAt ?? undefined,
+    } }
+  }
   const { tier } = await getPlan(userId)
   // Adaptive practice sessions have their own allowance (free: 1 a week).
   if (adaptive) {

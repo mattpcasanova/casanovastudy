@@ -30,11 +30,12 @@ export interface AcceptPlanRow {
 }
 
 const LETTER = String.raw`\(?([A-Ha-h])\)?`
-const GIVEN_PATTERNS = [
-  new RegExp(String.raw`\b(?:chose|circled|selected|picked|marked|shaded|answered|chosen|gave|wrote)\s+(?:option\s+|answer\s+|letter\s+)?${LETTER}(?![a-z])`, 'i'),
-  new RegExp(String.raw`^\s*correct[,:]?\s+${LETTER}(?![a-z])`, 'i'),
-  new RegExp(String.raw`(?<!correct\s)(?<!right\s)\b(?:student'?s?\s+)?answer\s+(?:was|is|given)\s*:?\s*${LETTER}(?![a-z])`, 'i'),
-  new RegExp(String.raw`\bcorrect(?:ly)?\s+(?:answer(?:ed)?|chose|selected)\s+${LETTER}(?![a-z])`, 'i'),
+// No lookbehind (Safari before 16.4 throws on it at load): "answer was C" captures the word before it and skips "correct/right answer was C".
+const GIVEN_PATTERNS: Array<{ re: RegExp; letter: number; skipIf?: (m: RegExpMatchArray) => boolean }> = [
+  { re: new RegExp(String.raw`\b(?:chose|circled|selected|picked|marked|shaded|answered|chosen|gave|wrote)\s+(?:option\s+|answer\s+|letter\s+)?${LETTER}(?![a-z])`, 'i'), letter: 1 },
+  { re: new RegExp(String.raw`^\s*correct[,:]?\s+${LETTER}(?![a-z])`, 'i'), letter: 1 },
+  { re: new RegExp(String.raw`(?:^|\b(\w+)\s+)(?:student'?s?\s+)?answer\s+(?:was|is|given)\s*:?\s*${LETTER}(?![a-z])`, 'i'), letter: 2, skipIf: (m) => /^(?:correct|right)$/i.test(m[1] ?? '') },
+  { re: new RegExp(String.raw`\bcorrect(?:ly)?\s+(?:answer(?:ed)?|chose|selected)\s+${LETTER}(?![a-z])`, 'i'), letter: 1 },
 ]
 
 /** The option the student chose, as the grader wrote it ("Chose D (N and Cl)" -> "D"); null when the feedback doesn't say. */
@@ -43,9 +44,9 @@ export function givenAnswer(explanation: string | null | undefined): string | nu
   if (!text) return null
   // "No answer is circled", "Nothing marked", "Left blank": the grader read no choice.
   if (/^(?:no (?:answer|choice|option|letter)|nothing|left blank|answer (?:could )?not)/i.test(text)) return null
-  for (const re of GIVEN_PATTERNS) {
+  for (const { re, letter, skipIf } of GIVEN_PATTERNS) {
     const m = text.match(re)
-    if (m) return m[1].toUpperCase()
+    if (m && !skipIf?.(m)) return m[letter].toUpperCase()
   }
   return null
 }
