@@ -229,8 +229,12 @@ function BatchGrading() {
       const renamed = g.pages.some((i) => names[i] !== undefined)
       const match: ReturnType<typeof matchRoster> = stamp?.rosterId && !renamed ? { rosterId: stamp.rosterId, score: 1, confidence: "sure" } : matchRoster(name, rosterNames)
       const missing = stamp ? missingPages(g.pages.map((i) => headers[i]?.stamp?.page ?? 0), stamp.total) : []
-      const others = (groups[g.pages[0]] ?? []).map((n) => ({ name: n, match: matchRoster(n, rosterNames) }))
-      return { ...g, key: g.pages[0], name, match, stamp, missing, others }
+      // Group work: the members the teacher typed, else the other names read off the cover.
+      const fromCover = groups[g.pages[0]] === undefined && !!headers[g.pages[0]]?.others?.length
+      const others = (groups[g.pages[0]] ?? headers[g.pages[0]]?.others ?? [])
+        .filter((n) => n.toLowerCase() !== name.toLowerCase())
+        .map((n) => ({ name: n, match: matchRoster(n, rosterNames) }))
+      return { ...g, key: g.pages[0], name, match, stamp, missing, others, fromCover }
     })
   }, [starts, headers, removed, names, rosterNames, groups])
 
@@ -1010,6 +1014,7 @@ function BatchGrading() {
                         <GroupMembers
                           first={paper.name}
                           others={paper.others}
+                          fromCover={paper.fromCover}
                           editable={phase === "review"}
                           rosterList={roster.length ? "roster-names" : undefined}
                           onChange={(list) => setGroups((g) => ({ ...g, [paper.key]: list }))}
@@ -1102,9 +1107,11 @@ function RosterDetailsForm({ row, onSave, onClose }: { row: RosterRow; onSave: (
   )
 }
 
-function GroupMembers({ first, others, editable, rosterList, onChange, onClose }: {
+function GroupMembers({ first, others, fromCover, editable, rosterList, onChange, onClose }: {
   first: string
   others: Array<{ name: string; match: ReturnType<typeof matchRoster> }>
+  /** The members were read off the cover, not typed: say so, so the teacher checks them. */
+  fromCover?: boolean
   editable: boolean
   rosterList?: string
   onChange: (names: string[]) => void
@@ -1122,7 +1129,7 @@ function GroupMembers({ first, others, editable, rosterList, onChange, onClose }
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold text-indigo-900"><UsersRound className="h-4 w-4" />Group work</p>
-          <p className="mt-0.5 text-sm text-slate-600">Graded once. Each member gets their own report with the same marks.</p>
+          <p className="mt-0.5 text-sm text-slate-600">{fromCover ? "These names were read off the cover: check them. " : ""}Graded once. Each member gets their own report with the same marks.</p>
         </div>
         {editable && <button type="button" onClick={onClose} className={bigButton}><X />Not a group</button>}
       </div>

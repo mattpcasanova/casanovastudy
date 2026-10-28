@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const cover = await new ClaudeService().readCoverName({ mediaType, data }, roster)
     const name = (cover.sure && cover.student) || cover.written
     const split = name ? splitNameAndPeriod(name) : null
-    return NextResponse.json({ name: split?.name ?? null, title: cover.title, course: cover.course, period: cover.period ?? split?.period ?? null })
+    return NextResponse.json({ name: split?.name ?? null, others: cover.others, title: cover.title, course: cover.course, period: cover.period ?? split?.period ?? null })
   } catch (e) {
     console.error('Header read failed:', e)
     return NextResponse.json({ error: 'Could not read the page' }, { status: 500 })

@@ -14,6 +14,8 @@ export interface PageHeaderRead {
   title: string | null
   course: string | null
   period: string | null
+  /** Other names handwritten on a cover (group work), from readCoverName. */
+  others?: string[]
 }
 
 /** A careful read of a paper's first page (readCoverName). */
@@ -26,6 +28,8 @@ export interface CoverRead {
   student: string | null
   /** The model is confident `student` is right. */
   sure: boolean
+  /** Other students' names handwritten on the same cover (group work): class-list spelling when matched, else as written. */
+  others: string[]
   title: string | null
   course: string | null
   period: string | null
@@ -2605,6 +2609,7 @@ Reply with JSON only:
  "written": the name exactly as written in this sheet's Name blank, without any class period after it (null if the blank is empty or unreadable, or this is not a first page),
  "student": ${roster.length ? 'the class-list entry this handwriting is, exactly as listed, or null if it fits none of them' : 'null'},
  "sure": true only if you are confident of the match,
+ "others": other students' names handwritten on this sheet besides that one (group work: several names in or beside the Name blank, or a "Names:" / "Group members:" list)${roster.length ? ', each given as its class-list entry exactly as listed when it clearly is one, else as written' : ', each as written'}; [] when only one name is written. Never printed names, the teacher, or names on other papers in the photo,
  "title": the exam or quiz title printed at the top (without the course name) or null,
  "course": the class or course name if printed, else the school subject the questions are about, or null,
  "period": the class period written on the page ("Period 2", "P2" -> "2") or null}` },
@@ -2617,18 +2622,28 @@ Reply with JSON only:
     try {
       const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
       const student = str(parsed.student, 80)
+      const main = (student ?? str(parsed.written, 80) ?? '').toLowerCase()
+      const others: string[] = []
+      for (const o of Array.isArray(parsed.others) ? parsed.others.slice(0, 8) : []) {
+        const name = str(o, 80)
+        if (name && name.toLowerCase() !== main && !others.some((x) => x.toLowerCase() === name.toLowerCase())) others.push(name)
+      }
+      // A group cover: "written" can come back as the whole list; the paper's name is the first one.
+      let written = str(parsed.written, 80)
+      if (written && others.length && /[,;&\/]|\band\b/i.test(written)) written = written.split(/\s*(?:[,;&\/]|\band\b)\s*/i)[0]?.trim() || written
       return {
         firstPage: parsed.firstPage !== false,
-        written: str(parsed.written, 80),
+        written,
         // Only a name that is really on the list counts as a match.
         student: student && roster.some((r) => r.trim().toLowerCase() === student.toLowerCase()) ? student : null,
         sure: parsed.sure === true,
+        others,
         title: str(parsed.title, 120),
         course: str(parsed.course, 80),
         period: str(parsed.period, 12),
       }
     } catch {
-      return { firstPage: true, written: null, student: null, sure: false, title: null, course: null, period: null }
+      return { firstPage: true, written: null, student: null, sure: false, others: [], title: null, course: null, period: null }
     }
   }
 

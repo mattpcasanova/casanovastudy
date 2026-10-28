@@ -132,7 +132,9 @@ export default function GradeExamPage() {
         body: JSON.stringify({ image: await blobToBase64(page.blob), roster: roster.map(fullName) }),
       })
       if (!res.ok) return
-      const read: { name: string | null; title: string | null; course: string | null; period: string | null } = await res.json()
+      const read: { name: string | null; others?: string[]; title: string | null; course: string | null; period: string | null } = await res.json()
+      // Several names on the cover: it's a group's work.
+      if (read.others?.length && !groupNames.trim()) { setIsGroup(true); setGroupNames(read.others.join(", ")) }
       const keep = (value: string | null) => (prev: string) => (prev.trim() || !value ? prev : value)
       const parsed = parseName(read.name ?? "")
       // On the class roster: use the roster's spelling and link the paper.

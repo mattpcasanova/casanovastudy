@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
                 title: cover.title ?? headers[i].title,
                 course: cover.course ?? headers[i].course,
                 period: cover.period ?? split?.period ?? headers[i].period,
+                others: cover.others.length ? cover.others : undefined,
               }
             } catch (e) {
               console.error(`Cover name read failed (${images[start].name}):`, e) // Haiku's read stays

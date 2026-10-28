@@ -18,6 +18,8 @@ export interface PageHeader {
   course?: string | null
   /** Class period written near the name ("2", "3B"). */
   period?: string | null
+  /** Other names handwritten on a cover (group work), read with the cover name; pre-fills the group members. */
+  others?: string[]
   /** A name-stamped copy's QR code (lib/stamped/), resolved to its student. */
   stamp?: PageStamp
   /** Name taken from the file name (one student per file, lib/grading/file-names.ts). */
