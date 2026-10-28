@@ -426,7 +426,7 @@ function BatchResults({ id }: { id: string }) {
             <AdjustmentDialog open={adjustOpen} onOpenChange={setAdjustOpen} papers={adjustable} editing={editingAdjustment} onSave={saveAdjustment} />
             <AcceptAnswerDialog open={acceptOpen} onOpenChange={setAcceptOpen} questions={questionLabels} preview={previewAccept} onSave={saveAccept} />
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
-            <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} possible={Number(first?.total_possible_marks) || null} onChanged={() => void load()} />
+            <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} possible={Number(first?.total_possible_marks) || null} onChanged={load} />
             <RegradeSetDialog open={regradeOpen} onOpenChange={setRegradeOpen} batchId={id} papers={regradable} onDone={() => void load()} />
             <GradebookExportDialog
               open={exportOpen}

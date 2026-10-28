@@ -34,7 +34,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!entry) return NextResponse.json({ error: 'That student is not on the class list' }, { status: 404 })
   const first = rows[0]
   const possible = Number(first.total_possible_marks) || 0
-  if (!possible || marks > possible) return NextResponse.json({ error: `Marks must be between 0 and ${possible}` }, { status: 400 })
+  if (!possible) return NextResponse.json({ error: 'This set has no total to score against' }, { status: 400 })
+  // Over the total is fine (an extra-credit question on a perfect paper); twice the total is a typo.
+  if (marks > possible * 2) return NextResponse.json({ error: `${marks} is more than twice the total of ${possible}. Check the number.` }, { status: 400 })
   const percentage = Math.round((marks / possible) * 1000) / 10
   const scale = normalizeScale(first.grade_scale)
   const now = new Date().toISOString()

@@ -51,7 +51,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
   examTitle: string | null
   /** The set's total marks, for scores entered by hand. */
   possible?: number | null
-  onChanged: () => void
+  onChanged: () => void | Promise<void>
 }) {
   const [classes, setClasses] = useState<ClassOption[] | null>(null)
   const [picked, setPicked] = useState("")
@@ -78,15 +78,22 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
   const [entering, setEntering] = useState<string | null>(null)
   const [enteredMarks, setEnteredMarks] = useState("")
   const [enterError, setEnterError] = useState("")
-  const saveEntered = async (rosterId: string) => {
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState("")
+  const overTotal = possible != null && Number(enteredMarks) > possible
+  const saveEntered = async (rosterId: string, name: string) => {
     setEnterError("")
+    setSaving(true)
     try {
       const res = await authFetch(`/api/grade-batch/${batchId}/manual`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterId, marks: Number(enteredMarks) }) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "Could not save")
+      // Keep the form up, with its spinner, until the new report is in the list.
+      await onChanged()
       setEntering(null); setEnteredMarks("")
-      onChanged()
+      setJustSaved(`Saved ${enteredMarks} / ${possible ?? "?"} for ${name}`)
     } catch (e) { setEnterError(e instanceof Error ? e.message : "Could not save") }
+    finally { setSaving(false) }
   }
 
   const patch = async (body: Record<string, unknown>) => {
@@ -189,15 +196,16 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
                       <li key={e.rosterId} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                         <span className="min-w-0 flex-1 text-slate-800">{e.name}{e.studentNumber && <span className="ml-1.5 text-xs text-slate-400">#{e.studentNumber}</span>}</span>
                         {entering === e.rosterId ? (
-                          <form className="flex flex-wrap items-center gap-2" onSubmit={(ev) => { ev.preventDefault(); void saveEntered(e.rosterId) }}>
-                            <input type="number" min={0} max={possible ?? undefined} step="any" value={enteredMarks} onChange={(ev) => setEnteredMarks(ev.target.value)} autoFocus aria-label={`Marks for ${e.name}`} className="h-10 w-20 rounded-xl border border-slate-300 px-2 text-right" />
+                          <form className="flex flex-wrap items-center gap-2" aria-busy={saving} onSubmit={(ev) => { ev.preventDefault(); if (!saving) void saveEntered(e.rosterId, e.name) }}>
+                            <input type="number" min={0} step="any" value={enteredMarks} onChange={(ev) => setEnteredMarks(ev.target.value)} autoFocus disabled={saving} aria-label={`Marks for ${e.name}`} className="h-10 w-20 rounded-xl border border-slate-300 px-2 text-right disabled:bg-slate-50" />
                             <span className="text-slate-500">/ {possible ?? "?"}</span>
-                            <button type="submit" disabled={!enteredMarks.trim()} className={actionButtonPrimary}>Save</button>
-                            <button type="button" onClick={() => { setEntering(null); setEnterError("") }} className={actionButton}>Cancel</button>
+                            <button type="submit" disabled={!enteredMarks.trim() || saving} className={actionButtonPrimary}>{saving ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</> : "Save"}</button>
+                            <button type="button" disabled={saving} onClick={() => { setEntering(null); setEnterError("") }} className={actionButton}>Cancel</button>
+                            {overTotal && !enterError && <span className="text-xs text-amber-800">Over the total: the extra counts as extra credit.</span>}
                             {enterError && <span className="text-rose-700">{enterError}</span>}
                           </form>
                         ) : (
-                          <button type="button" onClick={() => { setEntering(e.rosterId); setEnteredMarks("") }} className={actionButton} title="A score you worked out by hand"><PenLine />Enter a score</button>
+                          <button type="button" onClick={() => { setEntering(e.rosterId); setEnteredMarks(""); setJustSaved("") }} className={actionButton} title="A score you worked out by hand"><PenLine />Enter a score</button>
                         )}
                         <span className="flex gap-1" role="group" aria-label={`Status for ${e.name}`}>
                           {STATUSES.map(([value, text]) => (
@@ -215,6 +223,7 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
                       </li>
                     ))}
                   </ul>
+                  {justSaved && <p className="mt-2 text-sm text-emerald-800" role="status">{justSaved}. It's in the results above.</p>}
                   <p className="mt-2 text-xs text-slate-500">Statuses go into the CSV. Exempt students are left out; a paper graded later for a missing student is marked late.</p>
                 </div>
               )}
