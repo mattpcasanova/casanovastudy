@@ -144,3 +144,47 @@ Hint: Set x = 0.`)
     expect(qs[2]).toMatchObject({ sampleAnswer: 'Where the line crosses the y-axis.' })
   })
 })
+
+describe('NUM_QUESTION (student-produced numeric responses)', () => {
+  const src = `# SAT
+## Algebra
+NUM_QUESTION: In the given system, k is a constant. If the system has infinitely many solutions, what is the value of k?
+2x - 7y = 9
+kx - 21y = 27
+Answer: 6
+Hint: Compare the two equations as multiples of each other.
+Explanation: Multiplying the first equation by 3 gives 6x - 21y = 27.
+
+NUM_QUESTION: What is one possible value of x?
+Correct Answer: 7/2 | 3.5
+
+MC_QUESTION: After it?
+A) yes
+B) no
+Correct Answer: A
+`
+  it('parses the answer, alternates, stem lines, hint and explanation', async () => {
+    const { isObjectiveCorrect, answerText } = await import('./quiz')
+    const qs = parseQuizContent(src)
+    expect(qs.map((q) => q.type)).toEqual(['num', 'num', 'mc'])
+    const q = qs[0]
+    if (q.type !== 'num') throw new Error('expected num')
+    expect(q.answers).toEqual(['6'])
+    expect(q.question).toContain('kx - 21y = 27')
+    expect(q.hint).toMatch(/multiples/)
+    expect(q.explanation).toMatch(/Multiplying/)
+    expect(isObjectiveCorrect(q, '6')).toBe(true)
+    expect(isObjectiveCorrect(q, '6.0')).toBe(true)
+    expect(isObjectiveCorrect(q, '5')).toBe(false)
+    expect(isObjectiveCorrect(q, undefined)).toBe(false)
+    const alt = qs[1]
+    if (alt.type !== 'num') throw new Error('expected num')
+    expect(alt.answers).toEqual(['7/2', '3.5'])
+    expect(isObjectiveCorrect(alt, '3.5')).toBe(true)
+    expect(isObjectiveCorrect(alt, '7/2')).toBe(true)
+    expect(answerText(alt)).toBe('7/2')
+  })
+  it('drops a NUM_QUESTION with no answer line', () => {
+    expect(parseQuizContent('# T\nNUM_QUESTION: What is x?\nHint: think\n')).toEqual([])
+  })
+})

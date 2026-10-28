@@ -9,7 +9,7 @@ import type { CustomGuideContent, CustomSection, QuizQuestion } from '@/lib/type
 import { parsePractice, normalizePracticeActivities, type PracticeActivity, type ChoiceActivity } from '@/lib/formats/practice'
 import { normalizeGuideMarkdown } from '@/lib/formats/normalize'
 import { parseFlashcards } from '@/components/formats/flashcards-format'
-import { parseQuizContent } from '@/lib/formats/quiz'
+import { answerText, parseQuizContent } from '@/lib/formats/quiz'
 import { parseTimeline } from '@/lib/formats/timeline'
 
 export type LearnItem =
@@ -79,7 +79,7 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
           return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, q.question, q.options, idx, q.section, q.explanation, q.figure, q.hint) }]
         }
         if (q.type === 'tf') return [{ id, kind: 'activity', topic, activity: choice(id, q.question, ['True', 'False'], q.correctAnswer ? 0 : 1, q.section, q.explanation, q.figure, q.hint) }]
-        return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(q.sampleAnswer), ...(q.figure ? { figure: q.figure } : {}) }]
+        return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(answerText(q)), ...(q.figure ? { figure: q.figure } : {}) }]
       })
     case 'timeline': {
       const out: LearnItem[] = []

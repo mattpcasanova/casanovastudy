@@ -19,7 +19,7 @@ import { ReadAloudButton } from '@/components/reading/reading-provider'
 import { questionForSpeech } from '@/lib/reading/speech'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
-import { isObjectiveCorrect, parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
+import { answerText, isObjectiveCorrect, parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
@@ -47,7 +47,7 @@ interface ShortAnswerScore {
 
 type Mode = 'practice' | 'test'
 
-const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer' }
+const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer', num: 'Type your answer' }
 
 export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
@@ -61,6 +61,8 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const [mode, setMode] = useState<Mode>('practice')
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  // Numeric answers being typed in practice mode (committed on Check).
+  const [typed, setTyped] = useState<Record<string, string>>({})
   const [checked, setChecked] = useState<Record<string, boolean>>({}) // practice-mode reveals
   const [hinted, setHinted] = useState<Record<string, boolean>>({}) // opened the hint before answering
   const [saScores, setSaScores] = useState<Record<string, ShortAnswerScore>>({})
@@ -359,6 +361,28 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
           </div>
         )}
 
+        {current.type === 'num' && (
+          <form
+            className="flex flex-wrap items-center gap-3"
+            onSubmit={(e) => { e.preventDefault(); const v = typed[current.id]?.trim(); if (v && !revealed) choose(current, v) }}
+          >
+            <input
+              type="text"
+              inputMode="decimal"
+              value={revealed ? answers[current.id] ?? '' : typed[current.id] ?? answers[current.id] ?? ''}
+              onChange={(e) => { setTyped((t) => ({ ...t, [current.id]: e.target.value })); if (mode === 'test') setAnswers((a) => ({ ...a, [current.id]: e.target.value })) }}
+              placeholder="Your answer"
+              disabled={revealed}
+              aria-label="Your numeric answer"
+              className="h-12 w-44 rounded-xl border border-slate-300 bg-white px-4 text-lg tabular-nums text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100 disabled:bg-slate-50"
+            />
+            {mode === 'practice' && !revealed && (
+              <Button type="submit" disabled={!typed[current.id]?.trim()} className="h-12 bg-purple-600 px-5 text-white hover:bg-purple-700">Check</Button>
+            )}
+            <span className="w-full text-xs text-slate-500">A number, a fraction like 7/2, or a decimal. Don't type units or a percent sign unless the answer is a percent.</span>
+          </form>
+        )}
+
         {current.type === 'sa' && (
           <div className="space-y-3">
             <Textarea
@@ -461,6 +485,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               {q.figure && <div className="ml-5 max-w-md"><GraphFence text={q.figure} compact /></div>}
               {q.type === 'mc' && <div className="ml-5 space-y-1">{q.options.map((o, oi) => <div key={oi}>○ <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span> <InlineMarkdown text={o} /></div>)}</div>}
               {q.type === 'tf' && <div className="ml-5">○ True &nbsp;&nbsp;&nbsp; ○ False</div>}
+              {q.type === 'num' && <div className="ml-5 h-9 w-40 rounded border border-slate-400" />}
               {q.type === 'sa' && <div className="ml-5 space-y-2"><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /><div className="h-7 border-b border-slate-400" /></div>}
             </li>
           ))}
@@ -473,7 +498,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
                 <span className="font-semibold">{i + 1}.</span>{' '}
                 {q.type === 'mc' && <><span className="font-semibold">{String.fromCharCode(65 + q.options.indexOf(q.correctAnswer))}.</span> <InlineMarkdown text={q.correctAnswer} /></>}
                 {q.type === 'tf' && (q.correctAnswer ? 'True' : 'False')}
-                {q.type === 'sa' && <InlineMarkdown text={q.sampleAnswer} />}
+                {(q.type === 'sa' || q.type === 'num') && <InlineMarkdown text={answerText(q)} />}
                 {q.explanation && <span className="text-slate-500">. <InlineMarkdown text={q.explanation} /></span>}
               </li>
             ))}
@@ -488,13 +513,13 @@ function pickedLabel(q: Question, answer: string | undefined): string | undefine
   if (!answer) return undefined
   if (q.type === 'tf') return answer === 'true' ? 'True' : 'False'
   if (q.type === 'mc') { const i = q.options.indexOf(answer); return i < 0 ? undefined : String.fromCharCode(65 + i) }
+  if (q.type === 'num') return answer
   return undefined
 }
 
 function correctLabel(q: Question): string {
   if (q.type === 'mc') return `${String.fromCharCode(65 + q.options.indexOf(q.correctAnswer))}. ${q.correctAnswer}`
-  if (q.type === 'tf') return q.correctAnswer ? 'True' : 'False'
-  return q.sampleAnswer
+  return answerText(q)
 }
 
 const STATUS_DOT = {
@@ -796,8 +821,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
 // The homepage request for "a new quiz on what I missed": the missed questions
 // with their right answers, asking for fresh questions on the same concepts.
 function missedQuizPrefill(guide: { title: string; subject: string; gradeLevel?: string }, missed: Question[]): GuidePrefill {
-  const answerOf = (q: Question) =>
-    q.type === 'mc' ? q.correctAnswer : q.type === 'tf' ? (q.correctAnswer ? 'True' : 'False') : q.sampleAnswer
+  const answerOf = answerText
   const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
   const lines: string[] = []
   let used = 0

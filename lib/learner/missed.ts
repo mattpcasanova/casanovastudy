@@ -4,7 +4,7 @@
 // and `p:<id>` for practice activities (lib/formats/practice.ts ids). Pure and
 // unit-tested; Learn and custom-guide items are skipped (no stable text here).
 
-import { parseQuizContent } from '@/lib/formats/quiz'
+import { answerText, parseQuizContent } from '@/lib/formats/quiz'
 import { parsePractice, type PracticeActivity } from '@/lib/formats/practice'
 import { plainText } from '@/lib/formats/normalize'
 import type { GuidePrefill } from '@/lib/prefill'
@@ -39,7 +39,7 @@ export function missedQuestionsFromGuide(content: string, itemIds: string[]): Mi
   if (quizIds.size) {
     for (const q of parseQuizContent(content)) {
       if (!quizIds.has(q.id)) continue
-      const answer = q.type === 'mc' ? q.correctAnswer : q.type === 'tf' ? (q.correctAnswer ? 'True' : 'False') : q.sampleAnswer
+      const answer = answerText(q)
       out.push({ question: q.question, answer })
     }
   }

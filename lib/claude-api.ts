@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat, type GuideImage } from '@/types'
 import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
+import { detectExam, examInstructions } from '@/lib/exams/profiles'
 import { DIFFICULTY_FORMATS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, languageName, type GuideDifficulty, type GuideLanguage } from '@/lib/study-options'
 import { sniffImageType } from '@/lib/uploads/server-images'
 import { looksLikeHeic } from '@/lib/uploads/kinds'
@@ -486,7 +487,7 @@ function difficultyInstructions(format: string, difficulty: GuideDifficulty | un
     if (ITEM_FORMATS.has(format)) {
       lines.push(
         '- Mix: at least 80% hard, the rest upper-medium, and no recall questions. Within each section, go from the medium ones to the hardest.',
-        '- No true/false questions: they are too easy to guess. Use multiple choice, plus short answer where the exam has student-written answers.',
+        '- No true/false questions: they are too easy to guess. Use multiple choice, plus numeric (NUM_QUESTION) or short answer where the exam has student-written answers.',
         '- Before finishing, review each question: if a well-prepared student could answer it in under 30 seconds, replace it with a harder one on the same skill.',
         '- Explanations stay short like every other level (the student taps Why? for the full walkthrough): the key step or two that reach the answer, plus the trap behind the most tempting wrong option only if it fits in a few words. Never walk through every option.',
         '- Solve every question yourself before writing its options, and check that the keyed answer is the only correct one.',
@@ -862,6 +863,11 @@ export class ClaudeService {
     const figures = request.visuals === false ? '' : figureInstructions(figurePolicy(figureContext), String(format), hasMaterials, figureContext)
     // codeEditor: false (the "Include code editor" switch) leaves out runnable exercises.
     const exercises = request.codeEditor === false ? '' : codeExerciseInstructions(String(format), figureContext)
+    // A big standardized test we have a reference for (lib/exams/): its item
+    // format, domain skills, hard-item patterns and exemplars replace the
+    // model's memory of the test. EXAM_PROFILES=off turns it off for evals.
+    const exam = process.env.EXAM_PROFILES === 'off' ? null : detectExam([topicFocus, studyRequest, additionalInstructions, request.fromGuide?.title].filter(Boolean).join('\n'), request.subject)
+    const examBlock = exam ? `${examInstructions(exam, String(format), request.difficultyLevel)}\n\n` : ''
 
     let sourceRules: string
     if (!hasMaterials) {
@@ -903,7 +909,7 @@ ${lengthInstructions(String(format), request.length)}
 
 ${difficultyInstructions(String(format), request.difficultyLevel)}
 
-${languageInstructions(request.language)}
+${examBlock}${languageInstructions(request.language)}
 
 ${figures}${exercises}${STUDY_GUIDE_STYLE_RULES}`
 
@@ -1073,8 +1079,14 @@ Explanation: <one short sentence, at most about 25 words>
 
 SA_QUESTION: <question>
 Sample Answer: <a complete, specific model answer, 2-4 sentences>
+
+NUM_QUESTION: <question whose answer is a single number: a calculation, a count, a value read from a figure>
+Answer: <the number; give equivalent forms with |, e.g. 7/2 | 3.5>
+Hint: <a nudge, at most about 15 words, never the answer or the first calculation>
+Explanation: <1-2 short sentences, at most about 35 words>
+(NUM_QUESTION is checked by number, so the answer must be one value with no units or percent sign; a question with several correct values must ask for "one possible value". Use it instead of SA_QUESTION whenever the answer is a number; SA_QUESTION is for answers in words.)
 Rules:
-- 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer.
+- 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer or numeric (numeric for math and science calculations).
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.
 - Each question, option and answer stays on its own single line. Put nothing between questions except blank lines; no callouts, tables or notes. The exceptions: statements a question refers to ("I. ...", "II. ...") go on their own lines under the question line, and a \`\`\`graph figure block may sit directly under a question line (see FIGURES, if present). Output ONLY the title, the one-line description, the ## headings and the items; no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
       adaptive: `FORMAT: ADAPTIVE PRACTICE. A bank of questions the app serves one at a time, adapting to the student: it moves between concepts, raises or lowers difficulty after each answer, shows the concept's LESSON when the student misses twice in a row, and keeps going until each concept is mastered. Every piece of feedback is read right after the student answers, so it must make sense on its own.

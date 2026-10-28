@@ -6,7 +6,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeService, guideCost } from '../lib/claude-api'
-import { parseQuizContent, type Question } from '../lib/formats/quiz'
+import { answerText, parseQuizContent, type Question } from '../lib/formats/quiz'
 
 const out = process.argv[2]
 const levels = (process.argv[3] ?? 'standard,hard').split(',')
@@ -23,7 +23,7 @@ const judge = new Anthropic()
 async function rate(exam: string, qs: Question[]): Promise<{ avg: number; hard: number; wrongKeys: number; notes: string[] }> {
   const list = qs.map((q, i) => {
     const opts = q.type === 'mc' ? `\nOptions: ${q.options.join(' | ')}` : ''
-    const key = q.type === 'sa' ? q.sampleAnswer : String(q.correctAnswer)
+    const key = answerText(q)
     return `Q${i + 1}. ${q.question}${opts}\nKeyed answer: ${key}`
   }).join('\n\n')
   const res = await judge.messages.create({

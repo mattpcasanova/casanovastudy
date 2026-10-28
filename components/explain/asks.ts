@@ -18,6 +18,9 @@ export function quizAsk(q: Question, chosen?: string): ExplainRequest {
   } else if (q.type === 'tf') {
     lines.push(`Correct answer: ${q.correctAnswer ? 'True' : 'False'}`)
     if (chosen) lines.push(`I picked: ${chosen === 'true' ? 'True' : 'False'}`)
+  } else if (q.type === 'num') {
+    lines.push(`Correct answer: ${q.answers[0]}`)
+    if (chosen) lines.push(`My answer: ${chosen}`)
   } else {
     lines.push(`Model answer: ${q.sampleAnswer}`)
     if (chosen) lines.push(`My answer: ${chosen}`)

@@ -1,12 +1,13 @@
 // Parser for the "quiz" study-guide format (see the quiz skeleton in
-// lib/claude-api.ts). Line-based: MC_QUESTION / TF_QUESTION / SA_QUESTION
-// markers, option lines, "Correct Answer:", "Explanation:". A ```graph fence
+// lib/claude-api.ts). Line-based: MC_QUESTION / TF_QUESTION / SA_QUESTION /
+// NUM_QUESTION markers, option lines, "Correct Answer:", "Explanation:". A ```graph fence
 // directly under a question line (or right before it) becomes that
 // question's figure. Other fences are dropped so their lines are never read as
 // options. Question ids (q-0, q-1, ...) follow document order.
 
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
+import { isNumberCorrect } from './numeric'
 
 interface BaseQuestion {
   id: string
@@ -21,7 +22,9 @@ interface BaseQuestion {
 export interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
 export interface TrueFalseQuestion extends BaseQuestion { type: 'tf'; correctAnswer: boolean }
 export interface ShortAnswerQuestion extends BaseQuestion { type: 'sa'; sampleAnswer: string }
-export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion
+/** A student-produced numeric response (SAT style): typed, checked by number (lib/formats/numeric.ts). `answers[0]` is the one shown. */
+export interface NumericQuestion extends BaseQuestion { type: 'num'; answers: string[] }
+export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion | NumericQuestion
 
 const FIG = /^§FIG (\d+)§$/
 
@@ -79,7 +82,7 @@ export function parseQuizContent(content: string): Question[] {
   const strip = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
   const questionText = (line: string, tag: string) =>
     strip(line.replace(new RegExp(`\\*{0,2}${tag}_QUESTION:\\*{0,2}`), ''))
-  const isQuestion = (l: string) => /(MC|TF|SA)_QUESTION:/.test(l)
+  const isQuestion = (l: string) => /(MC|TF|SA|NUM)_QUESTION:/.test(l)
   const hintOf = (l: string) => {
     const m = l.match(/^\*{0,2}hint\s*:\*{0,2}\s*(.+)$/i)
     return m ? strip(m[1]) : null
@@ -155,6 +158,29 @@ export function parseQuizContent(content: string): Question[] {
         else if (/answer\s*:/i.test(l)) correctAnswer = /true/i.test(l.split(/answer\s*:/i)[1] ?? '')
       }
       questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+    } else if (line.includes('NUM_QUESTION:')) {
+      const text = questionText(line, 'NUM')
+      if (!text) continue
+      const figure = figureFor(i, Math.min(i + 10, lines.length))
+      const stem: string[] = []
+      let answers: string[] = []
+      let explanation: string | undefined
+      let hint: string | undefined
+      for (let j = i + 1; j < Math.min(i + 12, lines.length); j++) {
+        const l = lines[j]
+        if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
+        if (FIG.test(l)) continue
+        const exp = explanationOf(l)
+        const h = hintOf(l)
+        if (h) hint = h
+        else if (exp) explanation = exp
+        else if (/^\*{0,2}(?:correct )?answer\s*:/i.test(l)) {
+          answers = strip(l.replace(/^\*{0,2}(?:correct )?answer\s*:\*{0,2}\s*/i, '')).split(/\s*(?:\||\bor\b)\s*/).map((a) => a.trim()).filter(Boolean)
+        } else if (!answers.length) stem.push(strip(l))
+      }
+      if (answers.length) {
+        questions.push({ type: 'num', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), answers, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+      }
     } else if (line.includes('SA_QUESTION:')) {
       const text = questionText(line, 'SA')
       if (!text) continue
@@ -193,5 +219,14 @@ export function parseQuizContent(content: string): Question[] {
 export function isObjectiveCorrect(q: Question, answer: string | undefined): boolean {
   if (q.type === 'mc') return answer === q.correctAnswer
   if (q.type === 'tf') return answer === (q.correctAnswer ? 'true' : 'false')
+  if (q.type === 'num') return !!answer && isNumberCorrect(answer, q.answers)
   return false
+}
+
+/** The keyed answer as text (for reviews, Learn cards and Explain asks). */
+export function answerText(q: Question): string {
+  if (q.type === 'mc') return q.correctAnswer
+  if (q.type === 'tf') return q.correctAnswer ? 'True' : 'False'
+  if (q.type === 'num') return q.answers[0] ?? ''
+  return q.sampleAnswer
 }

@@ -4,7 +4,7 @@
 // stats, reteach groups, the AI class report) work on it unchanged.
 // Pure; unit-tested.
 
-import { parseQuizContent } from '@/lib/formats/quiz'
+import { answerText, parseQuizContent } from '@/lib/formats/quiz'
 import { parsePractice } from '@/lib/formats/practice'
 import { parseAdaptive } from '@/lib/adaptive/format'
 import { plainText } from '@/lib/formats/normalize'
@@ -47,7 +47,7 @@ export function reportQuestions(format: string, content: string): ReportQuestion
       out.push({
         itemId: `q:${q.id}`,
         text: tidy(q.question),
-        answer: tidy(q.type === 'mc' ? q.correctAnswer : q.type === 'tf' ? (q.correctAnswer ? 'True' : 'False') : q.sampleAnswer, 300),
+        answer: tidy(answerText(q), 300),
         topic: q.section?.trim() ?? '',
         kind: q.type,
         ...(q.type === 'mc' ? { options: q.options.map((o) => tidy(o, 200)) } : {}),
