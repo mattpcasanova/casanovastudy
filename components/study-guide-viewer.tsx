@@ -44,6 +44,7 @@ import { ReadingProvider, ReadingSettingsButton, ReadingSurface } from '@/compon
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, formatAccent } from '@/lib/formats/design'
 import PageBanner from '@/components/page-banner'
+import { detectExam } from '@/lib/exams/profiles'
 import LearnCallout from '@/components/learn/learn-callout'
 import { AssignBar } from '@/components/assign/assign-bar'
 import { useAssignedBy } from "@/components/assign/assignment-context"
@@ -117,6 +118,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
   const calculatorMode = studyGuide.format === 'plan' || studyGuide.format === 'timeline'
     ? null
     : calculatorFor({ subject: studyGuide.subject, level: studyGuide.grade_level, text: [studyGuide.title, studyGuide.topic_focus].filter(Boolean).join('\n') })
+  // Written for a test we have a reference for (lib/exams): shown in the banner's meta line.
+  const examNote = detectExam(studyGuide.topic_focus ?? '', studyGuide.subject)?.profile.name.replace(/^the /, 'For the ')
 
   const handleSaveToMyGuides = async () => {
     if (!user) return
@@ -246,7 +249,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       <PageBanner
         title={studyGuide.title}
         label={fmt.label}
-        meta={[displaySubject(studyGuide.subject), displayLevel(studyGuide.grade_level)].filter(Boolean).join(' · ') || undefined}
+        meta={[displaySubject(studyGuide.subject), displayLevel(studyGuide.grade_level), examNote].filter(Boolean).join(' · ') || undefined}
         accent={fmt.accent}
         icon={fmt.icon}
         onBack={() => router.back()}

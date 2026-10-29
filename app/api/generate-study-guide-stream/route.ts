@@ -9,6 +9,7 @@ import { consentBlockResponse } from '@/lib/consent'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
 import { parseAdaptive } from '@/lib/adaptive/format'
+import { detectExam, readScores, type SavedScores } from '@/lib/exams/profiles'
 
 function sseError(message: string, status: number) {
   return new Response('data: ' + JSON.stringify({ type: 'error', message }) + '\n\n', { status, headers: { 'Content-Type': 'text/event-stream' } })
@@ -94,6 +95,21 @@ export async function POST(request: NextRequest) {
 
         controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length || hasImages ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
 
+        // A big test the request names (lib/exams): remember a stated score on the
+        // account, and use the saved one when this request doesn't state it.
+        let examScores: SavedScores | undefined
+        {
+          const { data: prof } = await supabase.from('user_profiles').select('exam_scores').eq('id', user.id).maybeSingle()
+          examScores = (prof?.exam_scores as SavedScores | null) ?? undefined
+          const examText = [body.topicFocus, studyRequest, body.additionalInstructions].filter(Boolean).join('\n')
+          const exam = detectExam(examText, body.subject)
+          const stated = exam?.profile.scoreRange ? readScores(examText, exam.profile.scoreRange) : undefined
+          if (exam && stated) {
+            const next = { ...(examScores ?? {}), [exam.profile.id]: { ...(examScores?.[exam.profile.id] ?? {}), ...stated, at: new Date().toISOString() } }
+            await supabase.from('user_profiles').update({ exam_scores: next }).eq('id', user.id)
+          }
+        }
+
         // Premium: lean the guide on this student's weak spots in this subject/topic.
         let learnerNote = ''
         if (await hasPremiumFeatures(user.id)) {
@@ -133,6 +149,7 @@ export async function POST(request: NextRequest) {
           length: body.length === 'short' || body.length === 'long' ? body.length : 'medium',
           images,
           learnerNote,
+          examScores,
           fromGuide: sourceGuide ? { title: sourceGuide.title, format: sourceGuide.format } : undefined,
           language: normalizeLanguage(body.language),
         })

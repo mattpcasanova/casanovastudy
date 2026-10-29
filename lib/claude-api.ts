@@ -867,7 +867,7 @@ export class ClaudeService {
     // A big standardized test we have a reference for (lib/exams/): its item
     // format, domain skills, hard-item patterns and exemplars replace the
     // model's memory of the test. EXAM_PROFILES=off turns it off for evals.
-    const exam = process.env.EXAM_PROFILES === 'off' ? null : detectExam([topicFocus, studyRequest, additionalInstructions, request.fromGuide?.title].filter(Boolean).join('\n'), request.subject)
+    const exam = process.env.EXAM_PROFILES === 'off' ? null : detectExam([topicFocus, studyRequest, additionalInstructions, request.fromGuide?.title].filter(Boolean).join('\n'), request.subject, request.examScores)
     const examBlock = exam ? `${examInstructions(exam, String(format), request.difficultyLevel)}\n\n` : ''
 
     let sourceRules: string

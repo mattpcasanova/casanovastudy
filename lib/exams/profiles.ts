@@ -50,13 +50,16 @@ export function readScores(text: string, range: { min: number; max: number }): {
  * the learner typed: topic, request, extra instructions, the plan unit.
  * `subject` is the picked subject value ('mathematics', 'english', ...).
  */
-export function detectExam(text: string, subject?: string | null): ExamMatch | null {
+export type SavedScores = Record<string, { current?: number; target?: number }>
+
+export function detectExam(text: string, subject?: string | null, saved?: SavedScores | null): ExamMatch | null {
   const t = text.trim()
   if (!t) return null
   const build = (profile: ExamProfile): ExamMatch => {
     const domains = profile.domains.filter((d) => d.detect.test(t))
-    const score = profile.scoreRange ? readScores(t, profile.scoreRange) : undefined
-    return { profile, domains, ...(score ? { score } : {}) }
+    // A score stated in this request wins; else the one saved on the account for this test.
+    const score = (profile.scoreRange ? readScores(t, profile.scoreRange) : undefined) ?? saved?.[profile.id]
+    return { profile, domains, ...(score && (score.current || score.target) ? { score } : {}) }
   }
   // A section named outright ("SAT Math", "Reading and Writing") wins, whatever subject was picked.
   const explicit = EXAM_PROFILES.find((p) => p.detect.exam.test(t) && p.detect.explicit?.test(t))

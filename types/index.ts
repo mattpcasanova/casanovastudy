@@ -119,6 +119,8 @@ export interface ClaudeApiRequest {
   images?: GuideImage[]
   /** LEARNER HISTORY block from the student's answer log (lib/learner/profile.ts), or ''. */
   learnerNote?: string
+  /** The learner's saved test scores by exam profile id (user_profiles.exam_scores), used when the request doesn't state one. */
+  examScores?: Record<string, { current?: number; target?: number }>
   /** Built from an existing guide ("Make another format"); its content is the MATERIALS. */
   fromGuide?: { title: string; format: string }
   /** Language the guide is written in (GuideLanguage); 'en' or missing = English. */

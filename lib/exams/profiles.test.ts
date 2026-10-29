@@ -78,6 +78,12 @@ describe('readScores', () => {
     expect(readScores('I got a 95 on my quiz', r)).toBeUndefined()
     expect(readScores('I got a 1250 last time', r)).toBeUndefined()
   })
+  it('a saved score is used when the request states none, and a stated score wins', () => {
+    const saved = { 'sat-math': { current: 650, target: 760 } }
+    expect(detectExam('SAT math quiz on functions', 'mathematics', saved)?.score).toEqual({ current: 650, target: 760 })
+    expect(detectExam('SAT math, I got a 700 this time', 'mathematics', saved)?.score).toEqual({ current: 700 })
+    expect(detectExam('SAT reading and writing', 'english', saved)?.score).toBeUndefined()
+  })
   it('detectExam carries the score', () => {
     expect(detectExam('SAT math, I got a 630 last time', 'mathematics')?.score).toEqual({ current: 630 })
     const text = examInstructions(detectExam('SAT math, I got a 630 last time', 'mathematics')!, 'quiz', 'standard')
