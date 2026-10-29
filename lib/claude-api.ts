@@ -1091,7 +1091,7 @@ Rules:
 - 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer or numeric (numeric for math and science calculations).
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.
 - Each question, option and answer stays on its own single line. Put nothing between questions except blank lines; no callouts, tables or notes. The exceptions: statements a question refers to ("I. ...", "II. ...") go on their own lines under the question line, and a \`\`\`graph figure block may sit directly under a question line (see FIGURES, if present). Output ONLY the title, the one-line description, the ## headings and the items; no intro paragraphs, callouts (> lines), tips, notes or "Keep Going" section anywhere.`,
-      adaptive: `FORMAT: ADAPTIVE PRACTICE. A bank of questions the app serves one at a time, adapting to the student: it moves between concepts, raises or lowers difficulty after each answer, shows the concept's LESSON when the student misses twice in a row, and keeps going until each concept is mastered. Every piece of feedback is read right after the student answers, so it must make sense on its own.
+      adaptive: `FORMAT: ADAPTIVE PRACTICE. A bank of questions the app serves one at a time, adapting to the student: it moves between concepts, raises or lowers difficulty after each answer, shows the concept's LESSON when the student misses twice in a row, and keeps going until each concept is mastered. Every piece of feedback is read right after the student answers, so it must make sense on its own. A question about a text (a reading passage, grammar in context, a data description) puts the text in a \`\`\`passage fence right after the question line; the app shows it above the question (______ for a blank, [[double brackets]] around the sentence the question refers to).
 Use exactly this skeleton:
 # <Guide title>
 *<one-line description>*
@@ -1177,7 +1177,7 @@ FIND_BUG: <what the code should do, e.g. This should return the largest number. 
 Bug line: <line number of the bug, counting the first code line as 1>
 Fix: <the corrected version of that line>
 
-Any activity may include ONE fenced code block (with the language name) right after its marker line; it is shown above the activity. A \`\`\`graph figure block works the same way (see FIGURES, if present). Use it for "what does this print?", "what is the time complexity?", or "which line completes this function?" questions (MC_QUESTION with a snippet), or to give context for a FILL.
+Any activity may include ONE fenced code block (with the language name) right after its marker line; it is shown above the activity. A \`\`\`graph figure block works the same way (see FIGURES, if present), and so does a \`\`\`passage fence holding a text the activity is about (reading comprehension, grammar in context; ______ for a blank, [[double brackets]] around the sentence the question refers to). Use it for "what does this print?", "what is the time complexity?", or "which line completes this function?" questions (MC_QUESTION with a snippet), or to give context for a FILL.
 
 Any activity may be followed by these lines:
 Hint: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
@@ -2128,6 +2128,9 @@ ${imageNote}`
     }
 
     const customContext = { subject, text: [description, sourceContent?.slice(0, 1500)].filter(Boolean).join('\n') }
+    // A big test the request names (lib/exams): its domains and item style.
+    const customExam = process.env.EXAM_PROFILES === 'off' ? null : detectExam(description, subject)
+    const customExamBlock = customExam ? `\n${examInstructions(customExam, 'custom', undefined)}\n` : ''
     const customFigureBlock = figureInstructions(figurePolicy(customContext), 'custom', !!sourceContent?.trim() || !!pdfDocuments?.length || !!images?.length, customContext)
     const customFigures = customFigureBlock && visuals
       ? `23. Figures: inside text content, a figure is a \`\`\`graph block in the markdown (newlines as \\n in the JSON string). Any practice activity may carry "figure": "<the graph block's lines joined with \\n, without the fence>", shown above it. Quiz blocks can't show figures, so put figure questions in a practice section as multiple-choice activities.
@@ -2147,7 +2150,7 @@ ${modeInstructions}
 
 USER REQUEST: ${effectiveDescription}
 ${subject && subject !== 'general' ? `SUBJECT: ${subject}` : ''}
-${gradeLevel && gradeLevel !== 'general' ? `LEARNER LEVEL: ${describeLevel(gradeLevel)}` : ''}
+${gradeLevel && gradeLevel !== 'general' ? `LEARNER LEVEL: ${describeLevel(gradeLevel)}` : ''}${customExamBlock}
 ${controlsInstructions}
 
 🎯 FOLLOW THE USER'S INSTRUCTIONS EXACTLY:
@@ -2440,6 +2443,8 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     level: 1 | 2 | 3
     count: number
     language?: GuideLanguage
+    /** TEST REFERENCE block (lib/exams examInstructions) when the guide is for a known test. */
+    examBlock?: string
   }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number; cost: number } }> {
     const levelWords = { 1: 'level 1 (recall or one step)', 2: 'level 2 (the typical test question)', 3: 'level 3 (multi-step, combines ideas, or an unfamiliar setup)' }[params.level]
     const prompt = `You are writing more practice questions for a student in an adaptive practice session.
@@ -2456,7 +2461,10 @@ ${params.missed.length ? `
 MISTAKES THE STUDENT JUST MADE (aim the new questions at these misunderstandings, from fresh angles):
 ${params.missed.map((m) => `- Question: ${m.question}\n  They answered: ${m.given}\n  Correct: ${m.correct}`).join('\n')}
 ` : ''}
-Write ${params.count} new questions on this concept only, mostly at ${levelWords}${params.level > 1 ? ', with one a level lower' : ', with one at level 2'}.
+${params.examBlock ? `${params.examBlock}
+(The exemplars above are in the quiz format; write yours in the Q: format below, with the same item style. A question about a text puts the text in a \`\`\`passage fence right after the question line.)
+
+` : ''}Write ${params.count} new questions on this concept only, mostly at ${levelWords}${params.level > 1 ? ', with one a level lower' : ', with one at level 2'}.
 Use exactly this format, a blank line between questions:
 
 Q: <1|2|3> | <mc|num|tf>

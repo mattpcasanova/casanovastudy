@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { InlineMarkdown, StudyMarkdown } from "./study-markdown"
 import { QuestionStem } from "./question-stem"
+import { Passage } from "./passage"
 import { GraphFence } from "./graph-figure"
 import { ExplanationText } from "./explanation-text"
 import { ExplainButton } from "@/components/explain/explain-provider"
@@ -287,7 +288,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
 
             <div className="p-5 sm:p-7">
               <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1"><QuestionPrompt text={q.prompt} /></div>
+                <div className="min-w-0 flex-1"><QuestionPrompt text={q.prompt} passage={q.passage} /></div>
                 <ReadAloudButton text={questionForSpeech(q.prompt, q.type === "mc" ? q.options : undefined)} label="Read the question aloud" />
               </div>
               {q.figure && <div className="mt-4"><GraphFence text={q.figure} allowExplain={!!result} /></div>}
@@ -371,18 +372,19 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
  * The question. Data tables and code under the question line need block
  * markdown; plain questions (and I./II./III. statements) use QuestionStem.
  */
-function QuestionPrompt({ text }: { text: string }) {
+function QuestionPrompt({ text, passage }: { text: string; passage?: string }) {
   const [first, ...rest] = text.split("\n")
   const body = rest.join("\n")
   if (/^\s*\|.*\|\s*$/m.test(body) || body.includes("```")) {
     return (
       <div>
+        {passage && <Passage text={passage} />}
         <p className="text-lg font-semibold leading-snug text-slate-900"><InlineMarkdown text={first} /></p>
         <StudyMarkdown content={body} compact className="mt-3" />
       </div>
     )
   }
-  return <p className="text-lg font-semibold leading-snug text-slate-900"><QuestionStem text={text} /></p>
+  return <p className="text-lg font-semibold leading-snug text-slate-900"><QuestionStem text={text} passage={passage} /></p>
 }
 
 // ── Answer inputs ───────────────────────────────────────────────────────────

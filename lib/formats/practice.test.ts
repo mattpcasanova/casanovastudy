@@ -300,3 +300,14 @@ describe('MC options that start with the word "answer"', () => {
     expect(a.correct).toBe(2)
   })
 })
+
+describe('passage fences', () => {
+  it('attach to the activity and are not read as code or options', () => {
+    const [a] = parsePractice(`# T\nMC_QUESTION: Which choice completes the text with the most logical transition?\n\`\`\`passage\nEarly broadcasters assumed listeners wanted music. ______ news became the most popular.\n\`\`\`\nA) Likewise,\nB) However,\nCorrect Answer: B\n`)
+    if (a.kind !== 'choice') throw new Error('choice')
+    expect(a.passage).toContain('Early broadcasters')
+    expect(a.code).toBeUndefined()
+    expect(a.options).toEqual(['Likewise,', 'However,'])
+    expect(a.correct).toBe(1)
+  })
+})

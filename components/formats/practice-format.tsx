@@ -449,7 +449,7 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
       {activity.kind !== 'fill' && activity.prompt && (
         <div className={cn('flex items-start gap-3', compact ? 'mb-4' : 'mb-5')}>
           <p className={cn(fontDisplay, 'min-w-0 flex-1 font-medium leading-snug text-slate-900', compact ? 'text-lg' : 'text-xl sm:text-[1.45rem]')}>
-            <QuestionStem text={activity.prompt} />
+            <QuestionStem text={activity.prompt} passage={activity.passage} />
           </p>
           <ReadAloudButton text={activitySpeech(activity)} label="Read this aloud" />
         </div>

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { consentBlockResponse } from '@/lib/consent'
 import { meterAdaptiveStep, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { detectExam, examInstructions } from '@/lib/exams/profiles'
 import { parseAdaptive, refillBlock, type AdaptiveQuestion } from '@/lib/adaptive/format'
 import { ADAPTIVE_RULES } from '@/lib/adaptive/engine'
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const supabase = createAdminClient()
   const { data: row } = await supabase
     .from('study_guides')
-    .select('id, user_id, format, title, subject, grade_level, content, language')
+    .select('id, user_id, format, title, subject, grade_level, content, language, topic_focus, difficulty_level')
     .eq('id', id)
     .maybeSingle()
   if (!row || row.format !== 'adaptive') return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       level,
       count: BATCH,
       language: normalizeLanguage(row.language),
+      examBlock: examBlockFor(row),
     })
     // Parse the batch on its own (under a stand-in concept) and keep the well-formed, gradeable ones.
     const fresh = parseAdaptive(`CONCEPT: ${concept.name}\n\n${text}`).questions
@@ -95,4 +97,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await releaseUsage(meter.eventId) // nothing was added, so it doesn't count toward today's cap
     return NextResponse.json({ error: "Couldn't write new questions right now." }, { status: 502 })
   }
+}
+
+/** The TEST REFERENCE block for a guide written for a known test (lib/exams), so refills keep its style. */
+function examBlockFor(row: { topic_focus: string | null; title: string; subject: string | null; difficulty_level: string | null }): string | undefined {
+  const match = detectExam([row.topic_focus, row.title].filter(Boolean).join('\n'), row.subject)
+  return match ? examInstructions(match, 'adaptive', row.difficulty_level) : undefined
 }

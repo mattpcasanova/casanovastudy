@@ -50,6 +50,8 @@ export interface AdaptiveQuestion {
   hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
   figure?: string
+  /** Body of a ```passage fence: the text the question is about, shown above it. */
+  passage?: string
 }
 
 export interface AdaptiveGuide {
@@ -91,6 +93,7 @@ interface Draft {
   explanation?: string
   hint?: string
   figure?: string
+  passage?: string
   /** Inside the explain model answer / explanation, continuation lines join the last field. */
   last: 'stem' | 'answer' | 'explanation' | 'other'
 }
@@ -98,7 +101,7 @@ interface Draft {
 function finish(d: Draft, id: string): AdaptiveQuestion | null {
   const prompt = d.stem.join('\n').trim()
   if (!prompt || !d.answer) return null
-  const base = { id, conceptId: d.conceptId, level: d.level, type: d.type, prompt, feedback: {}, explanation: d.explanation || undefined, ...(d.hint ? { hint: d.hint } : {}), ...(d.figure ? { figure: d.figure } : {}) }
+  const base = { id, conceptId: d.conceptId, level: d.level, type: d.type, prompt, feedback: {}, explanation: d.explanation || undefined, ...(d.hint ? { hint: d.hint } : {}), ...(d.figure ? { figure: d.figure } : {}), ...(d.passage ? { passage: d.passage } : {}) }
   if (d.type === 'mc') {
     if (d.options.length < 2) return null
     const letter = d.answer.match(/^\(?([A-F])\b/i)?.[1]
@@ -152,6 +155,7 @@ export function parseAdaptive(content: string): AdaptiveGuide {
       }
       i = j
       if (draft && GRAPH_FENCE_LANGS.test(open[2]) && !draft.figure) draft.figure = body.join('\n')
+      else if (draft && /^(passage|text)$/i.test(open[2]) && !draft.passage) draft.passage = body.join('\n').trim()
       else if (draft && !draft.options.length && !draft.answer) draft.stem.push('```' + open[2], ...body, '```') // code in a question
       continue
     }
@@ -236,6 +240,7 @@ const LETTERS = 'ABCDEF'
 /** One question as a Q block (used to append refills in the canonical format). */
 export function serializeQuestion(q: Omit<AdaptiveQuestion, 'id' | 'conceptId'>): string {
   const out = [`Q: ${q.level} | ${q.type}`, q.prompt]
+  if (q.passage) out.push('```passage', q.passage, '```')
   if (q.figure) out.push('```graph', q.figure, '```')
   if (q.type === 'mc') {
     q.options.forEach((o, i) => out.push(`${LETTERS[i]}) ${o}`))

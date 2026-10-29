@@ -33,6 +33,8 @@ interface Base {
   code?: CodeSnippet
   /** Body of a ```graph fence, drawn above the activity. */
   figure?: string
+  /** Body of a ```passage fence: the text the activity is about, shown above the prompt. */
+  passage?: string
 }
 export interface MatchActivity extends Base { kind: 'match'; pairs: Array<{ term: string; definition: string }> }
 export interface FillActivity extends Base { kind: 'fill'; parts: Array<string | { answers: string[] }> }
@@ -67,6 +69,7 @@ export function parsePractice(content: string): PracticeActivity[] {
     const body: string[] = []
     let code: CodeSnippet | undefined
     let figure: string | undefined
+    let passage: string | undefined
     let j = start + 1
     for (; j < lines.length; j++) {
       const t = lines[j].trim()
@@ -80,13 +83,14 @@ export function parsePractice(content: string): PracticeActivity[] {
         const indent = Math.min(...block.filter((l) => l.trim()).map((l) => l.match(/^\s*/)![0].length), Infinity)
         const text = block.map((l) => (Number.isFinite(indent) ? l.slice(indent) : l)).join('\n').replace(/\s+$/, '')
         if (GRAPH_FENCE_LANGS.test(fence[2])) { if (!figure && text.trim()) figure = text }
+        else if (/^(passage|text)$/i.test(fence[2])) { if (!passage && text.trim()) passage = text.trim() }
         else if (!code && text.trim()) code = { lang: fence[2].toLowerCase(), text }
         continue
       }
       if (MARKER.test(t) || /^#{1,6}\s/.test(t)) break
       body.push(t)
     }
-    return { body, code, figure, next: j }
+    return { body, code, figure, passage, next: j }
   }
   const takeExplanation = (body: string[]) => {
     const idx = body.findIndex((l) => /^\*{0,2}(explanation|why)\s*:/i.test(l))
@@ -110,7 +114,7 @@ export function parsePractice(content: string): PracticeActivity[] {
 
     const kind = m[1].toUpperCase()
     const head = clean(m[2])
-    const { body, code, figure, next } = bodyFrom(i)
+    const { body, code, figure, passage, next } = bodyFrom(i)
     const hintIdx = body.findIndex((l) => /^\*{0,2}hint\s*:/i.test(l))
     const hint = hintIdx >= 0 ? clean(body[hintIdx].replace(/^\*{0,2}hint\s*:\*{0,2}\s*/i, '')) || undefined : undefined
     const { rest: restAll, explanation } = takeExplanation(body.filter((l, k) => l && k !== hintIdx))
@@ -120,7 +124,8 @@ export function parsePractice(content: string): PracticeActivity[] {
     // Attach the snippet to whatever activity gets built below.
     const withCode = <T extends PracticeActivity>(a: T): T => {
       const withFig = figure ? { ...a, figure } : a
-      return code && a.kind !== 'bug' && a.kind !== 'write' ? { ...withFig, code } : withFig
+      const withPassage = passage ? { ...withFig, passage } : withFig
+      return code && a.kind !== 'bug' && a.kind !== 'write' ? { ...withPassage, code } : withPassage
     }
     const rest = restAll
 

@@ -118,3 +118,16 @@ describe('answer checking', () => {
     expect(isAnswerCorrect(g.questions[2], '0')).toBe(true)
   })
 })
+
+describe('passage fences', () => {
+  it('parse onto the question and survive serialization', async () => {
+    const { parseAdaptive, serializeQuestion } = await import('./format')
+    const g = parseAdaptive(`# T\n\nCONCEPT: Transitions\nLESSON: Pick the logical relation.\n\nQ: 2 | mc\nWhich choice completes the text with the most logical transition?\n\`\`\`passage\nEarly broadcasters assumed listeners wanted music. ______ news became the most popular.\n\`\`\`\nA) Likewise,\nB) However,\nC) For example,\nD) In other words,\nANSWER: B\nIF A: You chose addition where the sentences contrast.\n`)
+    const q = g.questions[0]
+    expect(q.passage).toContain('Early broadcasters')
+    expect(q.prompt).toBe('Which choice completes the text with the most logical transition?')
+    expect(q.options).toHaveLength(4)
+    const again = parseAdaptive(`CONCEPT: Transitions\n\n${serializeQuestion(q)}`).questions[0]
+    expect(again.passage).toBe(q.passage)
+  })
+})
