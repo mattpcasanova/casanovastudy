@@ -34,4 +34,6 @@ export interface ExamProfile {
   domains: ExamDomain[]
   /** What each difficulty setting means on this test. */
   difficulty: { standard: string; hard: string; easier: string }
+  /** The test's score range for one section, to read "I got a 630" in a request. */
+  scoreRange?: { min: number; max: number }
 }

@@ -18,6 +18,19 @@ export interface ExamMatch {
   profile: ExamProfile
   /** Domains the request names; empty = the whole section. */
   domains: ExamDomain[]
+  /** The score the learner says they have now, and the one they want, when the request says. */
+  score?: { current?: number; target?: number }
+}
+
+/** "I got a 630", "scored 650", "from 630 to 800", "going for a 750", "aiming for 700+". */
+export function readScores(text: string, range: { min: number; max: number }): { current?: number; target?: number } | undefined {
+  const inRange = (n: number) => n >= range.min && n <= range.max && n % 10 === 0
+  const num = (m: RegExpMatchArray | null) => { const n = m ? Number(m[1]) : NaN; return inRange(n) ? n : undefined }
+  const current = num(text.match(/\b(?:got|scored|score(?:d)?\s+(?:of|was|is)|have|had|at|currently|from|last time\D{0,20})\s*(?:a|an)?\s*(\d{3})\b/i))
+    ?? num(text.match(/\b(\d{3})\s*(?:on|in)\s+(?:my|the)\s+(?:last|first|practice|real)?\s*(?:sat|psat|test)/i))
+  const target = num(text.match(/\b(?:to|toward|towards|reach|hit|get to|aiming for|aim for|going for|goal(?: of| is)?|want(?:ed)?(?: to get)?|up to|target(?:ing)?)\s*(?:a|an|as close to)?\s*(\d{3})\b/i))
+  if (!current && !target) return undefined
+  return { ...(current ? { current } : {}), ...(target && target !== current ? { target } : {}) }
 }
 
 /**
@@ -37,7 +50,8 @@ export function detectExam(text: string, subject?: string | null): ExamMatch | n
     // "SAT" alone with no math words and no math subject: could be Reading and Writing.
     if (!mathSubject && !profile.detect.subjectHints?.test(t) && !/\bsat\s*math\b/i.test(t)) continue
     const domains = profile.domains.filter((d) => d.detect.test(t))
-    return { profile, domains }
+    const score = profile.scoreRange ? readScores(t, profile.scoreRange) : undefined
+    return { profile, domains, ...(score ? { score } : {}) }
   }
   return null
 }
@@ -69,6 +83,10 @@ export function examInstructions(match: ExamMatch, format: string, difficulty?: 
     for (const d of domains) for (const e of d.exemplars) lines.push(e, '')
     const dKey = difficulty === 'hard' ? 'hard' : difficulty === 'easier' ? 'easier' : 'standard'
     lines.push(profile.difficulty[dKey])
+    if (match.score?.current && dKey !== 'easier') {
+      const { current, target } = match.score
+      lines.push(`The learner currently scores about ${current}${target ? ` and wants ${target}` : ''}. Items a ${current} student already gets right teach nothing: every item must sit at or above the ${current} level, most of them in the band just above it (the items that decide whether this student moves up), ${target && target >= 750 ? 'and at least a third from the hardest items on the test, since the goal is a top score' : 'and a third from the harder module'}.`)
+    }
   } else {
     lines.push('', `Worked examples and self-checks use real test items (see the item style: four-option multiple choice or a numeric answer, short formal stems, context in 1-3 sentences). Teach each skill as a way to recognize and solve that kind of item, and name the trap the test sets. No content about the test itself (timing, modules, scoring) unless the learner asked.`)
   }

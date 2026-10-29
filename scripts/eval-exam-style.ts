@@ -5,6 +5,7 @@
 // whether the keyed answer is right.
 //   npx tsx --env-file=.env.local scripts/eval-exam-style.ts <outDir> [hard|standard] [--on-only] [--repeat 2]   (~$0.50 per quiz)
 //   npx tsx --env-file=.env.local scripts/eval-exam-style.ts <outDir> --judge <quiz.md> [more.md]   (judge existing quizzes only)
+//   --request "<what the learner typed>" uses that request instead of the PSDA one
 
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
@@ -18,12 +19,13 @@ const onOnly = process.argv.includes('--on-only')
 const repeat = Number(process.argv[process.argv.indexOf('--repeat') + 1]) || 1
 mkdirSync(out, { recursive: true })
 
+const reqArg = process.argv.indexOf('--request')
 const REQUEST = {
   subject: 'mathematics',
   goal: 'exam',
   gradeLevel: 'general',
-  studyRequest: 'Help me study for the problem-solving and data analysis portion for the SAT (going from a 630 to an 800).',
-  exam: 'the digital SAT Math section (Problem-Solving and Data Analysis domain)',
+  studyRequest: reqArg > 0 ? process.argv[reqArg + 1] : 'Help me study for the problem-solving and data analysis portion for the SAT (going from a 630 to an 800).',
+  exam: reqArg > 0 ? 'the digital SAT Math section' : 'the digital SAT Math section (Problem-Solving and Data Analysis domain)',
 }
 
 const judge = new Anthropic()

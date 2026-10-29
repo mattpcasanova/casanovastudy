@@ -21,9 +21,10 @@ export const SAT_MATH: ExamProfile = {
 - Student-produced response answers are a single number: an integer, a fraction like 7/2 or a decimal like 3.5 (give the exact value and its decimal form as alternates with |). Never units, a percent sign, or a variable. Fractions can be negative. If an item could have more than one correct value, the question must say "What is one possible value of x?"
 - Stems are short and formal, mostly under 50 words, in the test's voice: "What is the value of x?", "Which equation defines line k?", "Which of the following is equivalent to the given expression?", "In the xy-plane, the graph of y = f(x) ...", "The function f is defined by f(x) = ...", "Which of the following is the best interpretation of the number 15 in this context?", "What is the solution (x, y) to the given system of equations?", "Based on the data, which conclusion is most appropriate?"
 - About a third of items are in context (a science, social studies, business or everyday setting described in 1-3 sentences); the rest are pure math. Context sentences carry the information the student needs and nothing decorative.
-- Data for a question is given in the stem: a table as one line per row (e.g. "Juniors: 45 prefer online, 75 prefer in person"), or a figure block (scatterplot, dot plot, box plot, graph in the xy-plane) under the question line. A calculator is always available, so arithmetic is never the hard part.
+- Data for a question is given in the stem: a table as one line per row (e.g. "Juniors: 45 prefer online, 75 prefer in person"), or a figure block (scatterplot, dot plot, histogram, bar graph, graph in the xy-plane) under the question line. A calculator is always available, so arithmetic is never the hard part.
 - Every item stands alone: if two items use the same data, each item gives the data in full. Never "using the same data as above" or "for the survey in the previous question".
 - Options are parallel and terse, in the test's register ("The mean of data set B is greater than the mean of data set A."), not a textbook's.
+- Before writing an item's answer, solve it from the final numbers in the stem. If the numbers do not work out (the coefficients don't match, a root is not an integer when it should be, two options are both right), change the numbers until they do. Never leave a note, a "recheck" or a second attempt in the explanation: the student sees it.
 - Explanations stay short; the full walkthrough is a tap away for the student.`,
   domains: [
     {
@@ -109,7 +110,7 @@ Correct Answer: B`,
       skills: [
         'Ratios, rates, proportional relationships and unit conversions, including multi-step rates (miles per gallon with a price per gallon, scale drawings, density)',
         'Percentages: percent of a percent, percent change, finding the original amount, a percent of a different base',
-        'One-variable data: reading dot plots, histograms and box plots; mean, median, range, standard deviation; how an outlier or an added value changes the mean vs the median; comparing spreads of two distributions',
+        'One-variable data: reading dot plots, histograms, bar graphs and frequency tables (box plots are rare on the digital test); mean, median, range, standard deviation; how an outlier or an added value changes the mean vs the median; comparing spreads of two distributions',
         'Two-variable data: scatterplots, the line of best fit and its slope/intercept in context, predicted vs actual values, linear vs exponential models from a table',
         'Probability and conditional probability from two-way tables and counts ("if a student who prefers online is chosen at random, what is the probability the student is a senior?")',
         'Inference from sample statistics and margin of error: what the interval means, which population it applies to, how sample size changes the margin',
@@ -187,8 +188,9 @@ Correct Answer: A`,
       ],
     },
   ],
+  scoreRange: { min: 200, max: 800 },
   difficulty: {
-    standard: `DIFFICULTY ON THIS TEST: the real spread. About a quarter of items are the ones nearly everyone gets (one idea, one step), half are typical (two steps, a familiar setup), a quarter are the harder-module items described under WHAT HARD LOOKS LIKE. Order them easier to harder within each section, as the test does.`,
+    standard: `DIFFICULTY ON THIS TEST: practice for a student who is already past the basics. Skip the items nearly everyone gets (one idea, one step, "if 3x - 7 = 11, what is x?"): at most 1 item in 8 is that easy, and never the first item of a section. About half are typical test items (two steps, a familiar setup with one twist) and at least a third are the harder-module items described under WHAT HARD LOOKS LIKE. Order each section from typical to hard.`,
     hard: `DIFFICULTY ON THIS TEST: the student is working toward a top score, so write the items from the harder second module, the ones that separate 700 from 800. At least 4 of every 5 items must be ones a student scoring around 650-700 would get wrong: a parameter to reason about, an interpretation in context with a tempting near-miss option, a familiar idea in a form that needs rewriting first, a condition that changes the denominator or the base, a conclusion that depends on the study design, or two skills in one item. Nothing that is answered by one formula or one direct read of a plot. It never means bigger numbers, more arithmetic, obscure formulas or content the test does not cover. A well-prepared student should need 1-3 minutes per item, with a calculator.`,
     easier: `DIFFICULTY ON THIS TEST: the first-module items most students get right, one idea each, in the test's voice. Still real test items, not textbook drills.`,
   },

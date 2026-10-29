@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectExam, examInstructions } from './profiles'
+import { detectExam, examInstructions, readScores } from './profiles'
 import { parseQuizContent } from '@/lib/formats/quiz'
 import { SAT_MATH } from './sat-math'
 
@@ -33,6 +33,27 @@ describe('detectExam', () => {
     expect(detectExam('SAT chemistry subject test', 'chemistry')).toBeNull()
     expect(detectExam('saturated solutions and solubility', 'chemistry')).toBeNull()
     expect(detectExam('AP Calculus: derivatives', 'mathematics')).toBeNull()
+  })
+})
+
+describe('readScores', () => {
+  const r = { min: 200, max: 800 }
+  it('reads the current score and the target', () => {
+    expect(readScores('Help me study for the math portion of the SAT. I got a 630 last time.', r)).toEqual({ current: 630 })
+    expect(readScores('going from a 630 to an 800', r)).toEqual({ current: 630, target: 800 })
+    expect(readScores('I scored 650 and want 750+', r)).toEqual({ current: 650, target: 750 })
+    expect(readScores('to move from a 630 to as close to an 800 as possible', r)).toEqual({ current: 630, target: 800 })
+    expect(readScores('I got a 630 on my SAT math score', r)).toEqual({ current: 630 })
+  })
+  it('ignores numbers that are not section scores', () => {
+    expect(readScores('SAT Math: Unit 8, 120 km in 2 hours, year 2010', r)).toBeUndefined()
+    expect(readScores('I got a 95 on my quiz', r)).toBeUndefined()
+    expect(readScores('I got a 1250 last time', r)).toBeUndefined()
+  })
+  it('detectExam carries the score', () => {
+    expect(detectExam('SAT math, I got a 630 last time', 'mathematics')?.score).toEqual({ current: 630 })
+    const text = examInstructions(detectExam('SAT math, I got a 630 last time', 'mathematics')!, 'quiz', 'standard')
+    expect(text).toContain('currently scores about 630')
   })
 })
 
