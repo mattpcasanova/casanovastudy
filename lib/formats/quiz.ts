@@ -18,6 +18,8 @@ interface BaseQuestion {
   hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
   figure?: string
+  /** Body of a ```passage fence: the text the question is about (SAT Reading and Writing style), shown above the question. */
+  passage?: string
 }
 export interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
 export interface TrueFalseQuestion extends BaseQuestion { type: 'tf'; correctAnswer: boolean }
@@ -27,11 +29,13 @@ export interface NumericQuestion extends BaseQuestion { type: 'num'; answers: st
 export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion | NumericQuestion
 
 const FIG = /^§FIG (\d+)§$/
+const PASSAGE = /^§PASSAGE (\d+)§$/
 
-/** Pulls fenced blocks out before the line parser trims them. Graph fences become §FIG n§ lines. */
-function extractFences(content: string): { lines: string[]; figures: string[] } {
+/** Pulls fenced blocks out before the line parser trims them. Graph fences become §FIG n§ lines, passage fences §PASSAGE n§. */
+function extractFences(content: string): { lines: string[]; figures: string[]; passages: string[] } {
   const out: string[] = []
   const figures: string[] = []
+  const passages: string[] = []
   const raw = content.split('\n')
   for (let i = 0; i < raw.length; i++) {
     const open = raw[i].match(/^\s*(`{3,}|~{3,})\s*([\w+#.-]*)/)
@@ -47,10 +51,13 @@ function extractFences(content: string): { lines: string[]; figures: string[] } 
     if (GRAPH_FENCE_LANGS.test(open[2])) {
       out.push(`§FIG ${figures.length}§`)
       figures.push(body.join('\n'))
+    } else if (/^(passage|text)$/i.test(open[2])) {
+      out.push(`§PASSAGE ${passages.length}§`)
+      passages.push(body.join('\n').trim())
     }
     i = j
   }
-  return { lines: out, figures }
+  return { lines: out, figures, passages }
 }
 
 export function parseQuizContent(content: string): Question[] {
@@ -79,6 +86,25 @@ export function parseQuizContent(content: string): Question[] {
     return undefined
   }
 
+  /** The passage in a question's block (a §PASSAGE line before its options/answer), else one placed just before it. */
+  let pendingPassage: number | null = null
+  const passageFor = (start: number, end: number): string | undefined => {
+    for (let j = start + 1; j < end; j++) {
+      const l = lines[j]
+      if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
+      const m = l.match(PASSAGE)
+      if (m) { claimed.add(j); pendingPassage = null; return extracted.passages[Number(m[1])] }
+      if (!/^\*{0,2}\(?[A-F][).:]/.test(l) && !/answer\s*:/i.test(l)) continue
+      break
+    }
+    if (pendingPassage !== null) {
+      const p = extracted.passages[pendingPassage]
+      pendingPassage = null
+      return p
+    }
+    return undefined
+  }
+
   const strip = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
   const questionText = (line: string, tag: string) =>
     strip(line.replace(new RegExp(`\\*{0,2}${tag}_QUESTION:\\*{0,2}`), ''))
@@ -100,10 +126,16 @@ export function parseQuizContent(content: string): Question[] {
       if (!claimed.has(i)) pendingFigure = Number(fig[1])
       continue
     }
+    const pas = line.match(PASSAGE)
+    if (pas) {
+      if (!claimed.has(i)) pendingPassage = Number(pas[1])
+      continue
+    }
 
     const heading = line.match(/^#{1,6}\s+(.+)$/)
     if (heading) {
       pendingFigure = null
+      pendingPassage = null
       const title = toTitleCase(plainText(stripEmoji(heading[1])).replace(/^[\s|:\-–—]+/, '').trim())
       if (title && !/^(quiz|learning objectives|key term)/i.test(title)) section = title
       continue
@@ -113,6 +145,7 @@ export function parseQuizContent(content: string): Question[] {
       const text = questionText(line, 'MC')
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 16, lines.length))
+      const passage = passageFor(i, Math.min(i + 16, lines.length))
       const options: string[] = []
       const stem: string[] = [] // lines before the options: I./II./III. statements, data, a short passage
       let correctAnswer = ''
@@ -121,7 +154,7 @@ export function parseQuizContent(content: string): Question[] {
       for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        if (FIG.test(l)) continue
+        if (FIG.test(l) || PASSAGE.test(l)) continue
         const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
         const exp = explanationOf(l)
         const h = hintOf(l)
@@ -138,30 +171,32 @@ export function parseQuizContent(content: string): Question[] {
         }
       }
       if (options.length > 0) {
-        questions.push({ type: 'mc', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), options, correctAnswer: correctAnswer || options[0], section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+        questions.push({ type: 'mc', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), options, correctAnswer: correctAnswer || options[0], section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}), ...(passage ? { passage } : {}) })
       }
     } else if (line.includes('TF_QUESTION:')) {
       const text = questionText(line, 'TF')
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 6, lines.length))
+      const passage = passageFor(i, Math.min(i + 6, lines.length))
       let correctAnswer = true
       let explanation: string | undefined
       let hint: string | undefined
       for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        if (FIG.test(l)) continue
+        if (FIG.test(l) || PASSAGE.test(l)) continue
         const exp = explanationOf(l)
         const h = hintOf(l)
         if (h) hint = h
         else if (exp) explanation = exp
         else if (/answer\s*:/i.test(l)) correctAnswer = /true/i.test(l.split(/answer\s*:/i)[1] ?? '')
       }
-      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+      questions.push({ type: 'tf', id: `q-${questions.length}`, question: text, correctAnswer, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}), ...(passage ? { passage } : {}) })
     } else if (line.includes('NUM_QUESTION:')) {
       const text = questionText(line, 'NUM')
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 10, lines.length))
+      const passage = passageFor(i, Math.min(i + 10, lines.length))
       const stem: string[] = []
       let answers: string[] = []
       let explanation: string | undefined
@@ -169,7 +204,7 @@ export function parseQuizContent(content: string): Question[] {
       for (let j = i + 1; j < Math.min(i + 12, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        if (FIG.test(l)) continue
+        if (FIG.test(l) || PASSAGE.test(l)) continue
         const exp = explanationOf(l)
         const h = hintOf(l)
         if (h) hint = h
@@ -179,19 +214,20 @@ export function parseQuizContent(content: string): Question[] {
         } else if (!answers.length) stem.push(strip(l))
       }
       if (answers.length) {
-        questions.push({ type: 'num', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), answers, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+        questions.push({ type: 'num', id: `q-${questions.length}`, question: [text, ...stem].join('\n'), answers, section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}), ...(passage ? { passage } : {}) })
       }
     } else if (line.includes('SA_QUESTION:')) {
       const text = questionText(line, 'SA')
       if (!text) continue
       const figure = figureFor(i, Math.min(i + 10, lines.length))
+      const passage = passageFor(i, Math.min(i + 10, lines.length))
       let sampleAnswer = ''
       let explanation: string | undefined
       let hint: string | undefined
       for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
         const l = lines[j]
         if (isQuestion(l) || /^#{1,6}\s/.test(l)) break
-        if (FIG.test(l)) continue
+        if (FIG.test(l) || PASSAGE.test(l)) continue
         const exp = explanationOf(l)
         if (exp) { explanation = exp; continue }
         const h = hintOf(l)
@@ -200,12 +236,12 @@ export function parseQuizContent(content: string): Question[] {
           sampleAnswer = strip(l.replace(/^\*{0,2}(?:sample |model )?answer\s*:\*{0,2}\s*/i, ''))
           for (let k = j + 1; k < Math.min(j + 5, lines.length); k++) {
             const next = lines[k]
-            if (isQuestion(next) || FIG.test(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next) || hintOf(next)) break
+            if (isQuestion(next) || FIG.test(next) || PASSAGE.test(next) || /^#{1,6}\s/.test(next) || /^([-*_]\s*){3,}$/.test(next) || explanationOf(next) || hintOf(next)) break
             sampleAnswer += ' ' + strip(next)
           }
         }
       }
-      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}) })
+      questions.push({ type: 'sa', id: `q-${questions.length}`, question: text, sampleAnswer: sampleAnswer || 'A complete answer covering the key concepts from the study material.', section, explanation, ...(hint ? { hint } : {}), ...(figure ? { figure } : {}), ...(passage ? { passage } : {}) })
     }
   }
 

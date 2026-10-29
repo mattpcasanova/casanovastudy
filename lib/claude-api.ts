@@ -1085,6 +1085,7 @@ Answer: <the number; give equivalent forms with |, e.g. 7/2 | 3.5>
 Hint: <a nudge, at most about 15 words, never the answer or the first calculation>
 Explanation: <1-2 short sentences, at most about 35 words>
 (NUM_QUESTION is checked by number, so the answer must be one value with no units or percent sign; a question with several correct values must ask for "one possible value". Use it instead of SA_QUESTION whenever the answer is a number; SA_QUESTION is for answers in words.)
+A question about a text (reading comprehension, grammar in context, a data table) puts that text in a \`\`\`passage fence directly under the question line; the app shows it above the question. Mark a blank as ______, wrap a sentence the question refers to in [[double brackets]] ("the underlined sentence"), label two texts "Text 1" / "Text 2" on their own lines, and write notes as "- " bullet lines.
 Rules:
 - 3-5 topic sections; 12-18 questions total: mostly multiple choice, 3-5 true/false, 2-3 short answer or numeric (numeric for math and science calculations).
 - Make distractors plausible (common misconceptions), options similar in length, and vary the position of the correct letter.

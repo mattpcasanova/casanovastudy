@@ -7,12 +7,21 @@
 
 import { cn } from '@/lib/utils'
 import { InlineMarkdown } from './study-markdown'
+import { Passage, splitPassage } from './passage'
 
-export function QuestionStem({ text, listClassName }: { text: string; listClassName?: string }) {
-  const [first, ...rest] = text.split('\n').filter((l) => l.trim())
-  if (!rest.length) return <InlineMarkdown text={first ?? ''} />
+/**
+ * `passage` (or a ```passage fence at the start of `text`, as Learn and
+ * practice carry it) renders above the question as a reading passage.
+ */
+export function QuestionStem({ text, passage, listClassName }: { text: string; passage?: string; listClassName?: string }) {
+  const split = splitPassage(text)
+  const body = split.text
+  const reading = passage ?? split.passage
+  const [first, ...rest] = body.split('\n').filter((l) => l.trim())
+  if (!rest.length) return <>{reading && <Passage text={reading} />}<InlineMarkdown text={first ?? ''} /></>
   return (
     <>
+      {reading && <Passage text={reading} />}
       <InlineMarkdown text={first} />
       <span className={cn('mt-3 block space-y-1.5 rounded-xl bg-slate-50 px-4 py-3 font-sans text-base font-normal leading-snug text-slate-800 ring-1 ring-inset ring-slate-200', listClassName)}>
         {rest.map((line, i) => {

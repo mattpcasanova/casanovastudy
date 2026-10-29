@@ -14,6 +14,8 @@ export const SAT_MATH: ExamProfile = {
     // Reading and Writing requests are a different profile (not built yet): leave them alone.
     exclude: /\b(reading|writing|grammar|vocab|rhetoric|punctuation|transitions|r&w|rw)\b/i,
     subjectHints: /\b(math|algebra|advanced math|problem[- ]solving|data analysis|geometry|trig|trigonometry|function|equation|linear|quadratic|exponential|ratio|percent|probability|statistics|circle|triangle)\b/i,
+    subjects: ['mathematics', 'math'],
+    explicit: /\b(?:p?sat\s*math|math\s+(?:portion|section)\s+(?:of|on|for)\s+the\s+p?sat)\b/i,
   },
   itemRules: `ITEM FORMAT (every question must follow this; it overrides the format's own mix of question types):
 - Two item types only: multiple choice with exactly four options A-D, and student-produced responses where the student types a number (NUM_QUESTION in the quiz format; a FILL blank with a numeric answer in practice; "num" in adaptive). About 1 in 4 items is a student-produced response.

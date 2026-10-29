@@ -321,9 +321,9 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
         </div>
         <div className="mb-6 flex items-start gap-3">
           <p className={cn(fontDisplay, 'min-w-0 flex-1 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
-            <QuestionStem text={current.question} />
+            <QuestionStem text={current.question} passage={current.passage} />
           </p>
-          <ReadAloudButton text={questionForSpeech(current.question, current.type === 'mc' ? current.options : undefined)} label="Read the question aloud" />
+          <ReadAloudButton text={questionForSpeech(current.passage ? `${current.passage}\n${current.question}` : current.question, current.type === 'mc' ? current.options : undefined)} label="Read the question aloud" />
         </div>
         {current.figure && <GraphFence text={current.figure} compact allowExplain={revealed} />}
 
@@ -415,7 +415,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
         {mode === 'practice' && !revealed && (
           <HintLadder
             hint={current.hint}
-            question={{ prompt: current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
+            question={{ prompt: current.passage ? `${current.passage}\n\n${current.question}` : current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
             onUse={() => setHinted((h) => ({ ...h, [current.id]: true }))}
           />
         )}
@@ -481,7 +481,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               {q.section && (i === 0 || allQuestions[i - 1].section !== q.section) && (
                 <p className={cn(fontDisplay, 'break-after-avoid pb-2 text-base font-semibold text-slate-900')}>{q.section}</p>
               )}
-              <p className="mb-2 font-semibold text-slate-900">{i + 1}. <QuestionStem text={q.question} listClassName="text-sm" /></p>
+              <p className="mb-2 font-semibold text-slate-900">{i + 1}. <QuestionStem text={q.question} passage={q.passage} listClassName="text-sm" /></p>
               {q.figure && <div className="ml-5 max-w-md"><GraphFence text={q.figure} compact /></div>}
               {q.type === 'mc' && <div className="ml-5 space-y-1">{q.options.map((o, oi) => <div key={oi}>○ <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span> <InlineMarkdown text={o} /></div>)}</div>}
               {q.type === 'tf' && <div className="ml-5">○ True &nbsp;&nbsp;&nbsp; ○ False</div>}
@@ -788,7 +788,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                     {marked.has(q.id) && (
                       <p className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><Flag className="h-3 w-3 fill-amber-400 text-amber-600" /> You marked this one</p>
                     )}
-                    <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <QuestionStem text={q.question} listClassName="text-sm" /></p>
+                    <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <QuestionStem text={q.question} passage={ok ? undefined : q.passage} listClassName="text-sm" /></p>
                     {q.figure && !ok && <div className="max-w-sm"><GraphFence text={q.figure} compact /></div>}
                     {q.type !== 'sa' && (
                       <>
@@ -826,7 +826,7 @@ function missedQuizPrefill(guide: { title: string; subject: string; gradeLevel?:
   const lines: string[] = []
   let used = 0
   for (const [i, q] of missed.entries()) {
-    const line = `${i + 1}. ${clip(plainText(q.question), 300)} (Correct answer: ${clip(plainText(answerOf(q)), 200)})`
+    const line = `${i + 1}. ${q.passage ? `${clip(plainText(q.passage), 400)} ` : ''}${clip(plainText(q.question), 300)} (Correct answer: ${clip(plainText(answerOf(q)), 200)})`
     if (used + line.length > 6000) break // stay well under the 8,000-character request limit
     lines.push(line)
     used += line.length

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { detectExam, examInstructions, readScores } from './profiles'
 import { parseQuizContent } from '@/lib/formats/quiz'
 import { SAT_MATH } from './sat-math'
+import { SAT_RW } from './sat-rw'
 
 describe('detectExam', () => {
   it('finds SAT Math and the domain the learner named', () => {
@@ -21,9 +22,17 @@ describe('detectExam', () => {
   it('PSAT counts', () => {
     expect(detectExam('PSAT algebra: linear equations and systems', 'mathematics')?.domains.map((d) => d.id)).toEqual(['algebra'])
   })
-  it('leaves Reading and Writing alone (no profile yet)', () => {
-    expect(detectExam('SAT Reading and Writing: transitions and punctuation', 'english')).toBeNull()
-    expect(detectExam('SAT reading comprehension', null)).toBeNull()
+  it('Reading and Writing requests get the R&W profile, with their domains', () => {
+    const m = detectExam('SAT Reading and Writing: transitions and punctuation', 'english')
+    expect(m?.profile.id).toBe('sat-rw')
+    expect(m?.domains.map((d) => d.id)).toEqual(['conventions', 'expression'])
+    expect(detectExam('SAT reading comprehension', null)?.profile.id).toBe('sat-rw')
+    expect(detectExam('help me with the SAT', 'english')?.profile.id).toBe('sat-rw')
+    expect(detectExam('SAT grammar, I got a 590', 'general')?.score).toEqual({ current: 590 })
+  })
+  it('the section named outright wins over the picked subject', () => {
+    expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
+    expect(detectExam('the reading and writing part of the SAT', 'mathematics')?.profile.id).toBe('sat-rw')
   })
   it('a bare "SAT" with no math words and no subject is not assumed to be math', () => {
     expect(detectExam('help me with the SAT', null)).toBeNull()
@@ -78,13 +87,14 @@ describe('examInstructions', () => {
     for (const d of SAT_MATH.domains) expect(text).toContain(`DOMAIN: ${d.name}`)
   })
   it('every exemplar parses with the quiz parser and keys an option that exists', () => {
-    for (const d of SAT_MATH.domains) {
+    for (const d of [...SAT_MATH.domains, ...SAT_RW.domains]) {
       for (const e of d.exemplars) {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
         if (q.type === 'mc') {
           expect(q.options).toHaveLength(4)
           expect(q.options).toContain(q.correctAnswer)
+          if (e.includes('```passage')) expect(q.passage, e.slice(0, 40)).toBeTruthy()
         } else {
           expect(q.type).toBe('num')
           if (q.type === 'num') expect(q.answers.length).toBeGreaterThan(0)

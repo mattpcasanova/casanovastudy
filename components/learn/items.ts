@@ -74,9 +74,11 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
       return parseQuizContent(guide.content).flatMap((q): LearnItem[] => {
         const id = `q:${q.id}`
         const topic = q.section || undefined
+        // A reading passage travels inside the prompt as a fence; QuestionStem renders it.
+        const prompt = q.passage ? `\`\`\`passage\n${q.passage}\n\`\`\`\n${q.question}` : q.question
         if (q.type === 'mc') {
           const idx = q.options.indexOf(q.correctAnswer)
-          return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, q.question, q.options, idx, q.section, q.explanation, q.figure, q.hint) }]
+          return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, prompt, q.options, idx, q.section, q.explanation, q.figure, q.hint) }]
         }
         if (q.type === 'tf') return [{ id, kind: 'activity', topic, activity: choice(id, q.question, ['True', 'False'], q.correctAnswer ? 0 : 1, q.section, q.explanation, q.figure, q.hint) }]
         return [{ id, kind: 'card', topic, front: q.question, back: normalizeGuideMarkdown(answerText(q)), ...(q.figure ? { figure: q.figure } : {}) }]

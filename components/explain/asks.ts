@@ -10,7 +10,7 @@ const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trim
 const letter = (i: number) => String.fromCharCode(65 + i)
 
 export function quizAsk(q: Question, chosen?: string): ExplainRequest {
-  const lines = [`Explain this question from my quiz:`, q.question]
+  const lines = [`Explain this question from my quiz:`, ...(q.passage ? ['The passage:', q.passage, 'The question:'] : []), q.question]
   if (q.type === 'mc') {
     q.options.forEach((o, i) => lines.push(`${letter(i)}) ${o}`))
     lines.push(`Correct answer: ${q.correctAnswer}`)

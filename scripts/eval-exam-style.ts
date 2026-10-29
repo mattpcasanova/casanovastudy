@@ -5,13 +5,14 @@
 // whether the keyed answer is right.
 //   npx tsx --env-file=.env.local scripts/eval-exam-style.ts <outDir> [hard|standard] [--on-only] [--repeat 2]   (~$0.50 per quiz)
 //   npx tsx --env-file=.env.local scripts/eval-exam-style.ts <outDir> --judge <quiz.md> [more.md]   (judge existing quizzes only)
-//   --request "<what the learner typed>" uses that request instead of the PSDA one
+//   --request "<what the learner typed>" [--subject english] uses that request instead of the PSDA one (the judge is told the detected exam)
 
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeService, GRADING_MODEL, guideCost } from '../lib/claude-api'
 import { answerText, parseQuizContent, type Question } from '../lib/formats/quiz'
+import { detectExam } from '../lib/exams/profiles'
 
 const out = process.argv[2]
 const difficulty = (process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : 'hard') as 'hard' | 'standard' | 'easier'
@@ -20,12 +21,16 @@ const repeat = Number(process.argv[process.argv.indexOf('--repeat') + 1]) || 1
 mkdirSync(out, { recursive: true })
 
 const reqArg = process.argv.indexOf('--request')
+const subjArg = process.argv.indexOf('--subject')
+const studyRequest = reqArg > 0 ? process.argv[reqArg + 1] : 'Help me study for the problem-solving and data analysis portion for the SAT (going from a 630 to an 800).'
+const subject = subjArg > 0 ? process.argv[subjArg + 1] : 'mathematics'
+const detected = detectExam(studyRequest, subject)
 const REQUEST = {
-  subject: 'mathematics',
+  subject,
   goal: 'exam',
   gradeLevel: 'general',
-  studyRequest: reqArg > 0 ? process.argv[reqArg + 1] : 'Help me study for the problem-solving and data analysis portion for the SAT (going from a 630 to an 800).',
-  exam: reqArg > 0 ? 'the digital SAT Math section' : 'the digital SAT Math section (Problem-Solving and Data Analysis domain)',
+  studyRequest,
+  exam: detected ? `${detected.profile.name}${detected.domains.length ? ` (${detected.domains.map((d) => d.name).join(', ')})` : ''}` : 'the digital SAT Math section',
 }
 
 const judge = new Anthropic()
@@ -35,19 +40,19 @@ interface Row { n: number; style: number; diff: number; violations: string; keyO
 async function rate(qs: Question[]): Promise<Row[]> {
   const list = qs.map((q, i) => {
     const opts = q.type === 'mc' ? `\nOptions: ${q.options.map((o, k) => `${String.fromCharCode(65 + k)}) ${o}`).join(' | ')}` : q.type === 'tf' ? '\nOptions: True | False' : q.type === 'num' ? '\n(Student types a number)' : '\n(Student writes a free-response answer)'
-    return `Q${i + 1} [${q.type}]. ${q.question}${q.figure ? `\n[figure: ${q.figure.split('\n')[0]}]` : ''}${opts}\nKeyed answer: ${answerText(q)}`
+    return `Q${i + 1} [${q.type}]. ${q.passage ? `Passage: ${q.passage}\nQuestion: ` : ''}${q.question}${q.figure ? `\n[figure: ${q.figure.split('\n')[0]}]` : ''}${opts}\nKeyed answer: ${answerText(q)}`
   }).join('\n\n')
   const res = await judge.messages.create({
     model: GRADING_MODEL,
     max_tokens: 16000,
     messages: [{
       role: 'user',
-      content: `You know ${REQUEST.exam} well: its item types (four-option multiple choice and student-produced numeric responses only), its short formal stems, its contexts, and what its hardest second-module items look like.
+      content: `You know ${REQUEST.exam} well: its item types, its stems, its passages or contexts, and what its hardest second-module items look like.
 
 For each item below, judge:
 1. STYLE 1-5: how much it reads like a real item from that test. 5 = could be lifted from an official practice test. 3 = right content, but the voice, length or setup is a textbook's. 1 = nothing like the test.
 2. DIFF 1-5: 1 = the easiest items on the test, 3 = typical, 5 = among the hardest.
-3. VIOLATIONS: things that test never does, comma-separated from this list, or "none": TF (true/false), I-II-III (statement lists), EXPLAIN (asks for an explanation in words), NOT-4 (not exactly four options), TRIVIA (content the test does not cover), ARITHMETIC (hard only because of messy numbers), LONG (stem far longer than the test's).
+3. VIOLATIONS: things that test never does, comma-separated from this list, or "none": TF (true/false), I-II-III (statement lists), EXPLAIN (asks for an explanation in words), NOT-4 (not exactly four options), TRIVIA (content the test does not cover), ARITHMETIC (hard only because of messy numbers), LONG (stem or passage far longer than the test's), NO-PASSAGE (a reading/writing item with no passage), STEM (a question stem the test would not use).
 4. KEY: solve it; KEY_OK or KEY_WRONG.
 5. A reason of at most 8 words.
 Reply with one line per item, exactly: Q<n> | <style> | <diff> | <violations> | KEY_OK or KEY_WRONG | <reason>

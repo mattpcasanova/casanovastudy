@@ -5,6 +5,9 @@
 /** Guide text (markdown, LaTeX, figure fences) as something a voice can say. */
 export function textForSpeech(text: string): string {
   return text
+    .replace(/```(?:passage|text)\n([\s\S]*?)```/g, '$1') // a reading passage is read
+    .replace(/\[\[([^\]]*)\]\]/g, '$1') // the "underlined sentence" markers
+    .replace(/_{3,}/g, ' blank ')
     .replace(/```[\s\S]*?```/g, ' ') // code, graphs and other fences
     .replace(/~~~~[\s\S]*?~~~~/g, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ') // images

@@ -3,13 +3,15 @@
 // looks like, the traps, exemplar items in the test's voice) instead of relying
 // on the model's memory of the test. Pure: detection and prompt text only.
 //
-// Profiles so far: SAT Math (lib/exams/sat-math.ts). Adding one = a profile
-// file + an entry in EXAM_PROFILES. SAT Reading and Writing, ACT and AP are next.
+// Profiles so far: SAT Math (sat-math.ts) and SAT Reading and Writing
+// (sat-rw.ts). Adding one = a profile file + an entry in EXAM_PROFILES. ACT and
+// AP are next.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
+import { SAT_RW } from './sat-rw'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
@@ -41,17 +43,24 @@ export function readScores(text: string, range: { min: number; max: number }): {
 export function detectExam(text: string, subject?: string | null): ExamMatch | null {
   const t = text.trim()
   if (!t) return null
-  for (const profile of EXAM_PROFILES) {
-    if (!profile.detect.exam.test(t)) continue
-    const mathSubject = subject === 'mathematics' || subject === 'math'
-    const otherSubject = !!subject && subject !== 'general' && subject !== 'test-prep' && !mathSubject
-    if (otherSubject) continue
-    if (profile.detect.exclude?.test(t) && !profile.detect.subjectHints?.test(t) && !mathSubject) continue
-    // "SAT" alone with no math words and no math subject: could be Reading and Writing.
-    if (!mathSubject && !profile.detect.subjectHints?.test(t) && !/\bsat\s*math\b/i.test(t)) continue
+  const build = (profile: ExamProfile): ExamMatch => {
     const domains = profile.domains.filter((d) => d.detect.test(t))
     const score = profile.scoreRange ? readScores(t, profile.scoreRange) : undefined
     return { profile, domains, ...(score ? { score } : {}) }
+  }
+  // A section named outright ("SAT Math", "Reading and Writing") wins, whatever subject was picked.
+  const explicit = EXAM_PROFILES.find((p) => p.detect.exam.test(t) && p.detect.explicit?.test(t))
+  if (explicit) return build(explicit)
+  for (const profile of EXAM_PROFILES) {
+    const d = profile.detect
+    if (!d.exam.test(t)) continue
+    const subjectOk = !!subject && d.subjects.includes(subject)
+    const otherSubject = !!subject && subject !== 'general' && subject !== 'test-prep' && !subjectOk
+    if (otherSubject) continue
+    if (d.exclude?.test(t) && !subjectOk) continue
+    // The test named alone ("help me with the SAT") with nothing pointing at this section: not assumed.
+    if (!subjectOk && !d.subjectHints?.test(t)) continue
+    return build(profile)
   }
   return null
 }

@@ -188,3 +188,46 @@ Correct Answer: A
     expect(parseQuizContent('# T\nNUM_QUESTION: What is x?\nHint: think\n')).toEqual([])
   })
 })
+
+describe('passage fences (reading items)', () => {
+  const src = `# SAT R&W
+## Craft and Structure
+MC_QUESTION: Which choice completes the text with the most logical transition?
+\`\`\`passage
+Text 1
+Early broadcasters assumed listeners wanted music. ______ news bulletins became the most popular programs.
+
+- a note
+- another note
+\`\`\`
+A) Likewise,
+B) However,
+C) For example,
+D) In other words,
+Correct Answer: B
+Explanation: Contrast.
+
+\`\`\`passage
+Placed before the next question.
+\`\`\`
+MC_QUESTION: What is the main idea?
+A) x
+B) y
+Correct Answer: A
+
+MC_QUESTION: No passage here.
+A) x
+B) y
+Correct Answer: B
+`
+  it('attaches the passage to its question, keeps its lines, and never reads it as options', () => {
+    const qs = parseQuizContent(src)
+    expect(qs).toHaveLength(3)
+    expect(qs[0].passage).toContain('Text 1')
+    expect(qs[0].passage).toContain('- a note')
+    expect(qs[0].question).toBe('Which choice completes the text with the most logical transition?')
+    if (qs[0].type === 'mc') { expect(qs[0].options).toHaveLength(4); expect(qs[0].correctAnswer).toBe('However,') }
+    expect(qs[1].passage).toBe('Placed before the next question.')
+    expect(qs[2].passage).toBeUndefined()
+  })
+})

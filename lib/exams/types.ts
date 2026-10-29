@@ -28,6 +28,10 @@ export interface ExamProfile {
     exclude?: RegExp
     /** Words that confirm the section when the request names the test alone. */
     subjectHints?: RegExp
+    /** Picked subject values that confirm this section ('mathematics', 'english'). */
+    subjects: string[]
+    /** The section named outright ("SAT Math", "Reading and Writing"): wins even over the exclude words. */
+    explicit?: RegExp
   }
   /** Item types, stem voice, how data is given: the rules every item follows. */
   itemRules: string
