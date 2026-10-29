@@ -175,7 +175,8 @@ Data displays (each also takes title:, x-label:, y-label:, caption:):
 - kind: histogram, then one "bin: 0-10 | 4" per line
 - kind: dotplot, then "data: 1, 2, 2, 3, 5"
 - kind: boxplot, then "box: min, Q1, median, Q3, max | <label>" (up to 3 boxes to compare)
-- kind: numberline, then "interval: (-2, 3]" or "interval: x >= 5", and "point: 4 | open"`
+- kind: numberline, then "interval: (-2, 3]" or "interval: x >= 5", and "point: 4 | open"
+- kind: table (a two-way table, a frequency table, any data table), then "columns: | Online | In person | Total" (the first cell heads the row-label column; leave it empty) and one "row: Juniors | 45 | 75 | 120" per line. Cells are shown as written. Use it whenever a question gives data in rows and columns, as the SAT does for two-way tables.`
 
 // Chemistry models (components/formats/chem-figures.tsx, lib/chem/*). Unlike
 // graphs these are content-triggered: whenever the guide teaches one of these

@@ -14,7 +14,7 @@ import { boxExit, layoutDiagram } from '@/lib/graphs/diagram'
 import {
   describeGraph, parseGraphSpec,
   type BarSpec, type BoxplotSpec, type DiagramSpec, type Color, type DotplotSpec, type GeometrySpec, type GraphSpec,
-  type HistogramSpec, type NumberlineSpec, type PlaneSpec, type Pt, type ScatterSpec,
+  type HistogramSpec, type TableSpec, type NumberlineSpec, type PlaneSpec, type Pt, type ScatterSpec,
 } from '@/lib/graphs/spec'
 import { useDesmos } from '@/components/desmos/desmos-context'
 import { useExplain } from '@/components/explain/explain-context'
@@ -554,6 +554,41 @@ function BarFigure({ spec }: { spec: BarSpec }) {
   )
 }
 
+/** A data table: header row, bold row labels, numbers right-aligned, a "Total" row or column set off. */
+function TableFigure({ spec }: { spec: TableSpec }) {
+  const isTotal = (s: string) => /^total$/i.test(s.trim())
+  const numeric = (s: string) => /^[\s$€£]*-?[\d,]*\.?\d+\s*%?$/.test(s.trim())
+  const totalCol = spec.columns.findIndex((c, i) => i > 0 && isTotal(c))
+  return (
+    <div className="overflow-x-auto" role="figure" aria-label={describeGraph(spec)}>
+      <table className="mx-auto border-collapse text-sm text-slate-800">
+        {spec.columns.length > 0 && (
+          <thead>
+            <tr>
+              {spec.columns.map((c, i) => (
+                <th key={i} scope="col" className={cn('border border-slate-300 bg-slate-50 px-3 py-1.5 text-left font-semibold', i > 0 && 'text-center', i === totalCol && 'bg-slate-100')}>{cleanLabel(c)}</th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {spec.rows.map((r, i) => {
+            const totalRow = isTotal(r.label)
+            return (
+              <tr key={i} className={cn(totalRow && 'bg-slate-50 font-semibold')}>
+                <th scope="row" className="border border-slate-300 px-3 py-1.5 text-left font-semibold">{cleanLabel(r.label)}</th>
+                {r.cells.map((c, j) => (
+                  <td key={j} className={cn('border border-slate-300 px-3 py-1.5', numeric(c) ? 'text-right tabular-nums' : 'text-left', j + 1 === totalCol && 'bg-slate-50 font-semibold')}>{cleanLabel(c)}</td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function HistogramFigure({ spec }: { spec: HistogramSpec }) {
   const x: [number, number] = [spec.bins[0].from, spec.bins[spec.bins.length - 1].to]
   const y = spec.y ?? niceRange(0, Math.max(...spec.bins.map((b) => b.count)))
@@ -783,6 +818,7 @@ function Drawing({ spec }: { spec: GraphSpec }) {
     case 'dotplot': return <DotplotFigure spec={spec} />
     case 'boxplot': return <BoxplotFigure spec={spec} />
     case 'numberline': return <NumberlineFigure spec={spec} />
+    case 'table': return <TableFigure spec={spec} />
     case 'reaction': return <ReactionFigure spec={spec} />
     case 'lewis': return <LewisFigure spec={spec} />
     case 'vsepr': return <VseprFigure spec={spec} />
@@ -796,7 +832,7 @@ function Drawing({ spec }: { spec: GraphSpec }) {
 
 const FIGURE_NAMES: Record<GraphSpec['kind'], string> = {
   plane: 'graph', geometry: 'geometry figure', scatter: 'scatterplot', bar: 'bar chart', histogram: 'histogram',
-  dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', diagram: 'diagram', 'free-body': 'free-body diagram',
+  dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', table: 'table', diagram: 'diagram', 'free-body': 'free-body diagram',
   reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model',
   punnett: 'Punnett square', pedigree: 'pedigree',
 }
@@ -857,7 +893,7 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
       )}
       {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}
       {/* Inside a question the figure supports the text, so keep it smaller. */}
-      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
+      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
         <Drawing spec={spec} />
       </div>
       {(spec.caption || notes.length > 0 || canExplore) && (

@@ -181,3 +181,37 @@ describe('diagram', () => {
     expect(r.ok && r.spec.kind === 'plane' && r.spec.texts[0].text).toBe('x → y')
   })
 })
+
+describe('table', () => {
+  it('parses a two-way table with headings and rows', () => {
+    const s = ok(`kind: table
+title: Class preference
+columns: | Online | In person | Total
+row: Juniors | 45 | 75 | 120
+row: Seniors | 30 | 50 | 80
+row: Total | 75 | 125 | 200`)
+    if (s.kind !== 'table') throw new Error('kind')
+    expect(s.columns).toEqual(['', 'Online', 'In person', 'Total'])
+    expect(s.rows).toHaveLength(3)
+    expect(s.rows[1]).toEqual({ label: 'Seniors', cells: ['30', '50', '80'] })
+    expect(describeGraph(s)).toContain('Seniors: 30, 50, 80')
+  })
+  it('infers the kind from row lines; a heading per data column gets an empty label heading, a heading per column is kept', () => {
+    const s = ok(`columns: Success rate\nrow: Forest edge | 38%\nrow: Grassland | 44%`)
+    if (s.kind !== 'table') throw new Error('kind')
+    expect(s.columns).toEqual(['', 'Success rate'])
+    expect(s.rows[0].cells).toEqual(['38%'])
+    const t = ok(`columns: Habitat | Success rate\nrow: Forest edge | 38%`)
+    if (t.kind !== 'table') throw new Error('kind')
+    expect(t.columns).toEqual(['Habitat', 'Success rate'])
+    const u = ok(`columns: Online | In person\nrow: Juniors | 45 | 75`)
+    if (u.kind !== 'table') throw new Error('kind')
+    expect(u.columns).toEqual(['', 'Online', 'In person'])
+  })
+  it('works without a header row and rejects an empty table', () => {
+    const s = ok(`kind: table\nrow: x | 1 | 2`)
+    if (s.kind !== 'table') throw new Error('kind')
+    expect(s.columns).toEqual([])
+    expect(parseGraphSpec('kind: table\ntitle: nothing').ok).toBe(false)
+  })
+})

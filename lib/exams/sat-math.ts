@@ -23,7 +23,7 @@ export const SAT_MATH: ExamProfile = {
 - Student-produced response answers are a single number: an integer, a fraction like 7/2 or a decimal like 3.5 (give the exact value and its decimal form as alternates with |). Never units, a percent sign, or a variable. Fractions can be negative. If an item could have more than one correct value, the question must say "What is one possible value of x?"
 - Stems are short and formal, mostly under 50 words, in the test's voice: "What is the value of x?", "Which equation defines line k?", "Which of the following is equivalent to the given expression?", "In the xy-plane, the graph of y = f(x) ...", "The function f is defined by f(x) = ...", "Which of the following is the best interpretation of the number 15 in this context?", "What is the solution (x, y) to the given system of equations?", "Based on the data, which conclusion is most appropriate?"
 - About a third of items are in context (a science, social studies, business or everyday setting described in 1-3 sentences); the rest are pure math. Context sentences carry the information the student needs and nothing decorative.
-- Data for a question is given in the stem: a table as one line per row (e.g. "Juniors: 45 prefer online, 75 prefer in person"), or a figure block (scatterplot, dot plot, histogram, bar graph, graph in the xy-plane) under the question line. A calculator is always available, so arithmetic is never the hard part.
+- Data for a question goes in a figure block under the question line: a two-way or frequency table as "kind: table" (columns: / row: lines, with Total rows and columns when the test would show them), or a scatterplot, dot plot, histogram, bar graph or graph in the xy-plane. Never a table written out as sentences. A calculator is always available, so arithmetic is never the hard part.
 - Every item stands alone: if two items use the same data, each item gives the data in full. Never "using the same data as above" or "for the survey in the previous question".
 - Options are parallel and terse, in the test's register ("The mean of data set B is greater than the mean of data set A."), not a textbook's.
 - Before writing an item's answer, solve it from the final numbers in the stem. If the numbers do not work out (the coefficients don't match, a root is not an integer when it should be, two options are both right), change the numbers until they do. Never leave a note, a "recheck" or a second attempt in the explanation: the student sees it.
@@ -128,10 +128,14 @@ Correct Answer: B`,
       ],
       traps: ['the grand total used as the denominator of a conditional probability', 'the percent change measured against the wrong base', 'margin of error applied to the sample instead of the population, or to a population that was not sampled', 'a causal conclusion from an observational study', 'confusing the mean and the median after an outlier', 'answering the number of items when the question asked for a percent (or the reverse)', 'reading the units of a rate backwards (gallons per mile)'],
       exemplars: [
-        `MC_QUESTION: A survey asked 200 students at a school whether they prefer online or in-person classes. The results are shown.
-Juniors: 45 prefer online, 75 prefer in person
-Seniors: 30 prefer online, 50 prefer in person
-If a student who prefers online classes is selected at random, what is the probability that the student is a senior?
+        `MC_QUESTION: A survey asked 200 students at a school whether they prefer online or in-person classes. The results are shown in the table. If a student who prefers online classes is selected at random, what is the probability that the student is a senior?
+\`\`\`graph
+kind: table
+columns: | Online | In person | Total
+row: Juniors | 45 | 75 | 120
+row: Seniors | 30 | 50 | 80
+row: Total | 75 | 125 | 200
+\`\`\`
 A) 3/20
 B) 3/8
 C) 2/5

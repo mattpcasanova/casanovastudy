@@ -127,6 +127,14 @@ export interface BoxplotSpec extends Common {
   boxes: { five: [number, number, number, number, number]; label?: string }[]
 }
 
+/** A data table (two-way tables, frequency tables): header row + rows of text cells; the first cell of a row is its label. */
+export interface TableSpec extends Common {
+  kind: 'table'
+  /** Column headings; the first is the heading of the row-label column (may be ''). Empty when the table has no header row. */
+  columns: string[]
+  rows: { label: string; cells: string[] }[]
+}
+
 export interface NumberlineSpec extends Common {
   kind: 'numberline'
   x?: [number, number]
@@ -137,7 +145,7 @@ export interface NumberlineSpec extends Common {
 export interface DiagramSpec extends Common { kind: 'diagram'; data: DiagramData }
 export interface FreeBodySpec extends Common { kind: 'free-body'; data: FreeBodyData }
 
-export type GraphSpec = PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
+export type GraphSpec = PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | TableSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
 // energy-well is not its own drawn kind: it parses into a plane.
 export type GraphKind = GraphSpec['kind'] | 'energy-well'
 
@@ -157,6 +165,7 @@ const KIND_ALIASES: Record<string, GraphKind> = {
   dotplot: 'dotplot', 'dot-plot': 'dotplot',
   boxplot: 'boxplot', 'box-plot': 'boxplot', 'box-and-whisker': 'boxplot',
   numberline: 'numberline', 'number-line': 'numberline',
+  table: 'table', 'two-way-table': 'table', 'two-way': 'table', 'frequency-table': 'table', 'data-table': 'table',
   'energy-well': 'energy-well', 'potential-energy': 'energy-well', 'bond-energy': 'energy-well', morse: 'energy-well', 'energy-curve': 'energy-well',
   reaction: 'reaction', 'reaction-energy': 'reaction', 'energy-diagram': 'reaction', 'reaction-coordinate': 'reaction',
   lewis: 'lewis', 'lewis-structure': 'lewis', 'lewis-dot': 'lewis',
@@ -315,6 +324,7 @@ export function parseGraphSpec(text: string): ParseResult {
     dotplot: parseDotplot,
     boxplot: parseBoxplot,
     numberline: parseNumberline,
+    table: parseTable,
     'energy-well': parseEnergyWell,
     reaction: parseReaction,
     lewis: parseLewis,
@@ -347,6 +357,7 @@ function inferKind(keys: string[], lines: { key: string; value: string }[]): Gra
   if (has('bonded')) return 'vsepr'
   if (has('center') || has('central')) return 'lewis'
   if (has('name') && !has('point')) return 'molecule'
+  if (has('row') || has('columns') || has('header')) return 'table'
   if (has('bar')) return 'bar'
   if (has('bin')) return 'histogram'
   if (has('box')) return 'boxplot'
@@ -655,6 +666,40 @@ function parseBar(ls: Lines, c: Common, w: string[]): BarSpec | string {
   return s
 }
 
+const MAX_TABLE_ROWS = 20
+const MAX_TABLE_COLS = 8
+
+/**
+ * kind: table
+ * columns: | Online | In person | Total   (first cell = heading of the label column, may be empty)
+ * row: Juniors | 45 | 75 | 120
+ * Cells are text, kept as written (numbers, percents, words).
+ */
+function parseTable(ls: Lines, c: Common, w: string[]): TableSpec | string {
+  const s: TableSpec = { ...c, kind: 'table', columns: [], rows: [] }
+  const cells = (v: string) => v.split(/\s*\|\s*/).map((x) => x.trim())
+  let headings: string[] | null = null
+  for (const { key, value, raw } of ls) {
+    if (key === 'columns' || key === 'header' || key === 'headers') {
+      headings = cells(value).slice(0, MAX_TABLE_COLS + 1)
+    } else if (key === 'row') {
+      const cs = cells(value)
+      if (cs.length < 2) { w.push(`Bad row "${raw}"`); continue }
+      s.rows.push({ label: cs[0], cells: cs.slice(1, MAX_TABLE_COLS + 1) })
+    } else if (key !== 'note') w.push(`Unknown line "${raw}"`)
+  }
+  if (!s.rows.length) return 'No rows'
+  s.rows = s.rows.slice(0, MAX_TABLE_ROWS)
+  const width = Math.max(...s.rows.map((r) => r.cells.length))
+  if (headings) {
+    // "columns: Online | In person" (one heading per data column) gets an empty heading for the label column;
+    // "columns: Grade | Online | In person" already names it.
+    const cs = headings.length === width ? ['', ...headings] : headings
+    s.columns = cs.length - 1 < width ? [...cs, ...Array(width - (cs.length - 1)).fill('')] : cs
+  }
+  return s
+}
+
 function parseHistogram(ls: Lines, c: Common, w: string[]): HistogramSpec | string {
   const s: HistogramSpec = { ...c, kind: 'histogram', bins: [] }
   for (const { key, value, raw } of ls) {
@@ -769,6 +814,7 @@ export function describeGraph(spec: GraphSpec): string {
     case 'dotplot': return `${t}Dot plot: ${spec.values.map((v) => `${v.value} (${v.count})`).join(', ')}.`
     case 'boxplot': return `${t}Box plot${spec.boxes.length > 1 ? 's' : ''}: ${spec.boxes.map((b) => `${b.label ? b.label + ' ' : ''}min ${b.five[0]}, Q1 ${b.five[1]}, median ${b.five[2]}, Q3 ${b.five[3]}, max ${b.five[4]}`).join('; ')}.`
     case 'numberline': return `${t}Number line.`
+    case 'table': return `${t}Table${spec.columns.length ? ` with columns ${spec.columns.filter(Boolean).join(', ')}` : ''}: ${spec.rows.map((r) => `${r.label}: ${r.cells.join(', ')}`).join('; ')}.`
     case 'reaction': return `${t}Reaction energy diagram: ${spec.levels.map((l) => `${l.label ?? l.kind} ${l.energy}`).join(', ')}.`
     case 'lewis': return `${t}Lewis structure of ${spec.layout.atoms.map((a) => a.symbol).join('')}.`
     case 'vsepr': return `${t}3D model of ${spec.center}${spec.model.atoms.slice(1).map((a) => a.symbol).join('')}${spec.showName ? `, ${spec.model.shape}` : ''}.`
