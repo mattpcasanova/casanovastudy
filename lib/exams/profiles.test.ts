@@ -40,6 +40,15 @@ describe('detectExam', () => {
     expect(detectExam('Act 1 of Hamlet', 'english')).toBeNull()
     expect(detectExam('the act of reading', 'english')).toBeNull()
   })
+  it('AP courses by name; "AP" alone or another AP course matches nothing yet', () => {
+    expect(detectExam('AP Chemistry Unit 7: equilibrium', 'chemistry')).toMatchObject({ profile: { id: 'ap-chemistry' }, domains: [{ id: 'equilibrium' }] })
+    expect(detectExam('AP Chem kinetics and rate laws', null)?.domains.map((d) => d.id)).toEqual(['reactions'])
+    expect(detectExam('AP Stats inference for means', 'mathematics')?.profile.id).toBe('ap-statistics')
+    expect(detectExam('AP Statistics', 'general')?.domains).toEqual([])
+    expect(detectExam('AP Bio Unit 4 cell communication', 'biology')).toMatchObject({ profile: { id: 'ap-biology' }, domains: [{ id: 'signaling' }] })
+    expect(detectExam('AP Calculus BC series', 'mathematics')).toBeNull()
+    expect(detectExam('AP exams in general', null)).toBeNull()
+  })
   it('the section named outright wins over the picked subject', () => {
     expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
     expect(detectExam('the reading and writing part of the SAT', 'mathematics')?.profile.id).toBe('sat-rw')
@@ -97,17 +106,19 @@ describe('examInstructions', () => {
     for (const d of SAT_MATH.domains) expect(text).toContain(`DOMAIN: ${d.name}`)
   })
   it('every exemplar parses with the quiz parser and keys an option that exists', () => {
-    for (const d of EXAM_PROFILES.flatMap((p) => p.domains)) {
+    for (const p of EXAM_PROFILES) for (const d of p.domains) {
       for (const e of d.exemplars) {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
         if (q.type === 'mc') {
-          expect(q.options).toHaveLength(4)
+          expect(q.options, e.slice(0, 40)).toHaveLength(p.id === 'ap-statistics' ? 5 : 4)
           expect(q.options).toContain(q.correctAnswer)
           if (e.includes('```passage')) expect(q.passage, e.slice(0, 40)).toBeTruthy()
+        } else if (q.type === 'num') {
+          expect(q.answers.length).toBeGreaterThan(0)
         } else {
-          expect(q.type).toBe('num')
-          if (q.type === 'num') expect(q.answers.length).toBeGreaterThan(0)
+          expect(q.type).toBe('sa')
+          if (q.type === 'sa') expect(q.sampleAnswer.length, e.slice(0, 40)).toBeGreaterThan(40)
         }
       }
     }

@@ -4,8 +4,9 @@
 // on the model's memory of the test. Pure: detection and prompt text only.
 //
 // Profiles so far: SAT Math (sat-math.ts), SAT Reading and Writing (sat-rw.ts),
-// ACT English / Math / Reading / Science (act-*.ts). Adding one = a profile
-// file + an entry in EXAM_PROFILES. AP courses are next.
+// ACT English / Math / Reading / Science (act-*.ts), AP Chemistry, AP
+// Statistics and AP Biology (ap-*.ts). Adding one = a profile file + an entry
+// in EXAM_PROFILES. Other AP courses as teachers ask for them.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
@@ -14,8 +15,11 @@ import { ACT_ENGLISH } from './act-english'
 import { ACT_MATH } from './act-math'
 import { ACT_READING } from './act-reading'
 import { ACT_SCIENCE } from './act-science'
+import { AP_CHEMISTRY } from './ap-chemistry'
+import { AP_STATISTICS } from './ap-statistics'
+import { AP_BIOLOGY } from './ap-biology'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
