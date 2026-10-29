@@ -52,7 +52,14 @@ describe('detectExam', () => {
     expect(detectExam('AP Physics C mechanics', 'physics')).toBeNull()
     expect(detectExam('AP Physics 2 fluids', 'physics')).toBeNull()
     expect(detectExam('AP exams in general', null)).toBeNull()
-    expect(detectExam('AP World History unit 3', 'history')).toBeNull()
+    expect(detectExam('AP World History unit 3: land-based empires', 'history')).toMatchObject({ profile: { id: 'ap-world' }, domains: [{ id: 'early-modern' }] })
+    expect(detectExam('APUSH period 5 sectional crisis', null)).toMatchObject({ profile: { id: 'ap-ush' }, domains: [{ id: 'republic-civil-war' }] })
+    expect(detectExam('AP US History review', 'history')?.profile.id).toBe('ap-ush')
+    expect(detectExam('AP Gov unit 2 Congress and the presidency', 'history')).toMatchObject({ profile: { id: 'ap-gov' }, domains: [{ id: 'branches' }] })
+    expect(detectExam('AP Comparative Government', 'history')).toBeNull()
+    expect(detectExam('AP Lang rhetorical analysis', 'english')).toMatchObject({ profile: { id: 'ap-lang' } })
+    expect(detectExam('AP English Language and Composition', null)?.profile.id).toBe('ap-lang')
+    expect(detectExam('AP Literature poetry', 'english')).toBeNull()
   })
   it('the section named outright wins over the picked subject', () => {
     expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
@@ -123,7 +130,7 @@ describe('examInstructions', () => {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
         if (q.type === 'mc') {
-          expect(q.options, e.slice(0, 40)).toHaveLength(p.id === 'ap-statistics' ? 5 : 4)
+          expect(q.options, e.slice(0, 40)).toHaveLength(p.id === 'ap-statistics' || p.id === 'ap-lang' ? 5 : 4)
           expect(q.options).toContain(q.correctAnswer)
           if (e.includes('```passage')) expect(q.passage, e.slice(0, 40)).toBeTruthy()
         } else if (q.type === 'num') {

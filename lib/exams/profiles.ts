@@ -5,9 +5,9 @@
 //
 // Profiles so far: SAT Math (sat-math.ts), SAT Reading and Writing (sat-rw.ts),
 // ACT English / Math / Reading / Science (act-*.ts), AP Chemistry, AP
-// Statistics, AP Biology, AP Calculus AB/BC and AP Physics 1 (ap-*.ts). Adding
-// one = a profile file + an entry in EXAM_PROFILES. Other AP courses as
-// teachers ask for them.
+// Statistics, AP Biology, AP Calculus AB/BC, AP Physics 1, AP English Language,
+// APUSH, AP World History: Modern and AP U.S. Government (ap-*.ts). Adding one
+// = a profile file + an entry in EXAM_PROFILES. Other courses as teachers ask.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
@@ -21,8 +21,12 @@ import { AP_STATISTICS } from './ap-statistics'
 import { AP_BIOLOGY } from './ap-biology'
 import { AP_CALCULUS } from './ap-calculus'
 import { AP_PHYSICS_1 } from './ap-physics1'
+import { AP_LANG } from './ap-lang'
+import { AP_USH } from './ap-ush'
+import { AP_WORLD } from './ap-world'
+import { AP_GOV } from './ap-gov'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
