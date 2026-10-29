@@ -3,15 +3,19 @@
 // looks like, the traps, exemplar items in the test's voice) instead of relying
 // on the model's memory of the test. Pure: detection and prompt text only.
 //
-// Profiles so far: SAT Math (sat-math.ts) and SAT Reading and Writing
-// (sat-rw.ts). Adding one = a profile file + an entry in EXAM_PROFILES. ACT and
-// AP are next.
+// Profiles so far: SAT Math (sat-math.ts), SAT Reading and Writing (sat-rw.ts),
+// ACT English / Math / Reading / Science (act-*.ts). Adding one = a profile
+// file + an entry in EXAM_PROFILES. AP courses are next.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
 import { SAT_RW } from './sat-rw'
+import { ACT_ENGLISH } from './act-english'
+import { ACT_MATH } from './act-math'
+import { ACT_READING } from './act-reading'
+import { ACT_SCIENCE } from './act-science'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
@@ -24,13 +28,15 @@ export interface ExamMatch {
   score?: { current?: number; target?: number }
 }
 
-/** "I got a 630", "scored 650", "from 630 to 800", "going for a 750", "aiming for 700+". */
+/** "I got a 630", "scored 650", "from 630 to 800", "going for a 750", "aiming for 700+"; on a 1-36 test, "I got a 24". */
 export function readScores(text: string, range: { min: number; max: number }): { current?: number; target?: number } | undefined {
-  const inRange = (n: number) => n >= range.min && n <= range.max && n % 10 === 0
+  const small = range.max < 100
+  const inRange = (n: number) => n >= range.min && n <= range.max && (small || n % 10 === 0)
   const num = (m: RegExpMatchArray | null) => { const n = m ? Number(m[1]) : NaN; return inRange(n) ? n : undefined }
-  const current = num(text.match(/\b(?:got|scored|score(?:d)?\s+(?:of|was|is)|have|had|at|currently|from|last time\D{0,20})\s*(?:a|an)?\s*(\d{3})\b/i))
-    ?? num(text.match(/\b(\d{3})\s*(?:on|in)\s+(?:my|the)\s+(?:last|first|practice|real)?\s*(?:sat|psat|test)/i))
-  const target = num(text.match(/\b(?:to|toward|towards|reach|hit|get to|aiming for|aim for|going for|goal(?: of| is)?|want(?:ed)?(?: to get)?|up to|target(?:ing)?)\s*(?:a|an|as close to)?\s*(\d{3})\b/i))
+  const d = small ? '(\\d{1,2})' : '(\\d{3})'
+  const current = num(text.match(new RegExp(`\\b(?:got|scored|score(?:d)?\\s+(?:of|was|is)|have|had|at|currently|from|last time\\D{0,20})\\s*(?:a|an)?\\s*${d}\\b`, 'i')))
+    ?? num(text.match(new RegExp(`\\b${d}\\s*(?:on|in)\\s+(?:my|the)\\s+(?:last|first|practice|real)?\\s*(?:sat|psat|act|test)`, 'i')))
+  const target = num(text.match(new RegExp(`\\b(?:to|toward|towards|reach|hit|get to|aiming for|aim for|going for|goal(?: of| is)?|want(?:ed)?(?: to get)?|up to|target(?:ing)?)\\s*(?:a|an|as close to)?\\s*${d}\\b`, 'i')))
   if (!current && !target) return undefined
   return { ...(current ? { current } : {}), ...(target && target !== current ? { target } : {}) }
 }

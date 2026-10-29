@@ -291,3 +291,12 @@ describe('answers in other languages', () => {
     expect(isBlankCorrect('fotosintesis', ['fotosíntesis'])).toBe(true)
   })
 })
+
+describe('MC options that start with the word "answer"', () => {
+  it('are options, not the answer line', () => {
+    const [a] = parsePractice(`# T\nMC_QUESTION: Which is right?\nA) NO CHANGE\nB) answer A question\nC) answer the notebook\nD) answer; and\nCorrect Answer: C\n`)
+    if (a.kind !== 'choice') throw new Error('choice')
+    expect(a.options).toHaveLength(4)
+    expect(a.correct).toBe(2)
+  })
+})

@@ -171,7 +171,7 @@ export function parsePractice(content: string): PracticeActivity[] {
       for (const l of rest) {
         const opt = l.match(/^\*{0,2}\(?([A-F])[).:]\*{0,2}\s+(.+)$/)
         const ans = l.match(/answer\s*:?\**\s*:?\s*\(?([A-F])\b/i)
-        if (ans && /answer/i.test(l.slice(0, 20))) letter = ans[1].toUpperCase()
+        if (ans && /^\*{0,2}(?:correct\s+)?answer\s*:/i.test(l)) letter = ans[1].toUpperCase()
         else if (opt) options.push(clean(opt[2]))
         else if (!options.length && l.trim()) stem.push(clean(l))
       }

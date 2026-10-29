@@ -231,3 +231,12 @@ Correct Answer: B
     expect(qs[2].passage).toBeUndefined()
   })
 })
+
+describe('options that start with the word "answer"', () => {
+  it('are options, not the answer line', () => {
+    const [q] = parseQuizContent(`# T\nMC_QUESTION: Which choice is correct?\nA) NO CHANGE\nB) answer, the notebook\nC) answer the notebook\nD) answer; and the notebook\nCorrect Answer: C\n`)
+    if (q.type !== 'mc') throw new Error('mc')
+    expect(q.options).toHaveLength(4)
+    expect(q.correctAnswer).toBe('answer the notebook')
+  })
+})

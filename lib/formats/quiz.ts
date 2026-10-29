@@ -160,7 +160,7 @@ export function parseQuizContent(content: string): Question[] {
         const h = hintOf(l)
         if (h) hint = h
         else if (exp) explanation = exp
-        else if (opt && !/answer/i.test(l.slice(0, 12))) options.push(strip(opt[2]))
+        else if (opt && !/^\*{0,2}(?:correct\s+)?answer\s*:/i.test(l)) options.push(strip(opt[2]))
         else if (!options.length && !/answer\s*:/i.test(l)) stem.push(strip(l))
         else if (/answer\s*:/i.test(l)) {
           const m = l.match(/answer:?\**\s*:?\s*\(?([A-F])\b/i)

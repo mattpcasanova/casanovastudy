@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { detectExam, examInstructions, readScores } from './profiles'
 import { parseQuizContent } from '@/lib/formats/quiz'
+import { EXAM_PROFILES } from './profiles'
 import { SAT_MATH } from './sat-math'
-import { SAT_RW } from './sat-rw'
 
 describe('detectExam', () => {
   it('finds SAT Math and the domain the learner named', () => {
@@ -29,6 +29,16 @@ describe('detectExam', () => {
     expect(detectExam('SAT reading comprehension', null)?.profile.id).toBe('sat-rw')
     expect(detectExam('help me with the SAT', 'english')?.profile.id).toBe('sat-rw')
     expect(detectExam('SAT grammar, I got a 590', 'general')?.score).toEqual({ current: 590 })
+  })
+  it('ACT sections: the capitalized name or "act <section>", never "act" as a word', () => {
+    expect(detectExam('ACT English: commas and transitions', 'english')?.profile.id).toBe('act-english')
+    expect(detectExam('act math, I got a 24 and want a 30', 'mathematics')).toMatchObject({ profile: { id: 'act-math' }, score: { current: 24, target: 30 } })
+    expect(detectExam('ACT reading passages', null)?.profile.id).toBe('act-reading')
+    expect(detectExam('ACT science data representation', 'science')?.profile.id).toBe('act-science')
+    expect(detectExam('ACT', 'mathematics')?.profile.id).toBe('act-math')
+    expect(detectExam('the Stamp Act and the Townshend Acts', 'history')).toBeNull()
+    expect(detectExam('Act 1 of Hamlet', 'english')).toBeNull()
+    expect(detectExam('the act of reading', 'english')).toBeNull()
   })
   it('the section named outright wins over the picked subject', () => {
     expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
@@ -87,7 +97,7 @@ describe('examInstructions', () => {
     for (const d of SAT_MATH.domains) expect(text).toContain(`DOMAIN: ${d.name}`)
   })
   it('every exemplar parses with the quiz parser and keys an option that exists', () => {
-    for (const d of [...SAT_MATH.domains, ...SAT_RW.domains]) {
+    for (const d of EXAM_PROFILES.flatMap((p) => p.domains)) {
       for (const e of d.exemplars) {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
