@@ -46,8 +46,13 @@ describe('detectExam', () => {
     expect(detectExam('AP Stats inference for means', 'mathematics')?.profile.id).toBe('ap-statistics')
     expect(detectExam('AP Statistics', 'general')?.domains).toEqual([])
     expect(detectExam('AP Bio Unit 4 cell communication', 'biology')).toMatchObject({ profile: { id: 'ap-biology' }, domains: [{ id: 'signaling' }] })
-    expect(detectExam('AP Calculus BC series', 'mathematics')).toBeNull()
+    expect(detectExam('AP Calculus BC series', 'mathematics')).toMatchObject({ profile: { id: 'ap-calculus' }, domains: [{ id: 'bc' }] })
+    expect(detectExam('AP Calc AB: related rates and optimization', null)?.domains.map((d) => d.id)).toEqual(['applications'])
+    expect(detectExam('AP Physics 1 momentum and collisions', 'physics')).toMatchObject({ profile: { id: 'ap-physics-1' }, domains: [{ id: 'energy-momentum' }] })
+    expect(detectExam('AP Physics C mechanics', 'physics')).toBeNull()
+    expect(detectExam('AP Physics 2 fluids', 'physics')).toBeNull()
     expect(detectExam('AP exams in general', null)).toBeNull()
+    expect(detectExam('AP World History unit 3', 'history')).toBeNull()
   })
   it('the section named outright wins over the picked subject', () => {
     expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
@@ -60,7 +65,8 @@ describe('detectExam', () => {
   it('ignores other subjects and unrelated words', () => {
     expect(detectExam('SAT chemistry subject test', 'chemistry')).toBeNull()
     expect(detectExam('saturated solutions and solubility', 'chemistry')).toBeNull()
-    expect(detectExam('AP Calculus: derivatives', 'mathematics')).toBeNull()
+    expect(detectExam('AP Calculus: derivatives', 'mathematics')?.profile.id).toBe('ap-calculus')
+    expect(detectExam('AP Calculus: derivatives', 'mathematics')?.domains.map((d) => d.id)).toEqual(['limits-derivatives'])
   })
 })
 

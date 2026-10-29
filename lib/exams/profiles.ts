@@ -5,8 +5,9 @@
 //
 // Profiles so far: SAT Math (sat-math.ts), SAT Reading and Writing (sat-rw.ts),
 // ACT English / Math / Reading / Science (act-*.ts), AP Chemistry, AP
-// Statistics and AP Biology (ap-*.ts). Adding one = a profile file + an entry
-// in EXAM_PROFILES. Other AP courses as teachers ask for them.
+// Statistics, AP Biology, AP Calculus AB/BC and AP Physics 1 (ap-*.ts). Adding
+// one = a profile file + an entry in EXAM_PROFILES. Other AP courses as
+// teachers ask for them.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
@@ -18,8 +19,10 @@ import { ACT_SCIENCE } from './act-science'
 import { AP_CHEMISTRY } from './ap-chemistry'
 import { AP_STATISTICS } from './ap-statistics'
 import { AP_BIOLOGY } from './ap-biology'
+import { AP_CALCULUS } from './ap-calculus'
+import { AP_PHYSICS_1 } from './ap-physics1'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
@@ -91,6 +94,8 @@ export function examInstructions(match: ExamMatch, format: string, difficulty?: 
     `TEST REFERENCE: this guide is for ${profile.name}. Write it the way that test is written, from the reference below, not from a textbook. The learner wants to get better at the test, so every item must be one that could appear on it.`,
     whole ? `The guide covers the whole section; weight the domains as the test does.` : `The learner asked about: ${domains.map((d) => d.name).join(', ')}. Stay inside ${domains.length === 1 ? 'that domain' : 'those domains'}.`,
   ]
+  // The item rules come first: they override the format's own question mix (true/false counts, short answers).
+  if (items) lines.push('', profile.itemRules, '', `These item rules replace the FORMAT section's mix of question types: no TF_QUESTION lines at all, no "I, II and III" lists, and only the item types named above.`)
   for (const d of domains) {
     lines.push('', `DOMAIN: ${d.name} (${d.share})`)
     lines.push('What it tests:')
@@ -100,11 +105,11 @@ export function examInstructions(match: ExamMatch, format: string, difficulty?: 
     lines.push(`Wrong answers are built from: ${d.traps.join('; ')}.`)
   }
   if (items) {
-    lines.push('', profile.itemRules)
     lines.push('', 'EXEMPLAR ITEMS (the voice, length and difficulty to match; write new items, never these):')
     for (const d of domains) for (const e of d.exemplars) lines.push(e, '')
     const dKey = difficulty === 'hard' ? 'hard' : difficulty === 'easier' ? 'easier' : 'standard'
     lines.push(profile.difficulty[dKey])
+    lines.push('', `FINAL CHECK before you output: read every item again. Delete any TF_QUESTION. Rework any item with more than one defensible answer, and any explanation that hedges ("also", "if checked carefully", "recheck", "both"): change the numbers or the options until exactly one answer is right, then write the explanation cleanly. The student sees every word of the explanation.`)
     if (match.score?.current && dKey !== 'easier') {
       const { current, target } = match.score
       lines.push(`The learner currently scores about ${current}${target ? ` and wants ${target}` : ''}. Items a ${current} student already gets right teach nothing: every item must sit at or above the ${current} level, most of them in the band just above it (the items that decide whether this student moves up), ${target && target >= 750 ? 'and at least a third from the hardest items on the test, since the goal is a top score' : 'and a third from the harder module'}.`)

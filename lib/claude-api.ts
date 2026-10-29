@@ -606,13 +606,16 @@ function withImages(prompt: string, images?: Array<{ name: string; mediaType: st
   return blocks
 }
 
-function guideRequest(content: Anthropic.MessageParam['content'], system: string | undefined, format?: string, length?: GuideLength, difficulty?: GuideDifficulty): any {
+function guideRequest(content: Anthropic.MessageParam['content'], system: string | undefined, format?: string, length?: GuideLength, difficulty?: GuideDifficulty, examItems = false): any {
   // Short guides of any format also run at low effort: less to write, less to plan.
   // Hard guides never do: hard multi-step questions need the thinking to come
-  // out hard and keyed correctly.
+  // out hard and keyed correctly. Neither do quiz/practice items written for a
+  // known test (lib/exams): at low effort the keys slipped (a μ halved, two
+  // "speeding up" options both right), and a wrong key costs a test-prep student more than the extra cost.
   const low = (format && LOW_EFFORT_FORMATS.has(format)) || length === 'short'
   // (Adaptive practice stays at low effort even when hard: its sessions are short and the cost cap matters more.)
-  const effort = process.env.GUIDE_EFFORT || (low && (difficulty !== 'hard' || format === 'adaptive') ? 'low' : 'medium')
+  const boost = (difficulty === 'hard' || examItems) && format !== 'adaptive'
+  const effort = process.env.GUIDE_EFFORT || (low && !boost ? 'low' : 'medium')
   return {
     model: GUIDE_MODEL,
     max_tokens: 32000,
@@ -747,7 +750,7 @@ export class ClaudeService {
 
   async generateStudyGuide(request: ClaudeApiRequest): Promise<ClaudeApiResponse> {
     try {
-      const { system, user: prompt } = this.buildPrompt(request)
+      const { system, user: prompt, examItems } = this.buildPrompt(request)
 
       // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
       const estimatedInputTokens = Math.ceil((system.length + prompt.length) / 4)
@@ -761,7 +764,7 @@ export class ClaudeService {
 
       // Streamed + finalMessage(): the SDK refuses non-streaming requests with a
       // max_tokens this large.
-      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, system, String(request.format), request.length, request.difficultyLevel)).finalMessage()
+      const response = await this.anthropic.beta.messages.stream(guideRequest(prompt, system, String(request.format), request.length, request.difficultyLevel, examItems)).finalMessage()
 
       // Adaptive thinking emits a thinking block first, so content[0] is NOT the
       // text; find the text block explicitly (see CLAUDE.md model-migration gotcha).
@@ -796,11 +799,11 @@ export class ClaudeService {
 
   async *generateStudyGuideStream(request: ClaudeApiRequest): AsyncGenerator<string, { content: string; usage: any }, undefined> {
     try {
-      const { system, user: prompt } = this.buildPrompt(request)
+      const { system, user: prompt, examItems } = this.buildPrompt(request)
 
       console.log('📊 Starting streaming generation...')
 
-      const stream = this.anthropic.beta.messages.stream(guideRequest(withImages(prompt, request.images), system, String(request.format), request.length, request.difficultyLevel))
+      const stream = this.anthropic.beta.messages.stream(guideRequest(withImages(prompt, request.images), system, String(request.format), request.length, request.difficultyLevel, examItems))
 
       let fullContent = ''
 
@@ -839,7 +842,7 @@ export class ClaudeService {
    * length, difficulty, language, visuals, code editor), cached by guideRequest.
    * `user`: this learner's request and materials.
    */
-  private buildPrompt(request: ClaudeApiRequest): { system: string; user: string } {
+  private buildPrompt(request: ClaudeApiRequest): { system: string; user: string; examItems: boolean } {
     const { content, format, topicFocus, additionalInstructions, studyRequest } = request
     const goal = request.goal && GOAL_GUIDANCE[request.goal] ? request.goal : null
     const level = describeLevel(request.gradeLevel)
@@ -869,6 +872,7 @@ export class ClaudeService {
     // model's memory of the test. EXAM_PROFILES=off turns it off for evals.
     const exam = process.env.EXAM_PROFILES === 'off' ? null : detectExam([topicFocus, studyRequest, additionalInstructions, request.fromGuide?.title].filter(Boolean).join('\n'), request.subject, request.examScores)
     const examBlock = exam ? `${examInstructions(exam, String(format), request.difficultyLevel)}\n\n` : ''
+    const examItems = !!exam && (format === 'quiz' || format === 'practice' || format === 'adaptive')
 
     let sourceRules: string
     if (!hasMaterials) {
@@ -934,7 +938,7 @@ MATERIALS:
 ${content}
 ` : ''}
 Write the complete ${format} study guide now${request.language && request.language !== 'en' ? ` (in ${languageName(request.language)}, markers in English)` : ''}, following the format and style rules exactly. Output only the guide markdown; no preamble.`
-    return { system, user }
+    return { system, user, examItems }
   }
 
   private getFormatInstructions(format: StudyGuideFormat): string {
