@@ -8,6 +8,7 @@ import type { ExamProfile } from './types'
 
 export const AP_LANG: ExamProfile = {
   id: 'ap-lang',
+  pace: 80,
   name: 'the AP English Language and Composition exam',
   detect: {
     exam: /\bAP\s+(?:english\s+)?lang(?:uage)?(?:\s+(?:and|&)\s+comp(?:osition)?)?\b/i,

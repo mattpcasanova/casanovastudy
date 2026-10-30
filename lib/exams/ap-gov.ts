@@ -10,6 +10,7 @@ import type { ExamProfile } from './types'
 
 export const AP_GOV: ExamProfile = {
   id: 'ap-gov',
+  pace: 87,
   name: 'the AP U.S. Government and Politics exam',
   detect: {
     exam: /\bAP\s+(?:US\s+|U\.S\.\s+|United States\s+|American\s+)?gov(?:ernment)?(?:\s+(?:and|&)\s+politics)?\b/i,

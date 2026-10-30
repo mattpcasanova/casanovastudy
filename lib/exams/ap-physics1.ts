@@ -9,6 +9,7 @@ import type { ExamProfile } from './types'
 
 export const AP_PHYSICS_1: ExamProfile = {
   id: 'ap-physics-1',
+  pace: 120,
   name: 'the AP Physics 1 exam',
   detect: {
     // "AP Physics" or "AP Physics 1", never Physics 2 or Physics C (no profiles for those yet).

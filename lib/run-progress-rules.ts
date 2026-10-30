@@ -76,6 +76,10 @@ export interface QuizRun {
   saScores: Record<string, QuizScore>
   marked: string[]
   subset: string[] | null
+  /** Timed at the test's pace: seconds used so far, and per question. */
+  timed?: boolean
+  elapsed?: number
+  spent?: Record<string, number>
 }
 
 const isScore = (x: unknown): x is QuizScore => isRecord(x) && typeof x.score === 'number' && typeof x.isCorrect === 'boolean' && typeof x.feedback === 'string'
@@ -101,5 +105,8 @@ export function cleanQuizRun(raw: unknown, questionIds: string[]): QuizRun | nul
     saScores: only(raw.saScores, ids, isScore),
     marked,
     subset,
+    timed: raw.timed === true,
+    elapsed: Math.max(0, num(raw.elapsed)),
+    spent: only(raw.spent, ids, (x): x is number => typeof x === 'number' && x >= 0),
   }
 }

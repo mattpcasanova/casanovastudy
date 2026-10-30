@@ -8,6 +8,7 @@ import type { ExamProfile } from './types'
 
 export const AP_CALCULUS: ExamProfile = {
   id: 'ap-calculus',
+  pace: 140,
   name: 'the AP Calculus exam',
   detect: {
     exam: /\bAP\s+calc(?:ulus)?(?:\s+(?:AB|BC))?\b/i,

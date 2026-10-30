@@ -7,6 +7,7 @@ import type { ExamProfile } from './types'
 
 export const AP_CHEMISTRY: ExamProfile = {
   id: 'ap-chemistry',
+  pace: 90,
   name: 'the AP Chemistry exam',
   detect: {
     exam: /\bAP\s+chem(?:istry)?\b/i,

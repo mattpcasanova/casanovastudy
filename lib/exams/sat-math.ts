@@ -8,6 +8,7 @@ import type { ExamProfile } from './types'
 
 export const SAT_MATH: ExamProfile = {
   id: 'sat-math',
+  pace: 95,
   name: 'the digital SAT Math section',
   detect: {
     exam: /\b(?:digital\s+)?(?:p?sat|sat\s*math|psat\s*(?:nmsqt|10|8\/9)?)\b/i,

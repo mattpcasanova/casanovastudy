@@ -7,6 +7,7 @@ import { AP_HISTORY_DIFFICULTY, AP_HISTORY_ITEM_RULES } from './ap-history'
 
 export const AP_WORLD: ExamProfile = {
   id: 'ap-world',
+  pace: 60,
   name: 'the AP World History: Modern exam',
   detect: {
     exam: /\bAP\s+World(?:\s+History)?(?:\s*:?\s*Modern)?\b/i,

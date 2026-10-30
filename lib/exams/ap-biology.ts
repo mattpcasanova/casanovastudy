@@ -7,6 +7,7 @@ import type { ExamProfile } from './types'
 
 export const AP_BIOLOGY: ExamProfile = {
   id: 'ap-biology',
+  pace: 90,
   name: 'the AP Biology exam',
   detect: {
     exam: /\bAP\s+bio(?:logy)?\b/i,

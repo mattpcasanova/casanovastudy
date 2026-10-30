@@ -119,7 +119,8 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
     ? null
     : calculatorFor({ subject: studyGuide.subject, level: studyGuide.grade_level, text: [studyGuide.title, studyGuide.topic_focus].filter(Boolean).join('\n') })
   // Written for a test we have a reference for (lib/exams): shown in the banner's meta line.
-  const examNote = detectExam(studyGuide.topic_focus ?? '', studyGuide.subject)?.profile.name.replace(/^the /, 'For the ')
+  const exam = detectExam(studyGuide.topic_focus ?? '', studyGuide.subject)
+  const examNote = exam?.profile.name.replace(/^the /, 'For the ')
 
   const handleSaveToMyGuides = async () => {
     if (!user) return
@@ -214,7 +215,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'flashcards':
         return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
-        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} />
+        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} pace={exam?.profile.pace} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':

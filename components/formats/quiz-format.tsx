@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks, Timer } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill, type GuidePrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ import { useGuideHistory, useRecordResult } from '@/components/study-results-con
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, type FinishAnswer } from '@/components/assign/assignment-context'
 import { useRunProgress } from '@/lib/use-run-progress'
 import { cleanQuizRun, type QuizRun } from '@/lib/run-progress-rules'
+import { formatClock, formatPace, paceVerdict, summarizeTiming, timeBudget, timeTone, type TimingSummary } from '@/lib/formats/timer'
 import { ResumeStrip } from './resume-strip'
 import { WeakSpotBanner } from './weak-spot-banner'
 
@@ -35,7 +36,11 @@ interface QuizFormatProps {
   gradeLevel?: string
   /** Saves the run as it goes (left in class, finished at home). */
   studyGuideId?: string
+  /** Seconds per question on the test this quiz was written for; turns on the Timed option. */
+  pace?: number
 }
+
+const TIMED_PREF = 'cs:pref:quiz-timed'
 
 export { parseQuizContent, type Question } from '@/lib/formats/quiz'
 
@@ -49,7 +54,7 @@ type Mode = 'practice' | 'test'
 
 const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer', num: 'Type your answer' }
 
-export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId }: QuizFormatProps) {
+export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId, pace }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
   const router = useRouter()
@@ -71,6 +76,18 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const [submitting, setSubmitting] = useState(false)
   // Questions the student flagged to come back to (stuck, or wants another look).
   const [marked, setMarked] = useState<Set<string>>(new Set())
+  // Timed at the test's pace (only offered when the guide was written for a known test).
+  const [timed, setTimed] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const [spent, setSpent] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (!pace) return
+    try { if (localStorage.getItem(TIMED_PREF) === '1') setTimed(true) } catch {}
+  }, [pace])
+  const chooseTimed = (on: boolean) => {
+    setTimed(on)
+    try { localStorage.setItem(TIMED_PREF, on ? '1' : '0') } catch {}
+  }
   const toggleMark = (id: string) => setMarked((m) => {
     const next = new Set(m)
     if (next.has(id)) next.delete(id)
@@ -107,6 +124,9 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     setHinted(run.hinted)
     setSaScores(run.saScores)
     setMarked(new Set(run.marked))
+    if (run.timed) setTimed(true)
+    setElapsed(run.elapsed ?? 0)
+    setSpent(run.spent ?? {})
     setFinished(false)
     // Answers already revealed in practice mode were logged when they were checked.
     logged.current = new Set(Object.keys(run.checked))
@@ -115,8 +135,8 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const { save: saveRun, clear: clearRun } = progress
   useEffect(() => {
     if (finished || (index === 0 && !Object.keys(answers).length && !marked.size)) return
-    saveRun({ mode, index, answers, checked, hinted, saScores, marked: [...marked], subset })
-  }, [finished, mode, index, answers, checked, hinted, saScores, marked, subset, saveRun])
+    saveRun({ mode, index, answers, checked, hinted, saScores, marked: [...marked], subset, timed, elapsed, spent })
+  }, [finished, mode, index, answers, checked, hinted, saScores, marked, subset, timed, elapsed, spent, saveRun])
   // A finished run is over: the results screen shows it, and next time starts fresh.
   useEffect(() => { if (finished) clearRun() }, [finished, clearRun])
 
@@ -197,9 +217,35 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     setHinted({})
     setSaScores({})
     setMarked(new Set())
+    setElapsed(0)
+    setSpent({})
     setIndex(0)
     setFinished(false)
   }
+
+  // The clock: one tick a second while timed and not finished. A question's own
+  // time stops once its answer is revealed (reading feedback isn't solving).
+  const budget = pace && timed ? timeBudget(questions.length, pace) : 0
+  const currentId = current?.id
+  const currentRevealed = !!currentId && mode === 'practice' && !!checked[currentId]
+  useEffect(() => {
+    if (!timed || !pace || finished || !currentId) return
+    const id = window.setInterval(() => {
+      setElapsed((e) => e + 1)
+      if (!currentRevealed) setSpent((s) => ({ ...s, [currentId]: (s[currentId] ?? 0) + 1 }))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [timed, pace, finished, currentId, currentRevealed])
+  // Test mode hands the quiz in when time runs out; practice keeps going and shows how far over.
+  const timeUp = budget > 0 && elapsed >= budget
+  const submitted = useRef(false)
+  useEffect(() => {
+    if (!timeUp || mode !== 'test' || finished || submitting || submitted.current) return
+    submitted.current = true
+    void finish()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp, mode, finished, submitting])
+  useEffect(() => { if (!finished) submitted.current = false }, [finished])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (finished) return
@@ -235,7 +281,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   }
 
   if (finished) {
-    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} />
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} timing={pace && timed ? summarizeTiming(elapsed, spent, questions.map((q) => q.id), pace) : undefined} pace={pace} spent={spent} />
   }
 
   const answeredCount = questions.filter((q) => status(q) !== 'open').length
@@ -279,6 +325,21 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               </button>
             )}
           </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {pace ? (
+              timed ? (
+                <TimeChip left={budget - elapsed} total={budget} onOff={() => chooseTimed(false)} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => chooseTimed(true)}
+                  title={`Count down at the test's pace: ${formatPace(pace)} per question`}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                  <Timer className="h-4 w-4" /> Timed
+                </button>
+              )
+            ) : null}
           <div className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
             {([['practice', Zap, 'Practice'], ['test', ClipboardList, 'Test']] as const).map(([m, Icon, label]) => (
               <button
@@ -291,6 +352,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
                 <Icon className="h-4 w-4" /> {label}
               </button>
             ))}
+          </div>
           </div>
         </div>
         <Navigator questions={questions} index={index} status={status} marked={marked} onJump={setIndex} />
@@ -509,6 +571,30 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   )
 }
 
+// The countdown in the quiz header: grey, then amber under a fifth left, red
+// under a tenth, and "over by" once past the test's time.
+function TimeChip({ left, total, onOff }: { left: number; total: number; onOff: () => void }) {
+  const tone = timeTone(left, total)
+  return (
+    <div
+      role="timer"
+      aria-live={tone === 'critical' || tone === 'over' ? 'polite' : 'off'}
+      aria-label={tone === 'over' ? `${formatClock(-left)} over the test's time` : `${formatClock(left)} left`}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-lg py-1.5 pl-3 pr-1.5 text-sm font-semibold tabular-nums ring-1 ring-inset',
+        tone === 'ok' && 'bg-white text-slate-800 ring-slate-200',
+        tone === 'low' && 'bg-amber-50 text-amber-900 ring-amber-200',
+        tone === 'critical' && 'bg-rose-50 text-rose-800 ring-rose-200',
+        tone === 'over' && 'bg-rose-100 text-rose-900 ring-rose-300'
+      )}
+    >
+      <Timer className="h-4 w-4" />
+      {tone === 'over' ? <span>Over by {formatClock(-left)}</span> : <span>{formatClock(left)}</span>}
+      <button type="button" onClick={onOff} title="Turn the timer off" aria-label="Turn the timer off" className="ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-500 hover:bg-black/5 hover:text-slate-800">off</button>
+    </div>
+  )
+}
+
 function pickedLabel(q: Question, answer: string | undefined): string | undefined {
   if (!answer) return undefined
   if (q.type === 'tf') return answer === 'true' ? 'True' : 'False'
@@ -674,8 +760,12 @@ function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScor
   )
 }
 
-function QuizResults({ questions, answers, saScores, status, marked, onRestart, isRetry, guide }: {
+function QuizResults({ questions, answers, saScores, status, marked, onRestart, isRetry, guide, timing, pace, spent }: {
   guide: { title: string; subject: string; gradeLevel?: string }
+  /** Set when the run was timed. */
+  timing?: TimingSummary
+  pace?: number
+  spent?: Record<string, number>
   questions: Question[]
   answers: Record<string, string>
   saScores: Record<string, ShortAnswerScore>
@@ -726,6 +816,16 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
           <div className="flex-1 text-center sm:text-left">
             <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry result' : 'Your result'}</p>
             <p className={cn(fontDisplay, 'mt-1 text-2xl font-semibold text-slate-900')}>{message}</p>
+            {timing && (
+              <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+                <Timer className="h-4 w-4 text-slate-400" />
+                <span><span className="font-semibold tabular-nums text-slate-900">{formatClock(timing.used)}</span> of {formatClock(timing.budget)}</span>
+                {timing.over > 0
+                  ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">{formatClock(timing.over)} over the test&apos;s time</span>
+                  : <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">on time</span>}
+                {timing.slow.length > 0 && <span>{timing.slow.length === 1 ? '1 question' : `${timing.slow.length} questions`} ran slow</span>}
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
               {missed.length > 0 && (
                 <Button onClick={() => onRestart(missed.map((q) => q.id))} className="bg-purple-600 text-white hover:bg-purple-700">
@@ -785,8 +885,17 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                     {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
                   </span>
                   <div className="min-w-0 flex-1 text-sm">
-                    {marked.has(q.id) && (
-                      <p className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><Flag className="h-3 w-3 fill-amber-400 text-amber-600" /> You marked this one</p>
+                    {(marked.has(q.id) || (timing && pace && spent?.[q.id] !== undefined)) && (
+                      <div className="mb-1 flex flex-wrap gap-1.5">
+                        {marked.has(q.id) && (
+                          <p className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><Flag className="h-3 w-3 fill-amber-400 text-amber-600" /> You marked this one</p>
+                        )}
+                        {timing && pace && spent?.[q.id] !== undefined && (
+                          <p className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums', paceVerdict(spent[q.id], pace) === 'slow' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600')}>
+                            <Timer className="h-3 w-3" /> {formatClock(spent[q.id])}{paceVerdict(spent[q.id], pace) === 'slow' && ` · the test gives ${formatPace(pace)}`}
+                          </p>
+                        )}
+                      </div>
                     )}
                     <p className="mb-1.5 font-medium text-slate-900">{i + 1}. <QuestionStem text={q.question} passage={ok ? undefined : q.passage} listClassName="text-sm" /></p>
                     {q.figure && !ok && <div className="max-w-sm"><GraphFence text={q.figure} compact /></div>}

@@ -49,10 +49,17 @@ describe('cleanQuizRun', () => {
     expect(run).toEqual({
       mode: 'test', index: 1, answers: { q1: 'A' }, checked: { q1: true }, hinted: { q1: true },
       saScores: { q3: { score: 1, feedback: 'ok', isCorrect: true } }, marked: ['q2'], subset: null,
+      timed: false, elapsed: 0, spent: {},
     })
   })
   it('defaults to practice mode', () => {
     expect(cleanQuizRun({ index: 0, answers: { q1: 'A' } }, ids)?.mode).toBe('practice')
+  })
+  it('keeps the timer', () => {
+    const run = cleanQuizRun({ index: 0, answers: { q1: 'A' }, timed: true, elapsed: 61.5, spent: { q1: 40, q9: 3, q2: -1 } }, ids)
+    expect(run?.timed).toBe(true)
+    expect(run?.elapsed).toBe(61.5)
+    expect(run?.spent).toEqual({ q1: 40 })
   })
   it('has nothing to resume when untouched', () => {
     expect(cleanQuizRun({ index: 0, answers: {}, marked: [] }, ids)).toBeNull()

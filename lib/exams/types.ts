@@ -40,4 +40,6 @@ export interface ExamProfile {
   difficulty: { standard: string; hard: string; easier: string }
   /** The test's score range for one section, to read "I got a 630" in a request. */
   scoreRange?: { min: number; max: number }
+  /** Seconds per multiple-choice item on the real test (its time limit over its item count), for the quiz timer. */
+  pace?: number
 }

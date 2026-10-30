@@ -7,6 +7,7 @@ import type { ExamProfile } from './types'
 
 export const SAT_RW: ExamProfile = {
   id: 'sat-rw',
+  pace: 71,
   name: 'the digital SAT Reading and Writing section',
   detect: {
     exam: /\b(?:digital\s+)?(?:p?sat|psat\s*(?:nmsqt|10|8\/9)?)\b/i,

@@ -7,6 +7,7 @@ import { AP_HISTORY_DIFFICULTY, AP_HISTORY_ITEM_RULES } from './ap-history'
 
 export const AP_USH: ExamProfile = {
   id: 'ap-ush',
+  pace: 60,
   name: 'the AP United States History exam',
   detect: {
     exam: /\b(?:APUSH|AP\s+(?:US|U\.S\.|United States|American)\s+History)\b/i,

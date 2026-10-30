@@ -7,6 +7,7 @@ import { ACT_NAME } from './act-name'
 
 export const ACT_MATH: ExamProfile = {
   id: 'act-math',
+  pace: 67,
   name: 'the ACT Math section',
   detect: {
     exam: ACT_NAME,
