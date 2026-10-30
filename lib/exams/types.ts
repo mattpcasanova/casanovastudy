@@ -38,8 +38,8 @@ export interface ExamProfile {
   domains: ExamDomain[]
   /** What each difficulty setting means on this test. */
   difficulty: { standard: string; hard: string; easier: string }
-  /** The test's score range for one section, to read "I got a 630" in a request. */
-  scoreRange?: { min: number; max: number }
+  /** The test's score range for one section, to read "I got a 630" in a request. `step` = the scale's granularity (10 for SAT and GMAT totals, 1 for GRE, LSAT, MCAT and ACT); default 10 for three-digit scales, 1 for smaller ones. */
+  scoreRange?: { min: number; max: number; step?: number }
   /** Seconds per multiple-choice item on the real test (its time limit over its item count), for the quiz timer. */
   pace?: number
 }

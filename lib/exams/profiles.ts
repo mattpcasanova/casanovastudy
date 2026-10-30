@@ -52,8 +52,21 @@ import { AICE_BIOLOGY } from './aice-biology'
 import { AICE_CHEMISTRY } from './aice-chemistry'
 import { AICE_PSYCHOLOGY } from './aice-psychology'
 import { AICE_SOCIOLOGY } from './aice-sociology'
+import { AICE_ENGLISH_LANGUAGE } from './aice-english-language'
+import { AICE_LITERATURE } from './aice-literature'
+import { AICE_GLOBAL_PERSPECTIVES } from './aice-global-perspectives'
+import { AICE_MATHEMATICS } from './aice-mathematics'
+import { AICE_BUSINESS } from './aice-business'
+import { AICE_ECONOMICS } from './aice-economics'
+import { AICE_US_HISTORY } from './aice-us-history'
+import { AICE_EUROPEAN_HISTORY } from './aice-european-history'
+import { GRE_QUANT } from './gre-quant'
+import { GRE_VERBAL } from './gre-verbal'
+import { GMAT } from './gmat'
+import { LSAT } from './lsat'
+import { MCAT } from './mcat'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV, AP_LIT, AP_EURO, AP_HUMAN_GEO, AP_PSYCHOLOGY, AP_MICRO, AP_MACRO, AP_ENVIRONMENTAL, AP_PHYSICS_2, AP_PHYSICS_C, AP_CSA, AP_COMP_GOV, AP_PRECALC, FL_FAST_ELA, FL_FAST_MATH, FL_ALGEBRA1_EOC, FL_GEOMETRY_EOC, FL_BIOLOGY_EOC, FL_CIVICS_EOC, FL_USHISTORY_EOC, AICE_GENERAL_PAPER, AICE_THINKING_SKILLS, AICE_MARINE_SCIENCE, AICE_ENVIRONMENTAL_MANAGEMENT, AICE_BIOLOGY, AICE_CHEMISTRY, AICE_PSYCHOLOGY, AICE_SOCIOLOGY]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV, AP_LIT, AP_EURO, AP_HUMAN_GEO, AP_PSYCHOLOGY, AP_MICRO, AP_MACRO, AP_ENVIRONMENTAL, AP_PHYSICS_2, AP_PHYSICS_C, AP_CSA, AP_COMP_GOV, AP_PRECALC, FL_FAST_ELA, FL_FAST_MATH, FL_ALGEBRA1_EOC, FL_GEOMETRY_EOC, FL_BIOLOGY_EOC, FL_CIVICS_EOC, FL_USHISTORY_EOC, AICE_GENERAL_PAPER, AICE_THINKING_SKILLS, AICE_MARINE_SCIENCE, AICE_ENVIRONMENTAL_MANAGEMENT, AICE_BIOLOGY, AICE_CHEMISTRY, AICE_PSYCHOLOGY, AICE_SOCIOLOGY, AICE_ENGLISH_LANGUAGE, AICE_LITERATURE, AICE_GLOBAL_PERSPECTIVES, AICE_MATHEMATICS, AICE_BUSINESS, AICE_ECONOMICS, AICE_US_HISTORY, AICE_EUROPEAN_HISTORY, GRE_QUANT, GRE_VERBAL, GMAT, LSAT, MCAT]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
@@ -67,13 +80,14 @@ export interface ExamMatch {
 }
 
 /** "I got a 630", "scored 650", "from 630 to 800", "going for a 750", "aiming for 700+"; on a 1-36 test, "I got a 24". */
-export function readScores(text: string, range: { min: number; max: number }): { current?: number; target?: number } | undefined {
+export function readScores(text: string, range: { min: number; max: number; step?: number }): { current?: number; target?: number } | undefined {
   const small = range.max < 100
-  const inRange = (n: number) => n >= range.min && n <= range.max && (small || n % 10 === 0)
+  const step = range.step ?? (small ? 1 : 10)
+  const inRange = (n: number) => n >= range.min && n <= range.max && (n - range.min) % step === 0
   const num = (m: RegExpMatchArray | null) => { const n = m ? Number(m[1]) : NaN; return inRange(n) ? n : undefined }
   const d = small ? '(\\d{1,2})' : '(\\d{3})'
   const current = num(text.match(new RegExp(`\\b(?:got|scored|score(?:d)?\\s+(?:of|was|is)|have|had|at|currently|from|last time\\D{0,20})\\s*(?:a|an)?\\s*${d}\\b`, 'i')))
-    ?? num(text.match(new RegExp(`\\b${d}\\s*(?:on|in)\\s+(?:my|the)\\s+(?:last|first|practice|real)?\\s*(?:sat|psat|act|test)`, 'i')))
+    ?? num(text.match(new RegExp(`\\b${d}\\s*(?:on|in)\\s+(?:my|the)\\s+(?:last|first|practice|real)?\\s*(?:sat|psat|act|gre|gmat|lsat|mcat|test)`, 'i')))
   const target = num(text.match(new RegExp(`\\b(?:to|toward|towards|reach|hit|get to|aiming for|aim for|going for|goal(?: of| is)?|want(?:ed)?(?: to get)?|up to|target(?:ing)?)\\s*(?:a|an|as close to)?\\s*${d}\\b`, 'i')))
   if (!current && !target) return undefined
   return { ...(current ? { current } : {}), ...(target && target !== current ? { target } : {}) }

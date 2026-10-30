@@ -1,4 +1,10 @@
-const FIVE_OPTIONS = new Set(['ap-statistics', 'ap-lang', 'ap-lit', 'ap-microeconomics', 'ap-macroeconomics', 'aice-thinking-skills'])
+// Option counts a profile's multiple-choice exemplars may have (the real test's format); four otherwise.
+const OPTION_COUNTS: Record<string, number[]> = {
+  'ap-statistics': [5], 'ap-lang': [5], 'ap-lit': [5], 'ap-microeconomics': [5], 'ap-macroeconomics': [5],
+  'aice-thinking-skills': [5], 'gmat': [5], 'lsat': [5],
+  // GRE quantitative comparison has four fixed options, problem solving five; verbal blanks have three, the rest five.
+  'gre-quant': [4, 5], 'gre-verbal': [3, 5],
+}
 
 import { describe, it, expect } from 'vitest'
 import { detectExam, examInstructions, readScores } from './profiles'
@@ -104,6 +110,27 @@ describe('detectExam', () => {
     expect(detectExam('AICE Psychology core studies', 'science')?.profile.id).toBe('aice-psychology')
     expect(detectExam('AP Psych memory', 'science')?.profile.id).toBe('ap-psychology')
     expect(detectExam('AICE Sociology the family', 'history')?.profile.id).toBe('aice-sociology')
+    expect(detectExam('AICE English Language transcripts', 'english')?.profile.id).toBe('aice-english-language')
+    expect(detectExam('AP English Language', 'english')?.profile.id).toBe('ap-lang')
+    expect(detectExam('Cambridge A Level Literature in English poetry', 'english')?.profile.id).toBe('aice-literature')
+    expect(detectExam('AICE Global Perspectives essay', null)?.profile.id).toBe('aice-global-perspectives')
+    expect(detectExam('AICE GP essay', 'english')?.profile.id).toBe('aice-general-paper')
+    expect(detectExam('A Level Maths mechanics pulleys', 'mathematics')?.profile.id).toBe('aice-mathematics')
+    expect(detectExam('SAT Math', 'mathematics')?.profile.id).toBe('sat-math')
+    expect(detectExam('AICE Business finance ratios', 'business')?.profile.id).toBe('aice-business')
+    expect(detectExam('AICE Economics elasticity', 'business')?.profile.id).toBe('aice-economics')
+    expect(detectExam('AP Micro elasticity', 'business')?.profile.id).toBe('ap-microeconomics')
+    expect(detectExam('AICE US History paper 1', 'history')?.profile.id).toBe('aice-us-history')
+    expect(detectExam('AICE European History Holocaust', 'history')?.profile.id).toBe('aice-european-history')
+    expect(detectExam('AP Euro unit 3', 'history')?.profile.id).toBe('ap-euro')
+  })
+  it('graduate admissions tests by name, in capitals', () => {
+    expect(detectExam('GRE quant: I got a 158 and want a 165', 'mathematics')).toMatchObject({ profile: { id: 'gre-quant' }, score: { current: 158, target: 165 } })
+    expect(detectExam('GRE verbal text completion', 'english')?.profile.id).toBe('gre-verbal')
+    expect(detectExam('I agree with the gre', 'english')).toBeNull()
+    expect(detectExam('GMAT data sufficiency', 'business')?.profile.id).toBe('gmat')
+    expect(detectExam('LSAT logical reasoning, scored 163 last time', 'english')).toMatchObject({ profile: { id: 'lsat' }, score: { current: 163 } })
+    expect(detectExam('MCAT CARS practice', 'science')?.profile.id).toBe('mcat')
     expect(detectExam('AP Literature poetry', 'english')?.profile.id).toBe('ap-lit')
   })
   it('the section named outright wins over the picked subject', () => {
@@ -123,6 +150,12 @@ describe('detectExam', () => {
 })
 
 describe('readScores', () => {
+  it('reads one-point scales like the GRE and LSAT, and ten-point totals like the GMAT', () => {
+    expect(readScores('I got a 158 on the GRE quant and want a 165', { min: 130, max: 170, step: 1 })).toEqual({ current: 158, target: 165 })
+    expect(readScores('scored 163 last time, aiming for 170', { min: 120, max: 180, step: 1 })).toEqual({ current: 163, target: 170 })
+    expect(readScores('I got a 158', { min: 205, max: 805, step: 10 })).toBeUndefined()
+    expect(readScores('from 545 to 645 on the GMAT', { min: 205, max: 805, step: 10 })).toEqual({ current: 545, target: 645 })
+  })
   const r = { min: 200, max: 800 }
   it('reads the current score and the target', () => {
     expect(readScores('Help me study for the math portion of the SAT. I got a 630 last time.', r)).toEqual({ current: 630 })
@@ -175,7 +208,7 @@ describe('examInstructions', () => {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
         if (q.type === 'mc') {
-          expect(q.options, e.slice(0, 40)).toHaveLength(FIVE_OPTIONS.has(p.id) ? 5 : 4)
+          expect(OPTION_COUNTS[p.id] ?? [4], `${p.id}: ${e.slice(0, 40)}`).toContain(q.options.length)
           expect(q.options).toContain(q.correctAnswer)
           if (e.includes('```passage')) expect(q.passage, e.slice(0, 40)).toBeTruthy()
         } else if (q.type === 'num') {
