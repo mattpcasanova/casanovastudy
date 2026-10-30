@@ -28,6 +28,9 @@
     "app/api/inbound/scan/route.ts": {
       "maxDuration": 300,
       "memory": 2048
+    },
+    "app/api/cron/retention/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -46,6 +49,10 @@
     {
       "path": "/api/cron/practice-due",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/retention",
+      "schedule": "0 8 * * *"
     }
   ]
 }

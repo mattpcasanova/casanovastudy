@@ -83,7 +83,19 @@ const sections: LegalSection[] = [
   },
   {
     id: "retention", title: "How long we keep it",
-    body: <p>We keep your information while your account is open. When you delete your account, we delete your profile, study guides, answers, progress and gradings you made. Copies in routine backups expire on their normal schedule. Uploaded files are stored with our file host; email {EMAIL} if you want specific files removed sooner.</p>,
+    body: <>
+      <p>We keep information only as long as it is needed for the purpose it was collected for. These are the periods, and a daily job enforces them:</p>
+      <ul>
+        <li><strong>Photos and files you upload to make a guide:</strong> read once while the guide is written and deleted within 24 hours. The guide itself stays in your account.</li>
+        <li><strong>Scans of exam pages a teacher uploads for grading:</strong> kept for one school year (365 days) so the teacher can check or regrade a paper, then deleted. The marks and feedback stay with the teacher&apos;s report.</li>
+        <li><strong>Scans waiting in a teacher&apos;s scanner inbox or sent from a phone:</strong> deleted 30 days after they arrive.</li>
+        <li><strong>What a student asked the help tutor on assigned work, and focus-mode records:</strong> kept for one year for the teacher, then deleted.</li>
+        <li><strong>Study guides, answers, progress and graded reports:</strong> kept while the account is open, so students and teachers can look back at them.</li>
+        <li><strong>Error reports:</strong> stripped of email addresses and ids before they are stored, and deleted after 30 days.</li>
+        <li><strong>Accounts nobody has used for two years:</strong> we email a warning 30 days ahead, and if the account is still not used we delete it and everything in it.</li>
+      </ul>
+      <p>When you delete your account, we delete your profile, study guides, uploaded files, answers, progress and gradings you made at once. Copies in routine database backups expire within 30 days. Email {EMAIL} if you want specific files removed sooner.</p>
+    </>,
   },
   {
     id: "security", title: "Security",

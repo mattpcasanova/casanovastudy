@@ -30,7 +30,7 @@ const DATA: { icon: LucideIcon; title: string; body: ReactNode }[] = [
   { icon: FileLock2, title: "AI that doesn't train on student work", body: "Guides, explanations and grading use Anthropic's business API. Under its commercial terms, content sent to it is not used to train models." },
   { icon: UserCheck, title: "FERPA and COPPA", body: "With schools we act under the school's direction, using student information only to provide the service. Students under 13 need a parent's approval, or the school's when it provides the app for classroom use." },
   { icon: KeyRound, title: "School sign-in", body: "Students and teachers can sign in with their school Google account, so there are no new passwords to manage." },
-  { icon: Trash2, title: "Export and deletion", body: "Students can download or delete their own data at any time from their account. Schools can ask us to delete their students' data." },
+  { icon: Trash2, title: "Retention, export and deletion", body: "Upload photos are deleted within a day, exam scans after one school year, and unused accounts after two years. Students can download or delete their own data at any time from their account. Schools can ask us to delete their students' data." },
   { icon: BookOpenCheck, title: "Data we collect, and who processes it", body: <>Name, email, birth date (students), what they study and how they answer, and work teachers upload for grading. It is processed by Supabase, Vercel, Anthropic and Resend, only to run the service. The full list is in our <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">Privacy Policy</Link>.</> },
 ]
 

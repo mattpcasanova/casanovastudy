@@ -350,3 +350,36 @@ export function errorDigestEmail(e: { groups: Array<{ message: string; source: s
     text: [`${e.total} errors in the last ${e.hours} hours.`, '', ...e.groups.slice(0, 15).map((g) => `- ${g.message} (${g.count}x, ${g.users} users, ${g.source}) ${g.paths.join(', ')}`)].join('\n'),
   }
 }
+
+/** Inactive-account notice (lib/retention/run.ts): the account hasn't been used in about two years and will be deleted unless they sign in. */
+export function inactiveAccountEmail(e: { firstName: string | null; deleteOn: string; link: string; siteUrl: string }): Mail {
+  const hi = e.firstName ? `Hi ${escapeHtml(e.firstName)}, i` : 'I'
+  const body = [
+    heading('Your Casanova Study account will be deleted soon'),
+    paragraph(`${hi}t has been about two years since this account was last used. We only keep information as long as it is needed, so on <strong>${escapeHtml(e.deleteOn)}</strong> we will delete the account, including its study guides, answers and progress.`),
+    paragraph('To keep it, just sign in before then. Nothing else to do.'),
+    button(e.link, 'Keep my account'),
+    '<div style="height:24px;line-height:24px;">&nbsp;</div>',
+    paragraph('If you would rather it be deleted, ignore this email. You can also download a copy of your data from Account &amp; privacy after signing in.', { muted: true, small: true }),
+    linkFallback(e.link),
+  ].join('\n')
+  return {
+    subject: `Your Casanova Study account will be deleted on ${e.deleteOn}`,
+    html: emailLayout({
+      preheader: 'Sign in to keep it. Otherwise it goes away with everything in it.',
+      body,
+      footer: "You got this because this address has a Casanova Study account that hasn't been used in about two years.",
+      siteUrl: e.siteUrl,
+    }),
+    text: [
+      `Your Casanova Study account will be deleted on ${e.deleteOn}.`,
+      '',
+      'It has been about two years since this account was last used. To keep it, sign in before then:',
+      e.link,
+      '',
+      'If you would rather it be deleted, ignore this email.',
+      '',
+      'Casanova Study',
+    ].join('\n'),
+  }
+}
