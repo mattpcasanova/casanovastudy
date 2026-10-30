@@ -4,7 +4,7 @@
 // missed"). Stored in sessionStorage — not the URL — and consumed once.
 
 export interface GuidePrefill {
-  source: 'missed-quiz' | 'weak-spots' | 'adaptive-next' | 'class-area' | 'from-guide'
+  source: 'missed-quiz' | 'weak-spots' | 'adaptive-next' | 'class-area' | 'from-guide' | 'class-material'
   sourceTitle: string
   studyRequest: string
   studyGuideName: string
@@ -16,6 +16,8 @@ export interface GuidePrefill {
   difficultyLevel?: 'easier' | 'standard' | 'hard'
   /** "Make another format": the existing guide used as the source material. */
   sourceGuide?: { id: string; title: string; format: string }
+  /** Class materials (slides/notes on the student's class) to build from. */
+  classMaterials?: Array<{ id: string; name: string }>
   /** Goes in "Extra instructions" (e.g. the student's "anything to change?"). */
   additionalInstructions?: string
   /** Guide language (GuideLanguage) to keep, e.g. a Spanish guide's next guide. */

@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { BookOpen, ChevronDown, ClipboardCheck, FileCheck, Loader2, Plus, Users } from "lucide-react"
+import { BookOpen, ChevronDown, ClipboardCheck, FileCheck, Loader2, Plus, Presentation, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -15,7 +15,7 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
-import { AssignmentRow, MissingTestRow, ReportRow, SharedGuideRow, useClasswork } from "@/components/student/classwork"
+import { AssignmentRow, MaterialRow, MissingTestRow, ReportRow, SharedGuideRow, useClasswork } from "@/components/student/classwork"
 import { openWork } from "@/lib/student/classwork-rules"
 
 export default function MyClassPage() {
@@ -50,6 +50,9 @@ function MyClass() {
   const done = assignments.filter((a) => a.status === "done" || a.status === "late")
   const shared = data ? inClass(data.shared ?? []) : []
   const reports = data ? inClass(data.reports) : []
+  // One row per file, even when it's on two of their classes.
+  const materials = data ? inClass(data.materials ?? []).filter((m, i, list) => list.findIndex((x) => x.materialId === m.materialId) === i) : []
+  const teacherOf = (classId: string) => data?.classes.find((c) => c.id === classId)?.teacherName ?? null
   const chosen = data?.classes.find((c) => c.id === only)
 
   return (
@@ -124,6 +127,16 @@ function MyClass() {
                   <h2 className="mb-3 flex items-center gap-2 font-semibold text-slate-900"><BookOpen className="h-5 w-5 text-blue-700" />From your teacher</h2>
                   <ul className="space-y-2">
                     {shared.map((g) => <li key={g.id}><SharedGuideRow g={g} className={many ? classNameOf(g.classId) : null} /></li>)}
+                  </ul>
+                </section>
+              )}
+
+              {materials.length > 0 && (
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="flex items-center gap-2 font-semibold text-slate-900"><Presentation className="h-5 w-5 text-orange-700" />Class materials</h2>
+                  <p className="mb-3 mt-1 text-sm text-slate-600">Your teacher&apos;s slides and notes. Pick one to make a study guide from it, no downloading needed.</p>
+                  <ul className="space-y-2">
+                    {materials.map((m) => <li key={m.id}><MaterialRow m={m} className={many ? classNameOf(m.classId) : null} teacherName={teacherOf(m.classId)} /></li>)}
                   </ul>
                 </section>
               )}

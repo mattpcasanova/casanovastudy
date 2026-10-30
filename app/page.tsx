@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import UploadPageRedesigned from "@/components/upload-page-redesigned"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
@@ -17,7 +17,17 @@ import { usePlan } from "@/components/plan/plan-provider"
 import { useAuth } from "@/lib/auth"
 
 export default function Home() {
+  // useSearchParams needs a Suspense boundary for the static build.
+  return (
+    <Suspense fallback={null}>
+      <HomePage />
+    </Suspense>
+  )
+}
+
+function HomePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
@@ -31,8 +41,11 @@ export default function Home() {
   const [toTeacherHome, setToTeacherHome] = useState(false)
   // The query as the page opened: the form clears it (history.replaceState)
   // when it reads a prefill, which used to bounce teachers to /teach mid-build.
+  // From the router, not window.location: on a client navigation (New Guide
+  // from /teach) the page can render before the address bar changes, and the
+  // old empty query sent teachers straight back to /teach.
   const openedWith = useRef<string | null>(null)
-  if (openedWith.current === null && typeof window !== 'undefined') openedWith.current = window.location.search
+  if (openedWith.current === null) openedWith.current = searchParams.toString()
   useEffect(() => {
     if (user?.user_type !== 'teacher' || openedWith.current) return
     setToTeacherHome(true)
@@ -84,6 +97,7 @@ export default function Home() {
         planId: data.planId,
         planUnit: data.planUnit,
         sourceGuideId: data.sourceGuideId,
+        classMaterialIds: data.classMaterialIds?.length ? data.classMaterialIds : undefined,
         language: data.language,
         visuals: data.visuals,
         codeEditor: data.codeEditor,

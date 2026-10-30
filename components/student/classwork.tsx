@@ -6,18 +6,21 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, BookOpen, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowRight, BookOpen, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck, FileText, Presentation } from "lucide-react"
+import { openHomeWithPrefill } from "@/lib/prefill"
+import { materialTitle } from "@/lib/classes/materials"
 import { useAuth } from "@/lib/auth"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { lateLabel } from "@/lib/grading/late"
 import { dueLabel, homeStrip, isOpenWork, type MissingTest } from "@/lib/student/classwork-rules"
-import type { StudentClass, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
+import type { StudentClass, StudentMaterial, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
 
-export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[] }
+export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[]; materials?: StudentMaterial[] }
 
-const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0 || (d.shared?.length ?? 0) > 0
+const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0 || (d.shared?.length ?? 0) > 0 || (d.materials?.length ?? 0) > 0
 const flagKey = (userId: string) => `cs:classwork:${userId}`
 
 /** Forget the cached "in a class" answer (after joining a class). */
@@ -34,11 +37,11 @@ function remember(userId: string, d: Classwork) {
 const dataKey = (userId: string) => `cs:classwork-data:${userId}`
 
 /** The student's classwork. Null while loading; students only. The last copy this tab saw shows at once, then refreshes. */
-export function useClasswork(): Classwork | null {
+export function useClasswork(skip = false): Classwork | null {
   const { user } = useAuth()
   const [data, setData] = useState<Classwork | null>(null)
   useEffect(() => {
-    if (!user || user.user_type === "teacher") return
+    if (skip || !user || user.user_type === "teacher") return
     try {
       const cached = sessionStorage.getItem(dataKey(user.id))
       if (cached) setData(JSON.parse(cached) as Classwork)
@@ -53,7 +56,7 @@ export function useClasswork(): Classwork | null {
       setData(json)
     })()
     return () => { live = false }
-  }, [user])
+  }, [user, skip])
   return data
 }
 
@@ -171,8 +174,9 @@ export function MissingTestRow({ t, className }: { t: MissingTest; className?: s
 }
 
 /** Top of the guide maker for students in a class: what's due next and new reports. */
-export function ClassworkStrip() {
-  const data = useClasswork()
+export function ClassworkStrip({ data: given }: { data?: Classwork | null } = {}) {
+  const own = useClasswork(given !== undefined)
+  const data = given !== undefined ? given : own
   if (!data) return null
   const { next, moreOpen, openCount, newReports, newShared } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [], data.shared ?? [])
   if (!next.length && !newReports.length && !newShared.length) return null
@@ -249,5 +253,39 @@ export function SharedGuideRow({ g, className }: { g: StudentSharedGuide; classN
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-600" />
     </Link>
+  )
+}
+
+/** The homepage, filled in to build a guide from one of the class's materials (the student picks the format). */
+export function materialPrefillHref(m: StudentMaterial, teacherName?: string | null): string {
+  const title = materialTitle(m.name)
+  return openHomeWithPrefill({
+    source: "class-material",
+    sourceTitle: teacherName || "your teacher",
+    studyRequest: "",
+    studyGuideName: title,
+    format: "",
+    detail: title,
+    classMaterials: [{ id: m.materialId, name: m.name }],
+    autoStart: false,
+  })
+}
+
+/** Slides or notes the teacher put on the class, on My Classes: the whole card makes a guide from it. */
+export function MaterialRow({ m, className, teacherName }: { m: StudentMaterial; className?: string | null; teacherName?: string | null }) {
+  const router = useRouter()
+  const Icon = m.kind === "slides" ? Presentation : FileText
+  return (
+    <button type="button" onClick={() => router.push(materialPrefillHref(m, teacherName))} className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/40">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-700"><Icon className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{materialTitle(m.name)}</span>
+        <span className="block truncate text-xs text-slate-500">{[className, m.note].filter(Boolean).join(" · ") || "From your teacher"}</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-700">
+        <span className="hidden sm:inline">Make a guide from this</span><span className="sm:hidden">Make a guide</span>
+        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+      </span>
+    </button>
   )
 }

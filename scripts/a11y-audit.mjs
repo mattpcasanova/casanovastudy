@@ -95,6 +95,8 @@ async function seed() {
   const sean = roster.find((r) => r.firstName === 'Sean')
   const assigned = await t('POST', '/api/practice-assignments', { guideId: quizId, classId: cls.id, rosterIds: roster.map((r) => r.id), maxAttempts: 2 })
   const a = assigned.json?.assignment
+  // Class materials (migration 080): one deck on the class, for the class page, My Classes and the homepage picker.
+  await t('POST', '/api/class-materials', { name: 'Unit 4 Cell Transport.pptx', content: 'Slide 1\nDiffusion moves particles from high to low concentration.', classIds: [cls.id], note: 'Review before Friday' })
   return { teacher, student, cls, results, quizId, practiceId, adaptiveId, flashId, outlineId, sean, assignment: a }
 }
 

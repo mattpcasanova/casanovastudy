@@ -43,6 +43,7 @@ import {
   BookOpen,
   ScanText,
   Layers,
+  Presentation,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -70,7 +71,10 @@ import { PremiumBadge, PremiumMark } from "@/components/plan/premium-mark"
 import { UPLOAD_ACCEPT, UPLOAD_HINT, UPLOAD_LIMITS, legacyHelp, uploadKind } from "@/lib/uploads/kinds"
 import VisualsInfo from "@/components/visuals-info"
 import CodeEditorInfo from "@/components/code-editor-info"
-import { ClassworkStrip } from "@/components/student/classwork"
+import { ClassworkStrip, useClasswork } from "@/components/student/classwork"
+import { ClassMaterialPicker, useTeacherMaterials, type PickedMaterial } from "@/components/student/class-material-picker"
+import { DrivePickButton } from "@/components/drive-pick-button"
+import { materialTitle } from "@/lib/classes/materials"
 import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
@@ -357,12 +361,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   // Set when arriving from a study plan's "Create this guide" (/?plan=…&unit=…).
   // "Make another format" from a guide: its content is the source material.
   const [sourceGuide, setSourceGuide] = useState<{ id: string; title: string; format: string } | null>(null)
+  // Slides/notes the teacher put on the student's class (picked, never downloaded).
+  const [classMaterials, setClassMaterials] = useState<PickedMaterial[]>([])
   const [planLink, setPlanLink] = useState<{ planId: string; unitKey: string; planTitle: string; unitNumber: number; unitTitle: string } | null>(null)
   // Why the user landed here with things filled in (plan unit, missed-quiz
   // review, new account) — shown as a banner so it never looks like a plain reset.
   const [arrival, setArrival] = useState<Arrival | null>(null)
   const arrivalRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
+  const classwork = useClasswork()
+  const teacherMaterials = useTeacherMaterials()
   const { plan, isPremium, openPremium } = usePlan()
   const freeGuides = plan && !isPremium ? plan.usage.guide : null
   const freeGuidesLeft = freeGuides ? Math.max(0, freeGuides.limit - freeGuides.used) : null
@@ -389,14 +397,15 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (!p) return
     setStudyRequest(p.studyRequest)
     setStudyGuideName(p.studyGuideName)
-    setFormat(p.format as FormatValue)
+    setFormat((p.format || "") as FormatValue)
     if (p.subject && p.subject !== "general") setSubject(p.subject)
     if (p.gradeLevel && p.gradeLevel !== "general") setGradeLevel(p.gradeLevel)
     if (p.difficultyLevel) setDifficulty(p.difficultyLevel)
     if (p.sourceGuide) setSourceGuide(p.sourceGuide)
+    if (p.classMaterials?.length) setClassMaterials(p.classMaterials)
     if (p.language) setLanguageState(normalizeLanguage(p.language))
     if (p.additionalInstructions) { setAdditionalInstructions(p.additionalInstructions); setShowMore(true) }
-    setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : p.source === "class-area" ? "class" : p.source === "from-guide" ? "from" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
+    setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : p.source === "class-area" ? "class" : p.source === "from-guide" ? "from" : p.source === "class-material" ? "material" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
     if (p.autoStart !== false) setAutoStart(true)
   }, [])
 
@@ -579,18 +588,21 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     return <FileIcon className="h-4 w-4 text-slate-500" />
   }
 
-  const hasSource = files.length > 0 || studyRequest.trim().length >= 3 || !!sourceGuide
+  const hasSource = files.length > 0 || studyRequest.trim().length >= 3 || !!sourceGuide || classMaterials.length > 0
+  // Class materials are files too, as far as "only use what's in my files" goes.
+  const hasFiles = files.length > 0 || classMaterials.length > 0
+  const sourceNames = [...files.map((f) => f.name), ...classMaterials.map((m) => m.name)]
   // Only offer the visuals switch when this topic/format would actually get figures.
   const showVisualsSwitch = visualsRelevant({
     subject: subject && subject !== "general" ? subject : null,
-    text: [studyRequest, topicFocus, studyGuideName, ...files.map((f) => f.name)].join("\n"),
+    text: [studyRequest, topicFocus, studyGuideName, ...sourceNames].join("\n"),
     format: format || null,
   })
   // And the code editor switch only for programming topics in a runnable language.
   const showCodeEditorSwitch = codeEditorRelevant({
     subject: subject && subject !== "general" ? subject : null,
     goal,
-    text: [studyRequest, topicFocus, studyGuideName, ...files.map((f) => f.name)].join("\n"),
+    text: [studyRequest, topicFocus, studyGuideName, ...sourceNames].join("\n"),
     format: format || null,
   })
   const isFormValid = hasSource && !!format
@@ -619,7 +631,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     onGenerateStudyGuide({
       files,
       studyRequest: studyRequest.trim() || undefined,
-      studyGuideName: studyGuideName.trim() || deriveTitle(studyRequest, files),
+      studyGuideName: studyGuideName.trim() || (!studyRequest.trim() && !files.length && classMaterials[0] ? materialTitle(classMaterials[0].name) : deriveTitle(studyRequest, files)),
       autoTitle: !studyGuideName.trim(),
       subject: subject || "general",
       gradeLevel: gradeLevel || "general",
@@ -627,11 +639,12 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       topicFocus: topicFocus || undefined,
       goal: goal || undefined,
       // Quizzes and topic lists need teaching beyond the file itself.
-      sourcePolicy: files.length > 0 && strictSources && materialsKind !== "assessment" && materialsKind !== "topic_list" ? "strict" : "expand",
+      sourcePolicy: hasFiles && strictSources && materialsKind !== "assessment" && materialsKind !== "topic_list" ? "strict" : "expand",
       materialsKind: files.length > 0 ? materialsKind ?? undefined : undefined,
       planId: planLink && format !== "plan" ? planLink.planId : undefined,
       planUnit: planLink && format !== "plan" ? planLink.unitKey : undefined,
       sourceGuideId: sourceGuide?.id,
+      classMaterialIds: classMaterials.length ? classMaterials.map((m) => m.id) : undefined,
       language,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
@@ -648,8 +661,9 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (!isGenerating) handleSubmit()
   }, [autoStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sourceSummary = files.length > 0
-    ? `${files.length} file${files.length === 1 ? "" : "s"}${studyRequest.trim() ? " + your notes" : ""}`
+  const fileCount = files.length + classMaterials.length
+  const sourceSummary = fileCount > 0
+    ? `${fileCount} file${fileCount === 1 ? "" : "s"}${studyRequest.trim() ? " + your notes" : ""}`
     : studyRequest.trim() ? "your topic" : null
 
   return (
@@ -712,7 +726,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
 
       <div className="container relative mx-auto -mt-28 max-w-5xl px-4 pb-24">
         {/* Students in a class: what's due next, above the guide maker */}
-        {user && user.user_type !== "teacher" && !arrival && <ClassworkStrip />}
+        {user && user.user_type !== "teacher" && !arrival && <ClassworkStrip data={classwork} />}
 
         {/* 1 — Source */}
         <section
@@ -741,7 +755,12 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               formatLabel={formatLabel(format)}
               planLinked={!!planLink}
               onUnlinkPlan={() => setPlanLink(null)}
-              onCreate={handleSubmit}
+              onCreate={() => {
+                // A class material arrives with no format: take them to the format step first.
+                if (!format) return document.getElementById("pick-format")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                handleSubmit()
+              }}
+              createLabel={!format ? "Pick a format" : undefined}
               onEdit={() => {
                 document.getElementById("study-request")?.focus()
                 setArrival(null)
@@ -821,43 +840,31 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                 className="hidden"
                 disabled={isGenerating}
               />
-              {sourceGuide && (
-                <div className="mt-3 flex items-center gap-3 rounded-xl bg-blue-50 px-3 py-2.5 ring-1 ring-blue-200">
-                  <Layers className="h-5 w-5 shrink-0 text-blue-700" />
-                  <span className="min-w-0 flex-1 text-sm text-slate-700">
-                    <span className="block font-semibold text-slate-900">Using your guide</span>
-                    <span className="block truncate">{sourceGuide.title}</span>
-                  </span>
-                  <button type="button" onClick={() => setSourceGuide(null)} disabled={isGenerating} aria-label="Don't use this guide" className="rounded-lg p-1.5 text-slate-500 hover:bg-white hover:text-slate-700">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+              {user && (
+                <ClassMaterialPicker data={user.user_type === "teacher" ? teacherMaterials : classwork} mine={user.user_type === "teacher"} picked={classMaterials} onChange={setClassMaterials} disabled={isGenerating} hidePicked />
               )}
-              {files.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {files.map((file, index) => (
-                    <li key={`${file.name}-${index}`} className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-2 text-sm shadow-sm">
-                      {getFileIcon(file)}
-                      <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{file.name}</span>
-                      <span className="shrink-0 text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                      <button
-                        type="button"
-                        onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                        disabled={isGenerating}
-                        className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <DrivePickButton onFiles={handleFiles} disabled={isGenerating} />
             </div>
           </div>
 
+          {/* Everything attached, as one wrapping row under both boxes, so neither box grows with the list. */}
+          {(files.length > 0 || classMaterials.length > 0 || sourceGuide) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Attached materials">
+              <span className="text-sm font-medium text-slate-500">Attached:</span>
+              {sourceGuide && (
+                <AttachedChip icon={<Layers className="h-4 w-4 text-blue-700" />} tint="blue" label={sourceGuide.title} hint="your guide" onRemove={() => setSourceGuide(null)} removeLabel="Don't use this guide" disabled={isGenerating} />
+              )}
+              {classMaterials.map((m) => (
+                <AttachedChip key={m.id} icon={<Presentation className="h-4 w-4 text-orange-700" />} tint="orange" label={materialTitle(m.name)} hint={user?.user_type === "teacher" ? "class material" : "from your teacher"} onRemove={() => setClassMaterials((prev) => prev.filter((x) => x.id !== m.id))} removeLabel={`Don't use ${m.name}`} disabled={isGenerating} />
+              ))}
+              {files.map((file, index) => (
+                <AttachedChip key={`${file.name}-${index}`} icon={getFileIcon(file)} photo={uploadKind(file.name, file.type) === "image" || uploadKind(file.name, file.type) === "heic" ? file : undefined} tint="white" label={file.name} hint={`${(file.size / 1024 / 1024).toFixed(1)} MB`} onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== index))} removeLabel={`Remove ${file.name}`} disabled={isGenerating} />
+              ))}
+            </div>
+          )}
+
           {/* How the uploads are used */}
-          {files.length > 0 && (
+          {hasFiles && (
             materialsKind === "assessment" || materialsKind === "topic_list" ? (
               <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
                 <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -906,6 +913,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
 
         {/* 2 — Format */}
         <section className="mt-14">
+          <span id="pick-format" className="block scroll-mt-24" />
           <StepHeading n={2} title="Pick a format" />
           <AdaptiveCard
             on={format === "adaptive"}
@@ -1305,6 +1313,54 @@ function StepHeading({ n, title, hint }: { n: number; title: string; hint?: stri
   )
 }
 
+/**
+ * A small thumbnail of a photo the student attached, from the file itself (nothing is uploaded
+ * for it). Browsers that can't show the format (HEIC outside Safari) get the plain icon back.
+ */
+function PhotoThumb({ file, fallback }: { file: File; fallback: React.ReactNode }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const next = URL.createObjectURL(file)
+    setUrl(next)
+    setFailed(false)
+    return () => URL.revokeObjectURL(next)
+  }, [file])
+  if (!url || failed) return <span className="shrink-0">{fallback}</span>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="" onError={() => setFailed(true)} className="h-7 w-7 shrink-0 rounded-md object-cover ring-1 ring-slate-200" />
+}
+
+/** One attached thing (file, class material, source guide) in the row under the attach step. */
+function AttachedChip({ icon, photo, tint, label, hint, onRemove, removeLabel, disabled }: {
+  icon: React.ReactNode
+  /** A photo shows a thumbnail instead of the icon (IMG_4521.HEIC says nothing about which page it is). */
+  photo?: File
+  tint: "white" | "blue" | "orange"
+  label: string
+  hint?: string
+  onRemove: () => void
+  removeLabel: string
+  disabled?: boolean
+}) {
+  return (
+    <span
+      title={label}
+      className={cn(
+        "inline-flex h-9 max-w-full items-center gap-2 rounded-full py-1 pl-2.5 pr-1 text-sm ring-1 ring-inset",
+        tint === "blue" ? "bg-blue-50 ring-blue-200" : tint === "orange" ? "bg-orange-50 ring-orange-200" : "bg-white ring-slate-200 shadow-sm"
+      )}
+    >
+      {photo ? <PhotoThumb file={photo} fallback={icon} /> : <span className="shrink-0">{icon}</span>}
+      <span className="min-w-0 max-w-[14rem] truncate font-medium text-slate-800">{label}</span>
+      {hint && <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{hint}</span>}
+      <button type="button" onClick={onRemove} disabled={disabled} aria-label={removeLabel} className="rounded-full p-1 text-slate-500 transition hover:bg-white hover:text-rose-600">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  )
+}
+
 type Arrival =
   | { kind: "plan"; sourceTitle: string; detail: string }
   | { kind: "missed"; sourceTitle: string; detail: string }
@@ -1312,6 +1368,7 @@ type Arrival =
   | { kind: "next"; sourceTitle: string; detail: string }
   | { kind: "class"; sourceTitle: string; detail: string }
   | { kind: "from"; sourceTitle: string; detail: string }
+  | { kind: "material"; sourceTitle: string; detail: string }
   | { kind: "welcome" }
 
 const ARRIVAL_STYLE = {
@@ -1321,6 +1378,7 @@ const ARRIVAL_STYLE = {
   weak: { ring: "ring-amber-200", bg: "from-amber-50 to-white", iconBg: "bg-amber-500", eyebrow: "text-amber-700", button: "bg-amber-500 hover:bg-amber-600", Icon: Target },
   next: { ring: "ring-sky-200", bg: "from-sky-50 to-white", iconBg: "bg-sky-600", eyebrow: "text-sky-700", button: "bg-sky-600 hover:bg-sky-700", Icon: Target },
   from: { ring: "ring-blue-200", bg: "from-blue-50 to-white", iconBg: "bg-blue-600", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Layers },
+  material: { ring: "ring-orange-200", bg: "from-orange-50 to-white", iconBg: "bg-orange-700", eyebrow: "text-orange-700", button: "bg-blue-600 hover:bg-blue-700", Icon: Presentation },
   class: { ring: "ring-indigo-200", bg: "from-indigo-50 to-white", iconBg: "bg-indigo-600", eyebrow: "text-indigo-700", button: "bg-indigo-600 hover:bg-indigo-700", Icon: Target },
 } as const
 
@@ -1334,7 +1392,8 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
   onEdit: () => void
   onDismiss: () => void
   busy: boolean
-}>(function ArrivalBanner({ arrival, firstName, formatLabel, planLinked, onUnlinkPlan, onCreate, onEdit, onDismiss, busy }, ref) {
+  createLabel?: string
+}>(function ArrivalBanner({ arrival, firstName, formatLabel, planLinked, onUnlinkPlan, onCreate, onEdit, onDismiss, busy, createLabel }, ref) {
   const style = ARRIVAL_STYLE[arrival.kind]
   const Icon = style.Icon
 
@@ -1365,6 +1424,10 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
     eyebrow = "From one of your guides"
     title = <>{arrival.detail}</>
     body = <>Same material as <strong>{arrival.sourceTitle}</strong>, in a new format. Create it now, or change anything below first.</>
+  } else if (arrival.kind === "material") {
+    eyebrow = "From your class materials"
+    title = <>{arrival.detail}</>
+    body = <>Your guide will be built from {arrival.sourceTitle === "your teacher" ? "your teacher" : <strong>{arrival.sourceTitle}</strong>}&apos;s file, already attached below. Pick a format, then create it.</>
   } else if (arrival.kind === "weak") {
     eyebrow = "Your weak spots"
     title = <>A new quiz on {arrival.detail}</>
@@ -1396,7 +1459,7 @@ const ArrivalBanner = forwardRef<HTMLDivElement, {
                 disabled={busy}
                 className={cn("inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60", style.button)}
               >
-                <ArrowRight className="h-4 w-4" /> Create it now
+                <ArrowRight className="h-4 w-4" /> {createLabel ?? "Create it now"}
               </button>
               <button type="button" onClick={onEdit} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white">
                 Change something first

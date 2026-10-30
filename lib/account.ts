@@ -35,7 +35,7 @@ export async function deleteAccount(userId: string): Promise<void> {
 export async function exportAccount(userId: string): Promise<Record<string, unknown>> {
   const supabase = createAdminClient()
   const own = (table: string, column = 'user_id', select = '*') => supabase.from(table).select(select).eq(column, userId)
-  const [profile, guides, results, progress, plan, consent, gradings, gradedAsStudent, reminders, aiOnAssignments, focusOnAssignments] = await Promise.all([
+  const [profile, guides, results, progress, plan, consent, gradings, gradedAsStudent, reminders, aiOnAssignments, focusOnAssignments, classMaterials] = await Promise.all([
     own('user_profiles', 'id'),
     own('study_guides', 'user_id', 'id, title, subject, grade_level, format, topic_focus, difficulty_level, created_at, content, custom_content'),
     own('study_results'),
@@ -47,6 +47,7 @@ export async function exportAccount(userId: string): Promise<Record<string, unkn
     own('reminder_prefs'),
     own('assignment_ai_uses', 'student_user_id', 'assignment_id, kind, message, created_at'),
     own('assignment_focus_events', 'student_user_id', 'assignment_id, kind, at, seconds'),
+    own('teacher_materials', 'teacher_id', 'id, name, kind, content, created_at'),
   ])
   return {
     exported_at: new Date().toISOString(),
@@ -61,5 +62,6 @@ export async function exportAccount(userId: string): Promise<Record<string, unkn
     your_graded_work: gradedAsStudent.data ?? [],
     ai_questions_on_assigned_work: aiOnAssignments.data ?? [],
     focus_mode_log_on_assigned_work: focusOnAssignments.data ?? [],
+    class_materials_you_added: classMaterials.data ?? [],
   }
 }

@@ -65,6 +65,49 @@ export async function pickFiles(opts: { token: string; fileIds: string[]; folder
   })
 }
 
+// Files the guide maker can read (lib/uploads/kinds.ts), plus Google's own formats (exported as PDF).
+const STUDY_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.google-apps.presentation",
+  "application/vnd.google-apps.document",
+  "text/plain",
+  "image/jpeg", "image/png", "image/heic", "image/heif", "image/webp",
+].join(",")
+
+/**
+ * Opens the picker over the student's own Drive: files shared with them first
+ * (that's where Google Classroom materials land), then everything. Resolves
+ * with what they picked, or null if they closed it.
+ */
+export async function pickStudyFiles(opts: { token: string; max: number }): Promise<PickedFile[] | null> {
+  await loadPicker()
+  const picker = window.google.picker
+  const shared = new picker.DocsView(picker.ViewId.DOCS).setOwnedByMe(false).setMimeTypes(STUDY_MIME_TYPES).setMode(picker.DocsViewMode.LIST)
+  const all = new picker.DocsView(picker.ViewId.DOCS).setIncludeFolders(true).setMimeTypes(STUDY_MIME_TYPES).setMode(picker.DocsViewMode.LIST)
+  return new Promise((resolve) => {
+    new picker.PickerBuilder()
+      .enableFeature(picker.Feature.MULTISELECT_ENABLED)
+      .enableFeature(picker.Feature.SUPPORT_DRIVES)
+      .setMaxItems(opts.max)
+      .setOAuthToken(opts.token)
+      .setDeveloperKey(process.env.NEXT_PUBLIC_GOOGLE_API_KEY)
+      .setAppId(process.env.NEXT_PUBLIC_GOOGLE_APP_ID)
+      .setTitle("Pick your class files")
+      .addView(shared)
+      .addView(all)
+      .setCallback((data: any) => {
+        const action = data[picker.Response.ACTION]
+        if (action === picker.Action.PICKED) {
+          resolve((data[picker.Response.DOCUMENTS] ?? []).map((d: any) => ({ id: d[picker.Document.ID], name: d[picker.Document.NAME] ?? "file", mimeType: d[picker.Document.MIME_TYPE] ?? "" })))
+        } else if (action === picker.Action.CANCEL) resolve(null)
+      })
+      .build()
+      .setVisible(true)
+  })
+}
+
 const EXPORTS: Record<string, { mime: string; ext: string }> = {
   "application/vnd.google-apps.document": { mime: "application/pdf", ext: "pdf" },
   "application/vnd.google-apps.presentation": { mime: "application/pdf", ext: "pdf" },
@@ -93,5 +136,7 @@ function extFromMime(mime: string): string {
   if (mime.includes("heic") || mime.includes("heif")) return "heic"
   if (mime.includes("png")) return "png"
   if (mime.includes("wordprocessingml")) return "docx"
+  if (mime.includes("presentationml")) return "pptx"
+  if (mime.startsWith("text/")) return "txt"
   return "jpg"
 }

@@ -16,6 +16,7 @@ export interface StudentPractice {
   classId: string; status: string; daysLate: number; best: { pct: number; correct: number; total: number } | null
 }
 export interface StudentSharedGuide { id: string; guideId: string; title: string; format: string; note: string | null; classId: string; createdAt: string }
+export interface StudentMaterial { id: string; materialId: string; name: string; kind: string; note: string | null; classId: string; createdAt: string }
 export interface StudentReportRow {
   id: string; title: string; classId: string | null; className: string | null; teacherName: string | null
   marks: number; possible: number; pct: number; grade: string | null; createdAt: string; daysLate: number | null
@@ -46,6 +47,22 @@ export async function assignedPracticeFor(supabase: SupabaseClient, userId: stri
   }).sort((x, y) => (x.status === 'done' ? 1 : 0) - (y.status === 'done' ? 1 : 0) || (x.dueAt ?? '9').localeCompare(y.dueAt ?? '9'))
 }
 
+/** A class still counts for its students: not archived, and this school year (or no year set). */
+export const isOpenClass = (c: { is_archived: boolean | null; school_year: string | null }, year = schoolYearFor()) =>
+  !c.is_archived && (!c.school_year || c.school_year === year)
+
+/** Classes the student is in now: a roster name linked to them (not left) or an active code enrollment. */
+export async function studentClassIds(supabase: SupabaseClient, userId: string): Promise<string[]> {
+  const [{ data: rosterRows }, { data: enrollments }] = await Promise.all([
+    supabase.from('class_roster').select('class_id').eq('student_user_id', userId).is('left_at', null),
+    supabase.from('class_enrollments').select('class_id').eq('student_id', userId).eq('status', 'active'),
+  ])
+  const ids = [...new Set([...(rosterRows ?? []), ...(enrollments ?? [])].map((r) => r.class_id as string))]
+  if (!ids.length) return []
+  const { data: classRows } = await supabase.from('classes').select('id, is_archived, school_year').in('id', ids)
+  return (classRows ?? []).filter((c) => isOpenClass(c)).map((c) => c.id as string)
+}
+
 /** Everything for the student's My Classes page and homepage strip. */
 export async function loadClasswork(supabase: SupabaseClient, userId: string) {
   const [{ data: rosterRows }, { data: enrollments }, { data: reportRows }] = await Promise.all([
@@ -64,8 +81,7 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
     assignedPracticeFor(supabase, userId, roster.map((r) => r.id as string)),
   ])
   // This school year's classes only; reports from earlier years stay listed.
-  const year = schoolYearFor()
-  const classes = (classRows ?? []).filter((c) => !c.is_archived && (!c.school_year || c.school_year === year))
+  const classes = (classRows ?? []).filter((c) => isOpenClass(c))
   const teacherIds = [...new Set([...classes.map((c) => c.teacher_id as string), ...reports.map((r) => r.user_id as string)])]
   const { data: teachers } = teacherIds.length ? await supabase.from('user_profiles').select('id, first_name, last_name').in('id', teacherIds) : { data: [] }
   const teacherName = new Map((teachers ?? []).map((t) => [t.id as string, fullName(t)]))
@@ -111,9 +127,19 @@ export async function loadClasswork(supabase: SupabaseClient, userId: string) {
     return { id: r.id as string, guideId: r.study_guide_id as string, title: g?.title ?? 'Study guide', format: g?.format ?? '', note: r.note as string | null, classId: r.class_id as string, createdAt: r.created_at as string }
   })
 
+  // Slides and notes the teacher put on the class (names only; content stays server side).
+  const { data: materialRows } = classes.length
+    ? await supabase.from('class_material_links').select('id, class_id, material_id, note, created_at, teacher_materials(name, kind)').in('class_id', classes.map((c) => c.id)).order('created_at', { ascending: false }).limit(200)
+    : { data: [] }
+  const materials: StudentMaterial[] = (materialRows ?? []).map((r) => {
+    const m = (Array.isArray(r.teacher_materials) ? r.teacher_materials[0] : r.teacher_materials) as { name: string; kind: string } | null
+    return { id: r.id as string, materialId: r.material_id as string, name: m?.name ?? 'Class material', kind: m?.kind ?? 'other', note: r.note as string | null, classId: r.class_id as string, createdAt: r.created_at as string }
+  })
+
   const openIds = new Set(classes.map((c) => c.id))
   return {
     shared,
+    materials,
     classes: classes.map((c): StudentClass => ({ id: c.id, name: c.name, period: c.period, teacherName: teacherName.get(c.teacher_id) ?? null })),
     // Work from a class they've since left stays listed (it's still theirs).
     assignments: practice,

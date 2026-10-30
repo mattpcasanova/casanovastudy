@@ -23,6 +23,7 @@ const sections: LegalSection[] = [
         <li><strong>Focus mode on assigned practice:</strong> if a teacher turns on focus mode for an assignment, we record when you start, when you leave the page (switch tabs, apps or windows, or leave full screen) and for how long, and blocked copy or paste attempts, and show them to that teacher. You are told before you start. We don&apos;t see your screen, other apps or other devices.</li>
         <li><strong>Teachers&apos; grading:</strong> exams, answer keys and student names that teachers upload, and the grades and feedback produced.</li>
         <li><strong>Google Classroom (teachers who connect it):</strong> the teacher&apos;s course list, class rosters (student names and school emails), and, for an assignment the teacher picks, who turned it in and the files the teacher selects in Google&apos;s file picker. We only open files the teacher picks, never the rest of their Google Drive. Access lasts one hour and is not stored after that. Scanned work emailed to a teacher&apos;s grading address is kept for 30 days.</li>
+        <li><strong>Google Drive (anyone who picks a file from it):</strong> only the files you pick in Google&apos;s file picker, downloaded into your browser and read the same way as any file you upload. We can&apos;t see the rest of your Drive, and the access lasts one hour and is not stored.</li>
         <li><strong>Usage and device information:</strong> how many guides and explanations you use (to run fair-use limits), basic technical logs (including error reports: the page, the error message and your browser type, with names, emails and links removed, kept 30 days to fix problems), and privacy-friendly page analytics from our host that do not use advertising cookies.</li>
       </ul>
       <p>We use cookies and similar browser storage only to keep you signed in and to remember settings on your device (for example, your last calculator). We do not use advertising or cross-site tracking cookies.</p>
@@ -39,7 +40,7 @@ const sections: LegalSection[] = [
         <li>To improve Casanova Study, using totals and trends rather than individual profiles where possible.</li>
       </ul>
       <p><strong>We never</strong> show ads, sell or rent personal information, or use student information to build advertising profiles.</p>
-      <p>Information we receive from Google APIs is used only to provide the features the teacher asked for (importing a roster, grading uploaded work, sending scores back), follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-blue-700 underline">Google API Services User Data Policy</a> including its Limited Use requirements, is never used for advertising, and is never used to train AI models.</p>
+      <p>Information we receive from Google APIs is used only to provide the features you asked for (importing a roster, grading uploaded work, sending scores back, making a study guide from files you pick), follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-blue-700 underline">Google API Services User Data Policy</a> including its Limited Use requirements, is never used for advertising, and is never used to train AI models.</p>
     </>,
   },
   {

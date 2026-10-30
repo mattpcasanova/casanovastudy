@@ -10,6 +10,9 @@ import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { fetchUploadedImages } from '@/lib/uploads/server-images'
 import { parseAdaptive } from '@/lib/adaptive/format'
 import { detectExam, readScores, type SavedScores } from '@/lib/exams/profiles'
+import { pickMaterialIds, trimForGuide } from '@/lib/classes/materials'
+import { materialsForUser } from '@/lib/classes/materials-server'
+import { UPLOAD_LIMITS } from '@/lib/uploads/kinds'
 
 function sseError(message: string, status: number) {
   return new Response('data: ' + JSON.stringify({ type: 'error', message }) + '\n\n', { status, headers: { 'Content-Type': 'text/event-stream' } })
@@ -42,9 +45,12 @@ export async function POST(request: NextRequest) {
     const { data } = await supabase.from('study_guides').select('title, format, content, custom_content').eq('id', body.sourceGuideId).single()
     if (data) sourceGuide = { title: data.title, format: data.format, content: guideSourceText(data).slice(0, 60000) }
   }
+  // Slides and notes the teacher put on the student's class (migration 080).
+  // Only ones on a class they're in (or their own) are used; others are dropped.
+  const materials = await materialsForUser(supabase, user.id, pickMaterialIds(body.classMaterialIds))
   // Students can type what they want to study instead of uploading files.
   const studyRequest = typeof body.studyRequest === 'string' ? body.studyRequest.trim().slice(0, 8000) : ''
-  if (!hasDirectContent && !hasLegacyFiles && !hasImages && !sourceGuide && studyRequest.length < 3) {
+  if (!hasDirectContent && !hasLegacyFiles && !hasImages && !sourceGuide && !materials.length && studyRequest.length < 3) {
     return sseError('Upload a file or describe what you want to study', 400)
   }
   if (!body.studyGuideName || !body.subject || !body.gradeLevel || !body.format) {
@@ -81,11 +87,21 @@ export async function POST(request: NextRequest) {
           allContent.push({ name: `Existing ${sourceGuide.format} guide: ${sourceGuide.title}`, content: sourceGuide.content })
         }
 
+        // 3. Class materials: their text, within one budget for all of them.
+        allContent.push(...trimForGuide(materials))
+
         // 4. Photos and scanned pages go to Claude as images.
         let images: Awaited<ReturnType<typeof fetchUploadedImages>> = []
         if (hasImages) {
           controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: 'Loading your photos...' }) + '\n\n'))
           images = await fetchUploadedImages(body.images, user.id)
+        }
+        // Scanned pages of class materials live in the teacher's folder; the class
+        // check above is what lets this student use them. Same 40-image cap overall.
+        for (const m of materials) {
+          const room = UPLOAD_LIMITS.maxGuideImages - images.length
+          if (room <= 0) break
+          if (m.images.length) images.push(...await fetchUploadedImages(m.images.slice(0, room), m.teacherId))
         }
 
         // Combine all content
@@ -93,7 +109,7 @@ export async function POST(request: NextRequest) {
           .map(file => `--- ${file.name} ---\n${file.content}`)
           .join('\n\n')
 
-        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length || hasImages ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
+        controller.enqueue(encoder.encode('data: ' + JSON.stringify({ type: 'progress', message: allContent.length || images.length ? 'Creating your study guide...' : 'Writing your study guide from your topic...' }) + '\n\n'))
 
         // A big test the request names (lib/exams): remember a stated score on the
         // account, and use the saved one when this request doesn't state it.
@@ -224,7 +240,8 @@ export async function POST(request: NextRequest) {
             difficulty_level: normalizeDifficulty(body.difficultyLevel),
             language: normalizeLanguage(body.language),
             additional_instructions: body.additionalInstructions,
-            file_count: (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0),
+            file_count: (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0) + materials.length,
+            source_material_ids: materials.length ? materials.map((m) => m.id) : null,
             token_usage: usage,
             user_id: user.id,
             parent_guide_id: parentGuideId,

@@ -8,6 +8,7 @@ export interface StudyGuideData {
   planId?: string // generated from a study plan unit
   planUnit?: string
   sourceGuideId?: string // "Make another format": build from this existing guide's content
+  classMaterialIds?: string[] // slides/notes the teacher put on the student's class (lib/classes/materials.ts)
   language?: string // GuideLanguage (lib/study-options.ts); default 'en'
   studyGuideName: string
   subject: string
@@ -53,6 +54,7 @@ export interface StudyGuideRequest {
   planId?: string // parent study plan guide id
   planUnit?: string // PlanUnit.key within that plan
   sourceGuideId?: string // existing guide whose content is the source material
+  classMaterialIds?: string[] // class materials (migration 080); the route checks the student is in the class
   language?: string // GuideLanguage; validated with normalizeLanguage
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models

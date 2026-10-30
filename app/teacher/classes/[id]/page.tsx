@@ -6,6 +6,7 @@
 
 import { AssignedPracticeList } from "@/components/assign/assigned-practice-list"
 import { SharedGuidesList } from "@/components/assign/shared-guides-list"
+import { ClassMaterialsList } from "@/components/classes/class-materials"
 import { backLink, actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
@@ -373,6 +374,7 @@ function ClassView({ id }: { id: string }) {
 
       <AssignedPracticeList classId={cls.id} />
       <SharedGuidesList classId={cls.id} />
+      <ClassMaterialsList classId={cls.id} />
 
       {/* Graded work */}
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
