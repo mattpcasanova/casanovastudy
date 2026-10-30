@@ -58,9 +58,8 @@ export interface TimingSummary {
   slow: string[]
 }
 
-/** The results line: time used, the budget, and which questions ran slow. */
-export function summarizeTiming(elapsed: number, spent: Record<string, number>, ids: string[], pace: number): TimingSummary {
-  const budget = timeBudget(ids.length, pace)
+/** The results line: time used, the budget (the test's unless the student set one), and which questions ran slow. */
+export function summarizeTiming(elapsed: number, spent: Record<string, number>, ids: string[], pace: number, budget = timeBudget(ids.length, pace)): TimingSummary {
   const used = Math.max(0, Math.round(elapsed))
   return {
     used,

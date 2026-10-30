@@ -60,6 +60,8 @@ describe('cleanQuizRun', () => {
     expect(run?.timed).toBe(true)
     expect(run?.elapsed).toBe(61.5)
     expect(run?.spent).toEqual({ q1: 40 })
+    expect(run?.budget).toBeUndefined()
+    expect(cleanQuizRun({ index: 0, answers: { q1: 'A' }, timed: true, budget: 1800 }, ids)?.budget).toBe(1800)
   })
   it('has nothing to resume when untouched', () => {
     expect(cleanQuizRun({ index: 0, answers: {}, marked: [] }, ids)).toBeNull()

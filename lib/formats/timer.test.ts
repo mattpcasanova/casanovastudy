@@ -34,5 +34,6 @@ describe('quiz timer', () => {
     const s = summarizeTiming(1600.4, { q1: 30, q2: 200 }, ['q1', 'q2', 'q3'], 95)
     expect(s).toEqual({ used: 1600, budget: 285, over: 1315, slow: ['q2'] })
     expect(summarizeTiming(90, {}, ['q1'], 95).over).toBe(0)
+    expect(summarizeTiming(90, {}, ['q1'], 95, 60)).toMatchObject({ budget: 60, over: 30 })
   })
 })

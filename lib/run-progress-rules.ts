@@ -80,6 +80,8 @@ export interface QuizRun {
   timed?: boolean
   elapsed?: number
   spent?: Record<string, number>
+  /** Seconds the student chose instead of the test's pace. */
+  budget?: number
 }
 
 const isScore = (x: unknown): x is QuizScore => isRecord(x) && typeof x.score === 'number' && typeof x.isCorrect === 'boolean' && typeof x.feedback === 'string'
@@ -108,5 +110,6 @@ export function cleanQuizRun(raw: unknown, questionIds: string[]): QuizRun | nul
     timed: raw.timed === true,
     elapsed: Math.max(0, num(raw.elapsed)),
     spent: only(raw.spent, ids, (x): x is number => typeof x === 'number' && x >= 0),
+    ...(typeof raw.budget === 'number' && raw.budget > 0 ? { budget: raw.budget } : {}),
   }
 }

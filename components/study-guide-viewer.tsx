@@ -215,7 +215,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
       case 'flashcards':
         return <FlashcardsFormat content={studyGuide.content} subject={studyGuide.subject} studyGuideId={studyGuide.id} userId={user?.id} />
       case 'quiz':
-        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} pace={exam?.profile.pace} />
+        return <QuizFormat content={studyGuide.content} subject={studyGuide.subject} title={studyGuide.title} gradeLevel={studyGuide.grade_level} studyGuideId={studyGuide.id} pace={exam?.profile.pace} examName={exam?.profile.name} />
       case 'summary':
         return <SummaryFormat content={studyGuide.content} subject={studyGuide.subject} />
       case 'practice':

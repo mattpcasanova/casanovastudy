@@ -38,6 +38,8 @@ interface QuizFormatProps {
   studyGuideId?: string
   /** Seconds per question on the test this quiz was written for; turns on the Timed option. */
   pace?: number
+  /** The test's name for the timer note: "the digital SAT Math section". */
+  examName?: string
 }
 
 const TIMED_PREF = 'cs:pref:quiz-timed'
@@ -54,7 +56,7 @@ type Mode = 'practice' | 'test'
 
 const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer', num: 'Type your answer' }
 
-export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId, pace }: QuizFormatProps) {
+export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId, pace, examName }: QuizFormatProps) {
   const allQuestions = useMemo(() => parseQuizContent(content), [content])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
   const router = useRouter()
@@ -78,14 +80,19 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const [marked, setMarked] = useState<Set<string>>(new Set())
   // Timed at the test's pace (only offered when the guide was written for a known test).
   const [timed, setTimed] = useState(false)
+  const [settingTimer, setSettingTimer] = useState(false)
+  // Seconds allowed for this run: the test's pace times the questions unless the student changed it.
+  const [customBudget, setCustomBudget] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [spent, setSpent] = useState<Record<string, number>>({})
   useEffect(() => {
     if (!pace) return
     try { if (localStorage.getItem(TIMED_PREF) === '1') setTimed(true) } catch {}
   }, [pace])
-  const chooseTimed = (on: boolean) => {
+  const chooseTimed = (on: boolean, seconds?: number | null) => {
     setTimed(on)
+    setSettingTimer(false)
+    if (on) setCustomBudget(seconds ?? null)
     try { localStorage.setItem(TIMED_PREF, on ? '1' : '0') } catch {}
   }
   const toggleMark = (id: string) => setMarked((m) => {
@@ -125,6 +132,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     setSaScores(run.saScores)
     setMarked(new Set(run.marked))
     if (run.timed) setTimed(true)
+    setCustomBudget(run.budget ?? null)
     setElapsed(run.elapsed ?? 0)
     setSpent(run.spent ?? {})
     setFinished(false)
@@ -135,8 +143,8 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const { save: saveRun, clear: clearRun } = progress
   useEffect(() => {
     if (finished || (index === 0 && !Object.keys(answers).length && !marked.size)) return
-    saveRun({ mode, index, answers, checked, hinted, saScores, marked: [...marked], subset, timed, elapsed, spent })
-  }, [finished, mode, index, answers, checked, hinted, saScores, marked, subset, timed, elapsed, spent, saveRun])
+    saveRun({ mode, index, answers, checked, hinted, saScores, marked: [...marked], subset, timed, elapsed, spent, budget: customBudget ?? undefined })
+  }, [finished, mode, index, answers, checked, hinted, saScores, marked, subset, timed, elapsed, spent, customBudget, saveRun])
   // A finished run is over: the results screen shows it, and next time starts fresh.
   useEffect(() => { if (finished) clearRun() }, [finished, clearRun])
 
@@ -225,7 +233,8 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
 
   // The clock: one tick a second while timed and not finished. A question's own
   // time stops once its answer is revealed (reading feedback isn't solving).
-  const budget = pace && timed ? timeBudget(questions.length, pace) : 0
+  const defaultBudget = pace ? timeBudget(questions.length, pace) : 0
+  const budget = pace && timed ? (customBudget ?? defaultBudget) : 0
   const currentId = current?.id
   const currentRevealed = !!currentId && mode === 'practice' && !!checked[currentId]
   useEffect(() => {
@@ -281,7 +290,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   }
 
   if (finished) {
-    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} timing={pace && timed ? summarizeTiming(elapsed, spent, questions.map((q) => q.id), pace) : undefined} pace={pace} spent={spent} />
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} timing={pace && timed ? summarizeTiming(elapsed, spent, questions.map((q) => q.id), pace, budget) : undefined} pace={pace} spent={spent} />
   }
 
   const answeredCount = questions.filter((q) => status(q) !== 'open').length
@@ -332,9 +341,10 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               ) : (
                 <button
                   type="button"
-                  onClick={() => chooseTimed(true)}
+                  onClick={() => setSettingTimer((v) => !v)}
+                  aria-expanded={settingTimer}
                   title={`Count down at the test's pace: ${formatPace(pace)} per question`}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+                  className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition', settingTimer ? 'bg-slate-100 text-slate-900 ring-slate-300' : 'text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900')}
                 >
                   <Timer className="h-4 w-4" /> Timed
                 </button>
@@ -355,6 +365,9 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
           </div>
           </div>
         </div>
+        {pace && settingTimer && !timed && (
+          <TimerSetup pace={pace} count={questions.length} defaultSeconds={defaultBudget} examName={examName} onStart={(seconds) => chooseTimed(true, seconds === defaultBudget ? null : seconds)} onCancel={() => setSettingTimer(false)} />
+        )}
         <Navigator questions={questions} index={index} status={status} marked={marked} onJump={setIndex} />
       </div>
 
@@ -592,6 +605,50 @@ function TimeChip({ left, total, onOff }: { left: number; total: number; onOff: 
       {tone === 'over' ? <span>Over by {formatClock(-left)}</span> : <span>{formatClock(left)}</span>}
       <button type="button" onClick={onOff} title="Turn the timer off" aria-label="Turn the timer off" className="ml-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-500 hover:bg-black/5 hover:text-slate-800">off</button>
     </div>
+  )
+}
+
+// Choosing the time: the test's pace is the default, with a note on where it
+// comes from, and a minutes box to change it for this run.
+function TimerSetup({ pace, count, defaultSeconds, examName, onStart, onCancel }: {
+  pace: number; count: number; defaultSeconds: number; examName?: string
+  onStart: (seconds: number) => void; onCancel: () => void
+}) {
+  const [minutes, setMinutes] = useState(String(Math.max(1, Math.round(defaultSeconds / 60))))
+  const parsed = Number(minutes)
+  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= 300
+  const seconds = valid ? Math.round(parsed * 60) : defaultSeconds
+  const usingDefault = Math.abs(seconds - defaultSeconds) < 30
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (valid) onStart(usingDefault ? defaultSeconds : seconds) }}
+      className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"
+    >
+      <p>
+        <span className="font-semibold text-slate-900">{examName ? examName.charAt(0).toUpperCase() + examName.slice(1) : 'The test'}</span> gives about {formatPace(pace)} per question, so {count} {count === 1 ? 'question gets' : 'questions get'}{' '}
+        <span className="font-semibold tabular-nums text-slate-900">{formatClock(defaultSeconds)}</span>. Keep that to practice at test speed, or give yourself more or less time.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={300}
+            step={1}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            aria-label="Minutes for this quiz"
+            className="h-10 w-20 rounded-lg border border-slate-300 bg-white px-2 text-center text-sm font-semibold tabular-nums text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+          <span>minutes</span>
+        </label>
+        {!usingDefault && valid && <span className="text-xs text-slate-500">({formatPace(seconds / count)} per question)</span>}
+        <div className="ml-auto flex gap-2">
+          <Button type="button" variant="ghost" onClick={onCancel} className="h-10 text-slate-600">Cancel</Button>
+          <Button type="submit" disabled={!valid} className="h-10 bg-purple-600 text-white hover:bg-purple-700"><Timer className="mr-1.5 h-4 w-4" /> Start the timer</Button>
+        </div>
+      </div>
+    </form>
   )
 }
 
