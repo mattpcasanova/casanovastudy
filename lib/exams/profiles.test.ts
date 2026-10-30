@@ -1,4 +1,4 @@
-const FIVE_OPTIONS = new Set(['ap-statistics', 'ap-lang', 'ap-lit', 'ap-microeconomics', 'ap-macroeconomics'])
+const FIVE_OPTIONS = new Set(['ap-statistics', 'ap-lang', 'ap-lit', 'ap-microeconomics', 'ap-macroeconomics', 'aice-thinking-skills'])
 
 import { describe, it, expect } from 'vitest'
 import { detectExam, examInstructions, readScores } from './profiles'
@@ -81,6 +81,29 @@ describe('detectExam', () => {
     expect(detectExam('AP Gov Supreme Court cases', 'history')?.profile.id).toBe('ap-gov')
     expect(detectExam('AP Precalc polar functions', 'mathematics')?.profile.id).toBe('ap-precalculus')
     expect(detectExam('AP Calculus AB limits', 'mathematics')?.profile.id).toBe('ap-calculus')
+  })
+  it('Florida FAST and EOCs, and Cambridge AICE subjects', () => {
+    expect(detectExam('FAST ELA 5th grade reading', 'english')?.profile.id).toBe('fl-fast-ela')
+    expect(detectExam('FAST Math grade 7 ratios', 'mathematics')?.profile.id).toBe('fl-fast-math')
+    expect(detectExam('fast food and nutrition', 'science')).toBeNull()
+    expect(detectExam('FAST grade 5', null)).toBeNull()
+    expect(detectExam('Algebra 1 EOC quadratics', 'mathematics')?.profile.id).toBe('fl-algebra1-eoc')
+    expect(detectExam('Geometry EOC circles', null)?.profile.id).toBe('fl-geometry-eoc')
+    expect(detectExam('Biology EOC genetics', 'science')?.profile.id).toBe('fl-biology-eoc')
+    expect(detectExam('Civics EOC the Bill of Rights', 'history')?.profile.id).toBe('fl-civics-eoc')
+    expect(detectExam('US History EOC Cold War', 'history')?.profile.id).toBe('fl-ushistory-eoc')
+    expect(detectExam('APUSH period 7', 'history')?.profile.id).toBe('ap-ush')
+    expect(detectExam('AICE General Paper essay', 'english')?.profile.id).toBe('aice-general-paper')
+    expect(detectExam('AICE Thinking Skills problem solving', null)?.profile.id).toBe('aice-thinking-skills')
+    expect(detectExam('AICE Marine Science tides', 'science')?.profile.id).toBe('aice-marine-science')
+    expect(detectExam('marine biology', 'science')).toBeNull()
+    expect(detectExam('AICE Environmental Management water', 'science')?.profile.id).toBe('aice-environmental-management')
+    expect(detectExam('AICE Biology enzymes', 'science')?.profile.id).toBe('aice-biology')
+    expect(detectExam('A Level Chemistry organic', 'science')?.profile.id).toBe('aice-chemistry')
+    expect(detectExam('AP Chem kinetics', 'science')?.profile.id).toBe('ap-chemistry')
+    expect(detectExam('AICE Psychology core studies', 'science')?.profile.id).toBe('aice-psychology')
+    expect(detectExam('AP Psych memory', 'science')?.profile.id).toBe('ap-psychology')
+    expect(detectExam('AICE Sociology the family', 'history')?.profile.id).toBe('aice-sociology')
     expect(detectExam('AP Literature poetry', 'english')?.profile.id).toBe('ap-lit')
   })
   it('the section named outright wins over the picked subject', () => {

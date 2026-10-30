@@ -37,8 +37,23 @@ import { AP_PHYSICS_C } from './ap-physics-c'
 import { AP_CSA } from './ap-csa'
 import { AP_COMP_GOV } from './ap-comparative-gov'
 import { AP_PRECALC } from './ap-precalculus'
+import { FL_FAST_ELA } from './fl-fast-ela'
+import { FL_FAST_MATH } from './fl-fast-math'
+import { FL_ALGEBRA1_EOC } from './fl-algebra1-eoc'
+import { FL_GEOMETRY_EOC } from './fl-geometry-eoc'
+import { FL_BIOLOGY_EOC } from './fl-biology-eoc'
+import { FL_CIVICS_EOC } from './fl-civics-eoc'
+import { FL_USHISTORY_EOC } from './fl-ushistory-eoc'
+import { AICE_GENERAL_PAPER } from './aice-general-paper'
+import { AICE_THINKING_SKILLS } from './aice-thinking-skills'
+import { AICE_MARINE_SCIENCE } from './aice-marine-science'
+import { AICE_ENVIRONMENTAL_MANAGEMENT } from './aice-environmental-management'
+import { AICE_BIOLOGY } from './aice-biology'
+import { AICE_CHEMISTRY } from './aice-chemistry'
+import { AICE_PSYCHOLOGY } from './aice-psychology'
+import { AICE_SOCIOLOGY } from './aice-sociology'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV, AP_LIT, AP_EURO, AP_HUMAN_GEO, AP_PSYCHOLOGY, AP_MICRO, AP_MACRO, AP_ENVIRONMENTAL, AP_PHYSICS_2, AP_PHYSICS_C, AP_CSA, AP_COMP_GOV, AP_PRECALC]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV, AP_LIT, AP_EURO, AP_HUMAN_GEO, AP_PSYCHOLOGY, AP_MICRO, AP_MACRO, AP_ENVIRONMENTAL, AP_PHYSICS_2, AP_PHYSICS_C, AP_CSA, AP_COMP_GOV, AP_PRECALC, FL_FAST_ELA, FL_FAST_MATH, FL_ALGEBRA1_EOC, FL_GEOMETRY_EOC, FL_BIOLOGY_EOC, FL_CIVICS_EOC, FL_USHISTORY_EOC, AICE_GENERAL_PAPER, AICE_THINKING_SKILLS, AICE_MARINE_SCIENCE, AICE_ENVIRONMENTAL_MANAGEMENT, AICE_BIOLOGY, AICE_CHEMISTRY, AICE_PSYCHOLOGY, AICE_SOCIOLOGY]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])
