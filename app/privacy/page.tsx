@@ -9,7 +9,7 @@ const EMAIL = <a href="mailto:privacy@casanovastudy.com" className="font-semibol
 const sections: LegalSection[] = [
   {
     id: "who", title: "Who we are",
-    body: <p>Casanova Study (&quot;we&quot;, &quot;us&quot;) is a study website at casanovastudy.com, operated by Matthew Casanova in Florida, USA. It turns topics, class notes and photos into study guides, quizzes and practice, explains answers with an AI tutor, and helps teachers grade exams. You can reach us at {EMAIL}.</p>,
+    body: <p>Casanova Study (&quot;we&quot;, &quot;us&quot;) is a study website at casanovastudy.com, operated by Casanova Digital LLC, a Florida limited liability company. It turns topics, class notes and photos into study guides, quizzes and practice, explains answers with an AI tutor, and helps teachers grade exams. You can reach us at {EMAIL}.</p>,
   },
   {
     id: "collect", title: "What we collect",
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      effective="October 4, 2026"
+      effective="October 30, 2026"
       intro={<p>This policy explains what Casanova Study collects, why, who helps us process it, and the choices you have. We wrote it to be read, including by students and parents.</p>}
       sections={sections}
       other={{ href: "/terms", label: "Terms of Service" }}

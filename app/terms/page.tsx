@@ -9,7 +9,7 @@ const EMAIL = <a href="mailto:privacy@casanovastudy.com" className="font-semibol
 const sections: LegalSection[] = [
   {
     id: "agreement", title: "Agreeing to these terms",
-    body: <p>These terms are an agreement between you and Casanova Study, operated by Matthew Casanova in Florida, USA (&quot;we&quot;, &quot;us&quot;). By creating an account or using casanovastudy.com, you agree to them and to our <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">Privacy Policy</Link>. If you are under 18, a parent or guardian should review them with you.</p>,
+    body: <p>These terms are an agreement between you and Casanova Digital LLC, a Florida limited liability company that operates Casanova Study (&quot;we&quot;, &quot;us&quot;). By creating an account or using casanovastudy.com, you agree to them and to our <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">Privacy Policy</Link>. If you are under 18, a parent or guardian should review them with you.</p>,
   },
   {
     id: "who", title: "Who can use Casanova Study",
@@ -74,7 +74,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      effective="October 4, 2026"
+      effective="October 30, 2026"
       intro={<p>The rules for using Casanova Study, written plainly.</p>}
       sections={sections}
       other={{ href: "/privacy", label: "Privacy Policy" }}
