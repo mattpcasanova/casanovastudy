@@ -189,6 +189,34 @@ Correct Answer: A
   })
 })
 
+describe('code fences (programming items)', () => {
+  it('keeps a java fence as the question\'s passage, fence included, and drops a bare fence', () => {
+    const qs = parseQuizContent(`MC_QUESTION: What is printed?
+\`\`\`java
+int a = 7;
+  int b = 2;
+System.out.print(a / b);
+\`\`\`
+A) 3
+B) 3.5
+Correct Answer: A
+Explanation: Integer division.
+
+MC_QUESTION: Second
+\`\`\`
+A) stray
+\`\`\`
+A) x
+B) y
+Correct Answer: B`)
+    expect(qs).toHaveLength(2)
+    expect(qs[0].passage).toBe('```java\nint a = 7;\n  int b = 2;\nSystem.out.print(a / b);\n```')
+    expect(qs[0].type === 'mc' && qs[0].options).toEqual(['3', '3.5'])
+    expect(qs[1].passage).toBeUndefined()
+    expect(qs[1].type === 'mc' && qs[1].options).toEqual(['x', 'y'])
+  })
+})
+
 describe('passage fences (reading items)', () => {
   const src = `# SAT R&W
 ## Craft and Structure

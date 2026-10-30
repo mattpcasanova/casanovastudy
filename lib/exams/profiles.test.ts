@@ -1,3 +1,5 @@
+const FIVE_OPTIONS = new Set(['ap-statistics', 'ap-lang', 'ap-lit', 'ap-microeconomics', 'ap-macroeconomics'])
+
 import { describe, it, expect } from 'vitest'
 import { detectExam, examInstructions, readScores } from './profiles'
 import { parseQuizContent } from '@/lib/formats/quiz'
@@ -40,7 +42,7 @@ describe('detectExam', () => {
     expect(detectExam('Act 1 of Hamlet', 'english')).toBeNull()
     expect(detectExam('the act of reading', 'english')).toBeNull()
   })
-  it('AP courses by name; "AP" alone or another AP course matches nothing yet', () => {
+  it('AP courses by name; "AP" alone matches nothing', () => {
     expect(detectExam('AP Chemistry Unit 7: equilibrium', 'chemistry')).toMatchObject({ profile: { id: 'ap-chemistry' }, domains: [{ id: 'equilibrium' }] })
     expect(detectExam('AP Chem kinetics and rate laws', null)?.domains.map((d) => d.id)).toEqual(['reactions'])
     expect(detectExam('AP Stats inference for means', 'mathematics')?.profile.id).toBe('ap-statistics')
@@ -49,17 +51,37 @@ describe('detectExam', () => {
     expect(detectExam('AP Calculus BC series', 'mathematics')).toMatchObject({ profile: { id: 'ap-calculus' }, domains: [{ id: 'bc' }] })
     expect(detectExam('AP Calc AB: related rates and optimization', null)?.domains.map((d) => d.id)).toEqual(['applications'])
     expect(detectExam('AP Physics 1 momentum and collisions', 'physics')).toMatchObject({ profile: { id: 'ap-physics-1' }, domains: [{ id: 'energy-momentum' }] })
-    expect(detectExam('AP Physics C mechanics', 'physics')).toBeNull()
-    expect(detectExam('AP Physics 2 fluids', 'physics')).toBeNull()
+    expect(detectExam('AP Physics C mechanics', 'science')?.profile.id).toBe('ap-physics-c')
+    expect(detectExam('AP Physics 2 fluids', 'science')?.profile.id).toBe('ap-physics-2')
     expect(detectExam('AP exams in general', null)).toBeNull()
     expect(detectExam('AP World History unit 3: land-based empires', 'history')).toMatchObject({ profile: { id: 'ap-world' }, domains: [{ id: 'early-modern' }] })
     expect(detectExam('APUSH period 5 sectional crisis', null)).toMatchObject({ profile: { id: 'ap-ush' }, domains: [{ id: 'republic-civil-war' }] })
     expect(detectExam('AP US History review', 'history')?.profile.id).toBe('ap-ush')
     expect(detectExam('AP Gov unit 2 Congress and the presidency', 'history')).toMatchObject({ profile: { id: 'ap-gov' }, domains: [{ id: 'branches' }] })
-    expect(detectExam('AP Comparative Government', 'history')).toBeNull()
+    expect(detectExam('AP Comparative Government', 'history')?.profile.id).toBe('ap-comparative-gov')
     expect(detectExam('AP Lang rhetorical analysis', 'english')).toMatchObject({ profile: { id: 'ap-lang' } })
     expect(detectExam('AP English Language and Composition', null)?.profile.id).toBe('ap-lang')
-    expect(detectExam('AP Literature poetry', 'english')).toBeNull()
+    expect(detectExam('AP Lit poetry analysis', 'english')?.profile.id).toBe('ap-lit')
+    expect(detectExam('AP English Literature', null)?.profile.id).toBe('ap-lit')
+    expect(detectExam('AP Euro unit 3 absolutism', 'history')?.profile.id).toBe('ap-euro')
+    expect(detectExam('AP Human Geography migration', 'history')?.profile.id).toBe('ap-human-geo')
+    expect(detectExam('APHG unit 5', null)?.profile.id).toBe('ap-human-geo')
+    expect(detectExam('AP Psych unit 2 memory', 'science')?.profile.id).toBe('ap-psychology')
+    expect(detectExam('AP Micro elasticity', 'business')?.profile.id).toBe('ap-microeconomics')
+    expect(detectExam('AP Macroeconomics monetary policy', 'business')?.profile.id).toBe('ap-macroeconomics')
+    expect(detectExam('AP Economics', 'business')).toBeNull()
+    expect(detectExam('APES unit 7 air pollution', 'science')?.profile.id).toBe('ap-environmental')
+    expect(detectExam('AP Physics 2 circuits', 'science')?.profile.id).toBe('ap-physics-2')
+    expect(detectExam('AP Physics C: Mechanics rotation', 'science')?.profile.id).toBe('ap-physics-c')
+    expect(detectExam('AP Physics 1 momentum', 'science')?.profile.id).toBe('ap-physics-1')
+    expect(detectExam('AP Computer Science A arrays', 'computer-science')?.profile.id).toBe('ap-csa')
+    expect(detectExam('AP CSA recursion', null)?.profile.id).toBe('ap-csa')
+    expect(detectExam('AP Computer Science Principles', 'computer-science')).toBeNull()
+    expect(detectExam('AP Comparative Government Iran', 'history')?.profile.id).toBe('ap-comparative-gov')
+    expect(detectExam('AP Gov Supreme Court cases', 'history')?.profile.id).toBe('ap-gov')
+    expect(detectExam('AP Precalc polar functions', 'mathematics')?.profile.id).toBe('ap-precalculus')
+    expect(detectExam('AP Calculus AB limits', 'mathematics')?.profile.id).toBe('ap-calculus')
+    expect(detectExam('AP Literature poetry', 'english')?.profile.id).toBe('ap-lit')
   })
   it('the section named outright wins over the picked subject', () => {
     expect(detectExam('SAT math, I keep missing the hard ones', 'english')?.profile.id).toBe('sat-math')
@@ -130,7 +152,7 @@ describe('examInstructions', () => {
         const [q] = parseQuizContent(`# T\n## ${d.name}\n${e}\n`)
         expect(q, e.slice(0, 40)).toBeDefined()
         if (q.type === 'mc') {
-          expect(q.options, e.slice(0, 40)).toHaveLength(p.id === 'ap-statistics' || p.id === 'ap-lang' ? 5 : 4)
+          expect(q.options, e.slice(0, 40)).toHaveLength(FIVE_OPTIONS.has(p.id) ? 5 : 4)
           expect(q.options).toContain(q.correctAnswer)
           if (e.includes('```passage')) expect(q.passage, e.slice(0, 40)).toBeTruthy()
         } else if (q.type === 'num') {

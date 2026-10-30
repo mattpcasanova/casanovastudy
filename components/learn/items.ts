@@ -75,7 +75,7 @@ export function learnItemsFor(guide: Pick<StudyGuideRecord, 'format' | 'content'
         const id = `q:${q.id}`
         const topic = q.section || undefined
         // A reading passage travels inside the prompt as a fence; QuestionStem renders it.
-        const prompt = q.passage ? `\`\`\`passage\n${q.passage}\n\`\`\`\n${q.question}` : q.question
+        const prompt = q.passage ? (q.passage.startsWith('```') ? `${q.passage}\n${q.question}` : `\`\`\`passage\n${q.passage}\n\`\`\`\n${q.question}`) : q.question
         if (q.type === 'mc') {
           const idx = q.options.indexOf(q.correctAnswer)
           return idx < 0 ? [] : [{ id, kind: 'activity', topic, activity: choice(id, prompt, q.options, idx, q.section, q.explanation, q.figure, q.hint) }]

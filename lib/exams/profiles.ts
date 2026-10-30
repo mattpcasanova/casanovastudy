@@ -7,7 +7,7 @@
 // ACT English / Math / Reading / Science (act-*.ts), AP Chemistry, AP
 // Statistics, AP Biology, AP Calculus AB/BC, AP Physics 1, AP English Language,
 // APUSH, AP World History: Modern and AP U.S. Government (ap-*.ts). Adding one
-// = a profile file + an entry in EXAM_PROFILES. Other courses as teachers ask.
+// = a profile file + an entry in EXAM_PROFILES.
 
 import type { ExamDomain, ExamProfile } from './types'
 import { SAT_MATH } from './sat-math'
@@ -25,8 +25,20 @@ import { AP_LANG } from './ap-lang'
 import { AP_USH } from './ap-ush'
 import { AP_WORLD } from './ap-world'
 import { AP_GOV } from './ap-gov'
+import { AP_LIT } from './ap-lit'
+import { AP_EURO } from './ap-euro'
+import { AP_HUMAN_GEO } from './ap-human-geo'
+import { AP_PSYCHOLOGY } from './ap-psychology'
+import { AP_MICRO } from './ap-microeconomics'
+import { AP_MACRO } from './ap-macroeconomics'
+import { AP_ENVIRONMENTAL } from './ap-environmental'
+import { AP_PHYSICS_2 } from './ap-physics2'
+import { AP_PHYSICS_C } from './ap-physics-c'
+import { AP_CSA } from './ap-csa'
+import { AP_COMP_GOV } from './ap-comparative-gov'
+import { AP_PRECALC } from './ap-precalculus'
 
-export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV]
+export const EXAM_PROFILES: ExamProfile[] = [SAT_MATH, SAT_RW, ACT_ENGLISH, ACT_MATH, ACT_READING, ACT_SCIENCE, AP_CHEMISTRY, AP_STATISTICS, AP_BIOLOGY, AP_CALCULUS, AP_PHYSICS_1, AP_LANG, AP_USH, AP_WORLD, AP_GOV, AP_LIT, AP_EURO, AP_HUMAN_GEO, AP_PSYCHOLOGY, AP_MICRO, AP_MACRO, AP_ENVIRONMENTAL, AP_PHYSICS_2, AP_PHYSICS_C, AP_CSA, AP_COMP_GOV, AP_PRECALC]
 
 /** Formats that get the full item rules and exemplars (they write test items). */
 const ITEM_FORMATS = new Set(['quiz', 'practice', 'adaptive'])

@@ -2,8 +2,10 @@
 // lib/claude-api.ts). Line-based: MC_QUESTION / TF_QUESTION / SA_QUESTION /
 // NUM_QUESTION markers, option lines, "Correct Answer:", "Explanation:". A ```graph fence
 // directly under a question line (or right before it) becomes that
-// question's figure. Other fences are dropped so their lines are never read as
-// options. Question ids (q-0, q-1, ...) follow document order.
+// question's figure; a ```passage fence its passage; a code fence with a
+// language (```java, ```python) its passage too, kept with its fence so the
+// Passage component shows it as code. Fences with no language are dropped so
+// their lines are never read as options. Question ids (q-0, q-1, ...) follow document order.
 
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
@@ -18,7 +20,7 @@ interface BaseQuestion {
   hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
   figure?: string
-  /** Body of a ```passage fence: the text the question is about (SAT Reading and Writing style), shown above the question. */
+  /** Body of a ```passage fence: the text the question is about (SAT Reading and Writing style), shown above the question. A code fence with a language (AP Computer Science items) is kept whole, fence included. */
   passage?: string
 }
 export interface MultipleChoiceQuestion extends BaseQuestion { type: 'mc'; options: string[]; correctAnswer: string }
@@ -29,6 +31,8 @@ export interface NumericQuestion extends BaseQuestion { type: 'num'; answers: st
 export type Question = MultipleChoiceQuestion | TrueFalseQuestion | ShortAnswerQuestion | NumericQuestion
 
 const FIG = /^§FIG (\d+)§$/
+/** Code a question is about (AP Computer Science A, programming quizzes). */
+export const CODE_FENCE_LANGS = /^(java|python|py|javascript|js|typescript|ts|c|cpp|c\+\+|csharp|cs|c#|sql|html|css|json|bash|sh|kotlin|swift|go|rust|ruby|php|r)$/i
 const PASSAGE = /^§PASSAGE (\d+)§$/
 
 /** Pulls fenced blocks out before the line parser trims them. Graph fences become §FIG n§ lines, passage fences §PASSAGE n§. */
@@ -54,6 +58,9 @@ function extractFences(content: string): { lines: string[]; figures: string[]; p
     } else if (/^(passage|text)$/i.test(open[2])) {
       out.push(`§PASSAGE ${passages.length}§`)
       passages.push(body.join('\n').trim())
+    } else if (CODE_FENCE_LANGS.test(open[2])) {
+      out.push(`§PASSAGE ${passages.length}§`)
+      passages.push(`\`\`\`${open[2].toLowerCase()}\n${body.join('\n').replace(/^\n+|\n+$/g, '')}\n\`\`\``)
     }
     i = j
   }

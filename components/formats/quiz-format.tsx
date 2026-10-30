@@ -482,7 +482,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
             {mode === 'practice' && !revealed && (
               <Button type="submit" disabled={!typed[current.id]?.trim()} className="h-12 bg-purple-600 px-5 text-white hover:bg-purple-700">Check</Button>
             )}
-            <span className="w-full text-xs text-slate-500">A number, a fraction like 7/2, or a decimal. Don't type units or a percent sign unless the answer is a percent.</span>
+            <span className="w-full text-xs text-slate-500">A number, a fraction like 7/2, or a decimal. Don&apos;t type units or a percent sign unless the answer is a percent.</span>
           </form>
         )}
 
