@@ -34,6 +34,7 @@ describe('cleanPracticeRun', () => {
   })
   it('has nothing to resume when untouched or broken', () => {
     expect(cleanPracticeRun({ index: 0, results: {} }, ids)).toBeNull()
+    expect(cleanPracticeRun({ index: 0, results: {}, startedAt: 1700000000000 }, ids)).toMatchObject({ startedAt: 1700000000000 })
     expect(cleanPracticeRun({ index: 1, results: {}, subset: ['gone'] }, ids)).toBeNull()
     expect(cleanPracticeRun('x', ids)).toBeNull()
   })
@@ -65,5 +66,7 @@ describe('cleanQuizRun', () => {
   })
   it('has nothing to resume when untouched', () => {
     expect(cleanQuizRun({ index: 0, answers: {}, marked: [] }, ids)).toBeNull()
+    expect(cleanQuizRun({ index: 0, answers: {}, marked: [], startedAt: 1700000000000 }, ids)).toMatchObject({ startedAt: 1700000000000 })
+    expect(cleanQuizRun({ index: 0, answers: {}, marked: [], startedAt: 'x' }, ids)).toBeNull()
   })
 })

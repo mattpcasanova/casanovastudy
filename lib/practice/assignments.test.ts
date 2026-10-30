@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentOpen, canPickName, couldBeStudent, describeAiUse, attemptsLeft, bestAttempt, normalizeAiHelp, strictestAiHelp, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
+import { assignmentOpen, canPickName, couldBeStudent, describeAiUse, attemptsLeft, bestAttempt, normalizeAiHelp, normalizeTimeLimit, overTimeLimit, runLengthText, strictestAiHelp, timeLimitText, dayCount, daysLate, gradingFor, makeCode, pickerName, practiceDaysLate, practiceStatus, sameStudentId } from './assignments'
 
 const at = (pct: number, finishedAt: string, counted = true) => ({ pct, correct: pct, total: 100, counted, finishedAt })
 
@@ -117,5 +117,30 @@ describe('days late', () => {
     expect(describeAiUse('Explain this part of my study guide: "mitochondria"\n\nThe guide around it:\n"""\nx\n"""')).toEqual({ kind: 'highlight', message: 'mitochondria' })
     expect(describeAiUse('Explain this graph from my study guide: what it shows, how to read it.\n\nWhat it shows: y=x').kind).toBe('figure')
     expect(describeAiUse('x'.repeat(3000)).message.length).toBe(2000)
+  })
+})
+
+describe('time limits', () => {
+  it('normalizes a limit into whole seconds within range, or none', () => {
+    expect(normalizeTimeLimit(1200)).toBe(1200)
+    expect(normalizeTimeLimit('900')).toBe(900)
+    expect(normalizeTimeLimit(10)).toBe(60)
+    expect(normalizeTimeLimit(99999)).toBe(14400)
+    expect(normalizeTimeLimit(null)).toBeNull()
+    expect(normalizeTimeLimit(0)).toBeNull()
+    expect(normalizeTimeLimit('x')).toBeNull()
+  })
+  it('says the limit and a run length in words', () => {
+    expect(timeLimitText(1200)).toBe('20 min')
+    expect(timeLimitText(3600)).toBe('1 hr')
+    expect(timeLimitText(5400)).toBe('1 hr 30 min')
+    expect(runLengthText(760)).toBe('12:40')
+    expect(runLengthText(3661)).toBe('1:01:01')
+  })
+  it('flags a run over the limit only past the grace', () => {
+    expect(overTimeLimit(1250, 1200)).toBe(false)
+    expect(overTimeLimit(1261, 1200)).toBe(true)
+    expect(overTimeLimit(null, 1200)).toBe(false)
+    expect(overTimeLimit(5000, null)).toBe(false)
   })
 })

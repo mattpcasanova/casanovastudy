@@ -40,6 +40,8 @@ export interface PracticeRun {
   subset: string[] | null
   streak: number
   bestStreak: number
+  /** When the student pressed Start on a time-limited run (ms since epoch); the clock is wall time from here. */
+  startedAt?: number
 }
 
 const isOutcome = (x: unknown): x is PracticeOutcome => isRecord(x) && typeof x.correct === 'boolean'
@@ -53,7 +55,9 @@ export function cleanPracticeRun(raw: unknown, activityIds: string[]): PracticeR
   const total = subset ? subset.length : activityIds.length
   const results = only(raw.results, ids, isOutcome)
   const index = Math.max(0, Math.min(Math.floor(num(raw.index)), total - 1))
-  if (!Object.keys(results).length && index === 0) return null
+  const startedAt = typeof raw.startedAt === 'number' && raw.startedAt > 0 && Number.isFinite(raw.startedAt) ? raw.startedAt : undefined
+  // A started clock is worth keeping even before the first answer: reloading must not reset it.
+  if (!Object.keys(results).length && index === 0 && !startedAt) return null
   return {
     index,
     results,
@@ -61,6 +65,7 @@ export function cleanPracticeRun(raw: unknown, activityIds: string[]): PracticeR
     subset,
     streak: Math.max(0, num(raw.streak)),
     bestStreak: Math.max(0, num(raw.bestStreak)),
+    ...(startedAt ? { startedAt } : {}),
   }
 }
 
@@ -82,6 +87,8 @@ export interface QuizRun {
   spent?: Record<string, number>
   /** Seconds the student chose instead of the test's pace. */
   budget?: number
+  /** When the student pressed Start on a time-limited run (ms since epoch). */
+  startedAt?: number
 }
 
 const isScore = (x: unknown): x is QuizScore => isRecord(x) && typeof x.score === 'number' && typeof x.isCorrect === 'boolean' && typeof x.feedback === 'string'
@@ -97,7 +104,8 @@ export function cleanQuizRun(raw: unknown, questionIds: string[]): QuizRun | nul
   const answers = only(raw.answers, ids, (x): x is string => typeof x === 'string')
   const marked = strings(raw.marked).filter((id) => ids.has(id))
   const index = Math.max(0, Math.min(Math.floor(num(raw.index)), total - 1))
-  if (!Object.keys(answers).length && !marked.length && index === 0) return null
+  const startedAt = typeof raw.startedAt === 'number' && raw.startedAt > 0 && Number.isFinite(raw.startedAt) ? raw.startedAt : undefined
+  if (!Object.keys(answers).length && !marked.length && index === 0 && !startedAt) return null
   return {
     mode: raw.mode === 'test' ? 'test' : 'practice',
     index,
@@ -111,5 +119,6 @@ export function cleanQuizRun(raw: unknown, questionIds: string[]): QuizRun | nul
     elapsed: Math.max(0, num(raw.elapsed)),
     spent: only(raw.spent, ids, (x): x is number => typeof x === 'number' && x >= 0),
     ...(typeof raw.budget === 'number' && raw.budget > 0 ? { budget: raw.budget } : {}),
+    ...(startedAt ? { startedAt } : {}),
   }
 }

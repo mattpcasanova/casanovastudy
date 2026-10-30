@@ -200,7 +200,7 @@ export const PRESET_ORDER: ExportPreset[] = ['focus', 'powerschool', 'skyward-qm
  * Absent and exempt students are left out (gradebooks treat blanks differently;
  * the teacher marks those there). Also counts students who can't be matched.
  */
-export function exportRows(rows: ExportRow[], preset: ExportPreset, opts: ExportOptions): { rows: ScoredRow[]; unmatched: string[]; skipped: number } {
+export function exportRows(rows: ExportRow[], preset: ExportPreset, opts: ExportOptions): { rows: ScoredRow[]; matched: ScoredRow[]; unmatched: string[]; skipped: number } {
   const info = EXPORT_PRESETS[preset]
   const possible = rows.find((r) => r.possible)?.possible ?? null
   const scored: ScoredRow[] = []
@@ -213,7 +213,7 @@ export function exportRows(rows: ExportRow[], preset: ExportPreset, opts: Export
     else skipped++
   }
   const has = (r: ScoredRow) => (info.needs === 'email' ? !!r.email : info.needs === 'either' ? !!(r.studentNumber || r.email) : !!r.studentNumber)
-  return { rows: scored, unmatched: scored.filter((r) => !has(r)).map((r) => r.name), skipped }
+  return { rows: scored, matched: scored.filter(has), unmatched: scored.filter((r) => !has(r)).map((r) => r.name), skipped }
 }
 
 /** The import steps for a preset (some depend on points vs percent). */
@@ -223,8 +223,10 @@ export function presetSteps(preset: ExportPreset, opts: ExportOptions): string[]
 }
 
 export function buildExport(rows: ExportRow[], preset: ExportPreset, opts: ExportOptions): { table: string[][]; unmatched: string[]; skipped: number } {
-  const { rows: scored, unmatched, skipped } = exportRows(rows, preset, opts)
-  return { table: EXPORT_PRESETS[preset].build(scored, opts), unmatched, skipped }
+  // Students the gradebook can't match (no ID / email) are left out of the file: Focus refuses
+  // the whole import over one row with a blank Student ID. They're listed in `unmatched` instead.
+  const { matched, unmatched, skipped } = exportRows(rows, preset, opts)
+  return { table: EXPORT_PRESETS[preset].build(matched, opts), unmatched, skipped }
 }
 
 export function toCsv(table: string[][], { quote = true }: { quote?: boolean } = {}): string {

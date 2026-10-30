@@ -11,7 +11,7 @@ import QRCode from "qrcode"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
-import { AI_HELP_OPTIONS, type AiHelp } from "@/lib/practice/assignments"
+import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, type AiHelp } from "@/lib/practice/assignments"
 import { FOCUS_MODE_HINT } from "@/lib/practice/focus"
 import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
@@ -52,6 +52,9 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [attempts, setAttempts] = useState("1")
   const [aiHelp, setAiHelp] = useState<AiHelp>("tutor")
   const [focusMode, setFocusMode] = useState(false)
+  // Minutes allowed per run ("" = no limit); the clock starts when the student presses Start.
+  const [timeLimit, setTimeLimit] = useState("")
+  const [customLimit, setCustomLimit] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [created, setCreated] = useState<CreatedAssignment | null>(null)
@@ -116,6 +119,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
         maxAttempts: mastery || attempts === "any" ? null : Number(attempts),
         aiHelp,
         focusMode,
+        timeLimitSeconds: !mastery && Number(timeLimit) > 0 ? Math.round(Number(timeLimit) * 60) : null,
         source: preset?.source,
       }),
     })
@@ -291,6 +295,24 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                       <button key={v} type="button" className={cn(chip(attempts === v), "min-w-[3rem]")} onClick={() => setAttempts(v)}>{label}</button>
                     ))}
                   </div>
+                </div>
+              )}
+              {!mastery && (
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-700">Time limit <span className="font-normal text-slate-500">(the clock starts when they press Start)</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className={chip(!timeLimit)} onClick={() => { setTimeLimit(""); setCustomLimit(false) }}>None</button>
+                    {TIME_LIMIT_PICKS.map((m) => (
+                      <button key={m} type="button" className={chip(!customLimit && timeLimit === String(m))} onClick={() => { setTimeLimit(String(m)); setCustomLimit(false) }}>{m} min</button>
+                    ))}
+                    <button type="button" className={chip(customLimit)} onClick={() => { setCustomLimit(true); if (!timeLimit) setTimeLimit("25") }}>Other</button>
+                  </div>
+                  {customLimit && (
+                    <label className="mt-2 inline-flex items-center gap-2 text-sm text-slate-700">
+                      <input type="number" min={1} max={240} value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} aria-label="Time limit in minutes" className="h-10 w-24 rounded-xl border border-slate-300 bg-white px-3 text-center font-semibold tabular-nums" /> minutes
+                    </label>
+                  )}
+                  {timeLimit && <p className="mt-1.5 text-sm text-slate-500">When it runs out, what they have answered is handed in. You&apos;ll see how long each student took.</p>}
                 </div>
               )}
               <div>

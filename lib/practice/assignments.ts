@@ -152,6 +152,46 @@ export const AI_HELP_OPTIONS: Array<{ value: AiHelp; label: string; hint: string
 ]
 export const normalizeAiHelp = (v: unknown): AiHelp => (v === 'off' || v === 'full' ? v : 'tutor')
 
+// ── Time limits ──────────────────────────────────────────────────────────────
+
+export const TIME_LIMIT_RULES = {
+  /** Seconds: at least a minute, at most 4 hours (the database check agrees). */
+  min: 60,
+  max: 4 * 60 * 60,
+  /** A run this far past the limit still counts as on time (the clock is the student's browser; a slow send shouldn't flag them). */
+  graceSeconds: 60,
+}
+/** Minutes offered as quick picks when assigning. */
+export const TIME_LIMIT_PICKS = [10, 15, 20, 30, 45, 60]
+
+/** A time limit from a request: whole seconds in range, or null for none. */
+export function normalizeTimeLimit(v: unknown): number | null {
+  const n = Number(v)
+  if (v == null || v === '' || !Number.isFinite(n) || n <= 0) return null
+  return Math.min(TIME_LIMIT_RULES.max, Math.max(TIME_LIMIT_RULES.min, Math.round(n)))
+}
+
+/** "20 min", "1 hr", "1 hr 30 min". */
+export function timeLimitText(seconds: number): string {
+  const m = Math.round(seconds / 60)
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  const rest = m % 60
+  return rest ? `${h} hr ${rest} min` : `${h} hr`
+}
+
+/** "12:40" for a run's length (hours shown past 60 minutes). */
+export function runLengthText(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`
+}
+
+/** True when a run took longer than the limit allows for (past the grace), so the teacher sees "over time". */
+export function overTimeLimit(seconds: number | null | undefined, limit: number | null | undefined): boolean {
+  return seconds != null && limit != null && seconds > limit + TIME_LIMIT_RULES.graceSeconds
+}
+
 /** The strictest setting among a student's open assignments on one guide (off > tutor > full); null when none. */
 export function strictestAiHelp(levels: AiHelp[]): AiHelp | null {
   if (!levels.length) return null

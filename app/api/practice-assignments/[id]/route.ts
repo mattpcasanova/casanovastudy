@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { aiUsesFor, assignmentProgress, focusEventsFor, ownedAssignment as owned, shareUrl } from '@/lib/practice/server'
-import { normalizeAiHelp } from '@/lib/practice/assignments'
+import { normalizeAiHelp, normalizeTimeLimit } from '@/lib/practice/assignments'
 
 const origin = (request: NextRequest) => (process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin)
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return NextResponse.json({ assignment: { ...assignment, url: shareUrl(origin(request), assignment.code) }, students: (progress.get(assignment.id) ?? []).map((st) => ({ ...st, aiUses: aiUses.get(st.rosterId) ?? [], focus: focus.get(st.rosterId) ?? [] })), guide, class: cls }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
-// PATCH { dueAt?: string|null, maxAttempts?: number|null, aiHelp?: 'off'|'tutor'|'full', focusMode?: boolean, addRosterIds?: string[], removeRosterIds?: string[] }
+// PATCH { dueAt?: string|null, maxAttempts?: number|null, aiHelp?: 'off'|'tutor'|'full', focusMode?: boolean, timeLimitSeconds?: number|null, addRosterIds?: string[], removeRosterIds?: string[] }
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const r = await owned(request, id)
@@ -38,6 +38,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   if (typeof body.aiHelp === 'string') update.ai_help = normalizeAiHelp(body.aiHelp)
   if (typeof body.focusMode === 'boolean') update.focus_mode = body.focusMode
+  if ('timeLimitSeconds' in body && assignment.grading === 'percent') update.time_limit_seconds = normalizeTimeLimit(body.timeLimitSeconds)
   if (Object.keys(update).length) await supabase.from('practice_assignments').update(update).eq('id', id)
   const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)) : [])
   const add = ids(body.addRosterIds)

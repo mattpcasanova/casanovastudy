@@ -6,7 +6,8 @@ import { myAssignedRow } from '@/lib/practice/server'
 import { sanitizeAnswers } from '@/lib/practice/report'
 
 // A student finished a run of their assigned practice.
-// POST { correct, total, detail?: { mastered?, notMastered?, answers? } } -> { counted, best, attemptsLeft }
+// POST { correct, total, seconds?, detail?: { mastered?, notMastered?, answers? } } -> { counted, best, attemptsLeft }
+// `seconds` = how long the run took by the student's clock (shown to the teacher; checked against the time limit there).
 // Percent: correct/total of first answers. Mastery (adaptive): correct =
 // concepts mastered, total = concepts.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -39,7 +40,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ? { ...(Array.isArray(d.mastered) || Array.isArray(d.notMastered) ? { mastered: names(d.mastered), notMastered: names(d.notMastered) } : {}), ...(answers ? { answers } : {}) }
     : null
   const finishedAt = new Date().toISOString()
-  const { error } = await supabase.from('practice_attempts').insert({ assignment_id: id, roster_id: rosterId, student_user_id: user.id, correct, total, pct, detail, counted, finished_at: finishedAt })
+  const secs = Number(body.seconds)
+  const seconds = Number.isFinite(secs) && secs >= 0 ? Math.min(Math.round(secs), 7 * 24 * 3600) : null
+  const { error } = await supabase.from('practice_attempts').insert({ assignment_id: id, roster_id: rosterId, student_user_id: user.id, correct, total, pct, detail, counted, finished_at: finishedAt, seconds })
   if (error) { console.error('Attempt insert failed:', error); return NextResponse.json({ error: 'Could not save your score' }, { status: 500 }) }
   const all = [...list, { pct, correct, total, counted, finishedAt }]
   return NextResponse.json({ counted, best: bestAttempt(all), attemptsLeft: attemptsLeft(a.max_attempts, all) })

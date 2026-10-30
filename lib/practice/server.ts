@@ -23,10 +23,12 @@ export interface AssignmentRow {
   source: { batchId?: string; practiceId?: string; groupKey?: string } | null
   ai_help: AiHelp
   focus_mode: boolean
+  /** Seconds the student has once they start a run; null = no limit (adaptive never has one). */
+  time_limit_seconds: number | null
   created_at: string
 }
 
-export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, focus_mode, created_at'
+export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, focus_mode, time_limit_seconds, created_at'
 
 /** The signed-in teacher's own assignment, or the error response to return. */
 export async function ownedAssignment(request: NextRequest, id: string): Promise<{ error: NextResponse } | { supabase: SupabaseClient; assignment: AssignmentRow; userId: string }> {
@@ -53,7 +55,7 @@ export interface StudentProgress {
   rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null
   account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null
   status: string; daysLate: number; attempts: number
-  best: { pct: number; correct: number; total: number; detail: unknown } | null
+  best: { pct: number; correct: number; total: number; detail: unknown; seconds: number | null } | null
   lastAt: string | null
   /** Started but not finished (saved run), while nothing is turned in. */
   inProgress: RunCount | null
@@ -73,7 +75,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
   await sendUnfinishedAtDue(supabase, ids)
   const [{ data: who }, { data: tries }] = await Promise.all([
     supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email, account_confirmed_at)').in('assignment_id', ids),
-    supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at, detail').in('assignment_id', ids),
+    supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at, detail, seconds').in('assignment_id', ids),
   ])
   // Started and not turned in: their saved run (adaptive totals are concepts, so show questions answered only).
   const rosterOf = (w: { class_roster: unknown }) => (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null
@@ -86,7 +88,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
     out.set(a.id, rows.map((w) => {
       const r = (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { first_name: string; last_name: string; student_user_id: string | null; linked_via: string | null; student_number: string | null; email: string | null; account_confirmed_at: string | null } | null
       const mine = (tries ?? []).filter((t) => t.assignment_id === a.id && t.roster_id === w.roster_id)
-      const list: Array<Attempt & { detail: unknown }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string, detail: t.detail }))
+      const list: Array<Attempt & { detail: unknown; seconds: number | null }> = mine.map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string, detail: t.detail, seconds: typeof t.seconds === 'number' ? t.seconds : null }))
       const best = bestAttempt(list)
       const status = practiceStatus(list, a.due_at)
       const saved = r?.student_user_id && !list.some((t) => t.counted) ? runs.get(`${a.study_guide_id}|${r.student_user_id}`) : undefined
@@ -107,7 +109,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         status,
         daysLate: practiceDaysLate(list, a.due_at),
         attempts: list.filter((t) => t.counted && !t.auto).length,
-        best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: masteryDetail(best.detail) } : null,
+        best: best ? { pct: best.pct, correct: best.correct, total: best.total, detail: masteryDetail(best.detail), seconds: best.seconds } : null,
         lastAt: list.map((t) => t.finishedAt).sort().pop() ?? null,
         inProgress: saved ? { answered: saved.score.answered, total: a.grading === 'mastery' ? 0 : saved.score.total, unit: saved.score.unit } : null,
         incomplete: sent ? autoCount(sent.detail, a.grading === 'mastery' ? 0 : sent.total) : null,

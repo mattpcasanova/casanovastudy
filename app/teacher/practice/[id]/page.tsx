@@ -9,7 +9,7 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Eye, Loader2, MessageCircleQuestion, QrCode, Trash2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Eye, Loader2, MessageCircleQuestion, QrCode, Timer, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { FOCUS_MODE_HINT, focusChip, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -25,12 +25,12 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { AI_HELP_OPTIONS, dayCount, progressStatusText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
+import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, dayCount, overTimeLimit, progressStatusText, runLengthText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null; seconds?: number | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
 interface Data {
-  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; url: string; created_at: string; class_id: string }
+  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; time_limit_seconds: number | null; url: string; created_at: string; class_id: string }
   students: Student[]
   guide: { id: string; title: string; format: string } | null
   class: { id: string; name: string; period: string | null } | null
@@ -167,6 +167,14 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             <span className="text-slate-500">best one counts</span>
           </label>
         ) : <span className="text-slate-700">Graded on topics mastered</span>}
+        {a.grading === "percent" && (
+          <label className="inline-flex items-center gap-2 text-slate-800"><Timer className="h-4 w-4 text-slate-500" />Time limit
+            <select value={a.time_limit_seconds ?? "none"} onChange={(e) => void patch({ timeLimitSeconds: e.target.value === "none" ? null : Number(e.target.value) })} className="h-10 rounded-xl border border-slate-300 bg-white px-3" aria-label="Time limit">
+              <option value="none">None</option>
+              {[...new Set([...TIME_LIMIT_PICKS.map((m) => m * 60), ...(a.time_limit_seconds ? [a.time_limit_seconds] : [])])].sort((x, y) => x - y).map((s) => <option key={s} value={s}>{s % 60 ? `${Math.round(s / 6) / 10} min` : `${s / 60} min`}</option>)}
+            </select>
+          </label>
+        )}
         <label className="inline-flex items-center gap-2 text-slate-800"><MessageCircleQuestion className="h-4 w-4 text-slate-500" />AI help
           <select value={a.ai_help} onChange={(e) => void patch({ aiHelp: e.target.value })} className="h-10 rounded-xl border border-slate-300 bg-white px-3">
             {AI_HELP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -224,6 +232,11 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                 const chip = focusChip(summarizeFocus(s.focus))
                 return chip ? <button type="button" onClick={() => setFocusFor(s)} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200 hover:bg-amber-100"><Eye className="h-3.5 w-3.5" />{chip}</button> : null
               })()}
+              {s.best?.seconds != null && (
+                <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ring-1 ring-inset", overTimeLimit(s.best.seconds, a.time_limit_seconds) ? "bg-rose-50 text-rose-800 ring-rose-200" : "bg-slate-50 text-slate-700 ring-slate-200")} title={overTimeLimit(s.best.seconds, a.time_limit_seconds) ? "This run took longer than the time limit" : "How long their best run took"}>
+                  <Timer className="h-3.5 w-3.5" />{runLengthText(s.best.seconds)}{overTimeLimit(s.best.seconds, a.time_limit_seconds) ? " · over the limit" : ""}
+                </span>
+              )}
               <span className="w-36 text-right font-semibold tabular-nums text-slate-900">{score(s)}</span>
               <span className="w-28 text-right text-xs text-slate-500">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.lastAt ? ` · ${new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span>
               {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <span className="w-full pl-0 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</span> : null}

@@ -121,7 +121,7 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
 
           {out.unmatched.length > 0 && (
             <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-              {out.unmatched.length} student{out.unmatched.length === 1 ? " has" : "s have"} no {info.needs === "email" ? "email" : "student ID"} on the class roster, so the gradebook can&apos;t match {out.unmatched.length === 1 ? "them" : "them"}: {out.unmatched.slice(0, 6).join(", ")}{out.unmatched.length > 6 ? "…" : ""}. Add IDs by importing your roster with a Student ID column.
+              {out.unmatched.length} student{out.unmatched.length === 1 ? " has" : "s have"} no {info.needs === "email" ? "email" : "student ID"} on the class roster, so the gradebook can&apos;t match them. They&apos;re left out of the file; enter {out.unmatched.length === 1 ? "their score" : "their scores"} by hand: {out.unmatched.slice(0, 6).join(", ")}{out.unmatched.length > 6 ? "…" : ""}. Add IDs by importing your roster with a Student ID column.
             </p>
           )}
           <p className="text-xs text-slate-500">

@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })(),
     aiHelp: rule?.aiHelp ?? 'full',
     focusMode: !!a.focus_mode,
+    timeLimit: a.time_limit_seconds ?? null,
     teacherName: teacher ? [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || null : null,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

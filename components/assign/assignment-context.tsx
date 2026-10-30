@@ -11,8 +11,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, Eye, Loader2, Maximize2, MessageCircleOff, MessageCircleQuestion, RotateCcw } from "lucide-react"
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, Eye, Loader2, Maximize2, MessageCircleOff, MessageCircleQuestion, RotateCcw, Timer } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
+import { timeLimitText } from "@/lib/practice/assignments"
 import { FocusGate, FocusNotices, useFocusMode } from "./focus-mode"
 
 interface Mine {
@@ -27,6 +28,8 @@ interface Mine {
   status: string
   aiHelp: "off" | "tutor" | "full"
   focusMode: boolean
+  /** Seconds allowed per run (quiz and practice; null = no limit). */
+  timeLimit: number | null
   teacherName: string | null
   /** What they had answered, sent for them at the due date (status incomplete). */
   sentAtDue: { answered: number; total: number; pct: number } | null
@@ -39,9 +42,9 @@ type Submission =
   | { state: "error"; message: string; score: Parameters<Finish>[0] }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
-type Finish = (score: { correct: number; total: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
+type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
 
-const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
+const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
 
 /** Report a finished run of assigned practice (no-op when not assigned). */
 export function useAssignmentFinish(): Finish | null {
@@ -56,6 +59,12 @@ export function useAssignmentAi(): Mine["aiHelp"] | null {
 /** True while this run will be sent to the teacher (assigned, attempts left): players then don't offer Start over mid-run. */
 export function useAssignmentCounts(): boolean {
   return useContext(Ctx)?.counts ?? false
+}
+
+/** The teacher's time limit in seconds for a run that will count, or null (no limit, not assigned, or attempts used up). */
+export function useAssignmentTimeLimit(): number | null {
+  const c = useContext(Ctx)
+  return c && c.counts ? c.timeLimit : null
 }
 
 /** Who assigned this guide to the student (null outside an assignment). */
@@ -121,13 +130,14 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   if (!id || !mine) return <>{children}</>
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
-    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
+    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
           <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />{mine.teacherName ? `Assigned by ${mine.teacherName}` : "Assigned"}: {mine.title}</span>
           {mine.dueAt && <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" />Due {dueText(mine.dueAt)}</span>}
           {mine.maxAttempts != null && <span>Attempt {Math.min(mine.attempts + 1, mine.maxAttempts)} of {mine.maxAttempts}{mine.attemptsLeft === 0 ? " (all used)" : ""}</span>}
           {mine.grading === "mastery" && <span>Graded on how many topics you master</span>}
+          {mine.timeLimit != null && mine.attemptsLeft !== 0 && <span className="inline-flex items-center gap-1.5"><Timer className="h-4 w-4" />Time limit {timeLimitText(mine.timeLimit)}: the clock starts when you press Start</span>}
           {mine.aiHelp === "off" && <span className="inline-flex items-center gap-1.5"><MessageCircleOff className="h-4 w-4" />Get help is off for this assignment</span>}
           {mine.aiHelp === "tutor" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Get help: hints only. Your teacher can see what you ask</span>}
           {mine.aiHelp === "full" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Your teacher can see what you ask in Get help</span>}

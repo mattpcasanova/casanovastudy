@@ -23,7 +23,10 @@ import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { TurnedInCard, useAssignmentCounts, useAssignmentFinish } from '@/components/assign/assignment-context'
+import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit } from '@/components/assign/assignment-context'
+import { TimeLimitGate, TimeChip } from './quiz-format'
+import { timeLimitText } from '@/lib/practice/assignments'
+import { Timer } from 'lucide-react'
 import { useRunProgress } from '@/lib/use-run-progress'
 import { cleanPracticeRun, type PracticeRun } from '@/lib/run-progress-rules'
 import { ResumeStrip } from './resume-strip'
@@ -127,6 +130,11 @@ export function PracticeSession({
   const [streak, setStreak] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
   const [round, setRound] = useState(0) // bumps to remount activities on restart
+  // The teacher's time limit on assigned work (page runs that count): wall clock from Start, hands the run in at zero.
+  const limit = useAssignmentTimeLimit()
+  const limited = variant === 'page' && limit != null && !subset
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const topRef = useRef<HTMLDivElement>(null)
   const logResult = useRecordResult()
   const logged = useRef(new Set<string>()) // first answer per activity per run
@@ -153,6 +161,7 @@ export function PracticeSession({
     setChecked(false)
     setStreak(run.streak)
     setBestStreak(run.bestStreak)
+    setStartedAt(run.startedAt ?? null)
     setRound((r) => r + 1)
     logged.current = new Set(Object.keys(run.results))
     reported.current = false
@@ -160,9 +169,24 @@ export function PracticeSession({
   }, [progress.restored, all])
   const { save: saveRun, clear: clearRun } = progress
   useEffect(() => {
-    if (done || (index === 0 && !Object.keys(results).length && !later.length)) return
-    saveRun({ index, results, later, subset, streak, bestStreak })
-  }, [done, index, results, later, subset, streak, bestStreak, saveRun])
+    if (done || (index === 0 && !Object.keys(results).length && !later.length && !startedAt)) return
+    saveRun({ index, results, later, subset, streak, bestStreak, startedAt: startedAt ?? undefined })
+  }, [done, index, results, later, subset, streak, bestStreak, startedAt, saveRun])
+  // The countdown: a tick a second while the limited run is going; at zero the run ends with what's answered.
+  useEffect(() => {
+    if (!limited || !startedAt || done) return
+    setNow(Date.now())
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [limited, startedAt, done])
+  const secondsUsed = limited && startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0
+  const timeUp = limited && !!startedAt && limit != null && secondsUsed >= limit
+  useEffect(() => {
+    if (!timeUp || done) return
+    setChecked(false)
+    setIndex(activities.length)
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [timeUp, done, activities.length])
   // A finished run is over: the results screen shows it, and next time starts fresh.
   useEffect(() => { if (done) clearRun() }, [done, clearRun])
   // Assigned practice: a full run on the practice page counts (not inline blocks or missed-only retries).
@@ -173,8 +197,8 @@ export function PracticeSession({
     reported.current = true
     const answers = activities.filter((a) => results[a.id]).map((a) => ({ id: `p:${a.id}`, correct: !!results[a.id].correct, ...(results[a.id].given ? { given: results[a.id].given } : {}), ...(results[a.id].score ? { score: results[a.id].score } : {}) }))
     const earned = Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100
-    reportAssignment({ correct: earned, total: activities.length, detail: { answers } })
-  }, [done, reportAssignment, variant, subset, activities, results])
+    reportAssignment({ correct: earned, total: activities.length, seconds: limited && startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined, detail: { answers } })
+  }, [done, reportAssignment, variant, subset, activities, results, limited, startedAt])
 
   const record: Done = (correct, note, given, score) => {
     if (!current) return
@@ -229,6 +253,7 @@ export function PracticeSession({
     setIndex(0)
     setChecked(false)
     setStreak(0)
+    setStartedAt(null)
     setRound((r) => r + 1)
   }
 
@@ -385,16 +410,24 @@ export function PracticeSession({
       )}
       {/* Progress */}
       <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-        <div className="mb-2.5 flex items-center justify-between gap-3 text-sm">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="text-slate-600">
             Activity <span className="font-semibold text-slate-900">{index + 1}</span> of {activities.length}
           </span>
-          {score}
+          <span className="flex items-center gap-3">
+            {limited && limit != null && (startedAt
+              ? <TimeChip left={limit - secondsUsed} total={limit} />
+              : <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 font-medium text-slate-700"><Timer className="h-4 w-4" /> {timeLimitText(limit)}</span>)}
+            {score}
+          </span>
         </div>
         {segments}
       </div>
 
-      {/* Activity */}
+      {limited && limit != null && !startedAt ? (
+        <TimeLimitGate seconds={limit} count={activities.length} noun="activity" plural="activities" onStart={() => setStartedAt(Date.now())} />
+      ) : (
+      /* Activity */
       <div key={`${current.id}-${round}`} className="animate-fade-up overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-gradient-to-r from-orange-50/80 to-white px-5 py-3 sm:px-7">
           <div className="flex flex-wrap items-center gap-2">
@@ -406,6 +439,7 @@ export function PracticeSession({
         </div>
         {body}
       </div>
+      )}
     </div>
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl')}>{worksheet}</div>
     </>
