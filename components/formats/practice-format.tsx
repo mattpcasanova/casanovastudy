@@ -25,7 +25,7 @@ import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
 import { useAttemptVersion } from '@/components/formats/use-attempt-version'
 import { PreparingVersion } from '@/components/formats/preparing-version'
-import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
+import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit } from '@/components/assign/assignment-context'
 import { TimeLimitGate, TimeChip } from './quiz-format'
 import { timeLimitText } from '@/lib/practice/assignments'
@@ -522,10 +522,10 @@ export function ActivityBody({ activity, checked, onDone, onContinue, compact = 
       {activity.kind === 'fill' && <FillBlank activity={activity} onDone={onDone} checked={checked} onContinue={onContinue} compact={compact} autoFocus={autoFocus} />}
       {activity.kind === 'order' && <OrderList activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'sort' && <SortBoard activity={activity} onDone={onDone} checked={checked} />}
-      {activity.kind === 'choice' && <Choice activity={activity} onDone={onDone} checked={checked} />}
+      {activity.kind === 'choice' && <Choice activity={activity} onDone={onDone} checked={checked} hint={!checked && <HintLadder key={activity.id} className="mt-0" hint={activity.hint} question={activityQuestion(activity)} />} />}
       {activity.kind === 'bug' && <BugHunt activity={activity} onDone={onDone} checked={checked} />}
       {activity.kind === 'write' && <CodeExerciseView exercise={activity.exercise} checked={checked} onDone={onDone} compact={compact} showPrompt={false} />}
-      {!checked && (activity.kind === 'choice' || activity.kind === 'fill') && (
+      {!checked && activity.kind === 'fill' && (
         <HintLadder key={activity.id} hint={activity.hint} question={activityQuestion(activity)} />
       )}
     </>
@@ -849,7 +849,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
   )
 }
 
-function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean }) {
+function Choice({ activity, onDone, checked, hint }: { activity: ChoiceActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean; hint?: React.ReactNode }) {
   const held = useHeld()
   // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const [picked, setPicked] = useState<number | null>(null)
@@ -902,7 +902,7 @@ function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDon
           )
         })}
       </div>
-      <LockInButton show={!checked && picked !== null} onClick={() => picked !== null && lock(picked)} tone="orange" label={held ? 'Lock in answer' : undefined} />
+      <ChoiceActions hint={hint} check={<LockInButton show={!checked && picked !== null} onClick={() => picked !== null && lock(picked)} tone="orange" label={held ? 'Lock in answer' : undefined} />} />
     </div>
   )
 }

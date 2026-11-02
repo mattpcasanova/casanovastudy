@@ -22,7 +22,7 @@ import { GraphFence } from './graph-figure'
 import { answerText, isObjectiveCorrect, parseQuizContent, parseQuizRaw, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
-import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
+import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { useAttemptVersion } from '@/components/formats/use-attempt-version'
 import { PreparingVersion } from '@/components/formats/preparing-version'
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit, type FinishAnswer } from '@/components/assign/assignment-context'
@@ -472,8 +472,6 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
             ))}
           </div>
         )}
-        {(current.type === 'mc' || current.type === 'tf') && <LockInButton show={mode === 'practice' && !revealed && !!answers[current.id]} onClick={() => lockIn(current)} />}
-
         {current.type === 'tf' && (
           <div className="grid grid-cols-2 gap-3" role="radiogroup">
             {['true', 'false'].map((v) => (
@@ -547,11 +545,17 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
           </div>
         )}
 
-        {mode === 'practice' && !revealed && (
-          <HintLadder
-            hint={current.hint}
-            question={{ prompt: current.passage ? `${current.passage}\n\n${current.question}` : current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
-            onUse={() => setHinted((h) => ({ ...h, [current.id]: true }))}
+        {!revealed && (
+          <ChoiceActions
+            hint={
+              <HintLadder
+                className="mt-0"
+                hint={current.hint}
+                question={{ prompt: current.passage ? `${current.passage}\n\n${current.question}` : current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
+                onUse={() => setHinted((h) => ({ ...h, [current.id]: true }))}
+              />
+            }
+            check={mode === 'practice' && (current.type === 'mc' || current.type === 'tf') && <LockInButton show={!!answers[current.id]} onClick={() => lockIn(current)} />}
           />
         )}
 

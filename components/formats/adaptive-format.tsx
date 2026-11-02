@@ -7,7 +7,7 @@
 // day) and for checking the occasional "explain it" answer.
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
-import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
+import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { ReadAloudButton } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -297,12 +297,15 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
               </div>
               {q.figure && <div className="mt-4"><GraphFence text={q.figure} allowExplain={!!result} /></div>}
               <div className="mt-5">
-                {(q.type === "mc" || q.type === "tf") && <ChoiceAnswer key={q.id} q={q} result={result} onPick={(i) => submit(String(i))} />}
+                {(q.type === "mc" || q.type === "tf") && (
+                  <ChoiceAnswer key={q.id} q={q} result={result} onPick={(i) => submit(String(i))}
+                    hint={!result && <HintLadder key={q.id} className="mt-0" hint={q.hint} question={{ prompt: q.prompt, options: q.type === "mc" ? q.options : undefined, figure: q.figure }} onUse={() => setHinted(true)} />} />
+                )}
                 {q.type === "num" && <NumberAnswer key={q.id} result={result} onSubmit={submit} />}
                 {q.type === "explain" && <ExplainAnswer key={q.id} q={q} guideId={studyGuideId} result={result} onChecked={submit} onBlocked={openPremium} />}
               </div>
-              {!result && q.type !== "explain" && (
-                <HintLadder key={q.id} hint={q.hint} question={{ prompt: q.prompt, options: q.type === "mc" ? q.options : undefined, figure: q.figure }} onUse={() => setHinted(true)} />
+              {!result && q.type === "num" && (
+                <HintLadder key={q.id} hint={q.hint} question={{ prompt: q.prompt, options: undefined, figure: q.figure }} onUse={() => setHinted(true)} />
               )}
 
               {result && (
@@ -393,7 +396,7 @@ function QuestionPrompt({ text, passage }: { text: string; passage?: string }) {
 
 // ── Answer inputs ───────────────────────────────────────────────────────────
 
-function ChoiceAnswer({ q, result, onPick }: { q: AdaptiveQuestion; result: { given: string } | null; onPick: (i: number) => void }) {
+function ChoiceAnswer({ q, result, onPick, hint }: { q: AdaptiveQuestion; result: { given: string } | null; onPick: (i: number) => void; hint?: React.ReactNode }) {
   // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const isTF = q.type === "tf"
   const [pending, setPending] = useState<number | null>(null)
@@ -441,7 +444,7 @@ function ChoiceAnswer({ q, result, onPick }: { q: AdaptiveQuestion; result: { gi
           )
         })}
       </div>
-      <LockInButton show={!result && pending !== null} onClick={() => pending !== null && onPick(pending)} tone="sky" />
+      <ChoiceActions hint={hint} check={<LockInButton show={!result && pending !== null} onClick={() => pending !== null && onPick(pending)} tone="sky" />} />
     </div>
   )
 }

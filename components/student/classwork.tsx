@@ -40,6 +40,24 @@ function remember(userId: string, d: Classwork) {
 
 const dataKey = (userId: string) => `cs:classwork-data:${userId}`
 
+// The nav check and the homepage strip both ask on the same page load: one request serves both.
+let inflight: { userId: string; promise: Promise<Classwork | null> } | null = null
+function fetchClasswork(userId: string): Promise<Classwork | null> {
+  if (inflight?.userId === userId) return inflight.promise
+  const promise = (async () => {
+    try {
+      const res = await authFetch("/api/student/classwork", { cache: "no-store" })
+      if (!res.ok) return null
+      const json = (await res.json()) as Classwork
+      remember(userId, json)
+      try { sessionStorage.setItem(dataKey(userId), JSON.stringify({ ...json, linkedNow: [] })) } catch {}
+      return json
+    } catch { return null } finally { inflight = null }
+  })()
+  inflight = { userId, promise }
+  return promise
+}
+
 /** Runs `check` when the tab comes back into view (at most every `gapMs`). */
 function useOnReturn(check: () => void, enabled: boolean, gapMs = 20_000) {
   useEffect(() => {
@@ -71,15 +89,11 @@ export function useClasswork(skip = false): Classwork | null {
       } catch {}
     }
     let live = true
-    void (async () => {
-      const res = await authFetch("/api/student/classwork", { cache: "no-store" })
-      if (!res.ok || !live) return
-      const json = (await res.json()) as Classwork
-      remember(user.id, json)
-      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify({ ...json, linkedNow: [] })) } catch {}
+    void fetchClasswork(user.id).then((json) => {
+      if (!json || !live) return
       // Keep a "just connected" note on screen until the next real change.
       setData((prev) => ({ ...json, linkedNow: json.linkedNow?.length ? json.linkedNow : prev?.linkedNow ?? [] }))
-    })()
+    })
     return () => { live = false }
   }, [user, active, tick])
   const refresh = useCallback(() => setTick((t) => t + 1), [])
@@ -99,14 +113,7 @@ export function useInClass(): boolean {
     try { cached = sessionStorage.getItem(flagKey(user.id)) } catch {}
     if (cached === "1") { setShow(true); return }
     let live = true
-    void (async () => {
-      const res = await authFetch("/api/student/classwork", { cache: "no-store" })
-      if (!res.ok || !live) return
-      const json = (await res.json()) as Classwork
-      remember(user.id, json)
-      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify({ ...json, linkedNow: [] })) } catch {}
-      setShow(hasAny(json))
-    })()
+    void fetchClasswork(user.id).then((json) => { if (json && live) setShow(hasAny(json)) })
     return () => { live = false }
   }, [user, student, tick])
   // Not in a class yet: ask again when they come back to the tab, and right away when another part of the page finds one.

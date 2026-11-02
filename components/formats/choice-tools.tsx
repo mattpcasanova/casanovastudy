@@ -42,11 +42,13 @@ export function CrossOutButton({ letter, crossed, onToggle, disabled }: { letter
       aria-label={crossed ? `Bring back option ${letter}` : `Cross out option ${letter}`}
       title={crossed ? 'Bring it back' : 'Cross it out'}
       className={cn(
-        'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition',
-        crossed ? 'border-slate-400 bg-slate-100 text-slate-500' : 'border-slate-200 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-600'
+        'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm transition',
+        crossed
+          ? 'border-slate-300 bg-slate-100 text-[0.68rem] font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-200'
+          : 'border-slate-200 bg-white font-bold text-slate-400 line-through decoration-slate-400 decoration-2 hover:border-slate-400 hover:text-slate-600 hover:decoration-slate-600'
       )}
     >
-      {crossed ? <span className="text-[0.7rem] font-semibold">Undo</span> : <span className="relative">{letter}<span className="absolute left-[-3px] right-[-3px] top-1/2 h-[2px] -translate-y-1/2 bg-current" /></span>}
+      {crossed ? 'Undo' : letter}
     </button>
   )
 }
@@ -54,16 +56,28 @@ export function CrossOutButton({ letter, crossed, onToggle, disabled }: { letter
 /** Classes for an option that's been crossed out. */
 export const crossedClass = 'border-dashed bg-slate-50 [&_.option-text]:text-slate-500 [&_.option-text]:line-through [&_.option-text]:decoration-2 [&_.option-text]:decoration-slate-500'
 
-/** "Check answer" under the options once something is picked and not yet locked in. */
+/** "Check answer" once something is picked and not yet locked in (full width on phones). */
 export function LockInButton({ show, onClick, tone = 'purple', label = 'Check answer' }: { show: boolean; onClick: () => void; tone?: 'purple' | 'orange' | 'sky'; label?: string }) {
   if (!show) return null
   const color = tone === 'orange' ? 'bg-orange-700 hover:bg-orange-800' : tone === 'sky' ? 'bg-sky-700 hover:bg-sky-800' : 'bg-purple-600 hover:bg-purple-700'
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Button type="button" onClick={onClick} className={cn('h-11 px-5 text-white', color)}>
-        <Check className="mr-1.5 h-4 w-4" /> {label}
-      </Button>
-      <span className="text-xs text-slate-500">or tap your choice again</span>
+    <Button type="button" onClick={onClick} title="Tapping your choice again also locks it in" className={cn('h-11 w-full px-5 text-white sm:w-auto', color)}>
+      <Check className="mr-1.5 h-4 w-4" /> {label}
+    </Button>
+  )
+}
+
+/**
+ * The row under a question's options: the hint on the left, the lock-in button
+ * on the right (on phones the button comes first, full width). One row with one
+ * top margin, so the button never floats between the options and the hint.
+ */
+export function ChoiceActions({ hint, check, className }: { hint?: React.ReactNode; check?: React.ReactNode; className?: string }) {
+  if (!hint && !check) return null
+  return (
+    <div className={cn('mt-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
+      {hint ? <div className="min-w-0 sm:order-1 sm:flex-1">{hint}</div> : <span className="hidden sm:block sm:order-1 sm:flex-1" />}
+      {check && <div className="sm:order-2 sm:shrink-0">{check}</div>}
     </div>
   )
 }

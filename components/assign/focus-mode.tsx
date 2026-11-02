@@ -175,7 +175,7 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
     return () => clearTimeout(t)
   }, [notice])
 
-  return { state, start, runFinished, finished, notice, dismissNotice: () => setNotice(null), outOfFullscreen, backToFullscreen: enterFullscreen }
+  return { state, start, runFinished, finished, notice, dismissNotice: () => setNotice(null), outOfFullscreen, backToFullscreen: enterFullscreen, canFullscreen: fullscreenSupported() }
 }
 
 /** Shown over the guide before a focus-mode assignment starts. */

@@ -169,7 +169,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
           {mine.aiHelp === "full" && <span className="inline-flex items-center gap-1.5"><MessageCircleQuestion className="h-4 w-4" />Your teacher can see what you ask in Get help</span>}
           {best && <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" />Best so far: {best}</span>}
           {focusOn && focus.state === "on" && <span className="inline-flex items-center gap-1.5 font-medium"><Eye className="h-4 w-4" />Focus mode: leaving this page is recorded</span>}
-          {focusOn && focus.state === "on" && focus.finished && (
+          {focusOn && focus.state === "on" && focus.finished && focus.canFullscreen && (
             <button type="button" onClick={() => void focus.backToFullscreen()} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 font-semibold text-white hover:bg-emerald-800">
               <Maximize2 className="h-4 w-4" />Full screen for another attempt
             </button>
