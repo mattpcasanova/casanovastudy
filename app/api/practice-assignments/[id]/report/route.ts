@@ -25,6 +25,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     finished: report.runs.length,
     results: report.results,
     papers: report.papers,
+    // For the teacher's per-student view: every question, and each finished student's answers on the attempt that counts.
+    questions: report.questions,
+    students: report.runs.map((r) => ({ rosterId: r.rosterId, answers: r.answers, complete: r.complete, version: r.version ?? 0 })),
     topics: report.topics,
     insights: saved?.insights ? { insights: saved.insights, current: saved.signature === report.signature, createdAt: saved.insights_at } : null,
   }, { headers: { 'Cache-Control': 'no-store' } })

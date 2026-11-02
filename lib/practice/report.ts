@@ -34,6 +34,8 @@ export interface StudentRun {
   answers: PracticeAnswer[]
   /** Every question was in the run (quiz and practice), so unanswered ones count as wrong. Adaptive picks questions, so it's false. */
   complete: boolean
+  /** The attempt used a new version of the questions (0 or absent = the original), so `given` is not saved and the wording differed. */
+  version?: number
 }
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)

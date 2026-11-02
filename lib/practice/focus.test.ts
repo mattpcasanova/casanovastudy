@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { durationText, focusChip, sanitizeFocusEvents, summarizeFocus } from './focus'
+import { durationText, focusChip, focusChipShort, sanitizeFocusEvents, summarizeFocus } from './focus'
 
 const NOW = Date.parse('2026-10-26T15:00:00Z')
 
@@ -34,6 +34,8 @@ describe('summary and chip', () => {
     ])
     expect(s).toMatchObject({ started: true, leaves: 2, awaySeconds: 80, longestAway: 50, pastes: 1, fullscreenExits: 1, outSeconds: 80 })
     expect(focusChip(s)).toBe('Out of focus 1m 20s total · left the page 2× · left full screen 1× · 1 copy/paste')
+    expect(focusChipShort(s)).toBe('Out of focus 1m 20s · 1 copy/paste')
+    expect(focusChipShort(summarizeFocus([{ kind: 'fullscreen_exit', at: 'x' }]))).toBe('Left full screen 1×')
   })
   it('counts time away and out of full screen once when they overlap', () => {
     const s = summarizeFocus([

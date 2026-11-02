@@ -96,6 +96,16 @@ export function focusChip(s: FocusSummary): string | null {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+/** Shorter chip for a student row ("Out of focus 4m 14s · 1 copy/paste"); the dialog has the rest. */
+export function focusChipShort(s: FocusSummary): string | null {
+  const parts: string[] = []
+  if (s.outSeconds >= 1) parts.push(`Out of focus ${durationText(s.outSeconds)}`)
+  else if (s.leaves) parts.push(`Left the page ${s.leaves}×`)
+  else if (s.fullscreenExits) parts.push(`Left full screen ${s.fullscreenExits}×`)
+  if (s.copies + s.pastes) parts.push(`${s.copies + s.pastes} copy/paste`)
+  return parts.length ? parts.join(' · ') : null
+}
+
 /** One line per event for the teacher's dialog. */
 export function focusEventText(e: FocusEvent): string {
   switch (e.kind) {

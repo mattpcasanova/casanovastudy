@@ -18,11 +18,12 @@ export async function loadPracticeReport(supabase: SupabaseClient, assignment: A
   const format = (guide?.format as string) ?? ''
   const questions = guide ? reportQuestions(format, (guide.content as string) ?? '') : []
 
-  type Try = { pct: number; counted: boolean; finishedAt: string; userId: string; answers: ReturnType<typeof sanitizeAnswers> }
+  type Try = { pct: number; counted: boolean; finishedAt: string; userId: string; answers: ReturnType<typeof sanitizeAnswers>; version: number }
   const byStudent = new Map<string, Try[]>()
   for (const t of tries ?? []) {
     const list = byStudent.get(t.roster_id as string) ?? []
-    list.push({ pct: Number(t.pct), counted: !!t.counted, finishedAt: t.finished_at as string, userId: t.student_user_id as string, answers: sanitizeAnswers((t.detail as { answers?: unknown } | null)?.answers) })
+    const d = t.detail as { answers?: unknown; version?: unknown } | null
+    list.push({ pct: Number(t.pct), counted: !!t.counted, finishedAt: t.finished_at as string, userId: t.student_user_id as string, answers: sanitizeAnswers(d?.answers), version: typeof d?.version === 'number' ? d.version : 0 })
     byStudent.set(t.roster_id as string, list)
   }
 
@@ -53,7 +54,7 @@ export async function loadPracticeReport(supabase: SupabaseClient, assignment: A
     if (!names.has(rosterId)) continue // unassigned since
     const answers = attempt.answers ?? answersFromLog(log.get(attempt.userId) ?? [], after, attempt.finishedAt)
     if (!answers.length) continue
-    runs.push({ rosterId, name: names.get(rosterId)!, answers, complete: format !== 'adaptive' })
+    runs.push({ rosterId, name: names.get(rosterId)!, answers, complete: format !== 'adaptive', ...(attempt.version ? { version: attempt.version } : {}) })
   }
   runs.sort((a, b) => a.name.localeCompare(b.name))
 

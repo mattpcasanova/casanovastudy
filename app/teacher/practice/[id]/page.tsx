@@ -9,9 +9,11 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Eye, Loader2, MessageCircleQuestion, QrCode, Timer, Trash2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, CheckCircle2, Copy, Eye, ListChecks, Loader2, MessageCircleQuestion, QrCode, Timer, Trash2, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import { FOCUS_MODE_HINT, durationText, focusChip, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
+import { FOCUS_MODE_HINT, durationText, focusChip, focusChipShort, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
+import { givenText, type PracticeAnswer, type ReportQuestion } from "@/lib/practice/report"
+import { InlineMarkdown } from "@/components/formats/study-markdown"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
@@ -28,6 +30,8 @@ import { cn } from "@/lib/utils"
 import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, dayCount, overTimeLimit, progressStatusText, runLengthText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 
+interface ReportData { questions: ReportQuestion[]; students: Array<{ rosterId: string; answers: PracticeAnswer[]; complete: boolean; version: number }> }
+const chip = "inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset"
 interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null; seconds?: number | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; time_limit_seconds: number | null; url: string; created_at: string; class_id: string }
@@ -70,6 +74,18 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [exportOpen, setExportOpen] = useState(false)
   const [aiFor, setAiFor] = useState<Student | null>(null)
   const [focusFor, setFocusFor] = useState<Student | null>(null)
+  // "See answers": every question with what this student answered on the attempt that counts (from the class report's data, fetched once).
+  const [answersFor, setAnswersFor] = useState<Student | null>(null)
+  const [report, setReport] = useState<ReportData | null | "loading">(null)
+  const openAnswers = (s: Student, assignmentId: string) => {
+    setAnswersFor(s)
+    if (report) return
+    setReport("loading")
+    void authFetch(`/api/practice-assignments/${assignmentId}/report`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: ReportData | null) => setReport(j && Array.isArray(j.questions) ? j : null))
+      .catch(() => setReport(null))
+  }
   const [nameOrder, setNameOrder] = useNameOrder()
   const [byScore, setByScore] = useState(false)
 
@@ -145,53 +161,60 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
 
       <ClassroomPracticePanel assignmentId={a.id} students={students.length} />
 
-      <section className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
-        <span className="inline-flex items-center gap-2 text-slate-800"><CalendarClock className="h-4 w-4 text-slate-500" />
-          {editDue ? (
-            <span className="flex flex-wrap items-center gap-2">
-              <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 rounded-xl border border-slate-300 px-3" />
-              <button type="button" className={actionButtonPrimary} onClick={async () => { await patch({ dueAt: due ? new Date(due).toISOString() : null }); setEditDue(false) }}>Save</button>
-              {a.due_at && <button type="button" className={actionButton} onClick={async () => { await patch({ dueAt: null }); setEditDue(false) }}>No due date</button>}
-            </span>
-          ) : (
-            <>{a.due_at ? `Due ${new Date(a.due_at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "No due date"}
-              <button type="button" className={actionButton} onClick={() => { setDue(a.due_at ? toLocalInput(a.due_at) : ""); setEditDue(true) }}>Change</button></>
-          )}
-        </span>
-        {a.grading === "percent" ? (
-          <label className="inline-flex items-center gap-2 text-slate-800">Attempts
-            <select value={a.max_attempts ?? "any"} onChange={(e) => void patch({ maxAttempts: e.target.value === "any" ? null : Number(e.target.value) })} className="h-10 rounded-xl border border-slate-300 bg-white px-3">
-              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-              <option value="any">Unlimited</option>
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Due" icon={CalendarClock} wide={editDue}>
+            {editDue ? (
+              <>
+                <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="h-10 rounded-xl border border-slate-300 px-3 text-sm" aria-label="Due date and time" />
+                <button type="button" className={actionButtonPrimary} onClick={async () => { await patch({ dueAt: due ? new Date(due).toISOString() : null }); setEditDue(false) }}>Save</button>
+                {a.due_at && <button type="button" className={actionButton} onClick={async () => { await patch({ dueAt: null }); setEditDue(false) }}>No due date</button>}
+                <button type="button" className={actionButton} onClick={() => setEditDue(false)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-slate-900">{a.due_at ? new Date(a.due_at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "No due date"}</span>
+                <button type="button" className="text-sm font-semibold text-blue-700 hover:underline" onClick={() => { setDue(a.due_at ? toLocalInput(a.due_at) : ""); setEditDue(true) }}>Change</button>
+              </>
+            )}
+          </Field>
+          <Field label="Attempts" icon={ListChecks}>
+            {a.grading === "percent" ? (
+              <>
+                <select value={a.max_attempts ?? "any"} onChange={(e) => void patch({ maxAttempts: e.target.value === "any" ? null : Number(e.target.value) })} className={cn(selectBox, "pr-9")} aria-label="Attempts allowed">
+                  {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+                  <option value="any">Unlimited</option>
+                </select>
+                <span className="text-slate-500">best one counts</span>
+              </>
+            ) : <span className="font-medium text-slate-900">Until mastered</span>}
+          </Field>
+          <Field label="Time limit" icon={Timer}>
+            {a.grading === "percent" ? (
+              <select value={a.time_limit_seconds ?? "none"} onChange={(e) => void patch({ timeLimitSeconds: e.target.value === "none" ? null : Number(e.target.value) })} className={cn(selectBox, "pr-9")} aria-label="Time limit">
+                <option value="none">None</option>
+                {[...new Set([...TIME_LIMIT_PICKS.map((m) => m * 60), ...(a.time_limit_seconds ? [a.time_limit_seconds] : [])])].sort((x, y) => x - y).map((sec) => <option key={sec} value={sec}>{sec % 60 ? `${Math.round(sec / 6) / 10} min` : `${sec / 60} min`}</option>)}
+              </select>
+            ) : <span className="text-slate-500">Not used for adaptive practice</span>}
+          </Field>
+          <Field label="AI help" icon={MessageCircleQuestion}>
+            <select value={a.ai_help} onChange={(e) => void patch({ aiHelp: e.target.value })} className={cn(selectBox, "pr-9")} aria-label="AI help">
+              {AI_HELP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <span className="text-slate-500">best one counts</span>
-          </label>
-        ) : <span className="text-slate-700">Graded on topics mastered</span>}
-        {a.grading === "percent" && (
-          <label className="inline-flex items-center gap-2 text-slate-800"><Timer className="h-4 w-4 text-slate-500" />Time limit
-            <select value={a.time_limit_seconds ?? "none"} onChange={(e) => void patch({ timeLimitSeconds: e.target.value === "none" ? null : Number(e.target.value) })} className="h-10 rounded-xl border border-slate-300 bg-white px-3" aria-label="Time limit">
-              <option value="none">None</option>
-              {[...new Set([...TIME_LIMIT_PICKS.map((m) => m * 60), ...(a.time_limit_seconds ? [a.time_limit_seconds] : [])])].sort((x, y) => x - y).map((s) => <option key={s} value={s}>{s % 60 ? `${Math.round(s / 6) / 10} min` : `${s / 60} min`}</option>)}
-            </select>
-          </label>
-        )}
-        <label className="inline-flex items-center gap-2 text-slate-800"><MessageCircleQuestion className="h-4 w-4 text-slate-500" />AI help
-          <select value={a.ai_help} onChange={(e) => void patch({ aiHelp: e.target.value })} className="h-10 rounded-xl border border-slate-300 bg-white px-3">
-            {AI_HELP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </label>
-        <p className="w-full text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.hint} You see every question a student asks the AI while doing it.</p>
-        <label className="flex w-full items-start justify-between gap-4 border-t border-slate-100 pt-3">
-          <span>
-            <span className="flex items-center gap-2 font-medium text-slate-800"><Eye className="h-4 w-4 text-slate-500" />Focus mode</span>
-            <span className="block text-slate-500">{FOCUS_MODE_HINT} Changes apply the next time a student opens it.</span>
+          </Field>
+        </div>
+        <p className="mt-3 text-sm text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.hint} You see every question a student asks the AI while doing it.</p>
+        <label className="mt-4 flex items-start justify-between gap-4 border-t border-slate-100 pt-4">
+          <span className="text-sm">
+            <span className="flex items-center gap-2 font-medium text-slate-900"><Eye className="h-4 w-4 text-slate-500" />Focus mode</span>
+            <span className="mt-0.5 block text-slate-500">{FOCUS_MODE_HINT} Changes apply the next time a student opens it.</span>
           </span>
           <Switch checked={a.focus_mode} onCheckedChange={(on) => void patch({ focusMode: on })} aria-label="Focus mode" className="mt-0.5" />
         </label>
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold text-slate-900">Students</h2>
           <select
             aria-label="Sort students"
@@ -205,43 +228,56 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           </select>
         </div>
         <ul className="divide-y divide-slate-100">
-          {ordered.map((s) => (
-            <li key={s.rosterId} className="flex flex-wrap items-center gap-3 py-3 text-sm">
-              <Link href={`/teacher/classes/${a.class_id}/students/${s.rosterId}`} className="min-w-[10rem] flex-1 font-medium text-slate-900 hover:text-blue-700">
-                {displayName(s, nameOrder)}
-                {s.account && !s.account.matches ? null : s.linkedVia === "picked" && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
-                {!s.linked && <span className="ml-2 text-xs font-normal text-slate-400">hasn&apos;t opened the link</span>}
-              </Link>
-              {s.account && !s.account.matches && (
-                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 py-1 pl-2.5 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
-                  <AlertTriangle className="h-3.5 w-3.5" />Signed in as {s.account.name || "someone else"}
-                  <button type="button" onClick={() => void confirmThem(s)} className="h-7 rounded-full bg-amber-700 px-2.5 font-semibold text-white hover:bg-amber-800">Yes, that&apos;s them</button>
-                  <button type="button" onClick={() => void notThem(s)} className="h-7 rounded-full bg-white px-2.5 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
-                </span>
-              )}
-              <span
-                className={cn("rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", s.inProgress && (s.status === "not_started" || s.status === "missing") ? IN_PROGRESS_CLS : (STATUS[s.status] ?? STATUS.not_started).cls)}
-                title={s.status === "incomplete" ? "Never finished: what they had answered was sent at the due date (unanswered count as 0). If they finish it, that counts as late and the better score is kept." : s.inProgress ? "Started and saved, not turned in yet" : undefined}
-              >
-                {progressStatusText(s, STATUS_TEXT)}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}
-              </span>
-              {s.aiUses.length > 0
-                ? <button type="button" onClick={() => setAiFor(s)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-inset ring-violet-200 hover:bg-violet-100"><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
-                : null}
-              {(() => {
-                const chip = focusChip(summarizeFocus(s.focus))
-                return chip ? <button type="button" onClick={() => setFocusFor(s)} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200 hover:bg-amber-100"><Eye className="h-3.5 w-3.5" />{chip}</button> : null
-              })()}
-              {s.best?.seconds != null && (
-                <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ring-1 ring-inset", overTimeLimit(s.best.seconds, a.time_limit_seconds) ? "bg-rose-50 text-rose-800 ring-rose-200" : "bg-slate-50 text-slate-700 ring-slate-200")} title={overTimeLimit(s.best.seconds, a.time_limit_seconds) ? "This run took longer than the time limit" : "How long their best run took"}>
-                  <Timer className="h-3.5 w-3.5" />{runLengthText(s.best.seconds)}{overTimeLimit(s.best.seconds, a.time_limit_seconds) ? " · over the limit" : ""}
-                </span>
-              )}
-              <span className="w-36 text-right font-semibold tabular-nums text-slate-900">{score(s)}</span>
-              <span className="w-28 text-right text-xs text-slate-500">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.lastAt ? ` · ${new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span>
-              {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <span className="w-full pl-0 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</span> : null}
-            </li>
-          ))}
+          {ordered.map((s) => {
+            const focus = summarizeFocus(s.focus)
+            const focusText = focusChipShort(focus)
+            const over = s.best?.seconds != null && overTimeLimit(s.best.seconds, a.time_limit_seconds)
+            return (
+              <li key={s.rosterId} className="grid grid-cols-1 gap-x-6 gap-y-2 py-3.5 text-sm sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <Link href={`/teacher/classes/${a.class_id}/students/${s.rosterId}`} className="font-medium text-slate-900 hover:text-blue-700">{displayName(s, nameOrder)}</Link>
+                    {s.account && !s.account.matches ? null : s.linkedVia === "picked" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200" title="Picked their own name from the link (the class list had no student ID to check)">self-matched</span>}
+                    {!s.linked && <span className="text-xs text-slate-400">hasn&apos;t opened the link</span>}
+                  </div>
+                  {s.account && !s.account.matches && (
+                    <span className="mt-1.5 inline-flex flex-wrap items-center gap-2 rounded-full bg-amber-50 py-1 pl-2.5 pr-1 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
+                      <AlertTriangle className="h-3.5 w-3.5" />Signed in as {s.account.name || "someone else"}
+                      <button type="button" onClick={() => void confirmThem(s)} className="h-7 rounded-full bg-amber-700 px-2.5 font-semibold text-white hover:bg-amber-800">Yes, that&apos;s them</button>
+                      <button type="button" onClick={() => void notThem(s)} className="h-7 rounded-full bg-white px-2.5 font-semibold ring-1 ring-amber-300 hover:bg-amber-100">Not them</button>
+                    </span>
+                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={cn(chip, s.inProgress && (s.status === "not_started" || s.status === "missing") ? IN_PROGRESS_CLS : (STATUS[s.status] ?? STATUS.not_started).cls)}
+                      title={s.status === "incomplete" ? "Never finished: what they had answered was sent at the due date (unanswered count as 0). If they finish it, that counts as late and the better score is kept." : s.inProgress ? "Started and saved, not turned in yet" : undefined}
+                    >
+                      {progressStatusText(s, STATUS_TEXT)}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}
+                    </span>
+                    {s.aiUses.length > 0 && (
+                      <button type="button" onClick={() => setAiFor(s)} className={cn(chip, "bg-violet-50 text-violet-800 ring-violet-200 hover:bg-violet-100")}><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
+                    )}
+                    {focusText && (
+                      <button type="button" onClick={() => setFocusFor(s)} className={cn(chip, "bg-amber-50 text-amber-900 ring-amber-200 hover:bg-amber-100")} title={focusChip(focus) ?? undefined}><Eye className="h-3.5 w-3.5" />{focusText}</button>
+                    )}
+                    {s.best?.seconds != null && (
+                      <span className={cn(chip, "tabular-nums", over ? "bg-rose-50 text-rose-800 ring-rose-200" : "bg-slate-50 text-slate-700 ring-slate-200")} title={over ? "This run took longer than the time limit" : "How long their best run took"}>
+                        <Timer className="h-3.5 w-3.5" />{runLengthText(s.best.seconds)}{over ? " · over the limit" : ""}
+                      </span>
+                    )}
+                  </div>
+                  {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <p className="mt-1 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</p> : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
+                  <span className={cn("font-semibold tabular-nums", s.best ? "text-slate-900" : "text-slate-300")}>{score(s)}</span>
+                  {(s.attempts > 0 || s.lastAt) && (
+                    <span className="text-xs text-slate-500 tabular-nums">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.attempts && s.lastAt ? " · " : ""}{s.lastAt ? new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}</span>
+                  )}
+                  {s.best && <button type="button" onClick={() => openAnswers(s, a.id)} className="text-xs font-semibold text-blue-700 hover:underline">See answers</button>}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       </section>
 
@@ -262,6 +298,19 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           status: s.best ? (s.status === "late" ? "late" : null) : s.status === "missing" ? "missing" : null,
         }))}
       />
+
+      <Dialog open={!!answersFor} onOpenChange={(o) => { if (!o) setAnswersFor(null) }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{answersFor?.firstName || answersFor?.name}: question by question</DialogTitle>
+            <DialogDescription>
+              {answersFor?.best ? `The attempt that counts: ${score(answersFor)}${answersFor.lastAt ? ` · ${new Date(answersFor.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}.` : ""}
+              {" "}Their first answer to each question in that run.
+            </DialogDescription>
+          </DialogHeader>
+          {answersFor && <StudentAnswers student={answersFor} report={report} />}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!focusFor} onOpenChange={(o) => { if (!o) setFocusFor(null) }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
@@ -326,6 +375,64 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
       <NavigationHeader />
       <main className="container mx-auto max-w-4xl px-4 py-10">{children}</main>
+    </div>
+  )
+}
+
+
+/** One labeled setting in the settings grid. */
+function Field({ label, icon: Icon, wide, children }: { label: string; icon: typeof CalendarClock; wide?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={cn("min-w-0", wide && "sm:col-span-2 lg:col-span-4")}>
+      <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Icon className="h-3.5 w-3.5" />{label}</span>
+      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-800">{children}</div>
+    </div>
+  )
+}
+
+/** Every question with what the student answered (the class report's data). */
+function StudentAnswers({ student, report }: { student: Student; report: ReportData | null | "loading" }) {
+  if (report === "loading" || report === null) {
+    return report === null
+      ? <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Their answers couldn&apos;t be loaded. Try again in a moment.</p>
+      : <p className="flex items-center gap-2 py-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading their answers…</p>
+  }
+  const run = report.students.find((r) => r.rosterId === student.rosterId)
+  if (!run) return <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No answers were saved for this run. Runs finished before answers were kept show only the score.</p>
+  const byId = new Map(run.answers.map((x) => [x.id, x]))
+  const rows = report.questions.filter((q) => run.complete || byId.has(q.itemId))
+  const right = rows.filter((q) => byId.get(q.itemId)?.correct).length
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-slate-600"><span className="font-semibold text-slate-900">{right} of {rows.length}</span> right{run.version > 0 ? "." : " on the first try."}</p>
+      {run.version > 0 && (
+        <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900 ring-1 ring-inset ring-blue-200">
+          This attempt used new versions of the questions (attempt {run.version + 1}), written for this student on the same skills. The wording differed from the original, so each question shows right or wrong, not the exact answer given.
+        </p>
+      )}
+      <ol className="space-y-2">
+        {rows.map((q) => {
+          const x = byId.get(q.itemId)
+          const ok = !!x?.correct
+          const part = !ok && !!x?.score
+          const given = x ? givenText(q, x.given) : null
+          return (
+            <li key={q.itemId} className={cn("rounded-xl border p-3 text-sm", ok ? "border-emerald-200 bg-emerald-50/50" : part ? "border-amber-200 bg-amber-50/50" : "border-rose-200 bg-rose-50/50")}>
+              <div className="flex gap-3">
+                <span className="mt-0.5 shrink-0">{ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className={cn("h-5 w-5", part ? "text-amber-600" : "text-rose-600")} />}</span>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-slate-900"><span className="font-semibold">{q.label}.</span> <InlineMarkdown text={q.text} /></p>
+                  {q.topic && <p className="text-xs text-slate-500">{q.topic}</p>}
+                  {x
+                    ? <p className="text-slate-700"><span className="font-semibold">Answered:</span> {given ? <InlineMarkdown text={given} /> : ok ? "right" : part ? `partly right (${Math.round((x.score ?? 0) * 100)}%)` : run.version > 0 ? "wrong" : "no answer saved"}</p>
+                    : <p className="text-slate-500">Not answered</p>}
+                  {!ok && run.version === 0 && q.answer && <p className="text-emerald-800"><span className="font-semibold">Answer:</span> <InlineMarkdown text={q.answer} /></p>}
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </div>
   )
 }

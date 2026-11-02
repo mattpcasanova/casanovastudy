@@ -2853,20 +2853,23 @@ Minutes across warm-up, mini-lesson, group work and exit ticket must add up to a
   }): Promise<{ score: number; feedback: string; isCorrect: boolean }> {
     const { question, sampleAnswer, rubricNotes, studentAnswer, subject } = params
 
-    const prompt = `You are grading a short answer question${subject ? ` for ${subject}` : ''}.
+    const prompt = `You are checking a student's short answer${subject ? ` in ${subject}` : ''}. Decide whether it answers the question, not whether it matches the sample word for word.
 
 Question: ${question}
 
-Sample correct answer: ${sampleAnswer}
-${rubricNotes ? `Grading notes from the teacher: ${rubricNotes}\n` : ''}
+Sample answer (ONE good answer, written by the question's author; it is not a checklist): ${sampleAnswer}
+${rubricNotes ? `Grading notes from the teacher (these win over everything below): ${rubricNotes}\n` : ''}
 Student's answer: ${studentAnswer}
 
-Grade the student's answer:
-- 80-100: captures the key concepts (correct)
-- 50-79: partially correct
-- 0-49: incorrect
+How to score:
+- First decide what the question actually asks for. The required ideas are only the ones the question asks about. Details in the sample that the question did not ask for (extra examples, a second reason, a definition, units the question didn't request, exact wording) are NOT required.
+- 85-100 (correct): every idea the question asks for is there and nothing is wrong. A short answer that nails it scores as high as a long one. Different wording, a different valid example, a different correct method, a paraphrase, another language, informal phrasing, or an equivalent number or notation all count.
+- 60-84 (partly right): the main idea is right but one thing the question asks for is missing or muddled, or there is a small error that doesn't undo the answer.
+- 0-59 (not yet): the main idea is missing or wrong, the answer is about something else, or it is too vague to tell (one word that could mean anything).
+- Do not take points off for brevity, spelling, grammar, missing units when the question didn't ask for them, or for leaving out something the sample mentions but the question doesn't require. Do not reward length or vocabulary on its own.
+- When unsure between two bands, pick the higher one.
 
-Be fair but generous: credit equivalent numeric forms, notation differences, and paraphrases that show understanding. Focus on the concepts, not exact phrasing. An answer written in another language counts the same if it is right. Give 1-2 sentences of constructive feedback addressed to the student, in the language the question is written in. Never use em dashes.
+Feedback: 1-2 sentences to the student, in the language the question is written in. Say what was right first; if something was missing or wrong, name it in plain words. Never use em dashes.
 
 Respond with ONLY a JSON object, no other text:
 {"score": <integer 0-100>, "feedback": "<1-2 sentences>"}`
