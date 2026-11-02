@@ -316,7 +316,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{focusFor?.firstName || focusFor?.name} in focus mode</DialogTitle>
-            <DialogDescription>Everything recorded while they had this assignment open, in order. Leaving can also mean a notification or another window they clicked by accident, so ask before assuming. iPhones and iPads don't use full screen, so only leaving the page counts there.</DialogDescription>
+            <DialogDescription>Everything recorded while they had this assignment open, in order. Leaving can also mean a notification or another window they clicked by accident, so ask before assuming. iPhones and iPads don&apos;t use full screen, so only leaving the page counts there.</DialogDescription>
           </DialogHeader>
           {focusFor && (() => {
             const f = summarizeFocus(focusFor.focus)
