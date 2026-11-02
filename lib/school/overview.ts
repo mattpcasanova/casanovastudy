@@ -1,12 +1,22 @@
 // School overview for a principal / department head (pure, unit-tested).
-// Counts per teacher and for the school, plus a weekly activity series.
-// Teacher-level only: no student names ever reach this module.
+// Counts per teacher and for the school, a weekly activity series, and a
+// by-course breakdown. Teacher-level only: no student names ever reach this
+// module. The page recomputes it client-side for whichever time range the
+// administrator picks (from / to / weeks), so the inputs are the raw activity.
 
 export interface SchoolTeacher { id: string; name: string; email: string | null }
-export interface GradingActivity { userId: string; batchId: string | null; createdAt: string }
+export interface GradingActivity { userId: string; batchId: string | null; createdAt: string; course?: string | null }
 export interface GuideActivity { userId: string; createdAt: string }
 export interface PracticeActivity { teacherId: string; id: string; createdAt: string; students: number; finished: number }
 export interface ClassActivity { teacherId: string; id: string; students: number }
+
+export interface SchoolActivity {
+  teachers: SchoolTeacher[]
+  gradings: GradingActivity[]
+  guides: GuideActivity[]
+  practice: PracticeActivity[]
+  classes: ClassActivity[]
+}
 
 export interface TeacherStats {
   id: string
@@ -22,9 +32,14 @@ export interface TeacherStats {
   practiceFinished: number
   guides: number
   lastActive: string | null
+  /** Papers graded per week, aligned with `SchoolOverview.weeks`. */
+  weekly: number[]
 }
 
 export interface SchoolWeek { start: string; papers: number; practice: number; guides: number }
+
+/** Papers graded by course name across the school's teachers. */
+export interface CourseStats { course: string; papers: number; sets: number; teachers: number; lastGraded: string }
 
 export interface SchoolOverview {
   totals: {
@@ -41,11 +56,14 @@ export interface SchoolOverview {
   }
   teachers: TeacherStats[]
   weeks: SchoolWeek[]
+  courses: CourseStats[]
 }
 
 const DAY = 24 * 60 * 60 * 1000
+const WEEK = 7 * DAY
 export const RECENT_DAYS = 30
 export const WEEKS = 12
+export const NO_COURSE = 'Not in a class'
 
 /** Monday 00:00 UTC of the week holding `t`. */
 export function weekStart(t: number): number {
@@ -54,34 +72,47 @@ export function weekStart(t: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - day * DAY
 }
 
-export function schoolOverview(input: {
-  teachers: SchoolTeacher[]
-  gradings: GradingActivity[]
-  guides: GuideActivity[]
-  practice: PracticeActivity[]
-  classes: ClassActivity[]
+/** How many Monday weeks a chart needs to show everything from `from` through `now` (at least 1). */
+export function weeksBetween(from: number, now: number): number {
+  return Math.max(1, Math.floor((weekStart(now) - weekStart(from)) / WEEK) + 1)
+}
+
+export interface OverviewOptions {
   now?: number
-}): SchoolOverview {
+  /** Count activity at or after this time (ms). Classes and students are counted whatever the range. */
+  from?: number
+  /** Count activity before this time (ms); defaults to `now`. */
+  to?: number
+  /** Weeks in the series, ending with the week holding `to`. */
+  weeks?: number
+}
+
+export function schoolOverview(input: SchoolActivity & OverviewOptions): SchoolOverview {
   const now = input.now ?? Date.now()
-  const recentFrom = now - RECENT_DAYS * DAY
+  const end = input.to ?? now
+  const from = input.from ?? -Infinity
+  const inRange = (at: string) => { const t = Date.parse(at); return t >= from && t < end }
+  const recentFrom = end - RECENT_DAYS * DAY
+  const weekCount = input.weeks ?? WEEKS
   const ids = new Set(input.teachers.map((t) => t.id))
   const stats = new Map<string, TeacherStats>(input.teachers.map((t) => [t.id, {
     id: t.id, name: t.name, email: t.email, papers: 0, papersRecent: 0, sets: 0, classes: 0, students: 0,
-    practiceAssigned: 0, practiceStudents: 0, practiceFinished: 0, guides: 0, lastActive: null,
+    practiceAssigned: 0, practiceStudents: 0, practiceFinished: 0, guides: 0, lastActive: null, weekly: Array(weekCount).fill(0),
   }]))
   const touch = (s: TeacherStats, at: string) => { if (!s.lastActive || at > s.lastActive) s.lastActive = at }
 
-  const firstWeek = weekStart(now) - (WEEKS - 1) * 7 * DAY
-  const weeks: SchoolWeek[] = Array.from({ length: WEEKS }, (_, i) => ({ start: new Date(firstWeek + i * 7 * DAY).toISOString().slice(0, 10), papers: 0, practice: 0, guides: 0 }))
-  const weekOf = (at: string) => {
-    const i = Math.floor((weekStart(Date.parse(at)) - firstWeek) / (7 * DAY))
-    return i >= 0 && i < WEEKS ? weeks[i] : null
+  const firstWeek = weekStart(end) - (weekCount - 1) * WEEK
+  const weeks: SchoolWeek[] = Array.from({ length: weekCount }, (_, i) => ({ start: new Date(firstWeek + i * WEEK).toISOString().slice(0, 10), papers: 0, practice: 0, guides: 0 }))
+  const weekIndex = (at: string) => {
+    const i = Math.floor((weekStart(Date.parse(at)) - firstWeek) / WEEK)
+    return i >= 0 && i < weekCount ? i : -1
   }
 
   const setsByTeacher = new Map<string, Set<string>>()
+  const courses = new Map<string, { papers: number; sets: Set<string>; teachers: Set<string>; lastGraded: string }>()
   for (const g of input.gradings) {
     const s = stats.get(g.userId)
-    if (!s) continue
+    if (!s || !inRange(g.createdAt)) continue
     s.papers++
     if (Date.parse(g.createdAt) >= recentFrom) s.papersRecent++
     if (g.batchId) {
@@ -90,29 +121,36 @@ export function schoolOverview(input: {
       setsByTeacher.set(g.userId, set)
     }
     touch(s, g.createdAt)
-    const w = weekOf(g.createdAt)
-    if (w) w.papers++
+    const w = weekIndex(g.createdAt)
+    if (w >= 0) { weeks[w].papers++; s.weekly[w]++ }
+    const name = g.course?.trim() || NO_COURSE
+    const c = courses.get(name) ?? { papers: 0, sets: new Set<string>(), teachers: new Set<string>(), lastGraded: g.createdAt }
+    c.papers++
+    if (g.batchId) c.sets.add(g.batchId)
+    c.teachers.add(g.userId)
+    if (g.createdAt > c.lastGraded) c.lastGraded = g.createdAt
+    courses.set(name, c)
   }
   for (const [id, set] of setsByTeacher) stats.get(id)!.sets = set.size
 
   for (const g of input.guides) {
     const s = stats.get(g.userId)
-    if (!s) continue
+    if (!s || !inRange(g.createdAt)) continue
     s.guides++
     touch(s, g.createdAt)
-    const w = weekOf(g.createdAt)
-    if (w) w.guides++
+    const w = weekIndex(g.createdAt)
+    if (w >= 0) weeks[w].guides++
   }
 
   for (const p of input.practice) {
     const s = stats.get(p.teacherId)
-    if (!s) continue
+    if (!s || !inRange(p.createdAt)) continue
     s.practiceAssigned++
     s.practiceStudents += p.students
     s.practiceFinished += Math.min(p.finished, p.students)
     touch(s, p.createdAt)
-    const w = weekOf(p.createdAt)
-    if (w) w.practice++
+    const w = weekIndex(p.createdAt)
+    if (w >= 0) weeks[w].practice++
   }
 
   for (const c of input.classes) {
@@ -140,6 +178,9 @@ export function schoolOverview(input: {
     },
     teachers,
     weeks,
+    courses: [...courses.entries()]
+      .map(([course, c]) => ({ course, papers: c.papers, sets: c.sets.size, teachers: c.teachers.size, lastGraded: c.lastGraded }))
+      .sort((a, b) => b.papers - a.papers || a.course.localeCompare(b.course)),
   }
 }
 
