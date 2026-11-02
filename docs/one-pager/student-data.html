@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How Casanova Study handles student data</title>
+<style>
+  @page { size: letter; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "DM Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1e293b; font-size: 9.4pt; line-height: 1.3; width: 8.5in; height: 11in; overflow: hidden; background: #fff; }
+  .hero { background: linear-gradient(120deg, #1e3a8a 0%, #1d4ed8 55%, #0891b2 100%); color: #fff; padding: 0.3in 0.5in 0.26in; position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; right: -1in; top: -1.2in; width: 3.2in; height: 3.2in; border-radius: 50%; background: rgba(255,255,255,0.08); }
+  .brand { display: flex; align-items: center; gap: 9pt; font-size: 10pt; font-weight: 700; letter-spacing: 0.01em; }
+  .brand .mark { width: 22pt; height: 22pt; border-radius: 6pt; background: #fff; display: inline-flex; align-items: center; justify-content: center; }
+  .brand .mark svg { width: 14pt; height: 14pt; }
+  .brand span.sub { font-weight: 500; opacity: 0.85; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 20pt; line-height: 1.1; margin: 7pt 0 4pt; letter-spacing: -0.01em; }
+  .lede { font-size: 9.6pt; max-width: 6.2in; margin: 0; opacity: 0.95; }
+  .chips { display: flex; gap: 6pt; margin-top: 7pt; flex-wrap: wrap; }
+  .chip { border: 1px solid rgba(255,255,255,0.45); border-radius: 999px; padding: 2pt 8pt; font-size: 8.4pt; }
+  main { padding: 0.17in 0.5in 0.15in; }
+  h2 { font-size: 7.8pt; letter-spacing: 0.12em; text-transform: uppercase; color: #1d4ed8; margin: 0 0 3.5pt; font-weight: 700; display: flex; align-items: center; gap: 6pt; }
+  h2::after { content: ""; flex: 1; height: 1px; background: #cbd5e1; }
+  .row { display: grid; gap: 9pt; margin-bottom: 7pt; }
+  .two { grid-template-columns: 1fr 1fr; }
+  .three { grid-template-columns: 1fr 1fr 1fr; }
+  .card { border: 1px solid #e2e8f0; border-radius: 8pt; padding: 5.5pt 8pt 4.5pt; }
+  .card.amber { background: #fffbeb; border-color: #fcd34d; }
+  .card.green { background: #ecfdf5; border-color: #6ee7b7; }
+  .card h3 { font-size: 9.2pt; margin: 0 0 2pt; display: flex; align-items: center; gap: 5pt; }
+  .dot { width: 11pt; height: 11pt; border-radius: 3pt; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 7.5pt; font-weight: 700; }
+  .amber .dot { background: #d97706; } .green .dot { background: #059669; }
+  ul { margin: 0; padding-left: 11pt; }
+  li { margin: 0 0 1.8pt; }
+  li::marker { color: #2563eb; }
+  b { color: #0f172a; }
+  .tag { display: inline-block; background: #dbeafe; color: #1e40af; border-radius: 3pt; padding: 0 4pt; font-size: 8.6pt; font-weight: 700; margin-right: 2pt; }
+  .kept { font-size: 8.9pt; }
+  .kept td { padding: 1.5pt 6pt 1.5pt 0; vertical-align: top; }
+  .kept td:first-child { font-weight: 700; color: #0f172a; white-space: nowrap; }
+  .foot { margin-top: 5pt; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8pt; padding: 6pt 9pt; display: flex; align-items: center; justify-content: space-between; gap: 10pt; }
+  .foot .cta { background: #1d4ed8; color: #fff; border-radius: 6pt; padding: 5pt 10pt; font-weight: 700; font-size: 9.4pt; white-space: nowrap; }
+  .legal { margin-top: 5pt; font-size: 7.4pt; color: #64748b; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>Casanova Study <span class="sub">· for schools</span></div>
+  <h1>How Casanova Study handles student data</h1>
+  <p class="lede">Casanova Study uses AI to grade student work and to build study materials, which means some student information is sent to an AI service. This page says exactly what is sent, what is not, who else touches it and how it is protected.</p>
+  <div class="chips"><span class="chip">A one-page summary for teachers and school leaders</span><span class="chip">November 2026</span><span class="chip">Full policy: casanovastudy.com/privacy</span></div>
+</header>
+<main>
+  <h2>What the AI sees, and what it doesn't</h2>
+  <div class="row two">
+    <div class="card amber">
+      <h3><span class="dot">&rarr;</span>Sent to the AI (Anthropic), only to do the job</h3>
+      <ul>
+        <li><b>Grading:</b> the photo or scan of the student's paper (including the name written on it), the teacher's answer key, and the class list so it can match names to papers.</li>
+        <li><b>Studying:</b> the topic, notes or photos a student uploads, and the questions they ask the study helper.</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3><span class="dot">&times;</span>Never sent to the AI</h3>
+      <ul>
+        <li>Student names for <b>class summaries and reteach plans</b>: these are written from scores, with students numbered, not named.</li>
+        <li>Student names for <b>personalized practice</b>: the AI is told which topics need work, never who.</li>
+        <li>Birth dates, emails, passwords, parent contact details, or grades from any other class.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="row two">
+    <div>
+      <h2>How the AI provider is limited</h2>
+      <ul>
+        <li>We use Anthropic (the company behind Claude) through its <b>business API</b>, not the public chat app.</li>
+        <li>Under Anthropic's commercial terms and data processing addendum, <b>content we send is not used to train its AI models</b>.</li>
+        <li>Anthropic processes the content only to return the result to us, and may use it for nothing else.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Who runs the site</h2>
+      <ul>
+        <li><b>Supabase</b> (database and file storage), <b>Vercel</b> (hosting), <b>Anthropic</b> (AI) and <b>Resend</b> (email), plus <b>Google</b> when a student or teacher signs in with a school Google account or imports a Google Classroom roster.</li>
+        <li>Each has a data processing agreement on file and may use the data only to provide its service to us. Scans and uploads live in private storage, never on a public link.</li>
+        <li>We never show ads, sell or rent student information, or build advertising profiles.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="row three">
+    <div>
+      <h2>Who can see what</h2>
+      <ul>
+        <li><b>Grades stay with the teacher until released.</b> The teacher reviews, and can change, the AI's marks first.</li>
+        <li><b>Students' own studying is private.</b> Teachers see results only on practice they assigned, not everything a student studies.</li>
+        <li><b>Only verified teachers</b> (a school email) can connect to student accounts in a class.</li>
+        <li><b>School leaders</b> who use the school overview see counts per teacher, never student names.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Laws we follow</h2>
+      <ul>
+        <li><span class="tag">FERPA</span> With schools we act as a "school official" under the school's direction, using student information only to provide the service.</li>
+        <li><span class="tag">COPPA</span> Students under 13 need a parent's approval, or the school's when it authorizes the app for classroom use. Accounts stay locked until then.</li>
+        <li><span class="tag">Florida</span> No selling, no targeted ads, no profiles for non-school purposes (s. 1006.1494). Breach notice to the school within 72 hours of confirming it; Florida law allows 30 days.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Keeping and deleting data</h2>
+      <table class="kept">
+        <tr><td>24 hours</td><td>photos uploaded to make a study guide</td></tr>
+        <tr><td>30 days</td><td>scans waiting in a scanner inbox or sent from a phone</td></tr>
+        <tr><td>1 school year</td><td>exam page scans, so a paper can be regraded; marks stay with the report</td></tr>
+        <tr><td>2 years idle</td><td>unused accounts are deleted, after a 30-day warning</td></tr>
+      </table>
+      <ul style="margin-top:4pt">
+        <li>A daily job enforces these periods. Students can download or delete their data at any time; schools can ask us to delete their students' data.</li>
+        <li>A written information security program and breach response plan are available on request.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>For schools and districts:</b> we are glad to sign your data privacy agreement, share our security program, and answer vendor review questions.</div>
+    <div class="cta">privacy@casanovastudy.com</div>
+  </div>
+  <div class="legal"><span>casanovastudy.com · Operated by Casanova Digital LLC, Florida, USA</span><span>Full privacy policy: casanovastudy.com/privacy · Effective October 30, 2026</span></div>
+</main>
+</body>
+</html>
