@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Casanova Study pilot: a guide for teachers</title>
+<style>
+  @page { size: letter; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: "DM Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1e293b; font-size: 10.2pt; line-height: 1.4; }
+  .page { width: 8.5in; height: 11in; overflow: hidden; position: relative; page-break-after: always; padding: 0.55in 0.6in 0.5in; }
+  .page:last-child { page-break-after: auto; }
+  .serif { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  /* Page 1 hero */
+  .hero { margin: -0.55in -0.6in 0.4in; padding: 0.62in 0.6in 0.55in; background: linear-gradient(120deg, #1e3a8a 0%, #1d4ed8 55%, #0891b2 100%); color: #fff; position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; right: -1.2in; top: -1.4in; width: 3.6in; height: 3.6in; border-radius: 50%; background: rgba(255,255,255,0.08); }
+  .brand { display: flex; align-items: center; gap: 9pt; font-size: 10pt; font-weight: 700; }
+  .brand .mark { width: 22pt; height: 22pt; border-radius: 6pt; background: #fff; display: inline-flex; align-items: center; justify-content: center; }
+  .brand .mark svg { width: 14pt; height: 14pt; }
+  .brand .sub { font-weight: 500; opacity: 0.85; }
+  h1 { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; font-weight: 600; font-size: 28pt; line-height: 1.1; margin: 14pt 0 8pt; letter-spacing: -0.01em; }
+  .lede { font-size: 11pt; max-width: 6.3in; margin: 0; opacity: 0.95; }
+  .chips { display: flex; gap: 6pt; margin-top: 11pt; flex-wrap: wrap; }
+  .chip { border: 1px solid rgba(255,255,255,0.45); border-radius: 999px; padding: 2.5pt 9pt; font-size: 8.6pt; }
+  h2 { font-size: 8.6pt; letter-spacing: 0.12em; text-transform: uppercase; color: #1d4ed8; margin: 0 0 7pt; font-weight: 700; display: flex; align-items: center; gap: 6pt; }
+  h2::after { content: ""; flex: 1; height: 1px; background: #cbd5e1; }
+  h3 { font-size: 10.6pt; margin: 0 0 3pt; color: #0f172a; }
+  p { margin: 0 0 6pt; }
+  ul { margin: 0; padding-left: 12pt; }
+  li { margin: 0 0 3pt; }
+  li::marker { color: #2563eb; }
+  b { color: #0f172a; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10pt; }
+  .card { border: 1px solid #e2e8f0; border-radius: 9pt; padding: 11pt 13pt; background: #fff; }
+  .card.tint { background: #eff6ff; border-color: #bfdbfe; }
+  .card.amber { background: #fffbeb; border-color: #fcd34d; }
+  .card.green { background: #ecfdf5; border-color: #6ee7b7; }
+  .stat { font-family: Georgia, serif; font-size: 26pt; font-weight: 600; color: #0f172a; line-height: 1; }
+  .stat-label { font-size: 8.8pt; color: #475569; margin-top: 3pt; }
+  .section { margin-bottom: 18pt; }
+  /* Steps */
+  .steps { counter-reset: st; display: grid; grid-template-columns: 1fr 1fr; gap: 16pt 18pt; }
+  .step { counter-increment: st; position: relative; padding-left: 30pt; }
+  .step::before { content: counter(st); position: absolute; left: 0; top: 0; width: 22pt; height: 22pt; border-radius: 7pt; background: #1d4ed8; color: #fff; font-weight: 700; font-size: 11pt; display: flex; align-items: center; justify-content: center; }
+  .step h3 { font-size: 10.6pt; margin-bottom: 2pt; }
+  .step p { font-size: 10pt; color: #334155; margin: 0; }
+  .step .time { display: inline-block; margin-top: 3pt; font-size: 8.2pt; font-weight: 700; color: #1d4ed8; background: #dbeafe; border-radius: 3pt; padding: 0 5pt; }
+  /* Timeline */
+  .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8pt; position: relative; margin-top: 4pt; }
+  .timeline::before { content: ""; position: absolute; left: 4%; right: 4%; top: 7pt; height: 2px; background: #bfdbfe; }
+  .tl { position: relative; padding-top: 18pt; }
+  .tl::before { content: ""; position: absolute; left: 50%; top: 2pt; width: 12pt; height: 12pt; margin-left: -6pt; border-radius: 50%; background: #fff; border: 3px solid #1d4ed8; }
+  .tl b { display: block; font-size: 9.6pt; text-align: center; }
+  .tl span { display: block; font-size: 8.8pt; color: #475569; text-align: center; }
+  .foot { position: absolute; left: 0.6in; right: 0.6in; bottom: 0.32in; font-size: 7.8pt; color: #94a3b8; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5pt; }
+  .page2-head { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid #1d4ed8; padding-bottom: 6pt; margin-bottom: 14pt; }
+  .page2-head .t { font-family: Georgia, serif; font-size: 15pt; font-weight: 600; color: #0f172a; }
+  .page2-head .s { font-size: 8.8pt; color: #64748b; }
+  table.faq { width: 100%; border-collapse: collapse; font-size: 9.6pt; }
+  table.faq td { padding: 4.5pt 8pt 4.5pt 0; vertical-align: top; border-bottom: 1px solid #e2e8f0; }
+  table.faq td:first-child { width: 32%; font-weight: 700; color: #0f172a; }
+  .cta { background: #1d4ed8; color: #fff; border-radius: 9pt; padding: 10pt 13pt; display: flex; justify-content: space-between; align-items: center; gap: 12pt; }
+  .cta b { color: #fff; font-size: 11pt; }
+  .cta span { font-size: 9.4pt; opacity: 0.95; }
+  .cta .pill { background: #fff; color: #1d4ed8; border-radius: 6pt; padding: 5pt 10pt; font-weight: 700; white-space: nowrap; font-size: 9.6pt; }
+  .dont li::marker { color: #d97706; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10pt; }
+  .fstep { border-top: 3px solid #1d4ed8; padding-top: 7pt; }
+  .fstep b { display: block; font-size: 10.4pt; color: #0f172a; margin-bottom: 3pt; }
+  .fstep span { display: block; font-size: 9.4pt; color: #334155; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<div class="page">
+  <div class="hero">
+    <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>Casanova Study <span class="sub">· Somerset Academy pilot</span></div>
+    <h1>Grade a class set from photos.<br>Teach tomorrow from what it shows.</h1>
+    <p class="lede">A pilot for Somerset teachers, November 9, 2026 to the end of the semester. Photograph a class set of handwritten tests, add your answer key, and get every paper marked with feedback, a class report of what students missed, and practice you can assign in two clicks. Built by a Somerset teacher; five of us already use it.</p>
+    <div class="chips"><span class="chip">Free during the pilot</span><span class="chip">Nothing to install</span><span class="chip">Sign in with your school Google account</span><span class="chip">casanovastudy.com</span></div>
+  </div>
+
+  <div class="section">
+    <h2>What it does</h2>
+    <div class="grid3">
+      <div class="card tint"><h3>Grades handwritten work</h3><p style="font-size:10.2pt;margin:0;line-height:1.45">Phone photos, a scanner, or the copier's Scan to Email. One short quiz page takes about 10 seconds; a nine-page AP exam about a minute. You review and change any mark; nothing reaches students until you release it.</p></div>
+      <div class="card tint"><h3>Shows what the class missed</h3><p style="font-size:10.2pt;margin:0;line-height:1.45">Question by question and topic by topic, with the students who lost marks on each. A reteach plan for the next lesson groups students by what they got wrong.</p></div>
+      <div class="card tint"><h3>Turns it into practice</h3><p style="font-size:10.2pt;margin:0;line-height:1.45">Assign a quiz, a practice set or adaptive practice built from your own materials. Students get hints, not answers; you see who finished and how they did. Scores export to Focus or Google Classroom.</p></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>So far at Somerset, this school year</h2>
+    <div class="grid3">
+      <div class="card"><div class="stat">588</div><div class="stat-label">papers graded in 28 class sets by 5 teachers (AP Bio, AP Chem, AP Stats, AICE Business, Bio Honors, 6th-grade math)</div></div>
+      <div class="card"><div class="stat">98%</div><div class="stat-label">of the AI's question marks kept exactly by teachers who checked their reports (517 marks); 99% within one mark</div></div>
+      <div class="card"><div class="stat">~50-100 h</div><div class="stat-label">of hand grading saved so far, at 5 to 10 minutes a paper (an estimate; the papers range from one page to nine)</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>How a class set gets graded</h2>
+    <div class="flow">
+      <div class="fstep"><b>1 · Photograph</b><span>Phone, scanner, or the copier's Scan to Email straight to your grading address. Lay pages flat; names are read from each first page.</span></div>
+      <div class="fstep"><b>2 · Sort</b><span>Pages are split into papers and matched to your class list. You check the names on one screen before anything is graded.</span></div>
+      <div class="fstep"><b>3 · Grade and review</b><span>Every paper is marked against your answer key with feedback per question. Anything it couldn't read is flagged "Check this" beside the page.</span></div>
+      <div class="fstep"><b>4 · Release and reteach</b><span>Release to students, send scores to Focus or Classroom, read what the class missed, and assign the practice that follows.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>Casanova Study · Casanova Digital LLC · hello@casanovastudy.com</span><span>Pilot guide for teachers · page 1 of 3</span></div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page">
+  <div class="page2-head"><div class="t">What we're asking of you</div><div class="s">About an hour over the pilot, most of it grading you would do anyway</div></div>
+  <div class="section">
+    <div class="steps">
+      <div class="step"><h3>Sign up with your school email</h3><p>casanovastudy.com, "I'm a teacher", then Continue with Google using your @somersetacademy.com account. Confirming the school email makes you a verified teacher, which is what lets you connect to students.</p><span class="time">3 minutes, once</span></div>
+      <div class="step"><h3>Add your classes</h3><p>Grading → My Classes → Import from a file (the Focus attendance export) or from Google Classroom. Student IDs and emails make everything after this automatic.</p><span class="time">5 minutes, once</span></div>
+      <div class="step"><h3>Grade at least two class sets</h3><p>Grading → Grade a Class. Drop your answer key and the stack of photos or scans, check the names it read, press Grade. Then open two or three reports and fix anything you disagree with; that review is how we measure the grader.</p><span class="time">10 minutes a set</span></div>
+      <div class="step"><h3>Release reports and use the class report</h3><p>Students see their marked paper and feedback once you release the set. Read the "What to focus on" list and try the reteach plan once, even if you don't follow it to the letter.</p><span class="time">5 minutes a set</span></div>
+      <div class="step"><h3>Assign one practice</h3><p>From the class report's weak area, Make practice, then Assign to the class or to the group that needs it. Watch who finishes on the assignment page.</p><span class="time">5 minutes</span></div>
+      <div class="step"><h3>Tell us what was wrong</h3><p>A two-minute note or a hallway conversation after each set: what it misread, what you'd change, what took too long. The January check-in with administration uses your feedback.</p><span class="time">2 minutes a set</span></div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:18pt">
+    <h2>Pilot dates</h2>
+    <div class="timeline">
+      <div class="tl"><b>Nov 9</b><span>Pilot starts; sign-up and a 20-minute after-school walkthrough</span></div>
+      <div class="tl"><b>Nov and Dec</b><span>Grade your real tests and quizzes; assign practice before winter break</span></div>
+      <div class="tl"><b>Dec 18</b><span>Quarter 2 ends; export scores to Focus if you like</span></div>
+      <div class="tl"><b>Mid January</b><span>Check-in with administration: numbers and your feedback decide what's next</span></div>
+    </div>
+  </div>
+  <div class="section" style="margin-top:18pt">
+    <h2>Student data, in plain terms</h2>
+  <div class="grid2" style="margin-bottom:0">
+    <div class="card amber">
+      <h3>What the AI sees</h3>
+      <ul style="font-size:9.6pt">
+        <li><b>Grading:</b> the photo of the paper (with the name on it), your answer key, and your class list so it can match names.</li>
+        <li><b>Studying:</b> the topic or notes a student uploads and the questions they ask the help tutor.</li>
+        <li>It runs on Anthropic's business API; what we send is not used to train its models.</li>
+      </ul>
+    </div>
+    <div class="card green">
+      <h3>What it never sees, and who else can't either</h3>
+      <ul style="font-size:9.6pt">
+        <li>Class reports and reteach plans are written from scores with students numbered, never named.</li>
+        <li>Birth dates, emails, passwords and parent details never go to the AI.</li>
+        <li>You see only the practice you assigned, never a student's other studying. Administrators see counts per teacher, never student names.</li>
+      </ul>
+    </div>
+  </div>
+
+    <p style="font-size:8.8pt;color:#64748b;margin:6pt 0 0">Full policy at casanovastudy.com/privacy; a one-page student-data summary is available for parents and administrators.</p>
+  </div>
+  <div class="foot"><span>Casanova Study · Casanova Digital LLC · hello@casanovastudy.com</span><span>Pilot guide for teachers · page 2 of 3</span></div>
+</div>
+
+<!-- PAGE 3 -->
+<div class="page">
+  <div class="page2-head"><div class="t">Ground rules and questions</div><div class="s">What keeps students and you covered during the pilot</div></div>
+
+  <div class="grid2" style="margin-bottom:14pt">
+    <div>
+      <h2>Please do</h2>
+      <ul style="font-size:9.6pt">
+        <li><b>Use your school Google account</b> to sign in, and have students do the same. It's how the roster recognizes them.</li>
+        <li><b>Review before you release.</b> Open a few reports, look at any "Check this" flag (the grader couldn't read that answer with confidence), and fix what you disagree with.</li>
+        <li><b>Lay pages flat</b> when photographing a stack; names are read from the first page of each paper.</li>
+        <li><b>Keep the browser tab open</b> while a set grades (about 10 minutes for a class of nine-page exams).</li>
+        <li><b>Tell students</b> their teacher is the grader and can see what they ask the help tutor on assigned work.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Please don't</h2>
+      <ul class="dont" style="font-size:9.6pt">
+        <li><b>Don't upload IEPs, 504 plans, medical notes or discipline records.</b> The tool is for coursework only.</li>
+        <li><b>Don't send grades to Focus without a look</b> at the class results table first; it's your gradebook.</li>
+        <li><b>Don't share your account</b> or grade another teacher's class from it. Each teacher's students stay with that teacher.</li>
+        <li><b>Don't use it for high-stakes decisions</b> (course placement, promotion) on its own during the pilot.</li>
+        <li><b>Don't post a practice link publicly.</b> Share it through Classroom or in class; the link lets students claim a name on your roster.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Questions teachers ask</h2>
+    <table class="faq">
+      <tr><td>Does it work for my subject?</td><td>Anything with an answer key: multiple choice, short answer, free response, math work, diagrams, essays with a rubric. It reads handwriting; very faint pencil is the usual trouble spot. It knows the formats of AP, AICE, SAT, ACT and Florida EOC tests.</td></tr>
+      <tr><td>What if I don't have an answer key?</td><td>It drafts one from the first paper and shows it to you to edit before grading the rest. A key you wrote is better and highly recommended.</td></tr>
+      <tr><td>How accurate is it?</td><td>On the 24 Somerset reports teachers have checked so far, 98 of 100 question marks were kept exactly. When it isn't sure it flags the answer instead of guessing. You are the grader; it drafts.</td></tr>
+      <tr><td>Can students cheat with the help tutor?</td><td>On assigned work you choose: hints only (the default), no help, or full help. Hints-only won't give an answer even if a student pastes the whole quiz in, and you can see what each student asked. Focus mode records when a student leaves the page.</td></tr>
+      <tr><td>How do scores get to Focus?</td><td>Class results → Send to gradebook → Focus. It makes the file Focus imports, matched on student ID; the dialog walks you through the steps. Google Classroom sends directly.</td></tr>
+      <tr><td>What does it cost?</td><td>Nothing during the pilot. Afterwards the school decides; your account stays free through the 2026-27 school year either way.</td></tr>
+      <tr><td>Where do I get help?</td><td>Find Matt Casanova in person, or email hello@casanovastudy.com. Problems with a specific paper: open its report and press Regrade with a note about what went wrong.</td></tr>
+    </table>
+  </div>
+
+  <div class="cta"><div><b>Ready to start?</b><br><span>casanovastudy.com → I'm a teacher → Continue with Google. Then bring one graded set and one question to the walkthrough.</span></div><div class="pill">hello@casanovastudy.com</div></div>
+
+  <div class="foot"><span>Casanova Study · Casanova Digital LLC · Operated under the school's pilot authorization</span><span>Pilot guide for teachers · page 3 of 3</span></div>
+</div>
+
+</body>
+</html>
