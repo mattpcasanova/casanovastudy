@@ -74,6 +74,16 @@ export function agreement(papers: AgreementPaper[]): Agreement {
   }
 }
 
+/**
+ * A kept-marks figure rests on at least this many question marks before it is
+ * shown for a teacher; fewer reads as noise (one 7-mark quiz showed 57%).
+ */
+export const AGREEMENT_MIN_MARKS = 30
+
+export function enoughMarks(a: Pick<Agreement, 'questions'> | undefined): a is Agreement {
+  return !!a && a.questions >= AGREEMENT_MIN_MARKS
+}
+
 /** "96%" of `part` over `whole`, or null when there's nothing to show. */
 export function share(part: number, whole: number): number | null {
   return whole ? Math.round((part / whole) * 1000) / 10 : null

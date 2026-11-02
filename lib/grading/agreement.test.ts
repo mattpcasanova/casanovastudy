@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agreement, comparePaper, share } from './agreement'
+import { AGREEMENT_MIN_MARKS, agreement, comparePaper, enoughMarks, share } from './agreement'
 
 const q = (questionNumber: string, marksAwarded: number, marksPossible = 5) => ({ questionNumber, marksAwarded, marksPossible })
 
@@ -34,5 +34,13 @@ describe('agreement', () => {
     expect(agreement([])).toMatchObject({ papers: 0, questions: 0, meanTotalShift: 0, netShift: 0 })
     expect(share(0, 0)).toBeNull()
     expect(share(47, 50)).toBe(94)
+  })
+})
+
+describe('enoughMarks', () => {
+  it('hides a figure that rests on too few marks', () => {
+    expect(enoughMarks(undefined)).toBe(false)
+    expect(enoughMarks({ questions: 7 })).toBe(false)
+    expect(enoughMarks({ questions: AGREEMENT_MIN_MARKS })).toBe(true)
   })
 })

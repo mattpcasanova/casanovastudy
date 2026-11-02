@@ -14,7 +14,7 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { selectBox } from "@/components/grading/grading-ui"
 import type { SchoolOverview, TeacherStats } from "@/lib/school/overview"
-import { share, type Agreement } from "@/lib/grading/agreement"
+import { AGREEMENT_MIN_MARKS, enoughMarks, share, type Agreement } from "@/lib/grading/agreement"
 
 interface Data extends SchoolOverview {
   school: { domain: string; schoolName: string | null }
@@ -190,6 +190,13 @@ function Stat({ icon: Icon, label, value, note }: { icon: typeof Users; label: s
   )
 }
 
+/** Hover text for the kept-marks cell: shown figures say what they rest on, hidden ones say why. */
+function agreementTitle(a?: Agreement): string | undefined {
+  if (!a?.questions) return undefined
+  const reports = `${a.papers} checked report${a.papers === 1 ? "" : "s"}, ${a.questions} marks`
+  return enoughMarks(a) ? reports : `${reports}; shown from ${AGREEMENT_MIN_MARKS} marks`
+}
+
 function TeacherRow({ t, agreement }: { t: TeacherStats; agreement?: Agreement }) {
   const idle = !t.lastActive
   return (
@@ -205,8 +212,8 @@ function TeacherRow({ t, agreement }: { t: TeacherStats; agreement?: Agreement }
       <td className="px-3 py-3 text-right tabular-nums">{n(t.practiceAssigned)}</td>
       <td className="px-3 py-3 text-right tabular-nums">{t.practiceStudents ? pct(t.practiceFinished, t.practiceStudents) : "–"}</td>
       <td className="px-3 py-3 text-right tabular-nums">{n(t.guides)}</td>
-      <td className="px-3 py-3 text-right tabular-nums" title={agreement ? `${agreement.papers} checked report${agreement.papers === 1 ? "" : "s"}` : undefined}>
-        {agreement?.questions ? `${share(agreement.questionsKept, agreement.questions)}%` : "–"}
+      <td className="px-3 py-3 text-right tabular-nums" title={agreementTitle(agreement)}>
+        {enoughMarks(agreement) ? `${share(agreement.questionsKept, agreement.questions)}%` : "–"}
       </td>
       <td className="whitespace-nowrap px-5 py-3 text-right">{ago(t.lastActive)}</td>
     </tr>
