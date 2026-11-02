@@ -1,5 +1,7 @@
 // The AP Statistics exam as a reference for the guide prompts: Section I
-// multiple choice with FIVE options A-E (unlike the SAT and the AP sciences)
+// multiple choice with FOUR options A-D: the redesigned exam (2026-27 course,
+// May 2027 exam, digital in Bluebook) has 42 four-option questions, down from 40
+// with five, and two sets of 3 questions sharing a stimulus (Units 2 and 5).
 // and Section II free response scored E/P/I per part, with inference written
 // as state, plan, do, conclude in context. Units 1-9 grouped into four domains.
 
@@ -7,7 +9,7 @@ import type { ExamProfile } from './types'
 
 export const AP_STATISTICS: ExamProfile = {
   id: 'ap-statistics',
-  pace: 135,
+  pace: 129, // 90 minutes for 42 questions (May 2027 format)
   name: 'the AP Statistics exam',
   detect: {
     exam: /\bAP\s+stat(?:s|istics)?\b/i,
@@ -16,12 +18,12 @@ export const AP_STATISTICS: ExamProfile = {
     explicit: /\bAP\s+stat(?:s|istics)?\b/i,
   },
   itemRules: `ITEM FORMAT (every question must follow this; it overrides the format's own mix of question types):
-- Multiple-choice items have exactly FIVE options A-E, as on Section I of this exam (never four). No true/false, no "I, II and III" lists. Each item gives its data in a figure block (a table, a dot plot, a histogram, a scatterplot with a fitted line, a box plot) or in the stem, and every number the answer needs is there.
+- Multiple-choice items have exactly FOUR options A-D, as on the redesigned exam (never five, never an E option). No true/false, no "I, II and III" lists. Each item gives its data in a figure block (a table, a dot plot, a histogram, a scatterplot with a fitted line, a box plot) or in the stem, and every number the answer needs is there.
 - Free-response items are SA_QUESTION, one per part, in the exam's voice: a context in 2-4 sentences (a study, a sample, a process), then the part: "Describe the distribution ...", "Interpret the slope in context.", "Is there convincing statistical evidence that ...? Justify.", "Construct and interpret a 95% confidence interval ...", "Describe a Type II error in context and a consequence of it.", "Explain why random assignment was used.", "Calculate the probability ...". A part that asks for an inference procedure expects the full four steps.
 - The Sample Answer for an SA_QUESTION is the scoring guideline: what an essentially correct (E) response contains, in the order the rubric checks it. For inference: (1) the hypotheses with the parameter defined in context, (2) the named procedure and the conditions checked with the numbers (random, 10% condition, large counts or normality), (3) the test statistic and p-value or the interval, (4) a conclusion in context linked to the p-value and the alpha level, never "accept H₀". For a description: shape, center, spread and unusual features, in context, with comparisons when two groups.
-- A calculation as a multiple-choice item has five numeric options, as on Section I (the wrong ones from a skipped step, a wrong sign or a wrong factor). NUM_QUESTION is only for a free-response calculation part whose answer is one number (give the value to the exam's precision; alternates with |); keep it to at most one in six items.
+- A calculation as a multiple-choice item has four numeric options (the wrong ones from a skipped step, a wrong sign or a wrong factor). NUM_QUESTION is only for a free-response calculation part whose answer is one number (give the value to the exam's precision; alternates with |); keep it to at most one in six items.
 - Calculators are allowed throughout; the hard part is choosing the procedure, checking conditions and interpreting, never the arithmetic. Give any needed values (a z or t critical value, a standard deviation) in the stem when they are not read from a table.
-- Options for conceptual items are five parallel statements of similar length; the wrong ones are the misinterpretations under WRONG ANSWERS ARE BUILT FROM (a probability-of-the-hypothesis reading of a p-value, a confidence-level reading of an interval, causation from an observational study, a sample statistic called a parameter).
+- Options for conceptual items are four parallel statements of similar length; the wrong ones are the misinterpretations under WRONG ANSWERS ARE BUILT FROM (a probability-of-the-hypothesis reading of a p-value, a confidence-level reading of an interval, causation from an observational study, a sample statistic called a parameter).
 - Before writing an item's answer, work it from the numbers in the stem and check that exactly one option (or one sample answer) is right. If the numbers do not work out, change them. Never leave a note or a second attempt in the explanation.
 - Explanations stay short: the key reasoning step and the trap in the most tempting wrong option.`,
   domains: [
@@ -50,7 +52,6 @@ A) For each additional thousand pounds of weight, fuel efficiency decreases by 7
 B) For each additional thousand pounds of weight, the predicted fuel efficiency decreases by 7.5 miles per gallon.
 C) For each additional mile per gallon, the predicted weight decreases by 7.5 thousand pounds.
 D) A car weighing 1,000 pounds is predicted to get 48.2 - 7.5 = 40.7 miles per gallon.
-E) 7.5% of the variation in fuel efficiency is explained by weight.
 Correct Answer: B
 Explanation: The slope is a predicted change in the response per unit of the explanatory variable. A omits "predicted" (the line does not say every car loses exactly 7.5), and C reverses the variables.`,
         `SA_QUESTION: The dot plots show the number of minutes 20 students in Class A and 20 students in Class B spent on homework one night. Compare the two distributions.
@@ -90,7 +91,6 @@ A) A completely randomized design, because the fertilizer was randomly assigned.
 B) A stratified random sample, because the plants were divided by field before selection.
 C) A randomized block design with the field as the block, because sunlight is expected to affect yield.
 D) A matched-pairs design, because each fertilized plant is paired with an unfertilized one.
-E) An observational study, because the researcher did not choose which plants to grow.
 Correct Answer: C
 Explanation: Treatments were randomly assigned within each field, so the field is a block that removes the variability due to sunlight. B confuses blocking in an experiment with stratifying a sample.`,
         `SA_QUESTION: A school surveyed a random sample of 200 of its 1,800 students and found that students who eat breakfast have higher average grades than those who do not. A newspaper reported that eating breakfast causes higher grades. Explain why this conclusion is not justified, and describe one variable that could explain the association.
@@ -120,10 +120,9 @@ Sample Answer: The study is observational: students chose whether to eat breakfa
 A) Skewed right with mean 180 grams and standard deviation 24 grams.
 B) Approximately normal with mean 180 grams and standard deviation 24 grams.
 C) Approximately normal with mean 180 grams and standard deviation 4 grams.
-D) Skewed right with mean 180 grams and standard deviation 4 grams.
-E) Approximately normal with mean 180 grams and standard deviation 0.67 gram.
+D) Approximately normal with mean 180 grams and standard deviation 0.67 gram.
 Correct Answer: C
-Explanation: With n = 36 (at least 30) the central limit theorem gives an approximately normal shape, and the standard deviation is σ/√n = 24/6 = 4. E divides by n instead of √n.`,
+Explanation: With n = 36 (at least 30) the central limit theorem gives an approximately normal shape, and the standard deviation is σ/√n = 24/6 = 4. D divides by n instead of √n.`,
         `NUM_QUESTION: In a certain population, 30% of adults are left-handed. If 8 adults are selected at random, what is the probability that exactly 2 of them are left-handed? Give your answer to four decimal places.
 Answer: 0.2965 | 0.296 | 0.30
 Explanation: Binomial with n = 8 and p = 0.3: C(8, 2)(0.3)²(0.7)⁶ = 28 × 0.09 × 0.117649 = 0.2965.`,
@@ -154,9 +153,8 @@ A) There is a 95% probability that the true proportion is between 0.52 and 0.60.
 B) 95% of the city's residents support the park with a proportion between 0.52 and 0.60.
 C) We are 95% confident that the interval from 0.52 to 0.60 captures the true proportion of residents who support the park.
 D) If the survey were repeated, 95% of the sample proportions would be between 0.52 and 0.60.
-E) Since 0.50 is not in the interval, there is a 95% chance that a majority supports the park.
 Correct Answer: C
-Explanation: Confidence is about the method capturing the parameter, not a probability about the fixed parameter (A, E) or about future sample proportions (D).`,
+Explanation: Confidence is about the method capturing the parameter, not a probability about the fixed parameter (A) or about future sample proportions (D).`,
         `SA_QUESTION: A coffee company claims that its 12-ounce bags contain a mean of at least 12.0 ounces of coffee. A consumer group weighs a random sample of 40 bags and finds a sample mean of 11.92 ounces with a sample standard deviation of 0.25 ounce. The weights appear roughly symmetric with no outliers. Is there convincing statistical evidence, at the α = 0.05 level, that the true mean weight is less than 12.0 ounces? Justify your answer.
 Sample Answer: Step 1: H₀: μ = 12.0 ounces and Hₐ: μ < 12.0 ounces, where μ is the true mean weight of coffee in the company's 12-ounce bags (1 point for hypotheses with the parameter defined). Step 2: one-sample t test for a mean; conditions: random sample (given), 40 bags are less than 10% of all bags, and n = 40 ≥ 30 with a roughly symmetric sample, so the sampling distribution of x̄ is approximately normal (1 point for the named procedure with conditions checked). Step 3: t = (11.92 - 12.0) / (0.25/√40) = -0.08 / 0.0395 = -2.02 with df = 39; p-value ≈ 0.025 (1 point for the statistic and p-value). Step 4: because the p-value 0.025 is less than α = 0.05, we reject H₀; there is convincing statistical evidence that the true mean weight of coffee in the bags is less than 12.0 ounces (1 point for a conclusion in context linked to the p-value).`,
       ],

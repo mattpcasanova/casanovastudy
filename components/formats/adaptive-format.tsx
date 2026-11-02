@@ -7,10 +7,11 @@
 // day) and for checking the occasional "explain it" answer.
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
+import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { ReadAloudButton } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { TurnedInCard, useAssignmentFinish } from "@/components/assign/assignment-context"
+import { TurnedInCard, useAssignmentCounts, useAssignmentFinish } from "@/components/assign/assignment-context"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Target, Trophy, XCircle, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -37,6 +38,7 @@ import {
   refillTarget,
   sessionSummary,
   withOutOfQuestions,
+  GRADED_CREDIT_AT,
   type AdaptiveAnswer,
   type ConceptProgress,
 } from "@/lib/adaptive/engine"
@@ -135,7 +137,9 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     setAnswers(next)
   }
 
-  const step = useMemo(() => (answers ? nextStep(guide, answers) : null), [guide, answers])
+  // Assigned work that counts: no second tries on missed questions (the grade is sent when new questions run out).
+  const graded = useAssignmentCounts()
+  const step = useMemo(() => (answers ? nextStep(guide, answers, { reviews: !graded }) : null), [guide, answers, graded])
   const needRefill = useMemo(() => (answers && !refillsOff ? conceptsNeedingRefill(guide, answers) : []), [guide, answers, refillsOff])
 
   // Ask for more questions in the background when a concept runs low (one at a time).
@@ -180,8 +184,8 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     if (!answers) return []
     const p = conceptProgress(guide, answers)
     // Concepts with nothing left to ask and no refill coming are finished.
-    return step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length) ? withOutOfQuestions(p, step.conceptIds) : p
-  }, [guide, answers, step, refilling, refillsOff, needRefill])
+    return step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length) ? withOutOfQuestions(p, step.conceptIds, graded ? { creditAt: GRADED_CREDIT_AT } : {}) : p
+  }, [guide, answers, step, refilling, refillsOff, needRefill, graded])
 
   const finished = started && !current && (step?.kind === "done" || (step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length)))
   const waiting = started && !current && step?.kind === "empty" && !finished
@@ -293,7 +297,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
               </div>
               {q.figure && <div className="mt-4"><GraphFence text={q.figure} allowExplain={!!result} /></div>}
               <div className="mt-5">
-                {(q.type === "mc" || q.type === "tf") && <ChoiceAnswer q={q} result={result} onPick={(i) => submit(String(i))} />}
+                {(q.type === "mc" || q.type === "tf") && <ChoiceAnswer key={q.id} q={q} result={result} onPick={(i) => submit(String(i))} />}
                 {q.type === "num" && <NumberAnswer key={q.id} result={result} onSubmit={submit} />}
                 {q.type === "explain" && <ExplainAnswer key={q.id} q={q} guideId={studyGuideId} result={result} onChecked={submit} onBlocked={openPremium} />}
               </div>
@@ -390,37 +394,54 @@ function QuestionPrompt({ text, passage }: { text: string; passage?: string }) {
 // ── Answer inputs ───────────────────────────────────────────────────────────
 
 function ChoiceAnswer({ q, result, onPick }: { q: AdaptiveQuestion; result: { given: string } | null; onPick: (i: number) => void }) {
+  // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const isTF = q.type === "tf"
+  const [pending, setPending] = useState<number | null>(null)
+  const cross = useCrossOut(q.id)
   const picked = result ? Number(result.given) : null
   return (
-    <div className={cn(isTF ? "grid grid-cols-2 gap-3" : "space-y-2.5")}>
-      {q.options.map((opt, i) => {
-        const correct = !!result && i === q.correct
-        const wrong = !!result && picked === i && i !== q.correct
-        return (
-          <button
-            key={i}
-            type="button"
-            disabled={!!result}
-            onClick={() => onPick(i)}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
-              isTF && "justify-center font-semibold",
-              correct ? "border-emerald-400 bg-emerald-50" : wrong ? "border-rose-400 bg-rose-50" : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/40",
-              result && !correct && !wrong && "opacity-60"
-            )}
-          >
-            {!isTF && (
-              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold", correct ? "bg-emerald-700 text-white" : wrong ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-500")}>
-                {String.fromCharCode(65 + i)}
-              </span>
-            )}
-            <span className="leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
-            {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
-            {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
-          </button>
-        )
-      })}
+    <div>
+      <div className={cn(isTF ? "grid grid-cols-2 gap-3" : "space-y-2.5")}>
+        {q.options.map((opt, i) => {
+          const correct = !!result && i === q.correct
+          const wrong = !!result && picked === i && i !== q.correct
+          const selected = !result && pending === i
+          const crossed = !result && !selected && cross.crossed.has(i)
+          const button = (
+            <button
+              key={i}
+              type="button"
+              disabled={!!result}
+              aria-pressed={selected}
+              onClick={() => { cross.uncross(i); if (pending === i) onPick(i); else setPending(i) }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
+                isTF && "justify-center font-semibold",
+                correct ? "border-emerald-400 bg-emerald-50" : wrong ? "border-rose-400 bg-rose-50" : selected ? "border-sky-600 bg-sky-50" : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/40",
+                result && !correct && !wrong && "opacity-60",
+                crossed && crossedClass
+              )}
+            >
+              {!isTF && (
+                <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold", correct ? "bg-emerald-700 text-white" : wrong ? "bg-rose-600 text-white" : selected ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-500")}>
+                  {String.fromCharCode(65 + i)}
+                </span>
+              )}
+              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
+              {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
+              {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
+            </button>
+          )
+          if (isTF) return button
+          return (
+            <div key={i} className="flex items-center gap-2">
+              {button}
+              <CrossOutButton letter={String.fromCharCode(65 + i)} crossed={cross.crossed.has(i)} disabled={!!result} onToggle={() => { if (pending === i) setPending(null); cross.toggle(i) }} />
+            </div>
+          )
+        })}
+      </div>
+      <LockInButton show={!result && pending !== null} onClick={() => pending !== null && onPick(pending)} tone="sky" />
     </div>
   )
 }
@@ -437,7 +458,12 @@ function NumberAnswer({ result, onSubmit }: { result: { given: string; correct: 
         onChange={(e) => setValue(e.target.value)}
         disabled={!!result}
         autoFocus
-        inputMode="decimal"
+        inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              enterKeyHint="done"
         placeholder="Your answer"
         aria-label="Your answer"
         className={cn("w-48 rounded-xl border-2 px-4 py-2.5 text-lg tabular-nums outline-none transition focus:border-sky-400",

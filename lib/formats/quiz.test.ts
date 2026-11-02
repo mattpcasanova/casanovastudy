@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseQuizContent } from './quiz'
+import { parseQuizRaw } from './quiz'
 
 const PLAIN = `# Linear Functions Quiz
 *Practice for slope and intercepts.*
@@ -22,9 +22,9 @@ SA_QUESTION: How do you find the x-intercept?
 Sample Answer: Set y to 0 and solve for x.
 This gives the point where the line crosses the x-axis.`
 
-describe('parseQuizContent', () => {
+describe('parseQuizRaw', () => {
   it('parses plain quizzes unchanged', () => {
-    const qs = parseQuizContent(PLAIN)
+    const qs = parseQuizRaw(PLAIN)
     expect(qs.map((q) => q.id)).toEqual(['q-0', 'q-1', 'q-2'])
     expect(qs[0]).toMatchObject({ type: 'mc', correctAnswer: '3', section: 'Slope' })
     expect(qs[1]).toMatchObject({ type: 'tf', correctAnswer: true })
@@ -34,7 +34,7 @@ describe('parseQuizContent', () => {
   })
 
   it('attaches a graph fence under a question line', () => {
-    const qs = parseQuizContent(`## Graphs
+    const qs = parseQuizRaw(`## Graphs
 MC_QUESTION: The graph of f is shown. What is f(2)?
 \`\`\`graph
 kind: plane
@@ -64,7 +64,7 @@ Correct Answer: B`)
   })
 
   it('attaches a figure placed just before its question', () => {
-    const qs = parseQuizContent(`MC_QUESTION: First?
+    const qs = parseQuizRaw(`MC_QUESTION: First?
 A) x
 B) y
 Correct Answer: A
@@ -84,7 +84,7 @@ Sample Answer: 5, by the Pythagorean theorem.`)
   })
 
   it('never reads option-like lines inside fences', () => {
-    const qs = parseQuizContent(`MC_QUESTION: Which output?
+    const qs = parseQuizRaw(`MC_QUESTION: Which output?
 \`\`\`python
 A) print(1)
 \`\`\`
@@ -98,7 +98,7 @@ Correct Answer: A`)
 
 describe('statement stems', () => {
   it('keeps I/II/III statements with the question', () => {
-    const qs = parseQuizContent(`MC_QUESTION: MgO has a higher melting point than NaF. Which factors explain this?
+    const qs = parseQuizRaw(`MC_QUESTION: MgO has a higher melting point than NaF. Which factors explain this?
 I. Mg²⁺ is more positively charged than Na⁺
 II. O²⁻ is more negatively charged than F⁻
 III. O²⁻ is smaller than F⁻
@@ -121,7 +121,7 @@ Explanation: All three strengthen coulombic attraction.`)
 
 describe('hints', () => {
   it('reads Hint lines without mixing them into the stem or options', () => {
-    const qs = parseQuizContent(`## Slope
+    const qs = parseQuizRaw(`## Slope
 MC_QUESTION: What is the slope of y = 3x + 2?
 A) 2
 B) 3
@@ -165,7 +165,7 @@ Correct Answer: A
 `
   it('parses the answer, alternates, stem lines, hint and explanation', async () => {
     const { isObjectiveCorrect, answerText } = await import('./quiz')
-    const qs = parseQuizContent(src)
+    const qs = parseQuizRaw(src)
     expect(qs.map((q) => q.type)).toEqual(['num', 'num', 'mc'])
     const q = qs[0]
     if (q.type !== 'num') throw new Error('expected num')
@@ -185,13 +185,13 @@ Correct Answer: A
     expect(answerText(alt)).toBe('7/2')
   })
   it('drops a NUM_QUESTION with no answer line', () => {
-    expect(parseQuizContent('# T\nNUM_QUESTION: What is x?\nHint: think\n')).toEqual([])
+    expect(parseQuizRaw('# T\nNUM_QUESTION: What is x?\nHint: think\n')).toEqual([])
   })
 })
 
 describe('code fences (programming items)', () => {
   it('keeps a java fence as the question\'s passage, fence included, and drops a bare fence', () => {
-    const qs = parseQuizContent(`MC_QUESTION: What is printed?
+    const qs = parseQuizRaw(`MC_QUESTION: What is printed?
 \`\`\`java
 int a = 7;
   int b = 2;
@@ -249,7 +249,7 @@ B) y
 Correct Answer: B
 `
   it('attaches the passage to its question, keeps its lines, and never reads it as options', () => {
-    const qs = parseQuizContent(src)
+    const qs = parseQuizRaw(src)
     expect(qs).toHaveLength(3)
     expect(qs[0].passage).toContain('Text 1')
     expect(qs[0].passage).toContain('- a note')
@@ -262,7 +262,7 @@ Correct Answer: B
 
 describe('options that start with the word "answer"', () => {
   it('are options, not the answer line', () => {
-    const [q] = parseQuizContent(`# T\nMC_QUESTION: Which choice is correct?\nA) NO CHANGE\nB) answer, the notebook\nC) answer the notebook\nD) answer; and the notebook\nCorrect Answer: C\n`)
+    const [q] = parseQuizRaw(`# T\nMC_QUESTION: Which choice is correct?\nA) NO CHANGE\nB) answer, the notebook\nC) answer the notebook\nD) answer; and the notebook\nCorrect Answer: C\n`)
     if (q.type !== 'mc') throw new Error('mc')
     expect(q.options).toHaveLength(4)
     expect(q.correctAnswer).toBe('answer the notebook')

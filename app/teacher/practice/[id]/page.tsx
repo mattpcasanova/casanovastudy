@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
 import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, Copy, Eye, Loader2, MessageCircleQuestion, QrCode, Timer, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import { FOCUS_MODE_HINT, focusChip, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
+import { FOCUS_MODE_HINT, durationText, focusChip, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
@@ -267,8 +267,18 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{focusFor?.firstName || focusFor?.name} in focus mode</DialogTitle>
-            <DialogDescription>Everything recorded while they had this assignment open, in order. Leaving can also mean a notification or another window they clicked by accident, so ask before assuming.</DialogDescription>
+            <DialogDescription>Everything recorded while they had this assignment open, in order. Leaving can also mean a notification or another window they clicked by accident, so ask before assuming. iPhones and iPads don't use full screen, so only leaving the page counts there.</DialogDescription>
           </DialogHeader>
+          {focusFor && (() => {
+            const f = summarizeFocus(focusFor.focus)
+            return (
+              <div className="grid grid-cols-1 gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200 sm:grid-cols-3">
+                <div><p className="text-xs text-amber-800">Total out of focus</p><p className="text-lg font-semibold tabular-nums">{durationText(f.outSeconds)}</p></div>
+                <div><p className="text-xs text-amber-800">Left the page</p><p className="text-lg font-semibold tabular-nums">{f.leaves}× <span className="text-sm font-normal">({durationText(f.awaySeconds)})</span></p></div>
+                <div><p className="text-xs text-amber-800">Out of full screen</p><p className="text-lg font-semibold tabular-nums">{f.fullscreenExits}× <span className="text-sm font-normal">({durationText(f.fullscreenSeconds)})</span></p></div>
+              </div>
+            )
+          })()}
           <ul className="space-y-2">
             {focusFor?.focus.map((e, i) => (
               <li key={i} className={cn("flex items-baseline gap-3 rounded-xl border p-3 text-sm", e.kind === "start" ? "border-slate-200" : "border-amber-200 bg-amber-50/60")}>

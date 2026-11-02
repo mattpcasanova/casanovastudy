@@ -19,9 +19,12 @@ import { ReadAloudButton } from '@/components/reading/reading-provider'
 import { questionForSpeech } from '@/lib/reading/speech'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
-import { answerText, isObjectiveCorrect, parseQuizContent, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
+import { answerText, isObjectiveCorrect, parseQuizContent, parseQuizRaw, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
+import { useAttemptVersion } from '@/components/formats/use-attempt-version'
+import { PreparingVersion } from '@/components/formats/preparing-version'
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit, type FinishAnswer } from '@/components/assign/assignment-context'
 import { timeLimitText } from '@/lib/practice/assignments'
 import { useRunProgress } from '@/lib/use-run-progress'
@@ -58,7 +61,9 @@ type Mode = 'practice' | 'test'
 const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer', num: 'Type your answer' }
 
 export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId, pace, examName }: QuizFormatProps) {
-  const allQuestions = useMemo(() => parseQuizContent(content), [content])
+  // Another attempt gets new versions of the questions (use-attempt-version.ts).
+  const ver = useAttemptVersion(content, studyGuideId)
+  const allQuestions = useMemo(() => (ver.content ? parseQuizContent(ver.content, ver.seed) : []), [ver.content, ver.seed])
   const [subset, setSubset] = useState<string[] | null>(null) // "retry missed" ids
   const router = useRouter()
   // What this student got wrong here last time (their latest answer to each question).
@@ -108,6 +113,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   })
 
   const current = questions[Math.min(index, questions.length - 1)]
+  const cross = useCrossOut(current?.id ?? "")
 
   // Each question is logged once per run (practice reveal or test submit).
   const logResult = useRecordResult()
@@ -121,7 +127,12 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
 
   // Save the run as it goes; put a saved one back (started in class, finished at home).
   const counts = useAssignmentCounts()
-  const ids = useMemo(() => allQuestions.map((q) => q.id), [allQuestions])
+  // Assigned work that counts runs in Test mode: right answers stay hidden until the run is turned in
+  // (a student suggested it; showing them after each question let classmates pass answers along).
+  const graded = counts
+  useEffect(() => { if (graded) setMode('test') }, [graded, mode])
+  // Ids from the original: every version has the same ones, and a saved run must survive while its version loads.
+  const ids = useMemo(() => parseQuizRaw(content).map((q) => q.id), [content])
   const cleanRun = useCallback((raw: unknown) => cleanQuizRun(raw, ids), [ids])
   const progress = useRunProgress<QuizRun>(studyGuideId, 'quiz', cleanRun)
   const [resumed, setResumed] = useState(false)
@@ -189,13 +200,18 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
 
   const choose = (q: Question, value: string) => {
     if (finished || (mode === 'practice' && checked[q.id])) return
+    // Practice mode: a pick is locked in by "Check answer" or tapping it again (a stray tap
+    // used to lock the wrong option). A typed number already went through its own Check.
+    const again = answers[q.id] === value
     setAnswers((a) => ({ ...a, [q.id]: value }))
     setResumed(false)
-    // Practice mode: objective questions check themselves on click.
-    if (mode === 'practice' && q.type !== 'sa') {
-      setChecked((c) => ({ ...c, [q.id]: true }))
-      log(q, isObjectiveCorrect(q, value))
-    }
+    if (mode === 'practice' && q.type !== 'sa' && (q.type === 'num' || again)) lockIn(q, value)
+  }
+
+  const lockIn = (q: Question, value = answers[q.id]) => {
+    if (finished || !value || checked[q.id]) return
+    setChecked((c) => ({ ...c, [q.id]: true }))
+    log(q, isObjectiveCorrect(q, value))
   }
 
   const checkShortAnswer = async (q: ShortAnswerQuestion) => {
@@ -225,13 +241,15 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
       }
     }
     // Assigned practice: a full run counts (retrying just the missed ones doesn't).
-    if (!subset) reportAssignment?.({ correct: right, total: questions.length, seconds: timed || limited ? elapsed : undefined, detail: { answers: given } })
+    // A new version's option text wouldn't match the original's question in the teacher's report, so only right/wrong goes.
+    if (!subset) reportAssignment?.({ correct: right, total: questions.length, seconds: timed || limited ? elapsed : undefined, detail: { answers: ver.version ? given.map(({ id, correct }) => ({ id, correct })) : given, ...(ver.version ? { version: ver.version } : {}) } })
     setSubmitting(false)
     setFinished(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const restart = (ids: string[] | null) => {
+    cross.clearAll()
     clearRun()
     setResumed(false)
     setSubset(ids)
@@ -296,6 +314,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  if (ver.preparing) return <PreparingVersion count={parseQuizRaw(content).length} what="questions" />
   if (allQuestions.length === 0) {
     return <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">No quiz questions were found in this guide.</div>
   }
@@ -313,7 +332,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   }
 
   if (finished) {
-    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} timing={clockOn ? summarizeTiming(elapsed, spent, questions.map((q) => q.id), paceUsed, budget) : undefined} pace={paceUsed} fromTest={!!pace} spent={spent} />
+    return <QuizResults questions={questions} answers={answers} saScores={saScores} status={status} marked={marked} onRestart={restart} next={ver.next} onNext={(ids) => { ver.startNext(); restart(ids) }} isRetry={!!subset} guide={{ title: title || 'this quiz', subject, gradeLevel }} timing={clockOn ? summarizeTiming(elapsed, spent, questions.map((q) => q.id), paceUsed, budget) : undefined} pace={paceUsed} fromTest={!!pace} spent={spent} />
   }
 
   const answeredCount = questions.filter((q) => status(q) !== 'open').length
@@ -375,6 +394,9 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
                 </button>
               )
             ) : null}
+          {graded ? (
+            <span title="Your teacher's assignment: answers show when you finish" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"><ClipboardList className="h-4 w-4" /> Answers show when you finish</span>
+          ) : (
           <div className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
             {([['practice', Zap, 'Practice'], ['test', ClipboardList, 'Test']] as const).map(([m, Icon, label]) => (
               <button
@@ -388,6 +410,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               </button>
             ))}
           </div>
+          )}
           </div>
         </div>
         {pace && settingTimer && !timed && (
@@ -433,19 +456,23 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
         {current.type === 'mc' && (
           <div className="space-y-2.5" role="radiogroup">
             {current.options.map((option, i) => (
-              <OptionButton
-                key={i}
-                letter={String.fromCharCode(65 + i)}
-                label={option}
-                selected={answers[current.id] === option}
-                correct={revealed && option === current.correctAnswer}
-                wrong={revealed && answers[current.id] === option && option !== current.correctAnswer}
-                locked={revealed}
-                onClick={() => choose(current, option)}
-              />
+              <div key={i} className="flex items-center gap-2">
+                <OptionButton
+                  letter={String.fromCharCode(65 + i)}
+                  label={option}
+                  selected={answers[current.id] === option}
+                  correct={revealed && option === current.correctAnswer}
+                  wrong={revealed && answers[current.id] === option && option !== current.correctAnswer}
+                  locked={revealed}
+                  crossed={!revealed && cross.crossed.has(i)}
+                  onClick={() => { cross.uncross(i); choose(current, option) }}
+                />
+                <CrossOutButton letter={String.fromCharCode(65 + i)} crossed={cross.crossed.has(i)} onToggle={() => { if (answers[current.id] === option && !revealed) setAnswers((a) => { const n = { ...a }; delete n[current.id]; return n }); cross.toggle(i) }} disabled={revealed} />
+              </div>
             ))}
           </div>
         )}
+        {(current.type === 'mc' || current.type === 'tf') && <LockInButton show={mode === 'practice' && !revealed && !!answers[current.id]} onClick={() => lockIn(current)} />}
 
         {current.type === 'tf' && (
           <div className="grid grid-cols-2 gap-3" role="radiogroup">
@@ -471,7 +498,12 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
           >
             <input
               type="text"
-              inputMode="decimal"
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              enterKeyHint="done"
               value={revealed ? answers[current.id] ?? '' : typed[current.id] ?? answers[current.id] ?? ''}
               onChange={(e) => { setTyped((t) => ({ ...t, [current.id]: e.target.value })); if (mode === 'test') setAnswers((a) => ({ ...a, [current.id]: e.target.value })) }}
               placeholder="Your answer"
@@ -757,7 +789,7 @@ function Navigator({ questions, index, status, marked, onJump }: { questions: Qu
   )
 }
 
-function OptionButton({ letter, label, selected, correct, wrong, locked, onClick, center }: {
+function OptionButton({ letter, label, selected, correct, wrong, locked, onClick, center, crossed }: {
   letter?: string
   label: string
   selected: boolean
@@ -766,6 +798,7 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
   locked: boolean
   onClick: () => void
   center?: boolean
+  crossed?: boolean
 }) {
   return (
     <button
@@ -778,7 +811,8 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
         'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
         center && 'justify-center',
         correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/40',
-        locked && !correct && !wrong && 'opacity-60'
+        locked && !correct && !wrong && 'opacity-60',
+        crossed && !selected && crossedClass
       )}
     >
       {letter && (
@@ -789,7 +823,7 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
           {letter}
         </span>
       )}
-      <span className={cn('leading-snug text-slate-800', center && 'font-semibold')}><InlineMarkdown text={label} /></span>
+      <span className={cn('option-text leading-snug text-slate-800', center && 'font-semibold')}><InlineMarkdown text={label} /></span>
       {locked && (correct || wrong) && (
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           <AnswerTag yours={selected} correct={correct} />
@@ -859,7 +893,10 @@ function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScor
   )
 }
 
-function QuizResults({ questions, answers, saScores, status, marked, onRestart, isRetry, guide, timing, pace, fromTest, spent }: {
+function QuizResults({ questions, answers, saScores, status, marked, onRestart, next, onNext, isRetry, guide, timing, pace, fromTest, spent }: {
+  /** New versions of the questions for another try (null: signed out). */
+  next: { label: string; assigned: boolean; waiting?: boolean } | null
+  onNext: (ids: string[] | null) => void
   guide: { title: string; subject: string; gradeLevel?: string }
   /** Set when the run was timed. */
   timing?: TimingSummary
@@ -928,7 +965,18 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
               </p>
             )}
             <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-              {missed.length > 0 && (
+              {/* Assigned with attempts left: the next attempt, with new questions (no retrying these: that's memorizing). */}
+              {next?.assigned && (
+                <Button onClick={() => onNext(null)} disabled={next.waiting} className="bg-purple-600 text-white hover:bg-purple-700">
+                  <RotateCcw className="mr-2 h-4 w-4" /> {next.label}
+                </Button>
+              )}
+              {next && !next.assigned && missed.length > 0 && (
+                <Button onClick={() => onNext(missed.map((q) => q.id))} className="bg-purple-600 text-white hover:bg-purple-700">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Retry {missed.length} missed with new questions
+                </Button>
+              )}
+              {!next && missed.length > 0 && (
                 <Button onClick={() => onRestart(missed.map((q) => q.id))} className="bg-purple-600 text-white hover:bg-purple-700">
                   <RotateCcw className="mr-2 h-4 w-4" /> Retry {missed.length} missed
                 </Button>
@@ -942,12 +990,12 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                   <ListChecks className="mr-2 h-4 w-4" /> New quiz on what I missed
                 </Button>
               )}
-              {marked.size > 0 && (
-                <Button onClick={() => onRestart(questions.filter((q) => marked.has(q.id)).map((q) => q.id))} variant="outline" className="border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900">
-                  <Flag className="mr-2 h-4 w-4" /> Retry {marked.size} marked
+              {marked.size > 0 && !next?.assigned && (
+                <Button onClick={() => { const ids = questions.filter((q) => marked.has(q.id)).map((q) => q.id); if (next) onNext(ids); else onRestart(ids) }} variant="outline" className="border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900">
+                  <Flag className="mr-2 h-4 w-4" /> Retry {marked.size} marked{next ? ' with new questions' : ''}
                 </Button>
               )}
-              <Button onClick={() => onRestart(null)} variant="outline">Start over</Button>
+              {!next?.assigned && <Button onClick={() => (next ? onNext(null) : onRestart(null))} variant="outline">{next ? 'Start over with new questions' : 'Start over'}</Button>}
             </div>
           </div>
         </div>

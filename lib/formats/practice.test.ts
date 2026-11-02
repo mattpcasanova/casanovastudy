@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePractice, isBlankCorrect, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse, parseLineList } from './practice'
+import { parsePractice, parsePracticeRaw, isBlankCorrect, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse, parseLineList } from './practice'
 
 const SAMPLE = `# Cells Practice
 *Interactive review of cell structure.*
@@ -37,7 +37,7 @@ Answer: False
 `
 
 describe('parsePractice', () => {
-  const acts = parsePractice(SAMPLE)
+  const acts = parsePracticeRaw(SAMPLE)
 
   it('parses every activity type with its topic', () => {
     expect(acts.map((a) => a.kind)).toEqual(['match', 'fill', 'order', 'sort', 'choice', 'choice'])
@@ -172,7 +172,7 @@ while left < right:
     left += 1
 \`\`\`
 `
-  const acts = parsePractice(CODE)
+  const acts = parsePracticeRaw(CODE)
 
   it('attaches code to MC without parsing fence lines as options', () => {
     const mc = acts[0]
@@ -199,7 +199,7 @@ while left < right:
   })
 
   it('drops FIND_BUG whose bug line is outside the code', () => {
-    expect(parsePractice('FIND_BUG: x\n```js\na()\nb()\n```\nBug line: 9').length).toBe(0)
+    expect(parsePracticeRaw('FIND_BUG: x\n```js\na()\nb()\n```\nBug line: 9').length).toBe(0)
   })
 
   it('normalizes bug + code JSON from the AI or editor', () => {
@@ -225,7 +225,7 @@ while left < right:
 
 describe('practice figures', () => {
   it('sends a graph fence to figure and a code fence to code', () => {
-    const acts = parsePractice(`## Graphs
+    const acts = parsePracticeRaw(`## Graphs
 MC_QUESTION: Which point is the vertex of the parabola shown?
 \`\`\`graph
 kind: plane
@@ -257,7 +257,7 @@ Correct Answer: B`)
 
 describe('statement stems in practice', () => {
   it('keeps I/II/III statements in the prompt', () => {
-    const [a] = parsePractice(`MC_QUESTION: Which factors explain this?
+    const [a] = parsePracticeRaw(`MC_QUESTION: Which factors explain this?
 I. Charge
 II. Size
 A) I only
@@ -270,7 +270,7 @@ Correct Answer: B`)
 
 describe('hints', () => {
   it('reads Hint lines on activities', () => {
-    const acts = parsePractice(`## Cells
+    const acts = parsePracticeRaw(`## Cells
 FILL: The {{mitochondria}} makes ATP.
 Hint: Think "powerhouse".
 Explanation: Mitochondria run cellular respiration.
@@ -294,7 +294,7 @@ describe('answers in other languages', () => {
 
 describe('MC options that start with the word "answer"', () => {
   it('are options, not the answer line', () => {
-    const [a] = parsePractice(`# T\nMC_QUESTION: Which is right?\nA) NO CHANGE\nB) answer A question\nC) answer the notebook\nD) answer; and\nCorrect Answer: C\n`)
+    const [a] = parsePracticeRaw(`# T\nMC_QUESTION: Which is right?\nA) NO CHANGE\nB) answer A question\nC) answer the notebook\nD) answer; and\nCorrect Answer: C\n`)
     if (a.kind !== 'choice') throw new Error('choice')
     expect(a.options).toHaveLength(4)
     expect(a.correct).toBe(2)
@@ -303,7 +303,7 @@ describe('MC options that start with the word "answer"', () => {
 
 describe('passage fences', () => {
   it('attach to the activity and are not read as code or options', () => {
-    const [a] = parsePractice(`# T\nMC_QUESTION: Which choice completes the text with the most logical transition?\n\`\`\`passage\nEarly broadcasters assumed listeners wanted music. ______ news became the most popular.\n\`\`\`\nA) Likewise,\nB) However,\nCorrect Answer: B\n`)
+    const [a] = parsePracticeRaw(`# T\nMC_QUESTION: Which choice completes the text with the most logical transition?\n\`\`\`passage\nEarly broadcasters assumed listeners wanted music. ______ news became the most popular.\n\`\`\`\nA) Likewise,\nB) However,\nCorrect Answer: B\n`)
     if (a.kind !== 'choice') throw new Error('choice')
     expect(a.passage).toContain('Early broadcasters')
     expect(a.code).toBeUndefined()

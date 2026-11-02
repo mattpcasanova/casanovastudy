@@ -20,7 +20,8 @@ export function sanitizeFocusEvents(raw: unknown, now = Date.now()): FocusEvent[
     const t = Date.parse(at)
     if (Number.isNaN(t) || t > now + 60_000 || t < now - MAX_AGE_MS) continue
     const s = Number(seconds)
-    out.push({ kind: kind as FocusKind, at: new Date(t).toISOString(), seconds: kind === 'left' && Number.isFinite(s) ? Math.min(Math.max(Math.round(s), 0), 86_400) : null })
+    const timed = kind === 'left' || kind === 'fullscreen_exit'
+    out.push({ kind: kind as FocusKind, at: new Date(t).toISOString(), seconds: timed && seconds != null && Number.isFinite(s) ? Math.min(Math.max(Math.round(s), 0), 86_400) : null })
   }
   return out
 }
@@ -31,22 +32,46 @@ export interface FocusSummary {
   awaySeconds: number
   longestAway: number
   fullscreenExits: number
+  /** Seconds out of full screen (exits recorded with how long they lasted). */
+  fullscreenSeconds: number
+  /** Total seconds out of focus: time away and time out of full screen, overlaps counted once. */
+  outSeconds: number
   copies: number
   pastes: number
 }
 
 export function summarizeFocus(events: FocusEvent[]): FocusSummary {
-  const s: FocusSummary = { started: false, leaves: 0, awaySeconds: 0, longestAway: 0, fullscreenExits: 0, copies: 0, pastes: 0 }
+  const s: FocusSummary = { started: false, leaves: 0, awaySeconds: 0, longestAway: 0, fullscreenExits: 0, fullscreenSeconds: 0, outSeconds: 0, copies: 0, pastes: 0 }
+  const spans: Array<[number, number]> = []
+  const span = (e: FocusEvent) => {
+    const t = Date.parse(e.at)
+    if (e.seconds && !Number.isNaN(t)) spans.push([t, t + e.seconds * 1000])
+  }
   for (const e of events) {
     if (e.kind === 'start') s.started = true
     else if (e.kind === 'left') {
       s.leaves++
       s.awaySeconds += e.seconds ?? 0
       s.longestAway = Math.max(s.longestAway, e.seconds ?? 0)
-    } else if (e.kind === 'fullscreen_exit') s.fullscreenExits++
-    else if (e.kind === 'copy') s.copies++
+      span(e)
+    } else if (e.kind === 'fullscreen_exit') {
+      s.fullscreenExits++
+      s.fullscreenSeconds += e.seconds ?? 0
+      span(e)
+    } else if (e.kind === 'copy') s.copies++
     else if (e.kind === 'paste') s.pastes++
   }
+  // Leaving the tab usually also leaves full screen: merge the spans so the time isn't counted twice.
+  spans.sort((a, b) => a[0] - b[0])
+  let end = -Infinity
+  let total = 0
+  for (const [a, b] of spans) {
+    if (b <= end) continue
+    total += b - Math.max(a, end)
+    end = b
+  }
+  // Events without usable times (older rows) still count their seconds.
+  s.outSeconds = spans.length ? Math.round(total / 1000) : s.awaySeconds
   return s
 }
 
@@ -62,10 +87,13 @@ export function durationText(seconds: number): string {
 /** Chip text for the teacher's list, or null when nothing worth flagging. */
 export function focusChip(s: FocusSummary): string | null {
   const parts: string[] = []
-  if (s.leaves) parts.push(`Left the page ${s.leaves}× (${durationText(s.awaySeconds)})`)
+  if (s.outSeconds >= 1) parts.push(`Out of focus ${durationText(s.outSeconds)} total`)
+  if (s.leaves) parts.push(`left the page ${s.leaves}×`)
+  if (s.fullscreenExits) parts.push(`left full screen ${s.fullscreenExits}×`)
   if (s.copies + s.pastes) parts.push(`${s.copies + s.pastes} copy/paste`)
-  if (!parts.length && s.fullscreenExits) parts.push(`Left full screen ${s.fullscreenExits}×`)
-  return parts.length ? parts.join(' · ') : null
+  if (!parts.length) return null
+  const text = parts.join(' · ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** One line per event for the teacher's dialog. */
@@ -73,7 +101,7 @@ export function focusEventText(e: FocusEvent): string {
   switch (e.kind) {
     case 'start': return 'Started in focus mode'
     case 'left': return e.seconds != null ? `Left the page for ${durationText(e.seconds)}` : 'Left the page and did not come back'
-    case 'fullscreen_exit': return 'Left full screen'
+    case 'fullscreen_exit': return e.seconds != null ? `Out of full screen for ${durationText(e.seconds)}` : 'Left full screen'
     case 'copy': return 'Tried to copy text'
     case 'paste': return 'Tried to paste text'
   }

@@ -2505,6 +2505,53 @@ ${languageInstructions(params.language)}
   }
 
   /**
+   * A new version of a quiz or practice set for another attempt (assigned work
+   * with attempts left, or a student retrying their own guide): every item is
+   * replaced by a new one testing the same skill, in the same place, so the
+   * teacher's question-by-question report still lines up. Retrying the same
+   * questions let students memorize which option was right.
+   */
+  async writeNewVersion(params: { content: string; format: 'quiz' | 'practice'; title: string; subject?: string; gradeLevel?: string; language?: GuideLanguage; version: number }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number; cost: number } }> {
+    const kind = params.format === 'quiz' ? 'quiz' : 'practice set'
+    const prompt = `A student is about to take this ${kind} again (version ${params.version + 1}). Write a NEW VERSION of it so they can't pass by remembering which option was right.
+
+GUIDE: ${params.title}
+SUBJECT: ${params.subject && params.subject !== 'general' ? params.subject : 'infer from the guide'}
+LEARNER LEVEL: ${describeLevel(params.gradeLevel)}
+
+THE ORIGINAL:
+<original>
+${params.content}
+</original>
+
+Rules:
+- Keep the exact structure: the same title line, the same ## headings in the same places, the same number of items in the same order, and each item the same type with the same markers (${params.format === 'quiz' ? 'MC_QUESTION:, TF_QUESTION:, SA_QUESTION:, NUM_QUESTION:, option lines A) B) C) D), Correct Answer:, Hint:, Explanation:, Sample Answer:, Answer:' : 'MATCH:, FILL: with {{answer|alternative}} blanks, ORDER:, SORT:, MC_QUESTION:, TF_QUESTION:, FIND_BUG:, WRITE_CODE:, and their Answer:/Hint:/Explanation: lines'}). Same number of options per question.
+- Item N of the new version tests the same skill or fact as item N of the original, at the same difficulty, but it is a different question: new numbers, a new context or example, new wording. Never copy a stem or an option, and never just reorder the original's options.
+- Multiple choice: the correct answer is a different option from the original's (different value or statement, not only a different letter). Wrong options come from real mistakes students make. True/false items may flip which answer is right.
+- Matching, ordering and sorting: use different terms, steps or items on the same idea where the topic allows; where it doesn't (a fixed list of stages), reword every line and change the examples.
+- Figures, passages and code: when an item has a \`\`\`graph, \`\`\`passage or code fence, write a new one in the same syntax that fits the new item (new data, new text).
+- Work every item from its own numbers before writing its key, and check that exactly one option is right. If the numbers don't work out, change them. Explanations and hints must match the new item and refer to its letters.
+- Same language as the original. Never use em dashes.
+
+Output only the new ${kind}, nothing before or after it.`
+
+    const response = await this.anthropic.beta.messages.stream({
+      model: 'claude-sonnet-5-5',
+      max_tokens: 32000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'medium' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      messages: [{ role: 'user', content: prompt }],
+    } as any).finalMessage()
+    const block = response.content.find((b) => b.type === 'text')
+    if (!block || block.type !== 'text') throw new Error('No new version came back')
+    const cost = (response.usage.input_tokens * 2 + response.usage.output_tokens * 10) / 1_000_000
+    console.log('New version usage:', { input: response.usage.input_tokens, output: response.usage.output_tokens, cost: `$${cost.toFixed(4)}` })
+    return { text: block.text.replace(/^```(?:markdown|md)?\n|\n```\s*$/g, '').trim(), usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens, cost } }
+  }
+
+  /**
    * Grade a single short answer against a sample answer. Used in the mastery
    * quiz answer loop (hot path; runs on Haiku for speed/cost) and by the
    * study-guide quiz self-check (/api/score-short-answer).

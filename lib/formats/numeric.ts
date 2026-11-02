@@ -7,6 +7,7 @@ export function parseNumber(raw: string): number | null {
     .replace(/^[a-z]\w*\s*=\s*/, '') // "x = 4"
     .replace(/[−–]/g, '-')
     .replace(/(\d),(?=\d{3}\b)/g, '$1')
+    .replace(/^(-?\d+),(\d{1,2}|\d{4,})(?!\d)/, '$1.$2') // "3,5" from a phone set to Spanish (a decimal comma)
     .replace(/\s+/g, ' ')
   const pct = /%\s*$/.test(s)
   s = s.replace(/%\s*$/, '').replace(/^\$/, '').trim()

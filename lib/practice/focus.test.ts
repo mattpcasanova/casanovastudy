@@ -32,8 +32,17 @@ describe('summary and chip', () => {
       { kind: 'start', at: 'x' }, { kind: 'left', at: 'x', seconds: 30 }, { kind: 'left', at: 'x', seconds: 50 },
       { kind: 'paste', at: 'x' }, { kind: 'fullscreen_exit', at: 'x' },
     ])
-    expect(s).toMatchObject({ started: true, leaves: 2, awaySeconds: 80, longestAway: 50, pastes: 1, fullscreenExits: 1 })
-    expect(focusChip(s)).toBe('Left the page 2× (1m 20s) · 1 copy/paste')
+    expect(s).toMatchObject({ started: true, leaves: 2, awaySeconds: 80, longestAway: 50, pastes: 1, fullscreenExits: 1, outSeconds: 80 })
+    expect(focusChip(s)).toBe('Out of focus 1m 20s total · left the page 2× · left full screen 1× · 1 copy/paste')
+  })
+  it('counts time away and out of full screen once when they overlap', () => {
+    const s = summarizeFocus([
+      { kind: 'fullscreen_exit', at: '2026-10-26T14:00:00Z', seconds: 60 }, // 14:00:00-14:01:00
+      { kind: 'left', at: '2026-10-26T14:00:10Z', seconds: 30 }, // inside it
+      { kind: 'left', at: '2026-10-26T14:05:00Z', seconds: 15 },
+    ])
+    expect(s.outSeconds).toBe(75)
+    expect(s.fullscreenSeconds).toBe(60)
   })
   it('stays quiet when nothing happened', () => {
     expect(focusChip(summarizeFocus([{ kind: 'start', at: 'x' }]))).toBeNull()

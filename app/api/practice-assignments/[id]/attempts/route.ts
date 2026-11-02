@@ -33,11 +33,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const pct = Math.round((correct / total) * 1000) / 10
   // Adaptive: which concepts were mastered (names, for the teacher). All
   // formats: the first answer per question, for the class report.
-  const d = (body.detail ?? null) as { mastered?: unknown; notMastered?: unknown; answers?: unknown } | null
+  const d = (body.detail ?? null) as { mastered?: unknown; notMastered?: unknown; answers?: unknown; version?: unknown } | null
   const names = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 20).map((x) => x.slice(0, 120)) : [])
   const answers = d && typeof d === 'object' ? sanitizeAnswers(d.answers) : null
   const detail = d && typeof d === 'object'
-    ? { ...(Array.isArray(d.mastered) || Array.isArray(d.notMastered) ? { mastered: names(d.mastered), notMastered: names(d.notMastered) } : {}), ...(answers ? { answers } : {}) }
+    ? { ...(Array.isArray(d.mastered) || Array.isArray(d.notMastered) ? { mastered: names(d.mastered), notMastered: names(d.notMastered) } : {}), ...(answers ? { answers } : {}),
+        // Which new version of the questions this attempt used (0/absent = the original).
+        ...(Number.isInteger(d.version) && (d.version as number) > 0 && (d.version as number) <= 50 ? { version: d.version as number } : {}) }
     : null
   const finishedAt = new Date().toISOString()
   const secs = Number(body.seconds)

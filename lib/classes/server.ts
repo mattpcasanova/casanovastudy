@@ -189,3 +189,34 @@ export async function areaBatchesFor(supabase: SupabaseClient, userId: string, c
   const topicsOf = await topicsForBatches(supabase, userId, [...new Set(rows.map((r) => r.batch_id))])
   return areaBatchesFromRows(rows, topicsOf)
 }
+
+/**
+ * The student's side of linkRosterByEmail: on their own request (My Classes,
+ * the nav check), link every unlinked class-list name with their sign-in email
+ * to their account. Before this, linking only happened when the teacher next
+ * loaded that roster, so a student who signed in with their school email could
+ * wait minutes (and refresh several times) before My Classes appeared.
+ * Same rules as the teacher side: verified teachers' classes only, one name per
+ * account per class. Returns the classes just linked.
+ */
+export async function linkMeByEmail(supabase: SupabaseClient, userId: string, email: string | null | undefined): Promise<string[]> {
+  const e = email?.trim().toLowerCase()
+  if (!e || !e.includes('@')) return []
+  const { data: rows } = await supabase.from('class_roster').select('id, class_id')
+    .ilike('email', e.replace(/[\\%_]/g, (c) => `\\${c}`))
+    .is('student_user_id', null).is('left_at', null).limit(25)
+  if (!rows?.length) return []
+  const { data: prof } = await supabase.from('user_profiles').select('user_type').eq('id', userId).maybeSingle()
+  if (prof?.user_type !== 'student') return []
+  const linked: string[] = []
+  for (const r of rows) {
+    if (linked.includes(r.class_id as string)) continue
+    if (!(await classTeacherVerified(supabase, r.class_id as string))) continue
+    const { data: done, error } = await supabase.from('class_roster').update({ student_user_id: userId, linked_via: 'email' })
+      .eq('id', r.id).is('student_user_id', null).select('id')
+    if (error || !done?.length) continue // already linked to another name in this class
+    await supabase.from('grading_results').update({ student_user_id: userId }).eq('roster_id', r.id).is('student_user_id', null)
+    linked.push(r.class_id as string)
+  }
+  return linked
+}

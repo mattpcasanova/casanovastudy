@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Terminal, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import {
-  parsePractice, isBlankCorrect, normalizeAnswer, seededShuffle, isTrueFalse,
+  parsePractice, parsePracticeRaw, isBlankCorrect, normalizeAnswer, seededShuffle, isTrueFalse,
   type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity,
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
@@ -23,6 +23,9 @@ import { activityAsk, desmosActivityAsk } from '@/components/explain/asks'
 import { PracticeWorksheet } from './practice-worksheet'
 import { CodeExerciseView } from './code-exercise'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
+import { useAttemptVersion } from '@/components/formats/use-attempt-version'
+import { PreparingVersion } from '@/components/formats/preparing-version'
+import { CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit } from '@/components/assign/assignment-context'
 import { TimeLimitGate, TimeChip } from './quiz-format'
 import { timeLimitText } from '@/lib/practice/assignments'
@@ -68,6 +71,14 @@ const pointsFor = (o?: Outcome) => (!o ? 0 : o.correct ? 1 : o.score ?? 0)
 const points = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''))
 const partNote = (right: number, total: number, what: string) => `Partly right: ${right} of ${total} ${what}.`
 
+/**
+ * Assigned work that counts: answers are locked in and the next activity comes
+ * up without showing right or wrong; the review comes after the run is turned in.
+ * Activities read this to say "Submit" instead of "Check".
+ */
+const FeedbackHeld = createContext(false)
+const useHeld = () => useContext(FeedbackHeld)
+
 /** The run's activities in play order: a retry subset, with "come back to it" ones moved to the end. */
 function playOrder(all: PracticeActivity[], subset: string[] | null, later: string[]): PracticeActivity[] {
   const base = subset ? all.filter((a) => subset.includes(a.id)) : all
@@ -77,11 +88,14 @@ function playOrder(all: PracticeActivity[], subset: string[] | null, later: stri
 }
 
 export default function PracticeFormat({ content, subject, title, gradeLevel, studyGuideId }: PracticeFormatProps) {
-  const all = useMemo(() => parsePractice(content), [content])
+  // Another attempt gets new versions of the activities (use-attempt-version.ts).
+  const ver = useAttemptVersion(content, studyGuideId)
+  const all = useMemo(() => (ver.content ? parsePractice(ver.content, ver.seed) : []), [ver.content, ver.seed])
+  const originalIds = useMemo(() => parsePracticeRaw(content).map((a) => a.id), [content])
   const router = useRouter()
   // What this student got wrong here last time (their latest answer to each activity).
   const history = useGuideHistory('p:')
-  if (all.length === 0) {
+  if (all.length === 0 && !ver.preparing) {
     return <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">No practice activities were found in this guide.</div>
   }
   const missedIds = history ? all.filter((a) => history.missedIds.includes(a.id)).map((a) => a.id) : []
@@ -89,6 +103,7 @@ export default function PracticeFormat({ content, subject, title, gradeLevel, st
     <PracticeSession
       activities={all}
       progressKey={studyGuideId}
+      version={{ number: ver.version, preparing: ver.preparing, count: originalIds.length, ids: originalIds, next: ver.next, startNext: ver.startNext }}
       lastMissed={missedIds.length ? {
         ids: missedIds,
         topics: history?.topics ?? [],
@@ -110,6 +125,7 @@ export function PracticeSession({
   title,
   lastMissed,
   progressKey,
+  version,
 }: {
   activities: PracticeActivity[]
   variant?: 'page' | 'inline'
@@ -118,6 +134,8 @@ export function PracticeSession({
   progressKey?: string
   /** Activities the student got wrong last time, for the "Retry those" nudge (page variant). */
   lastMissed?: { ids: string[]; topics: string[]; newQuiz: () => void }
+  /** Page variant: new versions of the activities for another try (use-attempt-version.ts). */
+  version?: { number: number; preparing: boolean; count: number; ids: string[]; next: { label: string; assigned: boolean; waiting?: boolean } | null; startNext: () => void }
 }) {
   const inline = variant === 'inline'
   const [subset, setSubset] = useState<string[] | null>(null)
@@ -139,12 +157,14 @@ export function PracticeSession({
   const logResult = useRecordResult()
   const logged = useRef(new Set<string>()) // first answer per activity per run
 
-  const done = index >= activities.length
+  const done = activities.length > 0 && index >= activities.length
   const current = activities[Math.min(index, activities.length - 1)]
 
   // Save the run as it goes; put a saved one back (started in class, finished at home).
   const counts = useAssignmentCounts()
-  const ids = useMemo(() => all.map((a) => a.id), [all])
+  const hold = variant === 'page' && counts && !subset
+  // With versions, ids come from the original (every version has the same ones; a saved run must survive while its version loads).
+  const ids = useMemo(() => version?.ids ?? all.map((a) => a.id), [all, version?.ids])
   const cleanRun = useCallback((raw: unknown) => cleanPracticeRun(raw, ids), [ids])
   const progress = useRunProgress<PracticeRun>(variant === 'page' ? progressKey : undefined, 'practice', cleanRun)
   const [resumed, setResumed] = useState(false)
@@ -197,8 +217,10 @@ export function PracticeSession({
     reported.current = true
     const answers = activities.filter((a) => results[a.id]).map((a) => ({ id: `p:${a.id}`, correct: !!results[a.id].correct, ...(results[a.id].given ? { given: results[a.id].given } : {}), ...(results[a.id].score ? { score: results[a.id].score } : {}) }))
     const earned = Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100
-    reportAssignment({ correct: earned, total: activities.length, seconds: limited && startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined, detail: { answers } })
-  }, [done, reportAssignment, variant, subset, activities, results, limited, startedAt])
+    // A new version's answers wouldn't match the original's wording in the teacher's report, so only right/wrong (and partial credit) goes.
+    const v = version?.number ?? 0
+    reportAssignment({ correct: earned, total: activities.length, seconds: limited && startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined, detail: { answers: v ? answers.map(({ given: _g, ...rest }) => rest) : answers, ...(v ? { version: v } : {}) } })
+  }, [done, reportAssignment, variant, subset, activities, results, limited, startedAt, version?.number])
 
   const record: Done = (correct, note, given, score) => {
     if (!current) return
@@ -215,11 +237,13 @@ export function PracticeSession({
     }
     const part = !correct && score !== undefined && score > 0 ? { score: Math.round(score * 100) / 100 } : {}
     setResults((r) => ({ ...r, [current.id]: { correct, note, ...(given ? { given } : {}), ...part } }))
-    setChecked(true)
     setResumed(false)
     const next = correct ? streak + 1 : 0
     setStreak(next)
     setBestStreak((b) => Math.max(b, next))
+    // Held feedback: straight on to the next one, nothing revealed.
+    if (hold) { setChecked(false); setIndex((i) => i + 1); topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return }
+    setChecked(true)
   }
 
   const advance = () => {
@@ -273,6 +297,7 @@ export function PracticeSession({
     return () => window.removeEventListener('keydown', onEnter)
   })
 
+  if (version?.preparing) return <PreparingVersion count={version.count} what="activities" />
   if (all.length === 0) return null
 
   const correctCount = points(Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100)
@@ -283,7 +308,7 @@ export function PracticeSession({
     return (
       <>
         <div className="print:hidden">
-          <Results activities={activities} results={results} bestStreak={bestStreak} onRestart={restart} isRetry={!!subset} inline={inline} title={title} />
+          <Results activities={activities} results={results} bestStreak={bestStreak} onRestart={restart} next={version?.next ?? null} onNext={(ids) => { version?.startNext(); restart(ids) }} isRetry={!!subset} inline={inline} title={title} />
         </div>
         {worksheet}
       </>
@@ -301,14 +326,16 @@ export function PracticeSession({
           key={a.id}
           className={cn(
             'h-full flex-1 rounded-full transition-colors duration-300',
-            results[a.id] ? (results[a.id].correct ? 'bg-emerald-500' : results[a.id].score ? 'bg-amber-400' : 'bg-rose-400') : i === index ? 'bg-orange-300' : inline ? 'bg-orange-100' : 'bg-slate-100'
+            results[a.id] ? (hold ? 'bg-orange-500' : results[a.id].correct ? 'bg-emerald-500' : results[a.id].score ? 'bg-amber-400' : 'bg-rose-400') : i === index ? 'bg-orange-300' : inline ? 'bg-orange-100' : 'bg-slate-100'
           )}
         />
       ))}
     </div>
   )
 
-  const score = (
+  const score = hold ? (
+    <span className="text-sm text-slate-600"><span className="font-semibold tabular-nums text-slate-900">{Object.keys(results).length}</span> answered · answers show when you finish</span>
+  ) : (
     <div className="flex items-center gap-3 text-sm">
       <span className="inline-flex items-center gap-1 text-slate-600"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><span className="font-semibold tabular-nums text-slate-900">{correctCount}</span></span>
       <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold tabular-nums transition', streak >= 2 ? 'bg-orange-100 text-orange-700' : 'text-slate-400')}>
@@ -318,7 +345,7 @@ export function PracticeSession({
   )
 
   const body = (
-    <>
+    <FeedbackHeld.Provider value={hold}>
       <div className={inline ? 'px-5 py-5 sm:px-6' : 'p-5 sm:p-7'}>
         {inline && (
           <p className={cn(eyebrow, 'mb-2 flex items-center gap-1.5 text-orange-700')}>
@@ -374,7 +401,7 @@ export function PracticeSession({
           </Button>
         )}
       </div>
-    </>
+    </FeedbackHeld.Provider>
   )
 
   if (inline) {
@@ -584,6 +611,7 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: Don
 }
 
 function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: Done; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
+  const held = useHeld()
   const blanks = activity.parts.filter((p): p is { answers: string[] } => typeof p !== 'string')
   const [values, setValues] = useState<string[]>(() => blanks.map(() => ''))
   const firstInput = useRef<HTMLInputElement>(null)
@@ -640,7 +668,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
       </p>
       {!checked && (
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">Check</Button>
+          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">{held ? 'Submit' : 'Check'}</Button>
           <span className="text-xs text-slate-400">or press Enter · spelling slips are OK</span>
         </div>
       )}
@@ -649,6 +677,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
 }
 
 function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onDone: Done; checked: boolean }) {
+  const held = useHeld()
   const [items, setItems] = useState(() => seededShuffle(activity.items, activity.id))
   const move = (from: number, to: number) => {
     if (to < 0 || to >= items.length) return
@@ -697,27 +726,36 @@ function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onD
         const right = items.filter((_, i) => correctAt(i)).length
         const partial = right > 0 && right < items.length
         onDone(right === items.length, partial ? partNote(right, items.length, 'in the right place') : undefined, `${right} of ${items.length} in the right place`, partial ? right / items.length : undefined)
-      }} className="mt-5 bg-orange-700 text-white hover:bg-orange-800">Check order</Button>}
+      }} className="mt-5 bg-orange-700 text-white hover:bg-orange-800">{held ? 'Submit' : 'Check order'}</Button>}
     </div>
   )
 }
 
 function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDone: Done; checked: boolean }) {
+  const held = useHeld()
+  // Tap an item to pick it up (from the pool or a group), then tap where it goes.
+  // A tap on an item already in a group picks it up instead of throwing it out, and
+  // a tap that lands on another item inside a group counts as a tap on that group
+  // (it used to also kick that item out, which swapped answers by accident).
   const all = useMemo(
     () => seededShuffle(activity.buckets.flatMap((b, bi) => b.items.map((text) => ({ key: `${bi}:${text}`, text, bucket: bi }))), activity.id),
     [activity]
   )
   const [placed, setPlaced] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState<string | null>(null)
+  const [dragging, setDragging] = useState<string | null>(null)
   const pool = all.filter((x) => placed[x.key] === undefined)
+  const selectedPlaced = selected !== null && placed[selected] !== undefined
 
   const place = (key: string, bucket: number) => {
+    if (checked) return
     setPlaced((p) => ({ ...p, [key]: bucket }))
     setSelected(null)
   }
   const unplace = (key: string) => {
     if (checked) return
     setPlaced((p) => { const n = { ...p }; delete n[key]; return n })
+    setSelected(null)
   }
 
   const chip = (x: { key: string; text: string; bucket: number }, inBucket: number | null) => {
@@ -726,14 +764,24 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
       <button
         key={x.key}
         type="button"
+        disabled={checked}
         draggable={!checked}
-        onDragStart={(e) => e.dataTransfer.setData('text/plain', x.key)}
-        onClick={() => (inBucket === null ? setSelected(selected === x.key ? null : x.key) : unplace(x.key))}
+        aria-pressed={selected === x.key}
+        onDragStart={(e) => { e.dataTransfer.setData('text/plain', x.key); e.dataTransfer.effectAllowed = 'move'; setDragging(x.key) }}
+        onDragEnd={() => setDragging(null)}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (checked) return
+          // Something else is picked up: a tap on an item in a group means "put it in this group".
+          if (selected && selected !== x.key && inBucket !== null) { place(selected, inBucket); return }
+          setSelected(selected === x.key ? null : x.key)
+        }}
         className={cn(
-          'rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-all',
+          'rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-all disabled:cursor-default',
           state === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
             : state === 'bad' ? 'border-rose-300 bg-rose-50 text-rose-800'
-            : selected === x.key ? 'border-orange-500 bg-orange-100 text-orange-900 shadow-sm'
+            : selected === x.key ? 'border-orange-500 bg-orange-100 text-orange-900 shadow-sm ring-2 ring-orange-200'
+            : dragging === x.key ? 'border-orange-300 bg-white text-slate-400'
             : 'border-slate-200 bg-white text-slate-700 hover:border-orange-300'
         )}
       >
@@ -743,34 +791,46 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
     )
   }
 
+  const dropKey = (e: React.DragEvent) => { e.preventDefault(); setDragging(null); return e.dataTransfer.getData('text/plain') }
+
   return (
     <div>
       {!checked && (
-        <div className="mb-4 min-h-[3rem] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-3">
+        <div
+          onClick={() => selectedPlaced && selected && unplace(selected)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { const key = dropKey(e); if (key && placed[key] !== undefined) unplace(key) }}
+          className={cn('mb-4 min-h-[3rem] rounded-xl border-2 border-dashed p-3 transition', selectedPlaced ? 'cursor-pointer border-orange-300 bg-orange-50/50' : 'border-slate-200 bg-slate-50/60')}
+        >
           {pool.length ? (
             <div className="flex flex-wrap gap-2">{pool.map((x) => chip(x, null))}</div>
           ) : (
-            <p className="py-1.5 text-center text-sm text-slate-400">All sorted. Check your answer, or tap an item to move it back.</p>
+            <p className="py-1.5 text-center text-sm text-slate-500">{selectedPlaced ? 'Tap here to take it out of its group.' : 'All sorted. Check your answer, or tap an item to move it.'}</p>
           )}
         </div>
       )}
-      <p className="mb-2 text-sm text-slate-500">{checked ? '' : selected ? 'Now tap a group.' : 'Tap an item, then the group it belongs to (or drag it).'}</p>
-      <div className={cn('grid gap-3', activity.buckets.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-        {activity.buckets.map((b, bi) => (
-          <div
-            key={b.name}
-            onClick={() => selected && place(selected, bi)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const key = e.dataTransfer.getData('text/plain'); if (key) place(key, bi) }}
-            className={cn(
-              'min-h-[7rem] rounded-xl border-2 p-3 transition',
-              selected ? 'cursor-pointer border-orange-300 bg-orange-50/50 hover:border-orange-500' : 'border-slate-200 bg-white'
-            )}
-          >
-            <p className="mb-2 font-semibold text-slate-900"><InlineMarkdown text={b.name} /></p>
-            <div className="flex flex-wrap gap-2">{all.filter((x) => placed[x.key] === bi).map((x) => chip(x, bi))}</div>
-          </div>
-        ))}
+      <p className="mb-2 text-sm text-slate-500">
+        {checked ? '' : selectedPlaced ? 'Tap another group to move it, or tap it again to leave it where it is.' : selected ? 'Now tap the group it belongs in.' : 'Tap an item, then the group it belongs in (or drag it).'}
+      </p>
+      <div className={cn('grid grid-cols-1 gap-3', activity.buckets.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+        {activity.buckets.map((b, bi) => {
+          const target = !!selected && placed[selected] !== bi
+          return (
+            <div
+              key={b.name}
+              onClick={() => selected && place(selected, bi)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { const key = dropKey(e); if (key) place(key, bi) }}
+              className={cn(
+                'min-h-[7rem] rounded-xl border-2 p-3 transition',
+                target ? 'cursor-pointer border-orange-300 bg-orange-50/50 hover:border-orange-500' : 'border-slate-200 bg-white'
+              )}
+            >
+              <p className="mb-2 font-semibold text-slate-900"><InlineMarkdown text={b.name} /></p>
+              <div className="flex flex-wrap gap-2">{all.filter((x) => placed[x.key] === bi).map((x) => chip(x, bi))}</div>
+            </div>
+          )
+        })}
       </div>
       {!checked && (
         <Button
@@ -782,7 +842,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
           disabled={pool.length > 0}
           className="mt-5 bg-orange-700 text-white hover:bg-orange-800"
         >
-          Check
+          {held ? 'Submit' : 'Check'}
         </Button>
       )}
     </div>
@@ -790,41 +850,59 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
 }
 
 function Choice({ activity, onDone, checked }: { activity: ChoiceActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean }) {
+  const held = useHeld()
+  // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const [picked, setPicked] = useState<number | null>(null)
+  const cross = useCrossOut(activity.id)
   const isTF = activity.options.length === 2 && activity.options[0] === 'True'
+  const lock = (i: number) => { if (!checked) onDone(i === activity.correct, undefined, activity.options[i]) }
   return (
-    <div className={cn(isTF ? 'grid grid-cols-2 gap-3' : 'space-y-2.5')}>
-      {activity.options.map((opt, i) => {
-        const correct = checked && i === activity.correct
-        const wrong = checked && picked === i && i !== activity.correct
-        return (
-          <button
-            key={i}
-            type="button"
-            disabled={checked}
-            onClick={() => { setPicked(i); onDone(i === activity.correct, undefined, opt) }}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
-              isTF && 'justify-center font-semibold',
-              correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40',
-              checked && !correct && !wrong && 'opacity-60'
-            )}
-          >
-            {!isTF && (
-              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold', correct ? 'bg-emerald-500 text-white' : wrong ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500')}>
-                {String.fromCharCode(65 + i)}
-              </span>
-            )}
-            <span className="leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
-            {(correct || wrong) && (
-              <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                <AnswerTag yours={picked === i} correct={correct} />
-                {correct ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
-              </span>
-            )}
-          </button>
-        )
-      })}
+    <div>
+      <div className={cn(isTF ? 'grid grid-cols-2 gap-3' : 'space-y-2.5')}>
+        {activity.options.map((opt, i) => {
+          const correct = checked && i === activity.correct
+          const wrong = checked && picked === i && i !== activity.correct
+          const selected = !checked && picked === i
+          const crossed = !checked && !selected && cross.crossed.has(i)
+          const button = (
+            <button
+              key={i}
+              type="button"
+              disabled={checked}
+              aria-pressed={selected}
+              onClick={() => { cross.uncross(i); if (picked === i) lock(i); else setPicked(i) }}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
+                isTF && 'justify-center font-semibold',
+                correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40',
+                checked && !correct && !wrong && 'opacity-60',
+                crossed && crossedClass
+              )}
+            >
+              {!isTF && (
+                <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold', correct ? 'bg-emerald-500 text-white' : wrong ? 'bg-rose-500 text-white' : selected ? 'bg-orange-700 text-white' : 'bg-slate-100 text-slate-500')}>
+                  {String.fromCharCode(65 + i)}
+                </span>
+              )}
+              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
+              {(correct || wrong) && (
+                <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                  <AnswerTag yours={picked === i} correct={correct} />
+                  {correct ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
+                </span>
+              )}
+            </button>
+          )
+          if (isTF) return button
+          return (
+            <div key={i} className="flex items-center gap-2">
+              {button}
+              <CrossOutButton letter={String.fromCharCode(65 + i)} crossed={cross.crossed.has(i)} disabled={checked} onToggle={() => { if (picked === i) setPicked(null); cross.toggle(i) }} />
+            </div>
+          )
+        })}
+      </div>
+      <LockInButton show={!checked && picked !== null} onClick={() => picked !== null && lock(picked)} tone="orange" label={held ? 'Lock in answer' : undefined} />
     </div>
   )
 }
@@ -862,7 +940,10 @@ function BugHunt({ activity, onDone, checked }: { activity: BugActivity; onDone:
   )
 }
 
-function Results({ activities, results, bestStreak, onRestart, isRetry, inline = false, title }: {
+function Results({ activities, results, bestStreak, onRestart, next = null, onNext, isRetry, inline = false, title }: {
+  /** New versions of the activities for another try (null: inline, or signed out). */
+  next?: { label: string; assigned: boolean; waiting?: boolean } | null
+  onNext?: (ids: string[] | null) => void
   activities: PracticeActivity[]
   results: Record<string, Outcome>
   bestStreak: number
@@ -920,12 +1001,18 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
         <p className="mt-1 text-slate-600">{correct} of {activities.length} right on the first try · best streak {bestStreak}</p>
         <p className={cn(fontDisplay, 'mt-3 text-xl text-slate-800')}>{message}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {missed.length > 0 && (
-            <Button onClick={() => onRestart(missed.map((a) => a.id))} className="bg-orange-700 text-white hover:bg-orange-800">
-              <RotateCcw className="mr-2 h-4 w-4" /> Practice {missed.length} missed
+          {/* Assigned with attempts left: the next attempt, with new activities (not these again: that's memorizing). */}
+          {next?.assigned && onNext && (
+            <Button onClick={() => onNext(null)} disabled={next.waiting} className="bg-orange-700 text-white hover:bg-orange-800">
+              <RotateCcw className="mr-2 h-4 w-4" /> {next.label}
             </Button>
           )}
-          <Button onClick={() => onRestart(null)} variant="outline"><ShuffleIcon className="mr-2 h-4 w-4" /> Start over</Button>
+          {!next?.assigned && missed.length > 0 && (
+            <Button onClick={() => (next && onNext ? onNext(missed.map((a) => a.id)) : onRestart(missed.map((a) => a.id)))} className="bg-orange-700 text-white hover:bg-orange-800">
+              <RotateCcw className="mr-2 h-4 w-4" /> Practice {missed.length} missed{next ? ' with new questions' : ''}
+            </Button>
+          )}
+          {!next?.assigned && <Button onClick={() => (next && onNext ? onNext(null) : onRestart(null))} variant="outline"><ShuffleIcon className="mr-2 h-4 w-4" /> {next ? 'Start over with new questions' : 'Start over'}</Button>}
         </div>
       </div>
       {topics.length > 1 && (
@@ -946,6 +1033,50 @@ function Results({ activities, results, bestStreak, onRestart, isRetry, inline =
           })}
         </div>
       )}
+      <AnswerReview activities={activities} results={results} />
+    </div>
+  )
+}
+
+/** The right answer of any activity as text, for the review after a run. */
+function rightAnswerText(a: PracticeActivity): string {
+  switch (a.kind) {
+    case 'choice': return a.options[a.correct] ?? ''
+    case 'fill': return a.parts.filter((p): p is { answers: string[] } => typeof p !== 'string').map((p) => p.answers[0]).join(' / ')
+    case 'order': return a.items.map((it, i) => `${i + 1}. ${it}`).join('   ')
+    case 'sort': return a.buckets.map((b) => `${b.name}: ${b.items.join(', ')}`).join(' · ')
+    case 'match': return a.pairs.map((p) => `${p.term} = ${p.definition}`).join(' · ')
+    case 'bug': return `Line ${a.bugLines.join(', ')}${a.fix ? `: ${a.fix}` : ''}`
+    case 'write': return a.exercise.solution ? 'See the solution in the exercise' : ''
+  }
+}
+
+/** Every activity of the run with their answer, the right one and the explanation (where they went wrong). */
+function AnswerReview({ activities, results }: { activities: PracticeActivity[]; results: Record<string, Outcome> }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>Answer review</h3>
+      <ol className="space-y-3">
+        {activities.map((a, i) => {
+          const r = results[a.id]
+          const ok = !!r?.correct
+          const part = !ok && !!r?.score
+          const prompt = activityQuestion(a).prompt
+          return (
+            <li key={a.id} className={cn('rounded-xl border p-4 text-sm', ok ? 'border-emerald-200 bg-emerald-50/50' : part ? 'border-amber-200 bg-amber-50/50' : 'border-rose-200 bg-rose-50/50')}>
+              <div className="flex gap-3">
+                <span className="mt-0.5 shrink-0">{ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className={cn('h-5 w-5', part ? 'text-amber-600' : 'text-rose-600')} />}</span>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <p className="font-medium text-slate-900">{i + 1}. <InlineMarkdown text={prompt} /></p>
+                  <p className="text-slate-700"><span className="font-semibold">Your answer:</span> {r ? (r.given ? <InlineMarkdown text={r.given} /> : r.note ?? (ok ? 'Right' : 'Skipped')) : 'Not answered'}{part && r?.note ? ` (${r.note})` : ''}</p>
+                  {!ok && rightAnswerText(a) && <p className="text-emerald-800"><span className="font-semibold">Right answer:</span> <InlineMarkdown text={rightAnswerText(a)} /></p>}
+                  {a.explanation && <p className="flex gap-2 leading-relaxed text-slate-600"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span><ExplanationText text={a.explanation} /></span></p>}
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </div>
   )
 }

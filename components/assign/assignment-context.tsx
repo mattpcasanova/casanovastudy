@@ -42,7 +42,7 @@ type Submission =
   | { state: "error"; message: string; score: Parameters<Finish>[0] }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
-type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[] } }) => void
+type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[]; version?: number } }) => void
 
 const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
 
@@ -73,12 +73,25 @@ export function useAssignedBy(): { teacherName: string | null } | null {
   return c ? { teacherName: c.teacherName } : null
 }
 
+/**
+ * Always provided by AssignmentProvider (even on a guide that isn't assigned):
+ * whether the assignment lookup has finished, and the attempt about to start.
+ * The quiz and practice players wait for it before picking which version of the
+ * questions a run uses (use-attempt-version.ts).
+ */
+export interface AttemptInfo { settled: boolean; assignmentId: string | null; guideId: string; nextAttempt: number; counts: boolean; percent: boolean; /** A finished run is still being sent (attempt counts not updated yet). */ sending: boolean }
+const AttemptCtx = createContext<AttemptInfo | null>(null)
+export function useAttemptInfo(): AttemptInfo | null {
+  return useContext(AttemptCtx)
+}
+
 const dueText = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 
 export function AssignmentProvider({ guideId, children }: { guideId: string; children: React.ReactNode }) {
   const [id, setId] = useState<string | null>(null)
   const [mine, setMine] = useState<Mine | null>(null)
   const [submission, setSubmission] = useState<Submission | null>(null)
+  const [settled, setSettled] = useState(false)
   // Focus mode only matters while there's an attempt left to count.
   const focusOn = !!mine?.focusMode && mine.attemptsLeft !== 0
   const focus = useFocusMode(id, focusOn)
@@ -87,6 +100,9 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   useEffect(() => {
     let a = new URLSearchParams(window.location.search).get("assignment")
     void (async () => {
+      try { await lookup() } finally { setSettled(true) }
+    })()
+    async function lookup() {
       if (!a || !/^[0-9a-f-]{36}$/i.test(a)) {
         // Opened without the link's ?assignment= (My Guides, history, a saved copy): find it.
         const found = await authFetch(`/api/practice-assignments/for-guide?guideId=${guideId}`, { cache: "no-store" })
@@ -109,7 +125,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
       if (data.guideId !== guideId) return
       setId(a)
       setMine(data)
-    })()
+    }
   }, [guideId, router])
 
   const focusFinished = focus.runFinished
@@ -127,9 +143,19 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
     })()
   }, [id, mine?.dueAt, focusFinished])
 
-  if (!id || !mine) return <>{children}</>
+  const attemptInfo: AttemptInfo = {
+    settled,
+    assignmentId: id && mine ? id : null,
+    guideId,
+    nextAttempt: mine ? mine.attempts + 1 : 1,
+    counts: !!mine && mine.attemptsLeft !== 0,
+    percent: mine?.grading !== "mastery",
+    sending: submission?.state === "sending",
+  }
+  if (!id || !mine) return <AttemptCtx.Provider value={attemptInfo}>{children}</AttemptCtx.Provider>
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
+    <AttemptCtx.Provider value={attemptInfo}>
     <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
@@ -160,6 +186,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
       {focusOn && focus.state === "on" && <FocusNotices notice={focus.notice} onDismiss={focus.dismissNotice} outOfFullscreen={focus.outOfFullscreen} onBackToFullscreen={() => void focus.backToFullscreen()} />}
       {children}
     </Ctx.Provider>
+    </AttemptCtx.Provider>
   )
 }
 
@@ -212,9 +239,9 @@ export function TurnedInCard() {
         <span className="block">Score sent: {scoreText(c.grading, s.correct, s.total)}.{better && s.best ? ` Your best, ${Math.round(s.best.pct)}%, is the one that counts.` : ""}</span>
         <span className="mt-1 block text-sm text-emerald-800">
           {s.attemptsLeft == null
-            ? "You can go again any time; your best score counts."
+            ? `You can go again any time; your best score counts.${c.grading === "percent" ? " The next try has new questions on the same skills." : ""}`
             : s.attemptsLeft > 0
-              ? `You have ${s.attemptsLeft} more attempt${s.attemptsLeft === 1 ? "" : "s"} if you want to raise it; your best score counts.`
+              ? `You have ${s.attemptsLeft} more attempt${s.attemptsLeft === 1 ? "" : "s"} if you want to raise it; your best score counts.${c.grading === "percent" ? " The next try has new questions on the same skills." : ""}`
               : "That was your last attempt. You can still practice; it won't change your score."}
         </span>
       </span>

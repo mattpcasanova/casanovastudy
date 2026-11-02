@@ -7,6 +7,7 @@
 // Passage component shows it as code. Fences with no language are dropped so
 // their lines are never read as options. Question ids (q-0, q-1, ...) follow document order.
 
+import { balanceChoices, fingerprint, relabel } from './balance'
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 import { isNumberCorrect } from './numeric'
@@ -67,7 +68,26 @@ function extractFences(content: string): { lines: string[]; figures: string[]; p
   return { lines: out, figures, passages }
 }
 
-export function parseQuizContent(content: string): Question[] {
+/**
+ * Parses a quiz guide. Correct answers are spread evenly over A-D (see
+ * balance.ts); `shuffle` adds to the seed so a new attempt gets another order.
+ */
+export function parseQuizContent(content: string, shuffle = ''): Question[] {
+  return balanceQuiz(parseQuizRaw(content), `${fingerprint(content)}:${shuffle}`)
+}
+
+function balanceQuiz(questions: Question[], seed: string): Question[] {
+  const slots = questions.map((q) => (q.type === 'mc' ? { options: q.options, correct: q.options.indexOf(q.correctAnswer) } : null))
+  const moved = balanceChoices(slots, seed)
+  return questions.map((q, i) => {
+    const m = moved[i]
+    if (!m || q.type !== 'mc') return q
+    return { ...q, options: m.options, explanation: relabel(q.explanation, m.order), ...(q.hint ? { hint: relabel(q.hint, m.order) } : {}) }
+  })
+}
+
+/** The quiz as written, before balancing (tests). */
+export function parseQuizRaw(content: string): Question[] {
   const questions: Question[] = []
   const extracted = extractFences(content)
   const lines = extracted.lines.map((l) => l.trim()).filter(Boolean)

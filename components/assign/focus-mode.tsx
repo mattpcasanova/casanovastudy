@@ -17,7 +17,12 @@ export type FocusState = "gate" | "on"
 // Shorter trips (a notification sliding in, a click on the browser bar) aren't worth flagging.
 const MIN_AWAY_SECONDS = 2
 
-const fullscreenSupported = () => typeof document !== "undefined" && !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen
+// iPhone and iPad: Safari drops out of full screen when a student swipes or scrolls near
+// the top, so every scroll looked like "left full screen" to the teacher. Those devices
+// skip full screen; switching tabs or apps (the page goes hidden) is still recorded.
+const isAppleTouch = () => typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1))
+
+const fullscreenSupported = () => typeof document !== "undefined" && !isAppleTouch() && !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen
 
 async function enterFullscreen() {
   if (!fullscreenSupported() || document.fullscreenElement) return
@@ -35,6 +40,8 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
   const queue = useRef<FocusEvent[]>([])
   const token = useRef<string | null>(null)
   const awaySince = useRef<number | null>(null)
+  // When the student left full screen; the exit is recorded with its length when they come back.
+  const fullscreenOutSince = useRef<number | null>(null)
   const lastAttempt = useRef<Record<string, number>>({})
 
   const refreshToken = useCallback(async () => {
@@ -71,13 +78,22 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
   // while they're on the page, since another run could still count.
   const finishedRun = useRef(false)
   const [finished, setFinished] = useState(false)
+  /** Close an open stretch out of full screen (back in, run finished, page closing). */
+  const closeFullscreenOut = useCallback((now = Date.now()) => {
+    const since = fullscreenOutSince.current
+    if (since == null) return
+    fullscreenOutSince.current = null
+    const seconds = Math.round((now - since) / 1000)
+    if (seconds >= MIN_AWAY_SECONDS) record("fullscreen_exit", seconds, since)
+  }, [record])
   const runFinished = useCallback(() => {
     if (state !== "on") return
-    finishedRun.current = true
+    closeFullscreenOut()
+    finishedRun.current = !!document.fullscreenElement
     setFinished(true)
     exitFullscreen()
     flush()
-  }, [flush, state])
+  }, [flush, state, closeFullscreenOut])
 
   useEffect(() => {
     if (!enabled || state !== "on") return
@@ -105,9 +121,9 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
       if (!fullscreenSupported()) return
       const out = !document.fullscreenElement
       if (out && finishedRun.current) { finishedRun.current = false; return }
-      if (!out) setFinished(false)
+      if (!out) { setFinished(false); closeFullscreenOut(); flush() }
       setOutOfFullscreen(out)
-      if (out) { record("fullscreen_exit"); flush() }
+      if (out && fullscreenOutSince.current == null) fullscreenOutSince.current = Date.now()
     }
     const attempt = (kind: "copy" | "paste") => (e: Event) => {
       e.preventDefault()
@@ -123,6 +139,7 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
     // Closing the tab while away: send what we know.
     const onPageHide = () => {
       if (awaySince.current != null) { record("left", null, awaySince.current); awaySince.current = null }
+      closeFullscreenOut()
       flush(true)
     }
 
@@ -150,7 +167,7 @@ export function useFocusMode(assignmentId: string | null, enabled: boolean) {
       window.removeEventListener("pagehide", onPageHide)
       clearInterval(timer)
     }
-  }, [enabled, state, flush, record, refreshToken])
+  }, [enabled, state, flush, record, refreshToken, closeFullscreenOut])
 
   useEffect(() => {
     if (!notice) return

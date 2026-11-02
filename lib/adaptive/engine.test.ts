@@ -119,3 +119,19 @@ describe('refills', () => {
     expect(t.missed.map((a) => a.q)).toEqual(['a2', 'a1'])
   })
 })
+
+describe('graded sessions (no second tries)', () => {
+  it('never brings a missed question back and credits 3 of 4 when questions run out', async () => {
+    const { parseAdaptive } = await import('./format')
+    const { nextStep: next, conceptProgress: cp, withOutOfQuestions: wo, GRADED_CREDIT_AT: at } = await import('./engine')
+    const md = `# T\n\nCONCEPT: One\nLESSON: l\n\n${[1, 2, 2, 3].map((l, i) => `Q: ${l} | tf\nStatement ${i}\nANSWER: True\nEXPLANATION: e`).join('\n\n')}`
+    const g = parseAdaptive(md)
+    const ids = g.questions.map((q) => q.id)
+    const answers = ids.map((q, i) => ({ q, correct: i !== 1, given: i !== 1 ? '0' : '1' }))
+    const step = next(g, answers, { reviews: false })
+    expect(step.kind).toBe('empty')
+    const graded = wo(cp(g, answers), step.kind === 'empty' ? step.conceptIds : [], { creditAt: at })
+    expect(graded[0].status).toBe('mastered')
+    expect(next(g, answers).kind).toBe('question') // ungraded sessions still review the miss
+  })
+})

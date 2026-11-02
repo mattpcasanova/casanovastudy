@@ -149,7 +149,11 @@ export type NextStep =
  * when there's a choice); weaker concepts come up more often; within a concept
  * the question nearest the student's current level is picked.
  */
-export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[]): NextStep {
+export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: { reviews?: boolean } = {}): NextStep {
+  // Assigned (graded) sessions pass reviews: false: a missed question coming back
+  // let students pick the option they now knew was right, and kept them going
+  // after they ran out of new questions. Their session ends there instead.
+  const reviews = opts.reviews ?? true
   const progress = conceptProgress(guide, answers)
   const byId = new Map(guide.questions.map((q) => [q.id, q]))
   const answered = new Set(answers.map((a) => a.q))
@@ -172,7 +176,7 @@ export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[]): NextS
     const unanswered = guide.questions.filter((q) => q.conceptId === p.id && gradeable(q) && !answered.has(q.id))
     const fresh = pickByLevel(unanswered, p.level, p.missStreak > 0)
     if (fresh) { options.push({ p, q: fresh, review: false }); continue }
-    const review = reviewQuestion(guide, p.id, answers)
+    const review = reviews ? reviewQuestion(guide, p.id, answers) : null
     if (review) options.push({ p, q: review, review: true })
   }
   if (!options.length) return { kind: 'empty', conceptIds: open.map((p) => p.id) }
@@ -225,7 +229,16 @@ export function sessionSummary(guide: AdaptiveGuide, answers: AdaptiveAnswer[]):
 }
 
 /** Marks concepts that can't get more questions (no refills left, nothing to review) as finished. */
-export function withOutOfQuestions(progress: ConceptProgress[], emptyIds: string[]): ConceptProgress[] {
+export function withOutOfQuestions(progress: ConceptProgress[], emptyIds: string[], opts: { creditAt?: number } = {}): ConceptProgress[] {
   const empty = new Set(emptyIds)
-  return progress.map((p) => (empty.has(p.id) && p.status === 'in_progress' ? { ...p, status: 'out_of_questions' } : p))
+  return progress.map((p) => {
+    if (!empty.has(p.id) || p.status !== 'in_progress') return p
+    // Graded sessions have no second tries, so a concept can run out after 4 questions:
+    // 3 of 4 right then counts as mastered (the usual rule needs 80% of the last 5).
+    if (opts.creditAt != null && p.answered >= ADAPTIVE_RULES.minAnswered && p.accuracy >= opts.creditAt) return { ...p, status: 'mastered' }
+    return { ...p, status: 'out_of_questions' }
+  })
 }
+
+/** Graded (assigned) sessions: share right that masters a concept once its questions run out. */
+export const GRADED_CREDIT_AT = 0.75

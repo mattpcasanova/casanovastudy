@@ -16,6 +16,7 @@
 // options/answers.
 // Everything is line-based and linear (no nested-quantifier regexes).
 
+import { balanceChoices, fingerprint, relabel } from './balance'
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
 import { levenshtein } from '@/lib/text/levenshtein'
@@ -57,7 +58,19 @@ export function parseLineList(v: unknown): number[] {
 }
 const clean = (s: string) => stripEmoji(s).replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
 
-export function parsePractice(content: string): PracticeActivity[] {
+/** Parses a practice guide; multiple-choice keys are spread evenly over A-D (balance.ts), `shuffle` reseeds per attempt. */
+export function parsePractice(content: string, shuffle = ''): PracticeActivity[] {
+  const raw = parsePracticeRaw(content)
+  const moved = balanceChoices(raw.map((a) => (a.kind === 'choice' && !isTrueFalse(a) ? { options: a.options, correct: a.correct } : null)), `${fingerprint(content)}:${shuffle}`)
+  return raw.map((a, i) => {
+    const m = moved[i]
+    if (!m || a.kind !== 'choice') return a
+    return { ...a, options: m.options, correct: m.correct, explanation: relabel(a.explanation, m.order), ...(a.hint ? { hint: relabel(a.hint, m.order) } : {}) }
+  })
+}
+
+/** The practice set as written, before balancing (tests). */
+export function parsePracticeRaw(content: string): PracticeActivity[] {
   const lines = content.replace(/\r\n?/g, '\n').split('\n')
   const out: PracticeActivity[] = []
   let topic = ''

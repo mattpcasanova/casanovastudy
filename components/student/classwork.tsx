@@ -4,10 +4,10 @@
 // practice, released reports, their classes), the nav check, and the strip at
 // the top of the guide maker so assigned work is never hard to find.
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck, FileText, Presentation } from "lucide-react"
+import { ArrowRight, BookOpen, CheckCircle2, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck, FileText, Presentation } from "lucide-react"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { materialTitle } from "@/lib/classes/materials"
 import { useAuth } from "@/lib/auth"
@@ -18,7 +18,7 @@ import { lateLabel } from "@/lib/grading/late"
 import { dueLabel, homeStrip, isOpenWork, type MissingTest } from "@/lib/student/classwork-rules"
 import type { StudentClass, StudentMaterial, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
 
-export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[]; materials?: StudentMaterial[] }
+export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[]; materials?: StudentMaterial[]; /** Classes this request just connected them to (by their sign-in email). */ linkedNow?: string[] }
 
 const hasAny = (d: Classwork) => d.classes.length > 0 || d.assignments.length > 0 || d.reports.length > 0 || (d.missingTests?.length ?? 0) > 0 || (d.shared?.length ?? 0) > 0 || (d.materials?.length ?? 0) > 0
 const flagKey = (userId: string) => `cs:classwork:${userId}`
@@ -28,55 +28,96 @@ export function forgetClassworkFlag(userId: string) {
   try { sessionStorage.removeItem(flagKey(userId)); sessionStorage.removeItem(dataKey(userId)) } catch {}
 }
 
+// Only "in a class" is remembered for the tab: a "not yet" answer is asked again,
+// since a teacher's class list can connect them at any moment.
 function remember(userId: string, d: Classwork) {
   try {
-    sessionStorage.setItem(flagKey(userId), hasAny(d) ? "1" : "0")
+    if (hasAny(d)) sessionStorage.setItem(flagKey(userId), "1")
+    else sessionStorage.removeItem(flagKey(userId))
   } catch {}
+  if (hasAny(d)) window.dispatchEvent(new CustomEvent("cs:classwork", { detail: userId }))
 }
 
 const dataKey = (userId: string) => `cs:classwork-data:${userId}`
 
-/** The student's classwork. Null while loading; students only. The last copy this tab saw shows at once, then refreshes. */
+/** Runs `check` when the tab comes back into view (at most every `gapMs`). */
+function useOnReturn(check: () => void, enabled: boolean, gapMs = 20_000) {
+  useEffect(() => {
+    if (!enabled) return
+    let last = Date.now()
+    const onReturn = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < gapMs) return
+      last = Date.now()
+      check()
+    }
+    document.addEventListener("visibilitychange", onReturn)
+    window.addEventListener("focus", onReturn)
+    return () => { document.removeEventListener("visibilitychange", onReturn); window.removeEventListener("focus", onReturn) }
+  }, [check, enabled, gapMs])
+}
+
+/** The student's classwork. Null while loading; students only. The last copy this tab saw shows at once, then refreshes (and again when they come back to the tab). */
 export function useClasswork(skip = false): Classwork | null {
   const { user } = useAuth()
   const [data, setData] = useState<Classwork | null>(null)
+  const [tick, setTick] = useState(0)
+  const active = !skip && !!user && user.user_type !== "teacher"
   useEffect(() => {
-    if (skip || !user || user.user_type === "teacher") return
-    try {
-      const cached = sessionStorage.getItem(dataKey(user.id))
-      if (cached) setData(JSON.parse(cached) as Classwork)
-    } catch {}
+    if (!active || !user) return
+    if (tick === 0) {
+      try {
+        const cached = sessionStorage.getItem(dataKey(user.id))
+        if (cached) setData(JSON.parse(cached) as Classwork)
+      } catch {}
+    }
     let live = true
     void (async () => {
       const res = await authFetch("/api/student/classwork", { cache: "no-store" })
       if (!res.ok || !live) return
       const json = (await res.json()) as Classwork
       remember(user.id, json)
-      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify(json)) } catch {}
-      setData(json)
+      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify({ ...json, linkedNow: [] })) } catch {}
+      // Keep a "just connected" note on screen until the next real change.
+      setData((prev) => ({ ...json, linkedNow: json.linkedNow?.length ? json.linkedNow : prev?.linkedNow ?? [] }))
     })()
     return () => { live = false }
-  }, [user, skip])
+  }, [user, active, tick])
+  const refresh = useCallback(() => setTick((t) => t + 1), [])
+  useOnReturn(refresh, active)
   return data
 }
 
-/** Whether to show the My Classes tab: a student with any class, assignment or report (asked once per tab session). */
+/** Whether to show the My Classes tab: a student with any class, assignment or report. */
 export function useInClass(): boolean {
   const { user } = useAuth()
   const [show, setShow] = useState(false)
+  const [tick, setTick] = useState(0)
+  const student = !!user && user.user_type !== "teacher"
   useEffect(() => {
-    if (!user || user.user_type === "teacher") { setShow(false); return }
+    if (!user || !student) { setShow(false); return }
     let cached: string | null = null
     try { cached = sessionStorage.getItem(flagKey(user.id)) } catch {}
-    if (cached !== null) { setShow(cached === "1"); return }
+    if (cached === "1") { setShow(true); return }
+    let live = true
     void (async () => {
       const res = await authFetch("/api/student/classwork", { cache: "no-store" })
-      if (!res.ok) return
+      if (!res.ok || !live) return
       const json = (await res.json()) as Classwork
       remember(user.id, json)
+      try { sessionStorage.setItem(dataKey(user.id), JSON.stringify({ ...json, linkedNow: [] })) } catch {}
       setShow(hasAny(json))
     })()
-  }, [user])
+    return () => { live = false }
+  }, [user, student, tick])
+  // Not in a class yet: ask again when they come back to the tab, and right away when another part of the page finds one.
+  const recheck = useCallback(() => setTick((t) => t + 1), [])
+  useOnReturn(recheck, student && !show)
+  useEffect(() => {
+    if (!user || show) return
+    const onFound = (e: Event) => { if ((e as CustomEvent).detail === user.id) setShow(true) }
+    window.addEventListener("cs:classwork", onFound)
+    return () => window.removeEventListener("cs:classwork", onFound)
+  }, [user, show])
   return show
 }
 
@@ -179,13 +220,16 @@ export function ClassworkStrip({ data: given }: { data?: Classwork | null } = {}
   const data = given !== undefined ? given : own
   if (!data) return null
   const { next, moreOpen, openCount, newReports, newShared } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [], data.shared ?? [])
-  if (!next.length && !newReports.length && !newShared.length) return null
+  const connected = <JustConnected data={data} />
+  if (!next.length && !newReports.length && !newShared.length) return connected
   const shownReports = newReports.slice(0, 2 - next.length)
   const moreReports = newReports.length - shownReports.length
   const shownShared = newShared.slice(0, Math.max(0, 2 - next.length - shownReports.length))
   const moreShared = newShared.length - shownShared.length
   const footer = [moreOpen > 0 && `${moreOpen} more to do`, moreReports > 0 && `${moreReports} new report${moreReports === 1 ? "" : "s"}`, moreShared > 0 && `${moreShared} more from your teacher`].filter(Boolean)
   return (
+    <>
+    {connected}
     <section aria-label="From your class" className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-blue-900/10 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-semibold text-slate-900">
@@ -239,6 +283,7 @@ export function ClassworkStrip({ data: given }: { data?: Classwork | null } = {}
       </div>
       {footer.length > 0 && <p className="mt-2 text-sm text-slate-500">{footer.join(" · ")}</p>}
     </section>
+    </>
   )
 }
 
@@ -287,5 +332,19 @@ export function MaterialRow({ m, className, teacherName }: { m: StudentMaterial;
         <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
       </span>
     </button>
+  )
+}
+
+/** "You're now connected to AP Statistics (Ms. Rosario)": shown once, the visit a class list linked them by email. */
+export function JustConnected({ data }: { data: Classwork }) {
+  const classes = data.classes.filter((c) => data.linkedNow?.includes(c.id))
+  if (!classes.length) return null
+  const names = classes.map((c) => `${c.name}${c.period && !c.name.includes(c.period) ? ` (period ${c.period})` : ""}${c.teacherName ? ` with ${c.teacherName}` : ""}`)
+  return (
+    <div role="status" className="mb-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-950 ring-1 ring-inset ring-emerald-200">
+      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-700" />
+      <p className="min-w-0 flex-1 text-sm"><span className="font-semibold">You&apos;re connected to your class.</span> {names.join(", ")}. Your teacher&apos;s assignments show up in My Classes.</p>
+      <Link href="/my-class" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800">My Classes <ArrowRight className="h-4 w-4" /></Link>
+    </div>
   )
 }

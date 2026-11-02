@@ -1,6 +1,6 @@
 // Option counts a profile's multiple-choice exemplars may have (the real test's format); four otherwise.
 const OPTION_COUNTS: Record<string, number[]> = {
-  'ap-statistics': [5], 'ap-lang': [5], 'ap-lit': [5], 'ap-microeconomics': [5], 'ap-macroeconomics': [5],
+  'ap-lang': [5], 'ap-lit': [5], 'ap-microeconomics': [5], 'ap-macroeconomics': [5],
   'aice-thinking-skills': [5], 'gmat': [5], 'lsat': [5],
   // GRE quantitative comparison has four fixed options, problem solving five; verbal blanks have three, the rest five.
   'gre-quant': [4, 5], 'gre-verbal': [3, 5],
