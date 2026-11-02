@@ -20,7 +20,8 @@ import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton, selectBox } from "@/components/grading/grading-ui"
-import { RECENT_DAYS, WEEKS, schoolOverview, weeksBetween, type SchoolActivity, type SchoolOverview, type SchoolWeek, type TeacherStats } from "@/lib/school/overview"
+import { RECENT_DAYS, schoolOverview, weeksBetween, type SchoolActivity, type SchoolOverview, type SchoolWeek, type TeacherStats } from "@/lib/school/overview"
+import { quarterDates, quarterWindow, startedQuarters, type Quarter } from "@/lib/school/quarters"
 import { AGREEMENT_MIN_MARKS, enoughMarks, share, type Agreement } from "@/lib/grading/agreement"
 
 interface Data extends SchoolOverview {
@@ -55,22 +56,40 @@ function ago(iso: string | null): string {
   return shortDate(iso)
 }
 
-type RangeKey = "year" | "12w" | "30d"
-const RANGES: Array<{ key: RangeKey; label: string; short: string }> = [
-  { key: "year", label: "This school year", short: "Year" },
-  { key: "12w", label: "Last 12 weeks", short: "12 weeks" },
-  { key: "30d", label: "Last 30 days", short: "30 days" },
-]
+type RangeKey = "year" | Quarter["key"] | "30d"
+interface RangeOption { key: RangeKey; label: string; short: string; title?: string }
 
-/** The window a range stands for, and the equal window before it (for "vs the previous period"). */
-function windowFor(range: RangeKey, since: string, now: number) {
+/** Year, each grading quarter that has started (district calendar), and the last 30 days. */
+function rangeOptions(year: string, now: number): RangeOption[] {
+  return [
+    { key: "year", label: "This school year", short: "Year" },
+    ...startedQuarters(year, now).map((q) => ({ key: q.key, label: q.label, short: q.key.toUpperCase(), title: quarterDates(q) })),
+    { key: "30d", label: "Last 30 days", short: "30 days" },
+  ]
+}
+
+interface Window { from: number; to?: number; weeks: number; previous: { from: number; to: number; label: string } | null; periodLabel: string }
+
+/** The window a range stands for, and the one before it (for "vs the previous period"). */
+function windowFor(range: RangeKey, year: string, since: string, now: number): Window {
   if (range === "year") {
     const from = Date.parse(since)
-    return { from, weeks: Math.min(53, weeksBetween(from, now)), previous: null as { from: number; to: number } | null, periodLabel: "this school year" }
+    return { from, weeks: Math.min(53, weeksBetween(from, now)), previous: null, periodLabel: "this school year" }
   }
-  const span = range === "12w" ? 12 * 7 * DAY : 30 * DAY
-  const from = now - span
-  return { from, weeks: range === "12w" ? WEEKS : 5, previous: { from: from - span, to: from }, periodLabel: range === "12w" ? "the last 12 weeks" : "the last 30 days" }
+  if (range === "30d") {
+    const from = now - 30 * DAY
+    return { from, weeks: 5, previous: { from: from - 30 * DAY, to: from, label: "the 30 days before" }, periodLabel: "the last 30 days" }
+  }
+  const quarters = startedQuarters(year, now)
+  const i = quarters.findIndex((q) => q.key === range)
+  const q = quarters[i]
+  const { from, to } = quarterWindow(q, now)
+  const before = i > 0 ? quarterWindow(quarters[i - 1], now) : null
+  return {
+    from, to, weeks: Math.min(53, weeksBetween(from, to)),
+    previous: before ? { ...before, label: `${quarters[i - 1].label} (${quarterDates(quarters[i - 1])})` } : null,
+    periodLabel: `${q.label} (${quarterDates(q)})`,
+  }
 }
 
 function SchoolOverviewPage() {
@@ -90,8 +109,9 @@ function SchoolOverviewPage() {
     })()
   }, [domain])
 
-  const win = useMemo(() => (data ? windowFor(range, data.since, now) : null), [data, range, now])
-  const view = useMemo(() => (data && win ? schoolOverview({ ...data.activity, now, from: win.from, weeks: win.weeks }) : null), [data, win, now])
+  const ranges = useMemo(() => (data ? rangeOptions(data.year, now) : []), [data, now])
+  const win = useMemo(() => (data ? windowFor(range, data.year, data.since, now) : null), [data, range, now])
+  const view = useMemo(() => (data && win ? schoolOverview({ ...data.activity, now, from: win.from, to: win.to, weeks: win.weeks }) : null), [data, win, now])
   const previous = useMemo(() => (data && win?.previous ? schoolOverview({ ...data.activity, now, from: win.previous.from, to: win.previous.to, weeks: 1 }) : null), [data, win, now])
 
   const name = data?.school.schoolName || data?.school.domain || "Your school"
@@ -120,8 +140,8 @@ function SchoolOverviewPage() {
               </select>
             )}
             <div role="group" aria-label="Time range" className="inline-flex rounded-xl bg-white/15 p-1 ring-1 ring-inset ring-white/30">
-              {RANGES.map((r) => (
-                <button key={r.key} type="button" onClick={() => setRange(r.key)} aria-pressed={range === r.key}
+              {ranges.map((r) => (
+                <button key={r.key} type="button" onClick={() => setRange(r.key)} aria-pressed={range === r.key} title={r.title}
                   className={cn("h-9 rounded-lg px-3 text-sm font-semibold transition-colors", range === r.key ? "bg-white text-blue-800 shadow-sm" : "text-white hover:bg-white/15")}>
                   <span className="hidden sm:inline">{r.label}</span><span className="sm:hidden">{r.short}</span>
                 </button>
@@ -145,15 +165,15 @@ function SchoolOverviewPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Stat icon={Users} label="Teachers using it" value={`${activeNow} of ${view.totals.teachers}`}
                 note={range === "year" ? `active in the last ${RECENT_DAYS} days` : `with activity in ${win.periodLabel}`}
-                delta={activeBefore === null ? null : activeNow - activeBefore} deltaWhat="teachers" />
+                delta={activeBefore === null ? null : activeNow - activeBefore} deltaWhat="teachers" vs={win.previous?.label} />
               <Stat icon={FileCheck} label="Papers graded" value={n(view.totals.papers)} note={`${n(view.totals.sets)} class set${view.totals.sets === 1 ? "" : "s"} in ${win.periodLabel}`}
-                delta={previous ? view.totals.papers - previous.totals.papers : null} deltaWhat="papers" />
+                delta={previous ? view.totals.papers - previous.totals.papers : null} deltaWhat="papers" vs={win.previous?.label} />
               <Stat icon={Target} label="Practice assigned" value={n(view.totals.practiceAssigned)} note={view.totals.practiceStudents ? `${pct(view.totals.practiceFinished, view.totals.practiceStudents)} of students finished` : `none in ${win.periodLabel}`}
-                delta={previous ? view.totals.practiceAssigned - previous.totals.practiceAssigned : null} deltaWhat="assignments" />
+                delta={previous ? view.totals.practiceAssigned - previous.totals.practiceAssigned : null} deltaWhat="assignments" vs={win.previous?.label} />
               <Stat icon={ClipboardCheck} label="Students on class lists" value={n(view.totals.students)} note={`${n(view.totals.classes)} class${view.totals.classes === 1 ? "" : "es"} this school year`} delta={null} deltaWhat="" />
             </div>
 
-            <WeeklyChart weeks={view.weeks} title={range === "year" ? `Week by week since ${shortDate(data.since)}` : `Week by week, ${win.periodLabel}`} />
+            <WeeklyChart weeks={view.weeks} title={range === "year" ? `Week by week since ${shortDate(data.since)}` : `Week by week, ${win.periodLabel}`} previous={win.previous?.label ?? null} />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
               <div className="lg:col-span-3"><CoursesCard courses={view.courses} periodLabel={win.periodLabel} /></div>
@@ -168,15 +188,15 @@ function SchoolOverviewPage() {
   )
 }
 
-function Stat({ icon: Icon, label, value, note, delta, deltaWhat }: { icon: typeof Users; label: string; value: string; note: string; delta: number | null; deltaWhat: string }) {
+function Stat({ icon: Icon, label, value, note, delta, deltaWhat, vs }: { icon: typeof Users; label: string; value: string; note: string; delta: number | null; deltaWhat: string; vs?: string }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-blue-900/5">
       <div className="flex items-start justify-between gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Icon className="h-5 w-5" /></span>
         {delta !== null && (
-          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", delta > 0 ? "bg-emerald-50 text-emerald-800" : delta < 0 ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-600")} title={`Compared with the period before: ${delta > 0 ? "+" : ""}${n(delta)} ${deltaWhat}`}>
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", delta > 0 ? "bg-emerald-50 text-emerald-800" : delta < 0 ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-600")} title={`Compared with ${vs ?? "the period before"}: ${delta > 0 ? "+" : ""}${n(delta)} ${deltaWhat}`}>
             {delta > 0 ? <ArrowUp className="h-3 w-3" /> : delta < 0 ? <ArrowDown className="h-3 w-3" /> : null}{delta === 0 ? "same" : n(Math.abs(delta))}
-            <span className="sr-only"> {deltaWhat} compared with the period before</span>
+            <span className="sr-only"> {deltaWhat} compared with {vs ?? "the period before"}</span>
           </span>
         )}
       </div>
@@ -284,7 +304,7 @@ const METRICS: Array<{ key: Metric; label: string; dot: string; stroke: string }
 ]
 
 /** Weekly activity as stacked bars or lines; each series can be switched off (click its legend chip). */
-function WeeklyChart({ weeks, title }: { weeks: SchoolWeek[]; title: string }) {
+function WeeklyChart({ weeks, title, previous }: { weeks: SchoolWeek[]; title: string; previous: string | null }) {
   const [mode, setMode] = useState<"bars" | "lines">("bars")
   const [hidden, setHidden] = useState<Set<Metric>>(new Set())
   const shown = METRICS.filter((m) => !hidden.has(m.key))
@@ -303,7 +323,10 @@ function WeeklyChart({ weeks, title }: { weeks: SchoolWeek[]; title: string }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-slate-900">{title}</h2>
+        <div>
+          <h2 className="font-semibold text-slate-900">{title}</h2>
+          {previous && <p className="text-xs text-slate-500">The arrows on the tiles compare with {previous}.</p>}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {METRICS.map((m) => (
             <button key={m.key} type="button" onClick={() => toggle(m.key)} aria-pressed={!hidden.has(m.key)}
