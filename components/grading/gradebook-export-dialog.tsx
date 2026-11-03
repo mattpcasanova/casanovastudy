@@ -28,14 +28,14 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
 }) {
   const [preset, setPreset] = useState<ExportPreset>("focus")
   const [missingAsZero, setMissingAsZero] = useState(false)
-  const [scoreAs, setScoreAs] = useState<"points" | "percent">("points")
+  const [scoreAs, setScoreAs] = useState<"points" | "percent">("percent")
   const [copied, setCopied] = useState(false)
   const [copiedComment, setCopiedComment] = useState<number | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem(PREF) as ExportPreset | null
     if (saved && saved in EXPORT_PRESETS) setPreset(saved)
-    try { if (localStorage.getItem(SCORE_AS_PREF) === "percent") setScoreAs("percent") } catch {}
+    try { if (localStorage.getItem(SCORE_AS_PREF) === "points") setScoreAs("points") } catch {}
   }, [])
 
   const info = EXPORT_PRESETS[preset]
@@ -103,7 +103,7 @@ export function GradebookExportDialog({ open, onOpenChange, title, rows, classro
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="font-medium text-slate-700">Send scores as</span>
               <div role="radiogroup" aria-label="Send scores as" className="inline-flex rounded-xl bg-slate-100 p-1">
-                {(["points", "percent"] as const).map((v) => (
+                {(["percent", "points"] as const).map((v) => (
                   <button key={v} type="button" role="radio" aria-checked={scoreAs === v} onClick={() => chooseScoreAs(v)} className={cn("h-9 rounded-lg px-4 font-semibold transition", scoreAs === v ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900")}>
                     {v === "points" ? "Points" : "Percent"}
                   </button>
