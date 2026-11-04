@@ -25,6 +25,7 @@ import { actionButton, actionButtonPrimary, buttonRow } from "@/components/gradi
 import { lateLabel } from "@/lib/grading/late"
 import { PaperViewer } from "@/components/grading/report/paper-viewer"
 import { pageForQuestion, pickPaperPages, type PaperPage } from "@/lib/grading/paper-pages"
+import { QuestionPicker, type RegradeScope } from "@/components/grading/question-picker"
 
 interface GradingResult {
   id: string
@@ -106,9 +107,10 @@ export default function GradeReportPage() {
   // Regrade: a note for the grader, then the paper is graded again from its saved pages.
   const [regradeOpen, setRegradeOpen] = useState(false)
   const [regradeNote, setRegradeNote] = useState('')
+  const [regradeScope, setRegradeScope] = useState<RegradeScope>([])
   const [regrading, setRegrading] = useState(false)
   const [regradeError, setRegradeError] = useState('')
-  const [regradeResult, setRegradeResult] = useState<{ totalBefore: number; totalAfter: number; changed: Array<{ question: string; before: number | null; after: number }> } | null>(null)
+  const [regradeResult, setRegradeResult] = useState<{ totalBefore: number; totalAfter: number; changed: Array<{ question: string; before: number | null; after: number }>; notRegraded: string[] } | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   // The paper beside the report (signed page links from the API, teacher only).
   const [paperOpen, setPaperOpen] = useState(false)
@@ -118,9 +120,11 @@ export default function GradeReportPage() {
   const canEdit = !!(isTeacher && result?.isOwner)
   const pages = pickPaperPages(result?.pages)
   const showPageFor = useCallback((questionIndex: number) => {
-    setPaperPage(pageForQuestion(questionIndex, draft?.breakdown.length ?? 0, pages.length))
+    // The page the grader recorded for this answer, else a guess from its place on the paper.
+    const recorded = draft?.breakdown[questionIndex]?.pages?.[0]
+    setPaperPage(recorded && recorded <= pages.length ? recorded - 1 : pageForQuestion(questionIndex, draft?.breakdown.length ?? 0, pages.length))
     setPaperOpen(true)
-  }, [draft?.breakdown.length, pages.length])
+  }, [draft?.breakdown, pages.length])
 
   useEffect(() => {
     if (!id || authLoading) return
@@ -147,10 +151,10 @@ export default function GradeReportPage() {
   const regrade = async () => {
     setRegrading(true); setRegradeError('')
     try {
-      const res = await authFetch(`/api/grade-exam/${id}/regrade`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: regradeNote }) })
+      const res = await authFetch(`/api/grade-exam/${id}/regrade`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(regradeScope ? { note: regradeNote, questions: regradeScope } : { note: regradeNote }) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Could not regrade')
-      setRegradeResult({ totalBefore: data.totalBefore, totalAfter: data.totalAfter, changed: data.changed ?? [] })
+      setRegradeResult({ totalBefore: data.totalBefore, totalAfter: data.totalAfter, changed: data.changed ?? [], notRegraded: data.notRegraded ?? [] })
       setRegradeOpen(false)
       setEditing(false)
       setReloadKey((k) => k + 1)
@@ -284,14 +288,18 @@ export default function GradeReportPage() {
               <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 ring-1 ring-inset ring-emerald-200 print:hidden" role="status">
                 <p className="font-semibold">Regraded: {regradeResult.totalBefore} → {regradeResult.totalAfter} marks{regradeResult.changed.length ? `, ${regradeResult.changed.length} question${regradeResult.changed.length === 1 ? '' : 's'} changed` : ', no question changed'}.</p>
                 {regradeResult.changed.length > 0 && <p className="mt-1">{regradeResult.changed.map((c) => `Q${c.question}: ${c.before ?? '–'} → ${c.after}`).join(' · ')}</p>}
+                {regradeResult.notRegraded.length > 0 && <p className="mt-1">Couldn&apos;t find {regradeResult.notRegraded.map((q) => `Q${q}`).join(', ')} on the paper, so {regradeResult.notRegraded.length === 1 ? 'it was' : 'they were'} left as {regradeResult.notRegraded.length === 1 ? 'it was' : 'they were'}.</p>}
               </div>
             )}
             <Dialog open={regradeOpen} onOpenChange={setRegradeOpen}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Regrade this paper</DialogTitle>
-                  <DialogDescription>The paper is graded again from its pages against the set&apos;s answer key. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute.</DialogDescription>
+                  <DialogDescription>{regradeScope
+                    ? "Only the questions you pick are graded again, against the set's answer key. Everything else on this report stays as it is."
+                    : "The whole paper is graded again from its pages against the set's answer key. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute."}</DialogDescription>
                 </DialogHeader>
+                <QuestionPicker questions={(draft?.breakdown ?? []).map((q) => String(q.questionNumber))} value={regradeScope} onChange={setRegradeScope} />
                 <label className="block text-sm">
                   <span className="font-medium text-slate-800">Tell the grader what to look at (optional)</span>
                   <textarea value={regradeNote} onChange={(e) => setRegradeNote(e.target.value)} rows={3} placeholder="e.g. Question 8 is circled C, not A. Accept 'bent' without an angle for 31d." className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-base" />
@@ -299,8 +307,8 @@ export default function GradeReportPage() {
                 {regradeError && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{regradeError}</p>}
                 <div className="flex flex-wrap justify-end gap-2">
                   <Button variant="ghost" className={actionButton} onClick={() => setRegradeOpen(false)} disabled={regrading}>Cancel</Button>
-                  <Button className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")} onClick={() => void regrade()} disabled={regrading}>
-                    {regrading ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Grading again…</> : <><RefreshCw className="mr-1.5 h-4 w-4" /> Regrade</>}
+                  <Button className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")} onClick={() => void regrade()} disabled={regrading || (regradeScope !== null && !regradeScope.length)}>
+                    {regrading ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Grading again…</> : <><RefreshCw className="mr-1.5 h-4 w-4" /> {regradeScope === null ? 'Regrade the paper' : regradeScope.length ? `Regrade ${regradeScope.length} question${regradeScope.length === 1 ? '' : 's'}` : 'Pick a question'}</>}
                   </Button>
                 </div>
               </DialogContent>
@@ -323,7 +331,7 @@ export default function GradeReportPage() {
                 </Button>
               )}
               {canEdit && result.canRegrade && !editing && (
-                <Button variant="ghost" onClick={() => { setRegradeNote(''); setRegradeError(''); setRegradeOpen(true) }} className={actionButton}>
+                <Button variant="ghost" onClick={() => { setRegradeNote(''); setRegradeError(''); setRegradeScope([]); setRegradeOpen(true) }} className={actionButton}>
                   <RefreshCw className="mr-1.5 h-4 w-4" /> Regrade
                 </Button>
               )}

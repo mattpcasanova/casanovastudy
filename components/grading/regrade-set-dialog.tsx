@@ -15,19 +15,23 @@ import { authFetch } from "@/lib/auth-fetch"
 import { uploadFile } from "@/lib/uploads/client"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { UPLOAD_ACCEPT } from "@/lib/uploads/kinds"
+import { QuestionPicker, type RegradeScope } from "@/components/grading/question-picker"
 import { cn } from "@/lib/utils"
 
 export interface RegradablePaper { id: string; name: string; hasPages: boolean }
 
-export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }: {
+export function RegradeSetDialog({ open, onOpenChange, batchId, papers, questions, onDone }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   batchId: string
   papers: RegradablePaper[]
+  /** Question labels in the set, in order. */
+  questions: string[]
   onDone: () => void
 }) {
   const [keyFiles, setKeyFiles] = useState<File[]>([])
   const [note, setNote] = useState("")
+  const [scope, setScope] = useState<RegradeScope>([])
   const [confirm, setConfirm] = useState(false)
   const [status, setStatus] = useState("")
   const [progress, setProgress] = useState<{ done: number; total: number; failed: string[] } | null>(null)
@@ -36,7 +40,7 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }
   const ready = papers.filter((p) => p.hasPages)
   const noPages = papers.filter((p) => !p.hasPages)
 
-  useEffect(() => { if (open) { setKeyFiles([]); setNote(""); setConfirm(false); setStatus(""); setProgress(null); setError("") } }, [open])
+  useEffect(() => { if (open) { setKeyFiles([]); setNote(""); setScope([]); setConfirm(false); setStatus(""); setProgress(null); setError("") } }, [open])
 
   const run = async () => {
     setError("")
@@ -60,7 +64,7 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }
       const failed: string[] = []
       let done = 0
       const one = async (p: RegradablePaper) => {
-        const res = await authFetch(`/api/grade-exam/${p.id}/regrade`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) })
+        const res = await authFetch(`/api/grade-exam/${p.id}/regrade`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(scope ? { note, questions: scope } : { note }) })
         if (!res.ok) failed.push(p.name)
         done++
         setProgress({ done, total: ready.length, failed: [...failed] })
@@ -84,10 +88,13 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Regrade all papers</DialogTitle>
-          <DialogDescription>Every paper is graded again from its pages. New marks and feedback replace the current ones (edits you made to reports are lost; extra credit stays). About a minute per paper, three at a time.</DialogDescription>
+          <DialogDescription>{scope
+            ? "Only the questions you pick are graded again on every paper. Everything else on the reports stays as it is."
+            : "Every paper is graded again from its pages. New marks and feedback replace the current ones (edits you made to reports are lost; extra credit stays). About a minute per paper, three at a time."}</DialogDescription>
         </DialogHeader>
         {!progress && (
           <div className="space-y-4">
+            <QuestionPicker questions={questions} value={scope} onChange={(v) => { setScope(v); setConfirm(false) }} wholeLabel="Whole papers" />
             <div>
               <p className="text-sm font-medium text-slate-800">Answer key</p>
               <p className="text-sm text-slate-600">Keep the set&apos;s current answer key, or upload a different one to mark everyone against.</p>
@@ -105,11 +112,11 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, onDone }
             {error && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{error}</p>}
             <label className="flex items-start gap-2 text-sm text-slate-800">
               <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300" />
-              <span>Replace the marks on {ready.length} report{ready.length === 1 ? "" : "s"}{keyFiles.length ? " using the new answer key" : ""}.</span>
+              <span>{scope ? `Replace the marks for ${scope.length === 1 ? `question ${scope[0]}` : `${scope.length} questions`}` : "Replace the marks"} on {ready.length} report{ready.length === 1 ? "" : "s"}{keyFiles.length ? " using the new answer key" : ""}.</span>
             </label>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={actionButton} onClick={() => onOpenChange(false)}>Cancel</button>
-              <button type="button" className={cn(actionButtonPrimary)} disabled={!confirm || !ready.length} onClick={() => void run()}><RefreshCw />Regrade {ready.length} paper{ready.length === 1 ? "" : "s"}</button>
+              <button type="button" className={cn(actionButtonPrimary)} disabled={!confirm || !ready.length || (scope !== null && !scope.length)} onClick={() => void run()}><RefreshCw />Regrade {ready.length} paper{ready.length === 1 ? "" : "s"}</button>
             </div>
           </div>
         )}

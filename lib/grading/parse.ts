@@ -23,6 +23,8 @@ export interface GradedQuestion {
   check?: string
   /** The teacher looked at the page and confirmed (or fixed) the mark; set on the report. */
   checked?: boolean
+  /** 1-based pages the student's answer is on, from a "Page: 3" / "Page: 3-4" line (gradings since 2026-11-04). */
+  pages?: number[]
 }
 
 // "**Question 1a**, Mark: 2/2 - text", "Question 1a: Mark 2/2", "2b, Mark: 1/3 — text",
@@ -32,8 +34,21 @@ const ENTRY = /^\s*(?:[-*•]\s+)?(?:\*\*)?\s*(?:question\s+|q\.?\s*)?(.{1,50}?)
 // Closing sections that end the last question's feedback (must start the line).
 const SECTION_END = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(?:total(?:\s+marks)?|percentage|overall\s+grade|grade|final\s+grade|overall\s+feedback|general\s+feedback|feedback|summary|strengths|areas\s+(?:for|to)\s+improve\w*|next\s+steps|\[mark scheme summary\]|\[end summary\])\b/i
 
-// Optional tag line under a question: "Codes: M1 A1 B0 | Level: 3 | AO: AO1 2, AO2 1", or "Check: faint circle on C"
-const TAGS = /^\s*(?:[-*•]\s+)?(?:\*\*)?\s*(?:mark\s+)?(?:codes?|level|aos?|assessment\s+objectives?|check)\s*(?:\*\*)?\s*:/i
+// Optional tag line under a question: "Codes: M1 A1 B0 | Level: 3 | AO: AO1 2, AO2 1", "Check: faint circle on C", or "Page: 3-4"
+const TAGS = /^\s*(?:[-*•]\s+)?(?:\*\*)?\s*(?:mark\s+)?(?:codes?|level|aos?|assessment\s+objectives?|check|pages?)\s*(?:\*\*)?\s*:/i
+
+/** "3", "3-4", "3, 5", "3 and 4" -> [3], [3, 4], [3, 5], [3, 4]; at most 6 pages, none past 200. */
+export function parsePageList(value: string): number[] {
+  const out = new Set<number>()
+  for (const part of value.split(/[,;&]|\band\b/i)) {
+    const m = part.match(/(\d{1,3})(?:\s*(?:-|–|to)\s*(\d{1,3}))?/)
+    if (!m) continue
+    const from = parseInt(m[1], 10)
+    const to = m[2] ? parseInt(m[2], 10) : from
+    for (let n = from; n <= to && n - from < 6; n++) if (n >= 1 && n <= 200) out.add(n)
+  }
+  return [...out].sort((a, b) => a - b).slice(0, 6)
+}
 
 export function applyTags(q: GradedQuestion, line: string): void {
   for (const part of line.replace(/\*\*/g, '').split('|')) {
@@ -44,6 +59,9 @@ export function applyTags(q: GradedQuestion, line: string): void {
     if (!value || /^(n\/?a|none|-)$/i.test(value)) continue
     if (key === 'check') {
       q.check = value.replace(/\*\*/g, '').slice(0, 160)
+    } else if (key === 'page' || key === 'pages') {
+      const pages = parsePageList(value)
+      if (pages.length) q.pages = pages
     } else if (/codes?$/.test(key)) {
       const codes = value.match(/\b[A-Z]{1,2}\d+\b/g)
       if (codes) q.markCodes = codes.join(' ').slice(0, 120)

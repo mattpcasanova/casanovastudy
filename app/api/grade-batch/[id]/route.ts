@@ -137,13 +137,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   // Re-mark one question across the set: also accept other answers, or full
-  // marks for everyone. { acceptAnswer: { question, answers, everyone, reason }, preview? }
+  // marks for everyone, or a corrected key (replace: only these answers are right).
+  // { acceptAnswer: { question, answers, everyone, replace, reason }, preview? }
   if (body.acceptAnswer && typeof body.acceptAnswer === 'object') {
     const a = body.acceptAnswer as Record<string, unknown>
     const accept: AcceptAnswer = {
       question: typeof a.question === 'string' ? a.question.trim().slice(0, 50) : '',
       answers: typeof a.answers === 'string' ? normalizeAnswerList(a.answers) : Array.isArray(a.answers) ? normalizeAnswerList(a.answers.map(String).join(' ')) : [],
       everyone: a.everyone === true,
+      replace: a.replace === true && a.everyone !== true,
       reason: typeof a.reason === 'string' ? a.reason.trim().slice(0, 200) || undefined : undefined,
     }
     if (!accept.question || (!accept.everyone && !accept.answers.length)) return NextResponse.json({ error: 'Pick the question and the answers to accept' }, { status: 400 })

@@ -34,6 +34,15 @@ describe('acceptAnswerPlan + applyAcceptance', () => {
     const plan = acceptAnswerPlan(papers, { question: '5', answers: [], everyone: true })
     expect(plan.filter((r) => r.changed).map((r) => r.name)).toEqual(['Ava', 'Cara', 'Dan'])
   })
+  it('a corrected key gives the mark to the right choice and takes it from the old one', () => {
+    const accept = { question: '5', answers: ['C'], everyone: false, replace: true, reason: 'key typo' }
+    const plan = acceptAnswerPlan(papers, accept)
+    expect(plan.map((r) => [r.name, r.before, r.after, r.changed])).toEqual([['Ava', 0, 1, true], ['Ben', 1, 0, true], ['Cara', 0, 0, false], ['Dan', 0, 0, false]])
+    expect(applyAcceptance(papers[0].breakdown, accept)[0]).toMatchObject({ marksAwarded: 1, explanation: 'Chose C. Bond length follows bond order, so B was correct. Teacher corrected the answer key to C (key typo): this answer is right.' })
+    expect(applyAcceptance(papers[1].breakdown, accept)[0]).toMatchObject({ marksAwarded: 0, explanation: 'Correct, B. Teacher corrected the answer key to C (key typo): this answer is not right.' })
+    // An unread answer is never taken to 0.
+    expect(applyAcceptance(papers[3].breakdown, accept)).toBe(papers[3].breakdown)
+  })
   it('helpers', () => {
     expect(normalizeAnswerList('b, c d')).toEqual(['B', 'C', 'D'])
     expect(sameQuestion('Question 2a', '2 A')).toBe(true)

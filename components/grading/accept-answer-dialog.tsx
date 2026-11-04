@@ -1,7 +1,7 @@
 "use client"
 
-// After grading a class set: "also accept B on question 5" or "everyone gets
-// question 12". Re-marks that question on every report in the set from what
+// After grading a class set: "also accept B on question 5", "the key was
+// wrong, the answer is C" or "everyone gets question 12". Re-marks that question on every report in the set from what
 // the grader read as each student's answer (lib/grading/accept-answer.ts),
 // with a preview of who gains before anything is saved.
 
@@ -17,11 +17,11 @@ export function AcceptAnswerDialog({ open, onOpenChange, questions, preview, onS
   onOpenChange: (open: boolean) => void
   /** Question labels in the set, in order. */
   questions: string[]
-  preview: (accept: { question: string; answers: string; everyone: boolean }) => Promise<AcceptPlanRow[]>
-  onSave: (accept: { question: string; answers: string; everyone: boolean; reason: string }) => Promise<void>
+  preview: (accept: { question: string; answers: string; everyone: boolean; replace: boolean }) => Promise<AcceptPlanRow[]>
+  onSave: (accept: { question: string; answers: string; everyone: boolean; replace: boolean; reason: string }) => Promise<void>
 }) {
   const [question, setQuestion] = useState("")
-  const [mode, setMode] = useState<"also" | "everyone">("also")
+  const [mode, setMode] = useState<"also" | "key" | "everyone">("also")
   const [answers, setAnswers] = useState("")
   const [reason, setReason] = useState("")
   const [plan, setPlan] = useState<AcceptPlanRow[] | null>(null)
@@ -32,19 +32,21 @@ export function AcceptAnswerDialog({ open, onOpenChange, questions, preview, onS
 
   // Live preview of who gains.
   useEffect(() => {
-    if (!open || !question || (mode === "also" && !answers.trim())) { setPlan(null); return }
+    if (!open || !question || (mode !== "everyone" && !answers.trim())) { setPlan(null); return }
     let alive = true
     const t = setTimeout(() => {
-      void preview({ question, answers, everyone: mode === "everyone" }).then((p) => { if (alive) setPlan(p) }).catch(() => { if (alive) setPlan(null) })
+      void preview({ question, answers, everyone: mode === "everyone", replace: mode === "key" }).then((p) => { if (alive) setPlan(p) }).catch(() => { if (alive) setPlan(null) })
     }, 300)
     return () => { alive = false; clearTimeout(t) }
   }, [open, question, mode, answers, preview])
 
-  const gains = plan?.filter((r) => r.changed) ?? []
-  const unread = plan?.filter((r) => !r.changed && r.given === null && mode === "also") ?? []
+  const gains = plan?.filter((r) => r.changed && r.after > r.before) ?? []
+  const losses = plan?.filter((r) => r.changed && r.after < r.before) ?? []
+  const changes = gains.length + losses.length
+  const unread = plan?.filter((r) => !r.changed && r.given === null && mode !== "everyone") ?? []
   const save = async () => {
     setBusy(true); setError("")
-    try { await onSave({ question, answers, everyone: mode === "everyone", reason: reason.trim() }); onOpenChange(false) }
+    try { await onSave({ question, answers, everyone: mode === "everyone", replace: mode === "key", reason: reason.trim() }); onOpenChange(false) }
     catch (e) { setError(e instanceof Error ? e.message : "Could not save") }
     finally { setBusy(false) }
   }
@@ -54,7 +56,7 @@ export function AcceptAnswerDialog({ open, onOpenChange, questions, preview, onS
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Accept another answer</DialogTitle>
-          <DialogDescription>Re-marks one question for the whole set from what each student wrote. The change shows on their reports.</DialogDescription>
+          <DialogDescription>Re-marks one question for the whole set from what each student wrote, without grading the papers again. The change shows on their reports.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <label className="block text-sm">
@@ -63,16 +65,18 @@ export function AcceptAnswerDialog({ open, onOpenChange, questions, preview, onS
               {questions.map((q) => <option key={q} value={q}>{q}</option>)}
             </select>
           </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {([["also", "Also accept these answers"], ["everyone", "Full marks for everyone"]] as const).map(([k, label]) => (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {([["also", "Also accept an answer"], ["key", "The key was wrong"], ["everyone", "Full marks for everyone"]] as const).map(([k, label]) => (
               <button key={k} type="button" onClick={() => setMode(k)} className={cn("rounded-xl px-3 py-2 text-sm font-semibold ring-1", mode === k ? "bg-blue-50 text-blue-900 ring-blue-300" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50")} aria-pressed={mode === k}>{label}</button>
             ))}
           </div>
-          {mode === "also" && (
+          {mode !== "everyone" && (
             <label className="block text-sm">
-              <span className="font-medium text-slate-800">Answers to accept as well</span>
+              <span className="font-medium text-slate-800">{mode === "key" ? "The right answer" : "Answers to accept as well"}</span>
               <input value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder="e.g. B, or B and D" className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3 text-base" />
-              <span className="mt-1 block text-slate-500">Letters for multiple choice. Students who picked one of these get full marks on the question.</span>
+              <span className="mt-1 block text-slate-500">{mode === "key"
+                ? "Letters for multiple choice. Students who picked it get full marks on the question; students who picked anything else get 0."
+                : "Letters for multiple choice. Students who picked one of these get full marks on the question."}</span>
             </label>
           )}
           <label className="block text-sm">
@@ -83,14 +87,16 @@ export function AcceptAnswerDialog({ open, onOpenChange, questions, preview, onS
             <div className="rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-inset ring-slate-200">
               <p className="font-semibold text-slate-900">{gains.length ? `${gains.length} student${gains.length === 1 ? "" : "s"} gain marks` : "No one gains marks from this"}</p>
               {gains.length > 0 && <p className="mt-1 text-slate-700">{gains.map((r) => `${r.name} (${r.before} → ${r.after})`).join(", ")}</p>}
+              {losses.length > 0 && <p className="mt-2 font-semibold text-slate-900">{losses.length} student{losses.length === 1 ? "" : "s"} lose marks</p>}
+              {losses.length > 0 && <p className="mt-1 text-slate-700">{losses.map((r) => `${r.name} (chose ${r.given}: ${r.before} → ${r.after})`).join(", ")}</p>}
               {unread.length > 0 && <p className="mt-2 text-amber-900">Couldn&apos;t tell what {unread.length} student{unread.length === 1 ? "" : "s"} answered ({unread.map((r) => r.name).join(", ")}): check their reports.</p>}
             </div>
           )}
           {error && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" className={actionButton} onClick={() => onOpenChange(false)}>Cancel</button>
-            <button type="button" className={actionButtonPrimary} disabled={busy || !plan || !gains.length} onClick={() => void save()}>
-              {busy ? <><Loader2 className="animate-spin" />Saving…</> : `Apply to ${gains.length} student${gains.length === 1 ? "" : "s"}`}
+            <button type="button" className={actionButtonPrimary} disabled={busy || !plan || !changes} onClick={() => void save()}>
+              {busy ? <><Loader2 className="animate-spin" />Saving…</> : `Apply to ${changes} student${changes === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>

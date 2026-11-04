@@ -181,13 +181,13 @@ function BatchResults({ id }: { id: string }) {
       .map((r) => ({ id: r.id, name: r.student_name, hasPages: !!r.has_pages, pages: Number((r as { page_count?: number }).page_count ?? 0) }))
   }, [rows])
   const questionLabels = useMemo(() => { const seen: string[] = []; for (const r of rows ?? []) for (const q of r.grade_breakdown ?? []) { const l = String(q.questionNumber); if (!seen.includes(l)) seen.push(l) } return seen }, [rows])
-  const previewAccept = useCallback(async (accept: { question: string; answers: string; everyone: boolean }) => {
+  const previewAccept = useCallback(async (accept: { question: string; answers: string; everyone: boolean; replace: boolean }) => {
     const res = await authFetch(`/api/grade-batch/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acceptAnswer: accept, preview: true }) })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error || "Could not preview")
     return data.plan as AcceptPlanRow[]
   }, [id])
-  const saveAccept = async (accept: { question: string; answers: string; everyone: boolean; reason: string }) => {
+  const saveAccept = async (accept: { question: string; answers: string; everyone: boolean; replace: boolean; reason: string }) => {
     const data = await patchBatch({ acceptAnswer: accept })
     await load()
     const n = Number(data.changed ?? 0)
@@ -427,7 +427,7 @@ function BatchResults({ id }: { id: string }) {
             <AcceptAnswerDialog open={acceptOpen} onOpenChange={setAcceptOpen} questions={questionLabels} preview={previewAccept} onSave={saveAccept} />
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
             <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} possible={Number(first?.total_possible_marks) || null} onChanged={load} />
-            <RegradeSetDialog open={regradeOpen} onOpenChange={setRegradeOpen} batchId={id} papers={regradable} onDone={() => void load()} />
+            <RegradeSetDialog open={regradeOpen} onOpenChange={setRegradeOpen} batchId={id} papers={regradable} questions={questionLabels} onDone={() => void load()} />
             <GradebookExportDialog
               open={exportOpen}
               onOpenChange={setExportOpen}

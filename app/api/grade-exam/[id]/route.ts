@@ -31,6 +31,11 @@ function cleanQuestion(raw: unknown): GradedQuestion | string {
   // The grader's "look at this" note and whether the teacher has: edits must not lose them.
   const check = str(q.check, 160)
   if (check) { out.check = check; if (q.checked === true) out.checked = true }
+  // Where the answer is on the paper (a later regrade of this question sends only that page).
+  if (Array.isArray(q.pages)) {
+    const pages = q.pages.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 200).slice(0, 6)
+    if (pages.length) out.pages = pages
+  }
   if (q.ao && typeof q.ao === 'object') {
     const ao: Record<string, number> = {}
     for (const [k, v] of Object.entries(q.ao as Record<string, unknown>).slice(0, 8)) {

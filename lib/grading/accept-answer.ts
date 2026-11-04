@@ -3,7 +3,9 @@
 // marks for it (a bad question). Both re-mark that question across the whole
 // class set from the saved reports, without grading again: the grader's
 // feedback says what the student chose ("Chose C", "Correct, B"), and that is
-// what gets matched. Pure; unit-tested. The class results page sends it as
+// what gets matched. A third kind, `replace`, is for a wrong answer key ("the
+// answer to 8 is C, not B"): right choices gain the marks and wrong ones lose
+// them, with no regrade. Pure; unit-tested. The class results page sends it as
 // PATCH /api/grade-batch/[id] { acceptAnswer }.
 
 import type { GradedQuestion } from './parse'
@@ -17,6 +19,12 @@ export interface AcceptAnswer {
   everyone: boolean
   /** Shown on each changed report ("Teacher also accepted B."). */
   reason?: string
+  /**
+   * The key was wrong: `answers` are the ONLY right answers. Students who chose
+   * one get full marks; students whose choice was read and isn't one drop to 0;
+   * a paper whose choice couldn't be read is left alone (the teacher checks it).
+   */
+  replace?: boolean
 }
 
 export interface AcceptPlanRow {
@@ -68,7 +76,8 @@ export function acceptAnswerPlan(papers: Array<{ id: string; name: string; break
     const possible = Number(q.marksPossible || 0)
     const given = givenAnswer(q.explanation)
     const earns = accept.everyone || (given !== null && answers.has(given))
-    const after = earns ? Math.max(before, possible) : before
+    const loses = !accept.everyone && accept.replace === true && given !== null && !answers.has(given)
+    const after = earns ? Math.max(before, possible) : loses ? 0 : before
     return { id: p.id, name: p.name, given, before, after, changed: after !== before }
   })
 }
@@ -77,10 +86,14 @@ export function acceptAnswerPlan(papers: Array<{ id: string; name: string; break
 export function applyAcceptance(breakdown: GradedQuestion[], accept: AcceptAnswer): GradedQuestion[] {
   const plan = acceptAnswerPlan([{ id: 'x', name: '', breakdown }], accept)[0]
   if (!plan.changed) return breakdown
+  const key = accept.answers.map((a) => a.toUpperCase()).join(' or ')
+  const why = accept.reason ? ` (${accept.reason})` : ''
   const note = accept.everyone
-    ? `Teacher gave everyone full marks for this question${accept.reason ? ` (${accept.reason})` : ''}.`
-    : `Teacher also accepted ${plan.given}${accept.reason ? ` (${accept.reason})` : ''}.`
+    ? `Teacher gave everyone full marks for this question${why}.`
+    : accept.replace
+      ? `Teacher corrected the answer key to ${key}${why}: ${plan.after > plan.before ? 'this answer is right' : 'this answer is not right'}.`
+      : `Teacher also accepted ${plan.given}${why}.`
   return breakdown.map((q) => (sameQuestion(String(q.questionNumber), accept.question)
-    ? { ...q, marksAwarded: Number(q.marksPossible || 0), explanation: `${(q.explanation ?? '').trim()} ${note}`.trim() }
+    ? { ...q, marksAwarded: plan.after, explanation: `${(q.explanation ?? '').trim()} ${note}`.trim() }
     : q))
 }

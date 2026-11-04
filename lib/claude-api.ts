@@ -582,6 +582,20 @@ const LOW_EFFORT_FORMATS = new Set(['quiz', 'practice', 'flashcards', 'cheatshee
  * documents, and anything else (text from Word, PowerPoint or .txt, prepared in
  * the browser by lib/uploads/prepare.ts) as text.
  */
+/**
+ * How the grader reads multiple choice marks and flags doubt. Shared by the paper graders and the some-questions regrade.
+ * Don't reword it or add lines to the paper grader's prompt without an eval: on 2026-11-04 one extra line here ("begin the
+ * feedback with the option marked"), a "Page:" line per question, or page labels each made a real 35-mark paper swing
+ * 28-32 across runs (an unmarked answer with correct work went from 1 to 0 in 9 of 16 runs); unchanged, it scored 30 in 8 of 8.
+ */
+const MULTIPLE_CHOICE_RULES = `MULTIPLE CHOICE ANSWERS:
+- A circle, shading, tick or underline on an option letter is the student's answer; a cross through a letter rules that option out. Look closely: pencil circles are often thin and faint.
+- When you cannot tell with confidence what the student marked (a faint or partial mark, two options marked, a mark you cannot make out), mark it as best you can and add this line directly under that question: Check: <what was unclear, in a few words>. Do the same for any written answer you were not sure you read right. The teacher looks at every Check line, so never guess silently: when in doubt, add the line. A Check line costs nothing; a silent misread costs the student a mark.`
+
+/** Some-questions regrades record which page each answer is on, so regrading that question again sends only that page. (Not in the paper grader's prompt: see above.) */
+const PAGE_LINE_RULE = `PAGE OF EACH ANSWER:
+- When the student's exam is more than one page, add this line directly under every question you grade: Page: <number of the page the student's answer is on>, for example "Page: 3", or "Page: 3-4" when the answer runs onto the next page. Pages are numbered in the order they are attached, as labeled. Leave the line out for a question that was not attempted.`
+
 function gradingFileBlock(file: { buffer: Buffer; name: string }): Anthropic.ContentBlockParam {
   const data = () => file.buffer.toString('base64')
   const head = new Uint8Array(file.buffer.subarray(0, 16))
@@ -1356,9 +1370,7 @@ ILLEGIBLE HANDWRITING:
 - If you cannot read or understand a student's handwriting for a question, award 0 marks
 - Use explanation: "Answer could not be read/understood due to illegible handwriting"
 
-MULTIPLE CHOICE ANSWERS:
-- A circle, shading, tick or underline on an option letter is the student's answer; a cross through a letter rules that option out. Look closely: pencil circles are often thin and faint.
-- When you cannot tell with confidence what the student marked (a faint or partial mark, two options marked, a mark you cannot make out), mark it as best you can and add this line directly under that question: Check: <what was unclear, in a few words>. Do the same for any written answer you were not sure you read right. The teacher looks at every Check line, so never guess silently: when in doubt, add the line. A Check line costs nothing; a silent misread costs the student a mark.
+${MULTIPLE_CHOICE_RULES}
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
@@ -1506,9 +1518,7 @@ ILLEGIBLE HANDWRITING:
 - If you cannot read or understand a student's handwriting for a question, award 0 marks
 - Use explanation: "Answer could not be read/understood due to illegible handwriting"
 
-MULTIPLE CHOICE ANSWERS:
-- A circle, shading, tick or underline on an option letter is the student's answer; a cross through a letter rules that option out. Look closely: pencil circles are often thin and faint.
-- When you cannot tell with confidence what the student marked (a faint or partial mark, two options marked, a mark you cannot make out), mark it as best you can and add this line directly under that question: Check: <what was unclear, in a few words>. Do the same for any written answer you were not sure you read right. The teacher looks at every Check line, so never guess silently: when in doubt, add the line. A Check line costs nothing; a silent misread costs the student a mark.
+${MULTIPLE_CHOICE_RULES}
 - Do NOT skip questions - always include them with 0 marks if illegible
 
 CRITICAL REQUIREMENTS:
@@ -1563,6 +1573,85 @@ ${hasTeacherInstructions ? 'Follow the teacher\'s instructions above when determ
     }
 
     return content
+  }
+
+  /**
+   * Grade some questions of an already graded paper again (the teacher's
+   * "regrade just question 8"). Same cached shape as a full grading:
+   * instructions + answer key first (identical for every paper of a set
+   * regrade), then this paper's pages, then the list of questions. `pages`
+   * may be only the pages those questions are on (`pageNumbers` says which,
+   * 1-based, of `pageCount`); the grader answers "MORE PAGES NEEDED" when an
+   * answer isn't on them, and the caller sends the whole paper instead.
+   * Costs a fraction of a full grading: few pages in, a few lines out.
+   */
+  async regradeQuestions(params: {
+    markSchemeFiles: Array<{ buffer: Buffer; name: string; type: string }>
+    pages: Array<{ buffer: Buffer; name: string; type: string }>
+    pageNumbers: number[]
+    pageCount: number
+    questions: Array<{ label: string; marks: number }>
+    additionalComments?: string
+    markingStyle?: MarkingStyle
+  }): Promise<{ content: string; usage: { input_tokens: number; output_tokens: number; total_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number } }> {
+    const { markSchemeFiles, pages, pageNumbers, pageCount, questions, additionalComments, markingStyle } = params
+    const partial = pages.length < pageCount
+    let instructionText = `You are an expert exam grader. This student's exam has already been graded. The teacher wants some of its questions graded again. Grade ONLY the questions listed after the student's pages, against the mark scheme, with the same standards as a full grading: consistent, fair, partial marks as the mark scheme gives them.`
+    if (additionalComments && additionalComments.trim()) {
+      instructionText += `\n\n**IMPORTANT - Teacher's Instructions (follow these):**\n${additionalComments}\n\nApply these instructions when grading. They take priority over default grading strictness.`
+    }
+    instructionText += `
+
+RESPONSE FORMAT (follow exactly): one entry per listed question, each on its own line:
+**Question [number]**, Mark: X/Y - [specific feedback explaining WHY marks were lost and HOW to improve]
+
+- Use the question labels exactly as they are written in the list.
+- Y is the marks available shown in the list, unless the mark scheme clearly gives that question a different number.
+- For partial marks, say specifically what the student got right and what was missing, referring to the mark scheme.
+- If the student didn't attempt a question, award 0 marks with explanation "Question not attempted".
+- If you cannot read the handwriting, award 0 marks with explanation "Answer could not be read/understood due to illegible handwriting".
+- Grade each listed question exactly once. Do not grade any other question. No mark scheme summary, no total, no overall feedback, no preamble.
+- Never use em dashes (—) in feedback; use commas, colons, periods or parentheses.
+
+${MULTIPLE_CHOICE_RULES}
+
+${PAGE_LINE_RULE}
+
+${markingStyleInstructions(markingStyle)}
+
+MISSING PAGES:
+- Sometimes only the pages a question was on are attached, not the whole exam. If a listed question's answer is not on the attached pages, or clearly carries on to a page that is not attached, do not grade it: write this line instead, on its own: MORE PAGES NEEDED: <question label>`
+
+    const content: any[] = [{ type: 'text', text: instructionText }]
+    for (const file of markSchemeFiles) content.push(gradingFileBlock(file))
+    content[content.length - 1].cache_control = { type: 'ephemeral' }
+
+    content.push({ type: 'text', text: partial
+      ? `The student's exam has ${pageCount} pages. Only ${pages.length === 1 ? 'the page' : 'the pages'} with the questions to grade ${pages.length === 1 ? 'is' : 'are'} attached.`
+      : `The student's exam (${pageCount} page${pageCount === 1 ? '' : 's'}) is attached in full.` })
+    pages.forEach((file, i) => {
+      content.push({ type: 'text', text: `Page ${pageNumbers[i] ?? i + 1} of ${pageCount}:` })
+      content.push(gradingFileBlock(file))
+    })
+    content.push({ type: 'text', text: `QUESTIONS TO GRADE AGAIN (grade only these):\n${questions.map((q) => `${q.label} (${q.marks} mark${q.marks === 1 ? '' : 's'})`).join(', ')}` })
+
+    const stream = this.anthropic.messages.stream({
+      ...this.gradingModelParams(),
+      max_tokens: 12000,
+      messages: [{ role: 'user', content }],
+    })
+    const message = await stream.finalMessage()
+    const text = message.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('')
+    if (!text.trim()) throw new Error(`Regrade returned no text (stop reason: ${message.stop_reason})`)
+    const usage = {
+      input_tokens: message.usage.input_tokens,
+      output_tokens: message.usage.output_tokens,
+      total_tokens: message.usage.input_tokens + message.usage.output_tokens,
+      cache_read_input_tokens: message.usage.cache_read_input_tokens ?? 0,
+      cache_creation_input_tokens: message.usage.cache_creation_input_tokens ?? 0,
+    }
+    console.log(`✅ Regraded ${questions.length} question(s) from ${pages.length}/${pageCount} pages:`, usage)
+    return { content: text, usage }
   }
 
   /**
