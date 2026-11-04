@@ -5,6 +5,8 @@ import { ownedClass } from '@/lib/classes/server'
 import { isVerifiedTeacher } from '@/lib/teachers/verification'
 import { ASSIGNABLE_FORMATS, gradingFor, makeCode, normalizeAiHelp, normalizeTimeLimit } from '@/lib/practice/assignments'
 import { ASSIGNMENT_COLUMNS, assignmentProgress, shareUrl, type AssignmentRow } from '@/lib/practice/server'
+import { normalizeMasteryPct, normalizePerConcept } from '@/lib/adaptive/engine'
+import { ADAPTIVE_GUIDE_COLUMNS, topUpAdaptiveBank, type AdaptiveGuideRow } from '@/lib/adaptive/top-up'
 
 const origin = (request: NextRequest) => (process.env.NEXT_PUBLIC_APP_URL && !request.nextUrl.host.startsWith('localhost') ? process.env.NEXT_PUBLIC_APP_URL : request.nextUrl.origin)
 
@@ -28,7 +30,9 @@ export async function GET(request: NextRequest) {
   })
 }
 
-// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, aiHelp?, focusMode?, timeLimitSeconds?, source? } -> { assignment }
+// POST { guideId, classId, rosterIds[], title?, dueAt?, maxAttempts?, aiHelp?, focusMode?, timeLimitSeconds?, source?,
+//        masteryPct?, questionsPerConcept?, explainQuestions? (adaptive only) } -> { assignment, bankShort? }
+// Asking for more questions per topic than the adaptive guide has writes the missing ones first (once per guide, ~5-15 s).
 export async function POST(request: NextRequest) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (!/^[0-9a-f-]{36}$/i.test(guideId)) return NextResponse.json({ error: 'Pick a practice set' }, { status: 400 })
   const cls = await ownedClass(supabase, user.id, classId)
   if (!cls) return NextResponse.json({ error: 'Pick one of your classes' }, { status: 400 })
-  const { data: guide } = await supabase.from('study_guides').select('id, user_id, title, format').eq('id', guideId).maybeSingle()
+  const { data: guide } = await supabase.from('study_guides').select(ADAPTIVE_GUIDE_COLUMNS).eq('id', guideId).maybeSingle()
   if (!guide || guide.user_id !== user.id) return NextResponse.json({ error: 'You can only assign your own practice sets' }, { status: 403 })
   if (!(ASSIGNABLE_FORMATS as readonly string[]).includes(guide.format)) return NextResponse.json({ error: 'Only quizzes, practice and adaptive practice can be assigned' }, { status: 400 })
 
@@ -58,15 +62,25 @@ export async function POST(request: NextRequest) {
   const source = src && uuid(src.batchId) ? { batchId: src.batchId, groupKey } : src && uuid(src.practiceId) ? { practiceId: src.practiceId, groupKey } : null
   const title = (typeof body.title === 'string' && body.title.trim() ? body.title.trim() : guide.title || 'Practice').slice(0, 200)
 
+  // Adaptive settings: mastery level, questions per topic (the bank is filled up to it first), explain question.
+  const adaptive = guide.format === 'adaptive'
+  const masteryPct = adaptive ? normalizeMasteryPct(body.masteryPct) : null
+  const perConcept = adaptive ? normalizePerConcept(body.questionsPerConcept) : null
+  let bankShort = 0
+  if (adaptive && perConcept) {
+    try { bankShort = (await topUpAdaptiveBank(supabase, guide as unknown as AdaptiveGuideRow, perConcept)).short } catch (e) { console.error('Adaptive top-up failed:', e); bankShort = -1 }
+  }
+
   let created: AssignmentRow | null = null
   for (let i = 0; i < 4 && !created; i++) {
     const { data, error: dbError } = await supabase.from('practice_assignments').insert({
       teacher_id: user.id, class_id: cls.id, study_guide_id: guide.id, title, grading: gradingFor(guide.format), max_attempts: maxAttempts, due_at: dueAt, code: makeCode(), source, ai_help: normalizeAiHelp(body.aiHelp), focus_mode: body.focusMode === true, time_limit_seconds: guide.format === 'adaptive' ? null : normalizeTimeLimit(body.timeLimitSeconds),
+      mastery_pct: masteryPct, questions_per_concept: perConcept, explain_questions: adaptive ? body.explainQuestions !== false : true,
     }).select(ASSIGNMENT_COLUMNS).single()
     if (data) created = data as AssignmentRow
     else if (dbError?.code !== '23505') { console.error('Assignment insert failed:', dbError); return NextResponse.json({ error: 'Could not assign it' }, { status: 500 }) }
   }
   if (!created) return NextResponse.json({ error: 'Could not assign it' }, { status: 500 })
   await supabase.from('practice_assignment_students').insert(roster.map((r) => ({ assignment_id: created!.id, roster_id: r.id })))
-  return NextResponse.json({ assignment: { ...created, url: shareUrl(origin(request), created.code) } })
+  return NextResponse.json({ assignment: { ...created, url: shareUrl(origin(request), created.code) }, ...(bankShort ? { bankShort: true } : {}) })
 }

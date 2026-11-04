@@ -5,7 +5,7 @@
 import { parsePractice } from '@/lib/formats/practice'
 import { isObjectiveCorrect, parseQuizContent } from '@/lib/formats/quiz'
 import { parseAdaptive } from '@/lib/adaptive/format'
-import { conceptProgress, sessionSummary, type AdaptiveAnswer } from '@/lib/adaptive/engine'
+import { conceptProgress, gradedRules, sessionSummary, type AdaptiveAnswer, type AdaptiveSettings } from '@/lib/adaptive/engine'
 import { cleanPracticeRun, cleanQuizRun, parseSaved } from '@/lib/run-progress-rules'
 import type { PracticeAnswer } from './report'
 
@@ -30,7 +30,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100
  * Null when there's nothing to send: no saved run, nothing answered, or a
  * "retry the missed ones" run (not a full attempt).
  */
-export function scoreSavedRun(format: string, content: string, data: unknown): SavedRunScore | null {
+export function scoreSavedRun(format: string, content: string, data: unknown, adaptive?: AdaptiveSettings | null): SavedRunScore | null {
   if (format === 'practice') {
     const saved = parseSaved(data)
     const activities = parsePractice(content)
@@ -75,9 +75,11 @@ export function scoreSavedRun(format: string, content: string, data: unknown): S
     if (!Array.isArray(answers) || !answers.length) return null
     const guide = parseAdaptive(content)
     const log = answers as AdaptiveAnswer[]
-    const summary = sessionSummary(guide, log)
+    // Assigned work runs on the teacher's settings (mastery level, questions per topic).
+    const rules = gradedRules(adaptive)
+    const summary = sessionSummary(guide, log, rules)
     if (!summary.answered || !summary.total) return null
-    const progress = conceptProgress(guide, log)
+    const progress = conceptProgress(guide, log, rules)
     return {
       correct: summary.mastered,
       total: summary.total,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/request-user'
 import { createAdminClient } from '@/lib/supabase-server'
 import { attemptsLeft, bestAttempt, practiceStatus } from '@/lib/practice/assignments'
-import { ASSIGNMENT_COLUMNS, aiRuleForGuide, myAssignedRow, type AssignmentRow } from '@/lib/practice/server'
+import { ASSIGNMENT_COLUMNS, adaptiveSettingsOf, aiRuleForGuide, myAssignedRow, type AssignmentRow } from '@/lib/practice/server'
 import { sendUnfinishedAtDue } from '@/lib/practice/auto-submit'
 
 // A student's view of one assignment: due date, attempts, best score, and the
@@ -44,6 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     aiHelp: rule?.aiHelp ?? 'full',
     focusMode: !!a.focus_mode,
     timeLimit: a.time_limit_seconds ?? null,
+    // Adaptive: the teacher's mastery level, questions per topic and explain-question setting.
+    adaptive: a.grading === 'mastery' ? adaptiveSettingsOf(a) : null,
     teacherName: teacher ? [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || null : null,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

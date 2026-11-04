@@ -131,3 +131,78 @@ describe('passage fences', () => {
     expect(again.passage).toBe(q.passage)
   })
 })
+
+describe('trap tags and teacher top-ups', () => {
+  const md = `# T
+*d*
+
+CONCEPT: Adding fractions
+LESSON: Find a common denominator first.
+It never changes the value.
+TRAP: t1 | Adds the denominators
+TRAP: t2 | Forgets to simplify
+
+Q: 2 | mc
+What is 1/2 + 1/3?
+A) 2/5
+B) 5/6
+C) 10/12
+D) 1/6
+ANSWER: B
+IF A: [t1] You added the tops and the bottoms.
+IF C: [T2] Right value, but simplify it.
+IF D: You multiplied instead.
+HINT: What do the bottoms need to be?
+EXPLANATION: 3/6 + 2/6 = 5/6.
+
+Q: 2 | num
+What is 1/4 + 1/4? Give a fraction or decimal.
+ANSWER: 1/2 | 0.5
+PROBES: t2
+EXPLANATION: 2/4 = 1/2.
+
+MORE: k1
+
+Q: 1 | tf
+1/2 + 1/2 = 2/4.
+ANSWER: False
+PROBES: t1
+EXPLANATION: It is 1.
+`
+
+  it('reads the concept traps, the tag on each wrong option and PROBES lines', () => {
+    const g = parseAdaptive(md)
+    expect(g.concepts[0].traps).toEqual([{ id: 't1', name: 'Adds the denominators' }, { id: 't2', name: 'Forgets to simplify' }])
+    expect(g.concepts[0].lesson).toBe('Find a common denominator first. It never changes the value.')
+    const [mc, num, tf] = g.questions
+    expect(mc.traps).toEqual({ 0: 't1', 2: 't2' })
+    expect(mc.probes).toEqual(['t1', 't2'])
+    expect(mc.feedback[0]).toBe('You added the tops and the bottoms.')
+    expect(mc.feedback[3]).toBe('You multiplied instead.')
+    expect(num.probes).toEqual(['t2'])
+    expect(tf.probes).toEqual(['t1'])
+  })
+
+  it('adds MORE blocks to the concept without counting them as refills', () => {
+    const g = parseAdaptive(md)
+    expect(g.refills).toBe(0)
+    expect(g.questions.map((q) => q.conceptId)).toEqual(['k1', 'k1', 'k1'])
+    expect(g.questions.map((q) => q.id)).toEqual(['a1', 'a2', 'a3'])
+  })
+
+  it('writes tags back so a refilled question keeps them', () => {
+    const g = parseAdaptive(md)
+    const block = refillBlock('k1', g.questions.map(({ id: _i, conceptId: _c, ...q }) => q), 'MORE')
+    expect(block.startsWith('MORE: k1')).toBe(true)
+    const again = parseAdaptive(`CONCEPT: Adding fractions\n\n${block}`)
+    expect(again.questions[0].traps).toEqual({ 0: 't1', 2: 't2' })
+    expect(again.questions[1].probes).toEqual(['t2'])
+    expect(again.questions[2].probes).toEqual(['t1'])
+  })
+
+  it('keeps question text that happens to start with More: or Trap:', () => {
+    const g = parseAdaptive(`# T\n\nCONCEPT: One\nLESSON: l\n\nQ: 2 | tf\nMore: heat always means a faster reaction.\nANSWER: False\n\nQ: 2 | tf\nSecond\nANSWER: True`)
+    expect(g.questions).toHaveLength(2)
+    expect(g.questions[0].prompt).toBe('More: heat always means a faster reaction.')
+  })
+})

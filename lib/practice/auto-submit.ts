@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scoreSavedRun, type SavedRunScore } from './saved-run'
+import type { AdaptiveSettings } from '@/lib/adaptive/engine'
 
 const KIND: Record<string, string> = { practice: 'practice', quiz: 'quiz', adaptive: 'adaptive' }
 
@@ -15,8 +16,15 @@ const KIND: Record<string, string> = { practice: 'practice', quiz: 'quiz', adapt
  * Each student's saved, unfinished run on these guides, scored: key
  * `${guideId}|${userId}`. Only runs with something answered.
  */
-export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[], userIds: string[]): Promise<Map<string, { score: SavedRunScore; updatedAt: string }>> {
-  const out = new Map<string, { score: SavedRunScore; updatedAt: string }>()
+export interface SavedRun {
+  score: SavedRunScore
+  updatedAt: string
+  /** Adaptive: the same run scored on one assignment's settings (mastery level, questions per topic). */
+  scoreFor: (adaptive?: AdaptiveSettings | null) => SavedRunScore | null
+}
+
+export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[], userIds: string[]): Promise<Map<string, SavedRun>> {
+  const out = new Map<string, SavedRun>()
   if (!guideIds.length || !userIds.length) return out
   const [{ data: guides }, { data: rows }] = await Promise.all([
     supabase.from('study_guides').select('id, format, content').in('id', guideIds),
@@ -27,7 +35,7 @@ export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[],
     const g = byId.get(r.study_guide_id as string)
     if (!g || KIND[g.format] !== r.kind) continue
     const score = scoreSavedRun(g.format, g.content ?? '', r.data)
-    if (score) out.set(`${g.id}|${r.user_id}`, { score, updatedAt: r.updated_at as string })
+    if (score) out.set(`${g.id}|${r.user_id}`, { score, updatedAt: r.updated_at as string, scoreFor: (adaptive) => (g.format === 'adaptive' ? scoreSavedRun(g.format, g.content ?? '', r.data, adaptive) : score) })
   }
   return out
 }
@@ -47,7 +55,7 @@ export async function sendUnfinishedAtDue(supabase: SupabaseClient, assignmentId
   const { data: claimed } = await supabase
     .from('practice_assignments').update({ auto_submitted_at: now })
     .in('id', due.map((d) => d.id as string)).is('auto_submitted_at', null)
-    .select('id, study_guide_id, due_at')
+    .select('id, study_guide_id, due_at, mastery_pct, questions_per_concept, explain_questions')
   if (!claimed?.length) return 0
 
   const ids = claimed.map((a) => a.id as string)
@@ -62,12 +70,12 @@ export async function sendUnfinishedAtDue(supabase: SupabaseClient, assignmentId
   })
   if (!todo.length) return 0
   const runs = await savedRunsFor(supabase, [...new Set(claimed.map((a) => a.study_guide_id as string))], [...new Set(todo.map((t) => t.userId))])
-  const assignment = new Map(claimed.map((a) => [a.id as string, a as { id: string; study_guide_id: string; due_at: string }]))
+  const assignment = new Map(claimed.map((a) => [a.id as string, a as { id: string; study_guide_id: string; due_at: string; mastery_pct: number | null; questions_per_concept: number | null; explain_questions: boolean }]))
   const inserts = todo.flatMap((t) => {
     const a = assignment.get(t.assignmentId)!
     const run = runs.get(`${a.study_guide_id}|${t.userId}`)
-    if (!run) return []
-    const { score } = run
+    const score = run?.scoreFor({ masteryPct: a.mastery_pct, perConcept: a.questions_per_concept, explain: a.explain_questions !== false })
+    if (!run || !score) return []
     // Saved before the due date: sent on time. Saved after (the sweep ran late): when they last worked on it.
     const finishedAt = Date.parse(run.updatedAt) <= Date.parse(a.due_at) ? a.due_at : run.updatedAt
     return [{

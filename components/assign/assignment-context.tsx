@@ -9,11 +9,12 @@
 // Also carries the teacher's AI help setting for the Explain panel
 // (useAssignmentAi); /api/explain enforces it either way.
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, Eye, Loader2, Maximize2, MessageCircleOff, MessageCircleQuestion, RotateCcw, Timer } from "lucide-react"
 import { authFetch } from "@/lib/auth-fetch"
 import { timeLimitText } from "@/lib/practice/assignments"
+import { gradedRules, type AdaptiveRules, type AdaptiveSettings } from "@/lib/adaptive/engine"
 import { FocusGate, FocusNotices, useFocusMode } from "./focus-mode"
 
 interface Mine {
@@ -30,6 +31,8 @@ interface Mine {
   focusMode: boolean
   /** Seconds allowed per run (quiz and practice; null = no limit). */
   timeLimit: number | null
+  /** Adaptive practice: the teacher's mastery level, questions per topic and explain-question setting. */
+  adaptive?: AdaptiveSettings | null
   teacherName: string | null
   /** What they had answered, sent for them at the due date (status incomplete). */
   sentAtDue: { answered: number; total: number; pct: number } | null
@@ -44,7 +47,7 @@ type Submission =
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
 type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[]; version?: number } }) => void
 
-const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
+const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; adaptive: AdaptiveSettings | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
 
 /** Report a finished run of assigned practice (no-op when not assigned). */
 export function useAssignmentFinish(): Finish | null {
@@ -65,6 +68,18 @@ export function useAssignmentCounts(): boolean {
 export function useAssignmentTimeLimit(): number | null {
   const c = useContext(Ctx)
   return c && c.counts ? c.timeLimit : null
+}
+
+/**
+ * The rules an adaptive session runs on while it counts for an assignment (the
+ * teacher's mastery level and questions per topic), or null: the student's own
+ * session, on the usual rules.
+ */
+export function useAssignmentAdaptiveRules(): AdaptiveRules | null {
+  const c = useContext(Ctx)
+  const on = !!c && c.counts && c.grading === "mastery"
+  const a = c?.adaptive
+  return useMemo(() => (on ? gradedRules(a) : null), [on, a?.masteryPct, a?.perConcept, a?.explain]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** Who assigned this guide to the student (null outside an assignment). */
@@ -156,7 +171,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
     <AttemptCtx.Provider value={attemptInfo}>
-    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
+    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, adaptive: mine.adaptive ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
           <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />{mine.teacherName ? `Assigned by ${mine.teacherName}` : "Assigned"}: {mine.title}</span>

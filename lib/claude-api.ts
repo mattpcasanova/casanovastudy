@@ -427,7 +427,7 @@ function lengthInstructions(format: string, length: GuideLength | undefined): st
 
 // Guide language (study_guides.language). The parsers read English markers, so
 // those stay English while everything the learner reads is translated.
-const KEEP_MARKERS = `Keep the app's structural markers exactly as written in the format rules, in English, because the app reads them: line labels (MC_QUESTION:, TF_QUESTION:, SA_QUESTION:, Correct Answer:, Answer:, Explanation:, Hint:, CONCEPT:, LESSON:, Q:, IF A:, ANSWER:, HINT:, REFILL:, UNIT:, GOAL:, COVERS:, FORMAT:, TIME:, EVENT:, WHAT:, WHY:, MATCH:, FILL:, ORDER:, SORT:, WRITE_CODE: and the like), option letters A) B) C) D), true/false answers (always the English word True or False after "Answer:"), fence names and figure spec keys (kind:, x:, node:, and so on; their label text may be translated), and code. Math notation stays as it is.`
+const KEEP_MARKERS = `Keep the app's structural markers exactly as written in the format rules, in English, because the app reads them: line labels (MC_QUESTION:, TF_QUESTION:, SA_QUESTION:, Correct Answer:, Answer:, Explanation:, Hint:, CONCEPT:, LESSON:, TRAP:, PROBES:, Q:, IF A:, ANSWER:, HINT:, REFILL:, UNIT:, GOAL:, COVERS:, FORMAT:, TIME:, EVENT:, WHAT:, WHY:, MATCH:, FILL:, ORDER:, SORT:, WRITE_CODE: and the like), option letters A) B) C) D), true/false answers (always the English word True or False after "Answer:"), fence names and figure spec keys (kind:, x:, node:, and so on; their label text may be translated), and code. Math notation stays as it is.`
 
 /** One line for the Explain tutor: answer in the guide's language (or the student's). */
 export function explainLanguage(language: GuideLanguage | undefined): string {
@@ -617,7 +617,8 @@ function guideRequest(content: Anthropic.MessageParam['content'], system: string
   const boost = (difficulty === 'hard' || examItems) && format !== 'adaptive'
   const effort = process.env.GUIDE_EFFORT || (low && !boost ? 'low' : 'medium')
   return {
-    model: GUIDE_MODEL,
+    // EVAL_GUIDE_MODEL overrides only for eval runs (scripts/eval-adaptive.ts compares models); never set it in production.
+    model: process.env.EVAL_GUIDE_MODEL || GUIDE_MODEL,
     max_tokens: 32000,
     thinking: { type: 'adaptive' },
     // GUIDE_EFFORT overrides only for eval runs (scripts/eval-figures.ts).
@@ -634,7 +635,9 @@ function guideRequest(content: Anthropic.MessageParam['content'], system: string
 }
 
 export function guideCost(inputTokens: number, outputTokens: number): number {
-  return (inputTokens * GUIDE_PRICE.input + outputTokens * GUIDE_PRICE.output) / 1_000_000
+  // Eval runs on another model (EVAL_GUIDE_MODEL) are priced at that model's rates.
+  const price = process.env.EVAL_GUIDE_MODEL === 'claude-fable-5-1' ? { input: 10, output: 50 } : process.env.EVAL_GUIDE_MODEL === 'claude-sonnet-5-5' ? { input: 2, output: 10 } : GUIDE_PRICE
+  return (inputTokens * price.input + outputTokens * price.output) / 1_000_000
 }
 
 /** `image`: base64 JPEG (no data: prefix) the student attached, e.g. a photo of their working. */
@@ -1102,6 +1105,8 @@ Use exactly this skeleton:
 
 CONCEPT: <concept name, 2-6 words>
 LESSON: <2-4 sentences: the core idea, how to do it, and the most common mistake. Written as a quick reteach for a student who just missed two questions on it>
+TRAP: t1 | <a mistake students really make on this concept, 3-8 words, e.g. "Adds the denominators">
+TRAP: t2 | <another>
 
 Q: 1 | mc
 <question>
@@ -1110,18 +1115,20 @@ B) <option>
 C) <option>
 D) <option>
 ANSWER: <letter>
-IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it and how to fix it, addressed to the student ("You ...")>
+IF <letter>: [t1] <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it and how to fix it, addressed to the student ("You ..."). It starts with the id, in square brackets, of the concept's TRAP that produces this option; leave the tag off an option that comes from none of them>
 HINT: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
 Q: 2 | num
 <question with a single numeric answer; say the form wanted (e.g. "Round to the nearest tenth", "as a fraction or decimal")>
 ANSWER: <the number; list equivalent forms with |, e.g. 3.5 | 7/2>
+PROBES: <the id of the TRAP a wrong answer here most likely comes from; leave the line out when none fits>
 EXPLANATION: <the key step>
 
 Q: 2 | tf
 <statement>
 ANSWER: True|False
+PROBES: <as above; a false statement built on a trap probes that trap>
 EXPLANATION: <one short sentence>
 
 Q: 3 | explain
@@ -1134,10 +1141,11 @@ Rules:
 - 4-6 concepts: the distinct skills or ideas the learner must master, in teaching order. Each concept gets 4 questions the app grades (levels 1, 2, 2, 3) plus exactly one explain question (level 3). The app writes more later for students who need them, so don't add extras.
 - Levels: 1 = recall or a one-step application; 2 = the typical test question; 3 = multi-step, combines ideas, or an unfamiliar setup. Match the learner's goal and level: a level 3 SAT question is a hard SAT question, not trivia.
 - Question types: mostly mc; use num whenever the answer is a single number (math, science calculations); at most one tf per concept. Never put a numeric answer only in mc options when num works.
+- Traps: each concept lists its 2-3 most common mistakes as TRAP lines (ids t1, t2, t3, restarting at t1 in every concept), specific enough that a teacher could reteach it ("Divides by the old value instead of the new one", not "Calculation error"). When a student falls into one, the app follows up with another question that sets the same trap, to see whether it is fixed. So every trap must be set by at least two of the concept's questions, at different levels, and a tag must be honest: tag an option only when that exact mistake produces that exact option.
 - Distractors are the answers students really get from common mistakes, and every IF line names that mistake. Options similar in length; vary the position of the correct letter.
 - Each question is self-contained (no "as above"); statements a question refers to ("I. ...", "II. ...") go on their own lines under the question, and a \`\`\`graph figure block may sit directly under the question (see FIGURES, if present).
 - Every mc, num and tf question gets a HINT line (explain questions don't).
-- Plain-text prefixes exactly as shown (CONCEPT:, LESSON:, Q:, ANSWER:, IF A:, HINT:, EXPLANATION:), never bolded, one per line, a blank line between questions. Output ONLY the title, the description and the concept blocks; no ## headings, intro paragraphs, callouts, tables, notes or "Keep Going" section.`,
+- Plain-text prefixes exactly as shown (CONCEPT:, LESSON:, TRAP:, Q:, ANSWER:, IF A:, PROBES:, HINT:, EXPLANATION:), never bolded, one per line, a blank line between questions. Output ONLY the title, the description and the concept blocks; no ## headings, intro paragraphs, callouts, tables, notes or "Keep Going" section.`,
       practice: `FORMAT: INTERACTIVE PRACTICE. A set of hands-on activities students click through (matching, fill-in-the-blank, ordering, sorting, and questions).
 Use exactly this skeleton:
 # <Guide title>
@@ -2441,25 +2449,31 @@ IMPORTANT: Return ONLY the JSON object, no explanation before or after. The JSON
     guideTitle: string
     subject?: string
     gradeLevel?: string
-    concept: { name: string; lesson: string }
+    concept: { name: string; lesson: string; traps?: Array<{ id: string; name: string }> }
     existing: string[]
     missed: Array<{ question: string; given: string; correct: string }>
     level: 1 | 2 | 3
+    /** A spread of levels (a teacher adding questions to the bank) instead of aiming at one student's level. */
+    spread?: boolean
     count: number
     language?: GuideLanguage
     /** TEST REFERENCE block (lib/exams examInstructions) when the guide is for a known test. */
     examBlock?: string
   }): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number; cost: number } }> {
     const levelWords = { 1: 'level 1 (recall or one step)', 2: 'level 2 (the typical test question)', 3: 'level 3 (multi-step, combines ideas, or an unfamiliar setup)' }[params.level]
-    const prompt = `You are writing more practice questions for a student in an adaptive practice session.
+    const traps = params.concept.traps ?? []
+    const prompt = `You are writing more practice questions for ${params.spread ? 'the question bank of an adaptive practice session a teacher assigned to a class' : 'a student in an adaptive practice session'}.
 
 GUIDE: ${params.guideTitle}
 SUBJECT: ${params.subject && params.subject !== 'general' ? params.subject : 'infer from the guide'}
 LEARNER LEVEL: ${describeLevel(params.gradeLevel)}
 CONCEPT: ${params.concept.name}
 LESSON (what this concept covers): ${params.concept.lesson || '(none)'}
-
-QUESTIONS THE STUDENT HAS ALREADY SEEN ON THIS CONCEPT (match their style and scope; never repeat or lightly reword them):
+${traps.length ? `
+COMMON MISTAKES ON THIS CONCEPT (the app follows a student's mistake with another question that sets the same trap):
+${traps.map((t) => `${t.id} = ${t.name}`).join('\n')}
+` : ''}
+QUESTIONS ${params.spread ? 'ALREADY IN THE BANK' : 'THE STUDENT HAS ALREADY SEEN'} ON THIS CONCEPT (match their style and scope; never repeat or lightly reword them):
 ${params.existing.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 ${params.missed.length ? `
 MISTAKES THE STUDENT JUST MADE (aim the new questions at these misunderstandings, from fresh angles):
@@ -2468,7 +2482,7 @@ ${params.missed.map((m) => `- Question: ${m.question}\n  They answered: ${m.give
 ${params.examBlock ? `${params.examBlock}
 (The exemplars above are in the quiz format; write yours in the Q: format below, with the same item style. A question about a text puts the text in a \`\`\`passage fence right after the question line.)
 
-` : ''}Write ${params.count} new questions on this concept only, mostly at ${levelWords}${params.level > 1 ? ', with one a level lower' : ', with one at level 2'}.
+` : ''}Write ${params.count} new questions on this concept only, ${params.spread ? 'spread across the levels: about a quarter level 1 (recall or one step), half level 2 (the typical test question) and a quarter level 3 (multi-step, combines ideas, or an unfamiliar setup)' : `mostly at ${levelWords}${params.level > 1 ? ', with one a level lower' : ', with one at level 2'}`}.${traps.length ? ' Between them, set each of the common mistakes above at least once.' : ''}
 Use exactly this format, a blank line between questions:
 
 Q: <1|2|3> | <mc|num|tf>
@@ -2478,11 +2492,11 @@ B) <option>
 C) <option>
 D) <option>
 ANSWER: <letter>
-IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it, addressed to the student>
+IF <letter>: <for EACH wrong option, one sentence (at most 20 words) on the mistake that leads to it, addressed to the student${traps.length ? '; when the option comes from one of the common mistakes above, start the line with its id in square brackets, e.g. "IF B: [t1] You ..." (no tag when none fits)' : ''}>
 HINT: <a nudge toward the method or the idea to use, at most about 15 words, often a question back to the student. It must never state the answer, the fact or rule being tested, eliminate options, or do the first calculation>
 EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
-For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False. Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
+For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False.${traps.length ? ' A num or tf question that a student most likely misses through one of the common mistakes gets a line "PROBES: <id>" after ANSWER.' : ''} Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
 Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else, including x-bar and p-hat ($$\\bar{x}$$, $$\\hat{p}$$; never x̄ or p̂). Never calculator notation like x^2. Never use em dashes.
 ${params.language && params.language !== 'en' ? `
 ${languageInstructions(params.language)}

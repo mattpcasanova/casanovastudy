@@ -8,10 +8,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import QRCode from "qrcode"
-import { Check, Copy, Loader2 } from "lucide-react"
+import { Check, Clock, Copy, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, type AiHelp } from "@/lib/practice/assignments"
+import { ADAPTIVE_SETTING_DEFAULTS, MASTERY_PICKS, PER_CONCEPT_PICKS, masteryRuleText, neededRight } from "@/lib/adaptive/engine"
+import { bankShape, estimateAdaptive, estimateText, questionRangeText, type BankShape } from "@/lib/adaptive/estimate"
+import { parseAdaptive } from "@/lib/adaptive/format"
+import { supabase } from "@/lib/supabase"
 import { FOCUS_MODE_HINT } from "@/lib/practice/focus"
 import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
@@ -64,6 +68,23 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
   const [qr, setQr] = useState("")
   const [copied, setCopied] = useState(false)
   const mastery = guide.format === "adaptive"
+  // Adaptive settings: mastery level, questions per topic, the "explain it" question.
+  const [masteryPct, setMasteryPct] = useState<number>(ADAPTIVE_SETTING_DEFAULTS.masteryPct)
+  const [perConcept, setPerConcept] = useState<number>(ADAPTIVE_SETTING_DEFAULTS.perConcept)
+  const [explainOn, setExplainOn] = useState(true)
+  const [bank, setBank] = useState<BankShape | null>(null)
+  const [bankShort, setBankShort] = useState(false)
+  useEffect(() => {
+    if (!open || !mastery || bank) return
+    void (async () => {
+      // Guides are readable by link, and this one is the teacher's own.
+      const { data } = await supabase.from("study_guides").select("content").eq("id", guide.id).maybeSingle()
+      if (typeof data?.content === "string") setBank(bankShape(parseAdaptive(data.content)))
+    })()
+  }, [open, mastery, bank, guide.id])
+  const estimate = bank ? estimateAdaptive(bank, { perConcept, explain: explainOn }) : null
+  // Questions the bank is short of for this setting (written once when it's assigned).
+  const toWrite = bank && perConcept > bank.perConcept
 
   useEffect(() => {
     if (!open || classes) return
@@ -120,11 +141,13 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
         aiHelp,
         focusMode,
         timeLimitSeconds: !mastery && Number(timeLimit) > 0 ? Math.round(Number(timeLimit) * 60) : null,
+        ...(mastery ? { masteryPct, questionsPerConcept: perConcept, explainQuestions: explainOn } : {}),
         source: preset?.source,
       }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return { error: data.error || "Could not assign it" }
+    if (data.bankShort) setBankShort(true)
     return { id: data.assignment.id, code: data.assignment.code, url: data.assignment.url, title: data.assignment.title, classLabel: classLabel(forClass) }
   }
 
@@ -155,7 +178,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
 
   const close = (o: boolean) => {
     onOpenChange(o)
-    if (!o) { setCreated(null); setCreatedAll([]); setExtraClasses(new Set()); setQr(""); setCopied(false) }
+    if (!o) { setCreated(null); setCreatedAll([]); setExtraClasses(new Set()); setQr(""); setCopied(false); setBankShort(false); setBank(null) }
   }
 
   const ready = chosen.filter((r) => r.linked).length
@@ -199,6 +222,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
             )}
             {qr && <img src={qr} alt={`QR code for ${created.url}`} className="mx-auto h-56 w-56 rounded-xl ring-1 ring-slate-200" />}
             {createdAll.length > 1 && <p className="text-center text-xs text-slate-500">QR code for {created.classLabel}. Each class has its own link and assignment page.</p>}
+            {bankShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">Some topics got fewer new questions than you asked for, so those topics will end a little sooner. You can raise the questions per topic again on the assignment page to try once more.</p>}
             <ClassroomPracticePanel assignmentId={created.id} students={chosen.length} compact />
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
               {chosen.length} student{chosen.length === 1 ? "" : "s"}: {ready} already have a linked account.
@@ -315,6 +339,48 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
                   {timeLimit && <p className="mt-1.5 text-sm text-slate-500">When it runs out, what they have answered is handed in. You&apos;ll see how long each student took.</p>}
                 </div>
               )}
+              {mastery && (
+                <div className="space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium text-slate-700">Mastery level <span className="font-normal text-slate-500">(what counts as mastering a topic)</span></p>
+                    <div className="flex flex-wrap gap-2">
+                      {MASTERY_PICKS.map((pct) => (
+                        <button key={pct} type="button" aria-pressed={masteryPct === pct} className={chip(masteryPct === pct)} onClick={() => setMasteryPct(pct)}>{pct}%</button>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                      {perConcept <= 5
+                        ? `They need ${neededRight(masteryPct / 100, perConcept)} of a topic's ${perConcept} questions right. A topic finishes early once they're there.`
+                        : `They need ${masteryRuleText(masteryPct)}. A topic finishes as soon as they get there, or after ${perConcept} questions.`}
+                      {masteryPct === 80 ? " This is the usual setting." : ""}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium text-slate-700">Questions per topic <span className="font-normal text-slate-500">(the most a student gets on one topic)</span></p>
+                    <div className="flex flex-wrap gap-2">
+                      {PER_CONCEPT_PICKS.map((n) => (
+                        <button key={n} type="button" aria-pressed={perConcept === n} className={cn(chip(perConcept === n), "min-w-[3rem]")} onClick={() => setPerConcept(n)}>{n}</button>
+                      ))}
+                    </div>
+                    {toWrite && <p className="mt-1.5 text-sm text-slate-500">This set has {bank!.perConcept} per topic now. The extra questions are written when you assign it (about 15 seconds), and every student gets the same set.</p>}
+                  </div>
+                  {(!bank || bank.explain) && (
+                    <label className="flex items-start justify-between gap-4">
+                      <span>
+                        <span className="block text-sm font-medium text-slate-800">Explain in your own words</span>
+                        <span className="block text-sm text-slate-500">One written question per topic, checked for them. It never changes their score, and it adds a minute or two per topic.</span>
+                      </span>
+                      <Switch checked={explainOn} onCheckedChange={setExplainOn} aria-label="Explain in your own words question" className="mt-0.5" />
+                    </label>
+                  )}
+                  {estimate && bank && (
+                    <p className="flex items-start gap-2 rounded-xl bg-white p-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200" aria-live="polite">
+                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                      <span><span className="font-semibold text-slate-900">{estimateText(estimate)}</span> for most students: {bank.concepts} topic{bank.concepts === 1 ? "" : "s"}, {questionRangeText(estimate)} depending on how they do. The grade is the share of topics mastered.</span>
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <p className="mb-1.5 text-sm font-medium text-slate-700">AI help <span className="font-normal text-slate-500">(you&apos;ll see what each student asks)</span></p>
                 <div className="flex flex-wrap gap-2">
@@ -336,7 +402,7 @@ export function AssignDialog({ open, onOpenChange, guide, preset, onCreated }: {
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-4">
               <button type="button" className={actionButton} onClick={() => close(false)}>Cancel</button>
               <button type="button" className={actionButtonPrimary} disabled={busy || !classId || !chosen.length || !title.trim()} onClick={() => void submit()}>
-                {busy ? <Loader2 className="animate-spin" /> : null}{extraClasses.size ? `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"} + ${extraClasses.size} class${extraClasses.size === 1 ? "" : "es"}` : `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"}`}
+                {busy ? <Loader2 className="animate-spin" /> : null}{busy && toWrite ? "Writing the extra questions…" : extraClasses.size ? `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"} + ${extraClasses.size} class${extraClasses.size === 1 ? "" : "es"}` : `Assign to ${chosen.length || ""} student${chosen.length === 1 ? "" : "s"}`}
               </button>
             </div>
           </>

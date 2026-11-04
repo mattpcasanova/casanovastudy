@@ -5,9 +5,9 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
 import { consentBlockResponse } from '@/lib/consent'
 import { meterAdaptiveStep, planBlockResponse, releaseUsage } from '@/lib/plans'
-import { detectExam, examInstructions } from '@/lib/exams/profiles'
 import { parseAdaptive, refillBlock, type AdaptiveQuestion } from '@/lib/adaptive/format'
 import { ADAPTIVE_RULES } from '@/lib/adaptive/engine'
+import { examBlockFor } from '@/lib/adaptive/top-up'
 
 // More questions for one concept of an adaptive practice session (the owner's
 // own guide only). Guardrails: ADAPTIVE_RULES.maxRefills per session (counted
@@ -97,10 +97,4 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await releaseUsage(meter.eventId) // nothing was added, so it doesn't count toward today's cap
     return NextResponse.json({ error: "Couldn't write new questions right now." }, { status: 502 })
   }
-}
-
-/** The TEST REFERENCE block for a guide written for a known test (lib/exams), so refills keep its style. */
-function examBlockFor(row: { topic_focus: string | null; title: string; subject: string | null; difficulty_level: string | null }): string | undefined {
-  const match = detectExam([row.topic_focus, row.title].filter(Boolean).join('\n'), row.subject)
-  return match ? examInstructions(match, 'adaptive', row.difficulty_level) : undefined
 }

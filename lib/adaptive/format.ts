@@ -7,16 +7,20 @@
 //   *one-line description*
 //   CONCEPT: <name>
 //   LESSON: <2-4 sentence mini-lesson, shown when the student is struggling>
+//   TRAP: t1 | <a common mistake on this concept, a few words> (2-3 per concept; optional)
 //   Q: <1|2|3> | <mc|tf|num|explain>
 //   <question text; extra lines = statements/data; a ```graph fence may follow>
 //   A) … B) … C) … D) …
 //   ANSWER: <letter | True/False | number(s) | model answer>
-//   IF A: <why A is tempting and wrong>
+//   IF A: [t1] <why A is tempting and wrong; the tag names the concept's TRAP behind it>
+//   PROBES: t1 (num/tf only: the trap a wrong answer points to)
 //   HINT: <a nudge toward the method, never the answer>
 //   EXPLANATION: <the key step>
 //
 // Refills (app/api/adaptive/[id]/refill) append "REFILL: k<n>" followed by
-// more Q blocks for that concept. Content is only ever appended, so concept ids
+// more Q blocks for that concept. A teacher asking for more questions per
+// topic on an assignment appends "MORE: k<n>" blocks the same way
+// (lib/adaptive/top-up.ts); those don't count as a session's refills. Content is only ever appended, so concept ids
 // (k1, k2 …) and question ids (a1, a2 …) follow document order and stay stable:
 // saved answers key on them.
 
@@ -29,6 +33,8 @@ export interface AdaptiveConcept {
   id: string
   name: string
   lesson: string
+  /** Common mistakes on this concept that wrong answers are tagged with (ids like "t1"). */
+  traps: Array<{ id: string; name: string }>
 }
 
 export interface AdaptiveQuestion {
@@ -46,6 +52,10 @@ export interface AdaptiveQuestion {
   /** mc: feedback for choosing each wrong option, by option index. */
   feedback: Record<number, string>
   explanation?: string
+  /** mc: the concept trap (mistake id) behind each tagged wrong option, by option index. */
+  traps?: Record<number, string>
+  /** Traps this question sets: every tagged wrong option (mc), or its PROBES line (num, tf). */
+  probes?: string[]
   /** One-line nudge toward the method (never the answer), shown on request before answering. */
   hint?: string
   /** Body of a ```graph fence (lib/graphs/spec.ts). */
@@ -67,7 +77,7 @@ const strip = (s: string) => s.replace(/^\*\*\s*|\s*\*\*$/g, '').trim()
 
 /** "**ANSWER:** B" / "Answer: B" → ["ANSWER", "B"]. Keys are upper-cased. */
 function field(line: string): [string, string] | null {
-  const m = line.match(/^\*{0,2}(CONCEPT|LESSON|Q|ANSWER|EXPLANATION|HINT|IF\s+[A-F]|REFILL)\s*:\*{0,2}\s*(.*)$/i)
+  const m = line.match(/^\*{0,2}(CONCEPT|LESSON|TRAP|PROBES|Q|ANSWER|EXPLANATION|HINT|IF\s+[A-F]|REFILL|MORE)\s*:\*{0,2}\s*(.*)$/i)
   return m ? [m[1].toUpperCase().replace(/\s+/g, ' '), m[2].trim()] : null
 }
 
@@ -90,6 +100,8 @@ interface Draft {
   options: string[]
   answer: string
   feedback: Record<number, string>
+  traps: Record<number, string>
+  probes: string[]
   explanation?: string
   hint?: string
   figure?: string
@@ -109,17 +121,21 @@ function finish(d: Draft, id: string): AdaptiveQuestion | null {
     if (idx < 0 || idx >= d.options.length) return null
     const feedback: Record<number, string> = {}
     for (const [k, v] of Object.entries(d.feedback)) if (Number(k) !== idx && Number(k) < d.options.length) feedback[Number(k)] = v
-    return { ...base, options: d.options, correct: idx, answers: [], feedback }
+    const traps: Record<number, string> = {}
+    for (const [k, v] of Object.entries(d.traps)) if (Number(k) !== idx && Number(k) < d.options.length) traps[Number(k)] = v
+    const probes = [...new Set(Object.values(traps))]
+    return { ...base, options: d.options, correct: idx, answers: [], feedback, ...(probes.length ? { traps, probes } : {}) }
   }
+  const probed = d.probes.length ? { probes: d.probes } : {}
   if (d.type === 'tf') {
     const t = d.answer.toLowerCase()
     if (!/^(true|false|t|f)\b/.test(t)) return null
-    return { ...base, options: ['True', 'False'], correct: t.startsWith('t') ? 0 : 1, answers: [] }
+    return { ...base, options: ['True', 'False'], correct: t.startsWith('t') ? 0 : 1, answers: [], ...probed }
   }
   if (d.type === 'num') {
     const answers = d.answer.split(/\s*(?:\||\bor\b|;)\s*/i).map((a) => a.trim()).filter(Boolean)
     if (!answers.length || !answers.some((a) => parseNumber(a) !== null)) return null
-    return { ...base, options: [], correct: -1, answers }
+    return { ...base, options: [], correct: -1, answers, ...probed }
   }
   return { ...base, options: [], correct: -1, answers: [d.answer] }
 }
@@ -167,22 +183,24 @@ export function parseAdaptive(content: string): AdaptiveGuide {
     if (h1 && !title && !concept) { title = strip(h1[1]); continue }
     if (!description && !concept && /^[*_][^*_].*[*_]$/.test(line)) { description = line.replace(/^[*_]+|[*_]+$/g, '').trim(); continue }
 
-    const f = field(line)
+    const f0 = field(line)
+    // "More: ..." or "Trap: ..." inside a question is its own text, not a marker.
+    const f: [string, string] | null = f0 && ((f0[0] === 'MORE' && !/^k\d+$/i.test(f0[1])) || (f0[0] === 'TRAP' && draft)) ? null : f0
     if (f) {
-      const [key, value] = f
+      const [key, value]: [string, string] = f
       if (key === 'CONCEPT') {
         flush()
         lessonOpen = false
-        const name = strip(value).replace(/^k\d+\s*[|:-]\s*/i, '')
+        const name: string = strip(value).replace(/^k\d+\s*[|:-]\s*/i, '')
         if (!name) { concept = null; continue }
-        concept = { id: `k${concepts.length + 1}`, name, lesson: '' }
+        concept = { id: `k${concepts.length + 1}`, name, lesson: '', traps: [] }
         concepts.push(concept)
         continue
       }
-      if (key === 'REFILL') {
+      if (key === 'REFILL' || key === 'MORE') {
         flush()
         lessonOpen = false
-        refills++
+        if (key === 'REFILL') refills++
         concept = concepts.find((c) => c.id === value.trim().toLowerCase()) ?? null
         continue
       }
@@ -190,12 +208,18 @@ export function parseAdaptive(content: string): AdaptiveGuide {
         if (concept && !draft) { concept.lesson = value; lessonOpen = true }
         continue
       }
+      if (key === 'TRAP') {
+        // Concept level only: "t1 | Adds the denominators".
+        const m = value.match(/^\[?([a-z]\d{1,2})\]?\s*[|:-]\s*(.+)$/i)
+        if (concept && !draft && m && concept.traps.length < 6) { concept.traps.push({ id: m[1].toLowerCase(), name: strip(m[2]) }); lessonOpen = false }
+        continue
+      }
       if (key === 'Q') {
         flush()
         lessonOpen = false
         const header = parseHeader(value)
         if (!header || !concept) { qCount++; continue } // keep later ids stable even when a block is unusable
-        draft = { conceptId: concept.id, ...header, stem: [], options: [], answer: '', feedback: {}, last: 'stem' }
+        draft = { conceptId: concept.id, ...header, stem: [], options: [], answer: '', feedback: {}, traps: {}, probes: [], last: 'stem' }
         continue
       }
       if (!draft) continue
@@ -203,7 +227,15 @@ export function parseAdaptive(content: string): AdaptiveGuide {
       if (key === 'ANSWER') { d.answer = value; d.last = 'answer' }
       else if (key === 'EXPLANATION') { d.explanation = value; d.last = 'explanation' }
       else if (key === 'HINT') { d.hint = value; d.last = 'other' }
-      else if (key.startsWith('IF ')) { d.feedback[key.charCodeAt(3) - 65] = value; d.last = 'other' }
+      else if (key === 'PROBES') { d.probes = (value.toLowerCase().match(/\b[a-z]\d{1,2}\b/g) ?? []).slice(0, 3); d.last = 'other' }
+      else if (key.startsWith('IF ')) {
+        // "[t1] You added the denominators..." -> the trap tag comes off the feedback.
+        const tag = value.match(/^\[([a-z]\d{1,2})\]\s*/i)
+        const i = key.charCodeAt(3) - 65
+        if (tag) d.traps[i] = tag[1].toLowerCase()
+        d.feedback[i] = tag ? value.slice(tag[0].length) : value
+        d.last = 'other'
+      }
       continue
     }
 
@@ -245,17 +277,19 @@ export function serializeQuestion(q: Omit<AdaptiveQuestion, 'id' | 'conceptId'>)
   if (q.type === 'mc') {
     q.options.forEach((o, i) => out.push(`${LETTERS[i]}) ${o}`))
     out.push(`ANSWER: ${LETTERS[q.correct]}`)
-    for (const [k, v] of Object.entries(q.feedback)) out.push(`IF ${LETTERS[Number(k)]}: ${v}`)
+    for (const [k, v] of Object.entries(q.feedback)) out.push(`IF ${LETTERS[Number(k)]}: ${q.traps?.[Number(k)] ? `[${q.traps[Number(k)]}] ` : ''}${v}`)
   } else if (q.type === 'tf') {
     out.push(`ANSWER: ${q.correct === 0 ? 'True' : 'False'}`)
   } else {
     out.push(`ANSWER: ${q.answers.join(' | ')}`)
   }
+  if (q.type !== 'mc' && q.probes?.length) out.push(`PROBES: ${q.probes.join(', ')}`)
   if (q.hint) out.push(`HINT: ${q.hint}`)
   if (q.explanation) out.push(`EXPLANATION: ${q.explanation}`)
   return out.join('\n')
 }
 
-export function refillBlock(conceptId: string, questions: Array<Omit<AdaptiveQuestion, 'id' | 'conceptId'>>): string {
-  return [`REFILL: ${conceptId}`, '', ...questions.map((q) => serializeQuestion(q) + '\n')].join('\n').trim()
+/** `marker`: REFILL for a student's session, MORE for questions a teacher added to the bank (not counted as a refill). */
+export function refillBlock(conceptId: string, questions: Array<Omit<AdaptiveQuestion, 'id' | 'conceptId'>>, marker: 'REFILL' | 'MORE' = 'REFILL'): string {
+  return [`${marker}: ${conceptId}`, '', ...questions.map((q) => serializeQuestion(q) + '\n')].join('\n').trim()
 }

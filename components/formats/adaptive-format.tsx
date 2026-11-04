@@ -11,7 +11,8 @@ import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut 
 import { ReadAloudButton } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { TurnedInCard, useAssignmentCounts, useAssignmentFinish } from "@/components/assign/assignment-context"
+import { TurnedInCard, useAssignmentAdaptiveRules, useAssignmentCounts, useAssignmentFinish } from "@/components/assign/assignment-context"
+import { sessionSeconds } from "@/lib/adaptive/estimate"
 import { useRouter } from "next/navigation"
 import { CheckCircle2, ChevronRight, Crosshair, Layers, Lightbulb, Loader2, PenLine, Rocket, RotateCcw, Target, Trophy, XCircle, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -31,14 +32,15 @@ import { loadProgress, saveProgress } from "@/lib/progress"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { isAnswerCorrect, parseAdaptive, type AdaptiveQuestion } from "@/lib/adaptive/format"
 import {
-  ADAPTIVE_RULES,
   conceptProgress,
   conceptsNeedingRefill,
   nextStep,
   refillTarget,
   sessionSummary,
   withOutOfQuestions,
-  GRADED_CREDIT_AT,
+  DEFAULT_RULES,
+  masteryHelpText,
+  type AdaptiveRules,
   type AdaptiveAnswer,
   type ConceptProgress,
 } from "@/lib/adaptive/engine"
@@ -138,8 +140,10 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
   }
 
   // Assigned work that counts: no second tries on missed questions (the grade is sent when new questions run out).
+  // It then runs on the teacher's settings (mastery level, questions per topic, explain question).
   const graded = useAssignmentCounts()
-  const step = useMemo(() => (answers ? nextStep(guide, answers, { reviews: !graded }) : null), [guide, answers, graded])
+  const rules = useAssignmentAdaptiveRules() ?? DEFAULT_RULES
+  const step = useMemo(() => (answers ? nextStep(guide, answers, { reviews: !graded, rules }) : null), [guide, answers, graded, rules])
   const needRefill = useMemo(() => (answers && !refillsOff ? conceptsNeedingRefill(guide, answers) : []), [guide, answers, refillsOff])
 
   // Ask for more questions in the background when a concept runs low (one at a time).
@@ -182,10 +186,10 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
 
   const progress = useMemo(() => {
     if (!answers) return []
-    const p = conceptProgress(guide, answers)
+    const p = conceptProgress(guide, answers, rules)
     // Concepts with nothing left to ask and no refill coming are finished.
-    return step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length) ? withOutOfQuestions(p, step.conceptIds, graded ? { creditAt: GRADED_CREDIT_AT } : {}) : p
-  }, [guide, answers, step, refilling, refillsOff, needRefill, graded])
+    return step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length) ? withOutOfQuestions(p, step.conceptIds, rules) : p
+  }, [guide, answers, step, refilling, refillsOff, needRefill, rules])
 
   const finished = started && !current && (step?.kind === "done" || (step?.kind === "empty" && !refilling && (refillsOff || !needRefill.length)))
   const waiting = started && !current && step?.kind === "empty" && !finished
@@ -200,7 +204,8 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
     const explain = new Set(guide.questions.filter((q) => q.type === "explain").map((q) => q.id))
     const seen = new Set<string>()
     const firstAnswers = (answers ?? []).filter((a) => !explain.has(a.q) && !seen.has(a.q) && seen.add(a.q)).map((a) => ({ id: `a:${a.q}`, correct: a.correct, ...(a.given != null ? { given: String(a.given) } : {}) }))
-    reportAssignment({ correct: mastered.length, total: progress.length, detail: { mastered: mastered.map((p) => p.name), notMastered: progress.filter((p) => p.status !== "mastered").map((p) => p.name), answers: firstAnswers } })
+    const seconds = sessionSeconds(answers ?? [])
+    reportAssignment({ correct: mastered.length, total: progress.length, ...(seconds != null ? { seconds } : {}), detail: { mastered: mastered.map((p) => p.name), notMastered: progress.filter((p) => p.status !== "mastered").map((p) => p.name), answers: firstAnswers } })
   }, [finished, progress, reportAssignment, answers, guide])
 
   const submit = useCallback((given: string, extra?: { correct: boolean; score?: number; feedback?: string }) => {
@@ -232,7 +237,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
   }
   if (!answers) return <div className="h-64 animate-pulse rounded-2xl bg-white" />
 
-  const summary = sessionSummary(guide, answers)
+  const summary = sessionSummary(guide, answers, rules)
 
   if (!started) {
     return (
@@ -370,7 +375,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
         )}
       </div>
 
-      <ConceptPanel progress={progress} activeId={q?.conceptId} refilling={refilling} />
+      <ConceptPanel progress={progress} activeId={q?.conceptId} refilling={refilling} rules={rules} />
     </div>
   )
 }
@@ -551,22 +556,22 @@ function ExplainAnswer({ q, guideId, result, onChecked, onBlocked }: {
 
 // ── Side panel, start and finish ────────────────────────────────────────────
 
-function masteryPercent(p: ConceptProgress): number {
+function masteryPercent(p: ConceptProgress, rules: AdaptiveRules): number {
   if (p.status === "mastered") return 100
   if (!p.answered) return 0
   // How close the last few answers are to the bar, scaled by answers needed.
-  const reach = Math.min(1, p.accuracy / ADAPTIVE_RULES.threshold)
-  const volume = Math.min(1, p.answered / ADAPTIVE_RULES.minAnswered)
+  const reach = Math.min(1, p.accuracy / rules.threshold)
+  const volume = Math.min(1, p.answered / rules.minAnswered)
   return Math.round(Math.min(95, reach * volume * 100))
 }
 
-function ConceptPanel({ progress, activeId, refilling }: { progress: ConceptProgress[]; activeId?: string; refilling: string | null }) {
+function ConceptPanel({ progress, activeId, refilling, rules }: { progress: ConceptProgress[]; activeId?: string; refilling: string | null; rules: AdaptiveRules }) {
   return (
     <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-24">
       <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Your mastery</p>
       <ul className="space-y-3">
         {progress.map((p) => {
-          const pct = masteryPercent(p)
+          const pct = masteryPercent(p, rules)
           return (
             <li key={p.id} className={cn("rounded-lg px-2 py-1.5 transition", p.id === activeId && "bg-sky-50")}>
               <div className="flex items-center justify-between gap-2 text-sm">
@@ -583,7 +588,7 @@ function ConceptPanel({ progress, activeId, refilling }: { progress: ConceptProg
         })}
       </ul>
       <p className="mt-4 text-xs leading-relaxed text-slate-500">
-        A concept is mastered when you get {Math.round(ADAPTIVE_RULES.threshold * 100)}% of your last {ADAPTIVE_RULES.window} right. Questions get harder as you go and easier when you miss.
+        A concept is mastered when you get {masteryHelpText(rules)}. Questions get harder as you go and easier when you miss.
       </p>
     </aside>
   )

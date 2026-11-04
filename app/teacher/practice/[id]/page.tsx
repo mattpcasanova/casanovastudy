@@ -9,7 +9,7 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, CheckCircle2, Copy, Eye, ListChecks, Loader2, MessageCircleQuestion, QrCode, Timer, Trash2, XCircle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, CheckCircle2, Clock, Copy, Eye, Layers, ListChecks, Loader2, MessageCircleQuestion, PenLine, QrCode, Target, Timer, Trash2, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { FOCUS_MODE_HINT, durationText, focusChip, focusChipShort, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
 import { givenText, type PracticeAnswer, type ReportQuestion } from "@/lib/practice/report"
@@ -29,12 +29,16 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, dayCount, overTimeLimit, progressStatusText, runLengthText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
+import { ADAPTIVE_SETTING_DEFAULTS, MASTERY_PICKS, PER_CONCEPT_PICKS, masteryRuleText, neededRight } from "@/lib/adaptive/engine"
+import { estimateAdaptive, estimateText, questionRangeText, type BankShape } from "@/lib/adaptive/estimate"
 
 interface ReportData { questions: ReportQuestion[]; students: Array<{ rosterId: string; answers: PracticeAnswer[]; complete: boolean; version: number }> }
 const chip = "inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset"
 interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null; seconds?: number | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
 interface Data {
-  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; time_limit_seconds: number | null; url: string; created_at: string; class_id: string }
+  assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; time_limit_seconds: number | null; mastery_pct: number | null; questions_per_concept: number | null; explain_questions: boolean; url: string; created_at: string; class_id: string }
+  /** Adaptive practice: topics and questions per topic in the guide's bank. */
+  bank?: BankShape | null
   students: Student[]
   guide: { id: string; title: string; format: string } | null
   class: { id: string; name: string; period: string | null } | null
@@ -98,9 +102,19 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (data && showQr && !qr) void QRCode.toDataURL(data.assignment.url, { margin: 1, width: 480 }).then(setQr) }, [data, showQr, qr])
 
-  const patch = async (body: Record<string, unknown>) => {
-    await authFetch(`/api/practice-assignments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    await load()
+  // Raising the questions per topic writes the missing questions first (a few seconds): `saving` names that setting.
+  const [saving, setSaving] = useState("")
+  const [bankShort, setBankShort] = useState(false)
+  const patch = async (body: Record<string, unknown>, what = "") => {
+    setSaving(what)
+    try {
+      const res = await authFetch(`/api/practice-assignments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      const d = await res.json().catch(() => ({}))
+      if ("questionsPerConcept" in body) setBankShort(!!d.bankShort)
+      await load()
+    } finally {
+      setSaving("")
+    }
   }
 
   // The wrong student is on this name: unlink it (their runs here move to their own class or are removed).
@@ -162,7 +176,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
       <ClassroomPracticePanel assignmentId={a.id} students={students.length} />
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={cn("grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2", a.grading === "mastery" ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
           <Field label="Due" icon={CalendarClock} wide={editDue}>
             {editDue ? (
               <>
@@ -178,7 +192,31 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
               </>
             )}
           </Field>
-          <Field label="Attempts" icon={ListChecks}>
+          {a.grading === "mastery" && (
+            <>
+              <Field label="Mastery level" icon={Target}>
+                <select value={a.mastery_pct ?? ADAPTIVE_SETTING_DEFAULTS.masteryPct} onChange={(e) => void patch({ masteryPct: Number(e.target.value) })} className={cn(selectBox, "pr-9")} aria-label="Mastery level">
+                  {[...new Set([...MASTERY_PICKS, a.mastery_pct ?? ADAPTIVE_SETTING_DEFAULTS.masteryPct])].sort((x, y) => x - y).map((pct) => <option key={pct} value={pct}>{pct}%</option>)}
+                </select>
+              </Field>
+              <Field label="Questions per topic" icon={Layers}>
+                <select value={a.questions_per_concept ?? "bank"} disabled={saving === "per"} onChange={(e) => void patch({ questionsPerConcept: Number(e.target.value) }, "per")} className={cn(selectBox, "pr-9")} aria-label="Questions per topic">
+                  {a.questions_per_concept == null && <option value="bank">As written{data.bank ? ` (${data.bank.perConcept})` : ""}</option>}
+                  {[...new Set([...PER_CONCEPT_PICKS, ...(a.questions_per_concept ? [a.questions_per_concept] : [])])].sort((x, y) => x - y).map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+                {saving === "per" && <span className="inline-flex items-center gap-1.5 text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Writing questions…</span>}
+              </Field>
+              {data.bank?.explain && (
+                <Field label="Written question" icon={PenLine}>
+                  <select value={a.explain_questions ? "on" : "off"} onChange={(e) => void patch({ explainQuestions: e.target.value === "on" })} className={cn(selectBox, "pr-9")} aria-label="Explain in your own words question">
+                    <option value="on">One per topic</option>
+                    <option value="off">Off</option>
+                  </select>
+                </Field>
+              )}
+            </>
+          )}
+          {a.grading === "percent" && <Field label="Attempts" icon={ListChecks}>
             {a.grading === "percent" ? (
               <>
                 <select value={a.max_attempts ?? "any"} onChange={(e) => void patch({ maxAttempts: e.target.value === "any" ? null : Number(e.target.value) })} className={cn(selectBox, "pr-9")} aria-label="Attempts allowed">
@@ -188,21 +226,36 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                 <span className="text-slate-500">best one counts</span>
               </>
             ) : <span className="font-medium text-slate-900">Until mastered</span>}
-          </Field>
-          <Field label="Time limit" icon={Timer}>
+          </Field>}
+          {a.grading === "percent" && <Field label="Time limit" icon={Timer}>
             {a.grading === "percent" ? (
               <select value={a.time_limit_seconds ?? "none"} onChange={(e) => void patch({ timeLimitSeconds: e.target.value === "none" ? null : Number(e.target.value) })} className={cn(selectBox, "pr-9")} aria-label="Time limit">
                 <option value="none">None</option>
                 {[...new Set([...TIME_LIMIT_PICKS.map((m) => m * 60), ...(a.time_limit_seconds ? [a.time_limit_seconds] : [])])].sort((x, y) => x - y).map((sec) => <option key={sec} value={sec}>{sec % 60 ? `${Math.round(sec / 6) / 10} min` : `${sec / 60} min`}</option>)}
               </select>
             ) : <span className="text-slate-500">Not used for adaptive practice</span>}
-          </Field>
+          </Field>}
           <Field label="AI help" icon={MessageCircleQuestion}>
             <select value={a.ai_help} onChange={(e) => void patch({ aiHelp: e.target.value })} className={cn(selectBox, "pr-9")} aria-label="AI help">
               {AI_HELP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </Field>
         </div>
+        {a.grading === "mastery" && data.bank && (() => {
+          const per = a.questions_per_concept ?? data.bank.perConcept
+          const pct = a.mastery_pct ?? ADAPTIVE_SETTING_DEFAULTS.masteryPct
+          const e = estimateAdaptive(data.bank, { perConcept: per, explain: a.explain_questions })
+          return (
+            <p className="mt-4 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <span>
+                <span className="font-semibold text-slate-900">{estimateText(e)}</span> for most students: {data.bank.concepts} topic{data.bank.concepts === 1 ? "" : "s"}, {questionRangeText(e)} depending on how they do.{" "}
+                A topic is mastered with {per <= 5 ? `${neededRight(pct / 100, per)} of its ${per} questions right` : masteryRuleText(pct)}, and the grade is the share of topics mastered. Changes apply to students who haven&apos;t finished yet.
+              </span>
+            </p>
+          )
+        })()}
+        {bankShort && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">Some topics got fewer new questions than you asked for, so those topics end a little sooner. Pick the number again to try once more.</p>}
         <p className="mt-3 text-sm text-slate-500">{AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.hint} You see every question a student asks the AI while doing it.</p>
         <label className="mt-4 flex items-start justify-between gap-4 border-t border-slate-100 pt-4">
           <span className="text-sm">
@@ -383,7 +436,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 /** One labeled setting in the settings grid. */
 function Field({ label, icon: Icon, wide, children }: { label: string; icon: typeof CalendarClock; wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className={cn("min-w-0", wide && "sm:col-span-2 lg:col-span-4")}>
+    <div className={cn("min-w-0", wide && "sm:col-span-full")}>
       <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Icon className="h-3.5 w-3.5" />{label}</span>
       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-800">{children}</div>
     </div>

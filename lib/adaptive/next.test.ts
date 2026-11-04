@@ -8,7 +8,7 @@ const q = (id: string, conceptId: string, type: AdaptiveQuestion['type'] = 'mc')
 
 const guide: AdaptiveGuide = {
   title: 'Stats', description: '', refills: 0,
-  concepts: ['k1', 'k2', 'k3', 'k4'].map((id) => ({ id, name: id.toUpperCase(), lesson: '' })),
+  concepts: ['k1', 'k2', 'k3', 'k4'].map((id) => ({ id, name: id.toUpperCase(), lesson: '', traps: [] })),
   questions: [q('a1', 'k1'), q('a2', 'k2'), q('a3', 'k3'), q('a4', 'k4'), q('a5', 'k3'), q('a6', 'k3', 'explain')],
 }
 

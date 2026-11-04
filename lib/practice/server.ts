@@ -6,6 +6,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { accountNames } from '@/lib/classes/server'
 import type { FocusEvent } from './focus'
+import type { AdaptiveSettings } from '@/lib/adaptive/engine'
 import { savedRunsFor, sendUnfinishedAtDue } from './auto-submit'
 import type { RunCount } from './assignments'
 import { assignmentOpen, bestAttempt, couldBeStudent, normalizeAiHelp, practiceDaysLate, practiceStatus, strictestAiHelp, type AiHelp, type Attempt } from './assignments'
@@ -25,10 +26,21 @@ export interface AssignmentRow {
   focus_mode: boolean
   /** Seconds the student has once they start a run; null = no limit (adaptive never has one). */
   time_limit_seconds: number | null
+  /** Adaptive only (null = the defaults: 80%, the bank as written). */
+  mastery_pct: number | null
+  questions_per_concept: number | null
+  explain_questions: boolean
   created_at: string
 }
 
-export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, focus_mode, time_limit_seconds, created_at'
+/** The teacher's adaptive settings on an assignment, as the engine reads them. */
+export const adaptiveSettingsOf = (a: Pick<AssignmentRow, 'mastery_pct' | 'questions_per_concept' | 'explain_questions'>): AdaptiveSettings => ({
+  masteryPct: a.mastery_pct ?? null,
+  perConcept: a.questions_per_concept ?? null,
+  explain: a.explain_questions !== false,
+})
+
+export const ASSIGNMENT_COLUMNS = 'id, teacher_id, class_id, study_guide_id, title, grading, max_attempts, due_at, code, source, ai_help, focus_mode, time_limit_seconds, mastery_pct, questions_per_concept, explain_questions, created_at'
 
 /** The signed-in teacher's own assignment, or the error response to return. */
 export async function ownedAssignment(request: NextRequest, id: string): Promise<{ error: NextResponse } | { supabase: SupabaseClient; assignment: AssignmentRow; userId: string }> {

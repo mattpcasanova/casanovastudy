@@ -31,6 +31,94 @@ export const ADAPTIVE_RULES = {
   reviewGap: 2,
 } as const
 
+/**
+ * The rules one session runs on. A student's own session uses DEFAULT_RULES;
+ * assigned work that counts uses gradedRules() with the teacher's settings.
+ */
+export interface AdaptiveRules {
+  /** Share of the last `window` answers that must be right (0-1). */
+  threshold: number
+  window: number
+  minAnswered: number
+  /** Questions on one concept before it stops (the teacher's "questions per topic" on assigned work). */
+  maxPerConcept: number
+  /**
+   * Graded sessions have no second tries and a short, fixed length, so a
+   * concept that reaches its last question (the cap, or the end of the bank)
+   * is mastered when round(threshold x answers judged) of them were right:
+   * 3 of 4 at 80%, 4 of 5 at 80%, 3 of 5 at 60%.
+   */
+  creditAtEnd: boolean
+  /** Serve each concept's "explain it in your own words" question. */
+  explain: boolean
+}
+
+export const DEFAULT_RULES: AdaptiveRules = {
+  threshold: ADAPTIVE_RULES.threshold,
+  window: ADAPTIVE_RULES.window,
+  minAnswered: ADAPTIVE_RULES.minAnswered,
+  maxPerConcept: ADAPTIVE_RULES.maxPerConcept,
+  creditAtEnd: false,
+  explain: true,
+}
+
+/** What a teacher can set on an assigned adaptive session (null = the default). */
+export interface AdaptiveSettings {
+  /** Mastery level in percent (50-100). */
+  masteryPct?: number | null
+  /** Questions per topic (3-15). */
+  perConcept?: number | null
+  /** Ask the "explain it" question. */
+  explain?: boolean | null
+}
+
+export const ADAPTIVE_SETTING_DEFAULTS = { masteryPct: 80, perConcept: 4, explain: true } as const
+/** Mastery levels a teacher can pick. The rule looks at the last 5 answers, so these are the ones that differ. */
+export const MASTERY_PICKS = [60, 80, 100] as const
+export const PER_CONCEPT_PICKS = [4, 6, 8, 10] as const
+
+export function normalizeMasteryPct(v: unknown): number | null {
+  const n = Number(v)
+  return v != null && v !== '' && Number.isFinite(n) && n >= 50 && n <= 100 ? Math.round(n) : null
+}
+
+export function normalizePerConcept(v: unknown): number | null {
+  const n = Number(v)
+  return v != null && v !== '' && Number.isInteger(n) && n >= 3 && n <= ADAPTIVE_RULES.maxPerConcept ? n : null
+}
+
+/** Rules for an assigned session that counts. Settings left empty keep the long-standing defaults. */
+export function gradedRules(settings?: AdaptiveSettings | null): AdaptiveRules {
+  const pct = normalizeMasteryPct(settings?.masteryPct)
+  const per = normalizePerConcept(settings?.perConcept)
+  return {
+    ...DEFAULT_RULES,
+    threshold: pct != null ? pct / 100 : DEFAULT_RULES.threshold,
+    maxPerConcept: per ?? DEFAULT_RULES.maxPerConcept,
+    creditAtEnd: true,
+    explain: settings?.explain !== false,
+  }
+}
+
+/** Right answers needed out of `n` judged ones: round(threshold x n). */
+export function neededRight(threshold: number, n: number): number {
+  return Math.round((Math.round(threshold * 100) * n) / 100)
+}
+
+/** "4 of the last 5 right", for labels. */
+export function masteryRuleText(pct: number, window: number = ADAPTIVE_RULES.window): string {
+  return `${neededRight(pct / 100, window)} of the last ${window} right`
+}
+
+/** "4 of your last 5 right" / "3 of its 4 questions right", for the student's side panel. */
+export function masteryHelpText(rules: AdaptiveRules): string {
+  if (rules.creditAtEnd && rules.maxPerConcept <= rules.window) return `${neededRight(rules.threshold, rules.maxPerConcept)} of its ${rules.maxPerConcept} questions right`
+  return `${neededRight(rules.threshold, rules.window)} of your last ${rules.window} right`
+}
+
+const earnsCredit = (recent: boolean[], rules: AdaptiveRules) =>
+  rules.creditAtEnd && recent.length >= rules.minAnswered && recent.filter(Boolean).length >= neededRight(rules.threshold, recent.length)
+
 export interface AdaptiveAnswer {
   /** Question id. */
   q: string
@@ -68,7 +156,7 @@ export interface ConceptProgress {
 const gradeable = (q: AdaptiveQuestion) => q.type !== 'explain'
 
 /** Per-concept progress from the answer log. Explain answers never count toward mastery. */
-export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[]): ConceptProgress[] {
+export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[], rules: AdaptiveRules = DEFAULT_RULES): ConceptProgress[] {
   const byId = new Map(guide.questions.map((q) => [q.id, q]))
   return guide.concepts.map((c) => {
     const mine = answers.filter((a) => byId.get(a.q)?.conceptId === c.id)
@@ -76,7 +164,7 @@ export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[])
     const results = graded.map((a) => a.correct)
     // Mastery is judged without answers that were right only with a hint.
     const unaided = graded.filter((a) => !(a.correct && a.hinted)).map((a) => a.correct)
-    const recent = unaided.slice(-ADAPTIVE_RULES.window)
+    const recent = unaided.slice(-rules.window)
     let level: AdaptiveLevel = 2
     let streak = 0
     let missStreak = 0
@@ -95,10 +183,11 @@ export function conceptProgress(guide: AdaptiveGuide, answers: AdaptiveAnswer[])
     const remaining = guide.questions.filter((q) => q.conceptId === c.id && gradeable(q) && !answeredIds.has(q.id)).length
     const judged = evaluateConceptStatus(
       { answered_count: unaided.length, recent_results: recent },
-      { mastery_threshold: ADAPTIVE_RULES.threshold, min_questions: ADAPTIVE_RULES.minAnswered, max_questions_per_concept: ADAPTIVE_RULES.maxPerConcept },
+      { mastery_threshold: rules.threshold, min_questions: rules.minAnswered, max_questions_per_concept: rules.maxPerConcept },
     )
-    // The question cap counts every answer, hinted or not.
-    const status = judged === 'in_progress' && results.length >= ADAPTIVE_RULES.maxPerConcept ? 'max_reached' : judged
+    // The question cap counts every answer, hinted or not. On graded work the last question can still earn the concept.
+    const capped = judged === 'max_reached' || (judged === 'in_progress' && results.length >= rules.maxPerConcept)
+    const status = capped ? (earnsCredit(recent, rules) ? 'mastered' : 'max_reached') : judged
     return {
       id: c.id,
       name: c.name,
@@ -127,6 +216,33 @@ function reviewQuestion(guide: AdaptiveGuide, conceptId: string, answers: Adapti
   return null
 }
 
+/** The traps a question sets: the mistakes its wrong options come from (mc), or the one a wrong answer points to (num, tf). */
+export function probesOf(q: AdaptiveQuestion): string[] {
+  return q.probes ?? []
+}
+
+/** The mistake behind a wrong answer, when the bank names it. */
+export function trapOf(q: AdaptiveQuestion, given?: string): string | null {
+  if (q.type === 'mc') return (given != null && q.traps?.[Number(given)]) || null
+  return q.probes?.[0] ?? null
+}
+
+/**
+ * The mistake the student still has to fix on a concept: the trap of their
+ * latest tagged miss, until they get a question that sets the same trap right.
+ */
+export function openTrap(guide: AdaptiveGuide, conceptId: string, answers: AdaptiveAnswer[]): string | null {
+  const byId = new Map(guide.questions.map((q) => [q.id, q]))
+  let open: string | null = null
+  for (const a of answers) {
+    const q = byId.get(a.q)
+    if (!q || q.conceptId !== conceptId || !gradeable(q)) continue
+    if (!a.correct) open = trapOf(q, a.given) ?? open
+    else if (open && probesOf(q).includes(open)) open = null
+  }
+  return open
+}
+
 function pickByLevel(pool: AdaptiveQuestion[], level: AdaptiveLevel, struggling: boolean): AdaptiveQuestion | null {
   if (!pool.length) return null
   return [...pool].sort((a, b) => {
@@ -139,7 +255,7 @@ function pickByLevel(pool: AdaptiveQuestion[], level: AdaptiveLevel, struggling:
 }
 
 export type NextStep =
-  | { kind: 'question'; question: AdaptiveQuestion; review: boolean }
+  | { kind: 'question'; question: AdaptiveQuestion; review: boolean; /** The mistake (trap id) this question was picked to recheck. */ trap?: string }
   /** Every unfinished concept is out of new questions; a refill may still come. */
   | { kind: 'empty'; conceptIds: string[] }
   | { kind: 'done' }
@@ -149,12 +265,13 @@ export type NextStep =
  * when there's a choice); weaker concepts come up more often; within a concept
  * the question nearest the student's current level is picked.
  */
-export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: { reviews?: boolean } = {}): NextStep {
+export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: { reviews?: boolean; rules?: AdaptiveRules } = {}): NextStep {
   // Assigned (graded) sessions pass reviews: false: a missed question coming back
   // let students pick the option they now knew was right, and kept them going
   // after they ran out of new questions. Their session ends there instead.
   const reviews = opts.reviews ?? true
-  const progress = conceptProgress(guide, answers)
+  const rules = opts.rules ?? DEFAULT_RULES
+  const progress = conceptProgress(guide, answers, rules)
   const byId = new Map(guide.questions.map((q) => [q.id, q]))
   const answered = new Set(answers.map((a) => a.q))
   const last = answers.length ? answers[answers.length - 1] : undefined
@@ -163,7 +280,7 @@ export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: 
   // Right after a correct answer on a concept that's going well (or just got
   // mastered): its one "explain it in your own words" question, if it has one.
   const lp = progress.find((p) => p.id === lastConcept)
-  if (lp && last?.correct && !lp.explainDone && lp.status !== 'max_reached' && lp.answered >= ADAPTIVE_RULES.explainAfter && lp.accuracy >= ADAPTIVE_RULES.explainMinAccuracy) {
+  if (rules.explain && lp && last?.correct && !lp.explainDone && lp.status !== 'max_reached' && lp.answered >= ADAPTIVE_RULES.explainAfter && lp.accuracy >= ADAPTIVE_RULES.explainMinAccuracy) {
     const explain = guide.questions.find((q) => q.conceptId === lp.id && q.type === 'explain' && !answered.has(q.id))
     if (explain) return { kind: 'question', question: explain, review: false }
   }
@@ -171,11 +288,14 @@ export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: 
   const open = progress.filter((p) => p.status === 'in_progress')
   if (!open.length) return { kind: 'done' }
 
-  const options: Array<{ p: ConceptProgress; q: AdaptiveQuestion; review: boolean }> = []
+  const options: Array<{ p: ConceptProgress; q: AdaptiveQuestion; review: boolean; trap?: string }> = []
   for (const p of open) {
     const unanswered = guide.questions.filter((q) => q.conceptId === p.id && gradeable(q) && !answered.has(q.id))
-    const fresh = pickByLevel(unanswered, p.level, p.missStreak > 0)
-    if (fresh) { options.push({ p, q: fresh, review: false }); continue }
+    // After a miss, a question that sets the same trap comes first: it shows whether the mistake is fixed.
+    const trap = openTrap(guide, p.id, answers)
+    const aimed = trap ? unanswered.filter((q) => probesOf(q).includes(trap)) : []
+    const fresh = pickByLevel(aimed.length ? aimed : unanswered, p.level, p.missStreak > 0)
+    if (fresh) { options.push({ p, q: fresh, review: false, ...(aimed.length && trap ? { trap } : {}) }); continue }
     const review = reviews ? reviewQuestion(guide, p.id, answers) : null
     if (review) options.push({ p, q: review, review: true })
   }
@@ -184,7 +304,7 @@ export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: 
   const pool = options.length > 1 ? options.filter((o) => o.p.id !== lastConcept) : options
   const priority = (p: ConceptProgress) => p.answered + 4 * p.accuracy
   const best = pool.reduce((a, b) => (priority(b.p) < priority(a.p) ? b : a))
-  return { kind: 'question', question: best.q, review: best.review }
+  return { kind: 'question', question: best.q, review: best.review, ...(best.trap ? { trap: best.trap } : {}) }
 }
 
 /**
@@ -216,8 +336,8 @@ export interface SessionSummary {
   done: boolean
 }
 
-export function sessionSummary(guide: AdaptiveGuide, answers: AdaptiveAnswer[]): SessionSummary {
-  const progress = conceptProgress(guide, answers)
+export function sessionSummary(guide: AdaptiveGuide, answers: AdaptiveAnswer[], rules: AdaptiveRules = DEFAULT_RULES): SessionSummary {
+  const progress = conceptProgress(guide, answers, rules)
   const answered = progress.reduce((n, p) => n + p.answered, 0)
   return {
     answered,
@@ -229,16 +349,13 @@ export function sessionSummary(guide: AdaptiveGuide, answers: AdaptiveAnswer[]):
 }
 
 /** Marks concepts that can't get more questions (no refills left, nothing to review) as finished. */
-export function withOutOfQuestions(progress: ConceptProgress[], emptyIds: string[], opts: { creditAt?: number } = {}): ConceptProgress[] {
+export function withOutOfQuestions(progress: ConceptProgress[], emptyIds: string[], rules: AdaptiveRules = DEFAULT_RULES): ConceptProgress[] {
   const empty = new Set(emptyIds)
   return progress.map((p) => {
     if (!empty.has(p.id) || p.status !== 'in_progress') return p
     // Graded sessions have no second tries, so a concept can run out after 4 questions:
-    // 3 of 4 right then counts as mastered (the usual rule needs 80% of the last 5).
-    if (opts.creditAt != null && p.answered >= ADAPTIVE_RULES.minAnswered && p.accuracy >= opts.creditAt) return { ...p, status: 'mastered' }
+    // 3 of 4 right then counts as mastered at 80% (the running rule needs 80% of the last 5).
+    if (earnsCredit(p.recent, rules)) return { ...p, status: 'mastered' }
     return { ...p, status: 'out_of_questions' }
   })
 }
-
-/** Graded (assigned) sessions: share right that masters a concept once its questions run out. */
-export const GRADED_CREDIT_AT = 0.75
