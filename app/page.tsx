@@ -99,6 +99,7 @@ function HomePage() {
         sourceGuideId: data.sourceGuideId,
         classMaterialIds: data.classMaterialIds?.length ? data.classMaterialIds : undefined,
         language: data.language,
+        standards: data.standards,
         visuals: data.visuals,
         codeEditor: data.codeEditor,
         length: data.length,

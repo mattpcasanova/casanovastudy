@@ -78,6 +78,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params
   const r = await owned(request, id)
   if ('error' in r) return r.error
-  await r.supabase.from('practice_assignments').delete().eq('id', id)
+  const { error } = await r.supabase.from('practice_assignments').delete().eq('id', id)
+  if (error) { console.error('Assignment delete failed:', error); return NextResponse.json({ error: 'Could not delete it' }, { status: 500 }) }
   return NextResponse.json({ ok: true })
 }

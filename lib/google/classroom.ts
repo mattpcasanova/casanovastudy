@@ -332,7 +332,9 @@ const EXPAND: Record<string, string> = { HON: 'Honors', HONS: 'Honors', BIO: 'Bi
 
 /** "AP BIO-52212000340G1" → "AP Bio"; "BIOLOGY 1 HON-515120" → "Biology 1 Honors" (district course codes dropped, case tidied). */
 function tidyCourseTitle(raw: string): string {
-  const cut = raw.replace(/[-–\s]+[A-Z0-9]*\d[A-Z0-9]{3,}\s*$/i, '').trim()
+  // District course codes go: a long code after a space, or any code with a digit after a hyphen ("-515").
+  // "M/J" is Florida's middle/junior prefix on course titles; it says nothing a teacher would.
+  const cut = raw.replace(/[-–\s]+[A-Z0-9]*\d[A-Z0-9]{3,}\s*$/i, '').replace(/\s*[-–]\s*[A-Z0-9]*\d[A-Z0-9]*\s*$/i, '').replace(/^M\/J\s+/i, '').trim()
   const shouty = cut === cut.toUpperCase()
   return cut.split(/\s+/).map((w) => {
     const up = w.toUpperCase()
@@ -353,7 +355,7 @@ export function classFromCourse(course: { name: string; section?: string | null 
   const name = course.name.trim()
   const section = (course.section ?? '').trim()
   const period = periodIn(name) ?? periodIn(section) ?? (/^[0-9]{1,2}[a-z]?$/i.test(section) ? section.replace(/^0+(?=\w)/, '') : null)
-  const nameIsJustPeriod = /^(?:period|per\.?|pd\.?|p|block|hour)\s*:?\s*0*[0-9]{1,2}[a-z]?\b(?:\s*\([^)]*\))?\s*$/i.test(name)
+  const nameIsJustPeriod = /^(?:period|per\.?|pd\.?|p|block|hour)\s*:?\s*0*[0-9]{1,2}[a-z]?\b(?:\s*\([^)]*\))?(?:\s*[ab](?:\s*(?:&|and|\/)\s*[ab])?\s*days?)?\s*$/i.test(name)
   if (nameIsJustPeriod && section && !periodIn(section) && !/^[0-9]{1,2}[a-z]?$/i.test(section)) return { name: tidyCourseTitle(section).slice(0, 100), period }
   const withoutPeriod = name.replace(/[\s,–-]*\(?\b(?:period|per\.?|pd\.?|block|hour)\s*:?\s*0*[0-9]{1,2}[a-z]?\b\)?/i, '').trim()
   return { name: (withoutPeriod || name).slice(0, 100), period }

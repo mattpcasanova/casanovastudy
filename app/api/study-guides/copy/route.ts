@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
         file_count: originalGuide.file_count,
         custom_content: originalGuide.custom_content,
         language: originalGuide.language,
+        standards: originalGuide.standards ?? null,
         // The guide's original author, even when copying a copy.
         copied_from: originalGuide.copied_from ?? originalGuide.id,
         user_id: userId,

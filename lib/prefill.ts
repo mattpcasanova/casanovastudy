@@ -22,6 +22,8 @@ export interface GuidePrefill {
   additionalInstructions?: string
   /** Guide language (GuideLanguage) to keep, e.g. a Spanish guide's next guide. */
   language?: string
+  /** Standards to carry to the next guide (lib/standards.ts). */
+  standards?: string
   /** false = fill in the form and wait (the student wants to adjust more). Default true. */
   autoStart?: boolean
 }

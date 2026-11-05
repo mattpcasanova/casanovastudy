@@ -106,6 +106,9 @@ describe('classFromCourse', () => {
   it('reads SIS-synced courses named by period (course in the section)', () => {
     expect(classFromCourse({ name: 'Period 03 (Colegia)', section: 'AP BIO-52212000340G1' })).toEqual({ name: 'AP Bio', period: '3' })
     expect(classFromCourse({ name: 'Period 02 (Colegia)', section: 'BIOLOGY 1 HON-515120' })).toEqual({ name: 'Biology 1 Honors', period: '2' })
+    // A real middle-school set: short code after the hyphen, Florida's M/J prefix, A/B day notes after the period.
+    expect(classFromCourse({ name: 'Period 03 (A Day)', section: 'M/J GRADE 6 MATH-515' })).toEqual({ name: 'Grade 6 Math', period: '3' })
+    expect(classFromCourse({ name: 'Period 08 (Homeroom) A & B Days', section: 'M/J GRADE 6 MATH-515' })).toEqual({ name: 'Grade 6 Math', period: '8' })
   })
   it('keeps a real course name and takes the period from name or section', () => {
     expect(classFromCourse({ name: 'AP Statistics', section: 'Period 1' })).toEqual({ name: 'AP Statistics', period: '1' })

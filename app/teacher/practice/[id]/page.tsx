@@ -20,6 +20,7 @@ import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-p
 import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { compareNames, displayName } from "@/lib/grading/names"
 import { useNameOrder } from "@/lib/use-name-order"
@@ -75,6 +76,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   const [editDue, setEditDue] = useState(false)
   const [due, setDue] = useState("")
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
   const [exportOpen, setExportOpen] = useState(false)
   const [aiFor, setAiFor] = useState<Student | null>(null)
   const [focusFor, setFocusFor] = useState<Student | null>(null)
@@ -164,6 +167,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           <button type="button" className={cn(actionButton, showQr && "bg-blue-50 text-blue-800 ring-blue-300")} aria-pressed={showQr} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
           <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp />Send to gradebook</button>
         </div>
+        <button type="button" className={cn(actionButton, "text-red-700 hover:bg-red-50 hover:text-red-800")} onClick={() => setConfirmDelete(true)}><Trash2 />Delete assignment</button>
       </div>
 
       {showQr && (
@@ -409,16 +413,32 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
         </DialogContent>
       </Dialog>
 
-      <div className="mt-8 flex justify-end">
-        {confirmDelete ? (
-          <span className="flex items-center gap-2 text-sm text-slate-700">Delete this assignment and its scores?
-            <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700" onClick={async () => { await authFetch(`/api/practice-assignments/${id}`, { method: "DELETE" }); router.push(data.class ? `/teacher/classes/${data.class.id}` : "/teach") }}>Delete</button>
-            <button type="button" className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100" onClick={() => setConfirmDelete(false)}>Keep</button>
-          </span>
-        ) : (
-          <button type="button" className={cn(actionButton, "text-rose-700 ring-rose-200 hover:bg-rose-50")} onClick={() => setConfirmDelete(true)}><Trash2 />Delete assignment</button>
-        )}
-      </div>
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => { if (!deleting) { setConfirmDelete(o); setDeleteError("") } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this assignment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {finished.length > 0
+                ? `${finished.length} student${finished.length === 1 ? " has" : "s have"} turned it in. Their scores for this assignment are deleted with it and can't be brought back.`
+                : "Nobody has turned it in yet, so no scores are lost."}{" "}
+              Students stop seeing it under their classwork. The practice itself stays in My Guides.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && <p role="alert" className="text-sm font-medium text-red-700">{deleteError}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep it</AlertDialogCancel>
+            <button type="button" disabled={deleting} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              onClick={async () => {
+                setDeleting(true); setDeleteError("")
+                const res = await authFetch(`/api/practice-assignments/${id}`, { method: "DELETE" }).catch(() => null)
+                if (res?.ok) { router.push(data.class ? `/teacher/classes/${data.class.id}` : "/teach"); return }
+                setDeleting(false); setDeleteError("Could not delete it. Please try again.")
+              }}>
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Delete assignment
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Shell>
   )
 }

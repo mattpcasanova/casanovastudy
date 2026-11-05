@@ -10,6 +10,7 @@ export interface StudyGuideData {
   sourceGuideId?: string // "Make another format": build from this existing guide's content
   classMaterialIds?: string[] // slides/notes the teacher put on the student's class (lib/classes/materials.ts)
   language?: string // GuideLanguage (lib/study-options.ts); default 'en'
+  standards?: string // standards to teach to (lib/standards.ts); free text
   studyGuideName: string
   subject: string
   gradeLevel: string
@@ -56,6 +57,7 @@ export interface StudyGuideRequest {
   sourceGuideId?: string // existing guide whose content is the source material
   classMaterialIds?: string[] // class materials (migration 080); the route checks the student is in the class
   language?: string // GuideLanguage; validated with normalizeLanguage
+  standards?: string // standards to teach to; cleaned with normalizeStandards
   userId?: string  // User ID to associate with the study guide
   visuals?: boolean // false = no graphs/models
   codeEditor?: boolean // false = no runnable code exercises
@@ -127,6 +129,7 @@ export interface ClaudeApiRequest {
   fromGuide?: { title: string; format: string }
   /** Language the guide is written in (GuideLanguage); 'en' or missing = English. */
   language?: import('@/lib/study-options').GuideLanguage
+  standards?: string // standards to teach to (already normalized)
 }
 
 export interface GuideImage {

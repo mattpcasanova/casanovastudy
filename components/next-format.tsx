@@ -76,6 +76,7 @@ export function NextFormatDialog({ guide, open, onOpenChange, initialFormat }: {
       sourceGuide: { id: guide.id, title: guide.title, format: guide.format },
       additionalInstructions: changes.trim() || undefined,
       language: guide.language ?? "en",
+      standards: guide.standards ?? undefined,
       autoStart,
     }))
   }

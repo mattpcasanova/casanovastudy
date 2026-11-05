@@ -79,6 +79,7 @@ import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
 const LANGUAGE_PREF_KEY = "cs:pref:language"
+const STANDARDS_MAX_INPUT = 600
 const CODE_EDITOR_PREF_KEY = "cs:pref:code-editor"
 /** Premium shows its monthly guide count on the homepage once fewer than this are left. */
 const PREMIUM_GUIDES_WARN_UNDER = 10
@@ -405,6 +406,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     if (p.classMaterials?.length) setClassMaterials(p.classMaterials)
     if (p.language) setLanguageState(normalizeLanguage(p.language))
     if (p.additionalInstructions) { setAdditionalInstructions(p.additionalInstructions); setShowMore(true) }
+    if (p.standards) { setStandards(p.standards); setShowMore(true) }
     setArrival({ kind: p.source === "adaptive-next" ? "next" : p.source === "weak-spots" ? "weak" : p.source === "class-area" ? "class" : p.source === "from-guide" ? "from" : p.source === "class-material" ? "material" : "missed", sourceTitle: p.sourceTitle, detail: p.detail })
     if (p.autoStart !== false) setAutoStart(true)
   }, [])
@@ -455,6 +457,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
     return () => { cancelled = true }
   }, [])
   const [additionalInstructions, setAdditionalInstructions] = useState("")
+  const [standards, setStandards] = useState("")
   const [showMore, setShowMore] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -646,6 +649,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
       sourceGuideId: sourceGuide?.id,
       classMaterialIds: classMaterials.length ? classMaterials.map((m) => m.id) : undefined,
       language,
+      standards: standards.trim() || undefined,
       additionalInstructions: additionalInstructions || undefined,
       visuals,
       codeEditor,
@@ -1186,6 +1190,20 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                       disabled={isGenerating}
                       className="h-11"
                     />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="standards" className="mb-1.5 block text-sm font-medium text-slate-700">Standards <span className="font-normal text-slate-500">(optional)</span></Label>
+                    <Textarea
+                      id="standards"
+                      placeholder="e.g. MA.8.AR.2.1, or paste the standard's wording"
+                      value={standards}
+                      onChange={(e) => setStandards(e.target.value.slice(0, STANDARDS_MAX_INPUT))}
+                      rows={2}
+                      disabled={isGenerating}
+                      className="resize-none"
+                      aria-describedby="standards-help"
+                    />
+                    <p id="standards-help" className="mt-1.5 text-sm text-slate-500">State or national standards this should teach to. The guide is written to them and shows them at the top and on the printout.</p>
                   </div>
                   <div className="sm:col-span-2">
                     <Label htmlFor="instructions" className="mb-1.5 block text-sm font-medium text-slate-700">Anything else?</Label>

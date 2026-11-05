@@ -3,6 +3,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { StudyGuideRequest } from '@/types'
 import { createAdminClient } from '@/lib/supabase-server'
 import { getRequestUser } from '@/lib/request-user'
+import { normalizeStandards } from '@/lib/standards'
 import { GOAL_VALUES, MATERIALS_KINDS, normalizeDifficulty, normalizeLanguage, type MaterialsKind } from '@/lib/study-options'
 import { hasPremiumFeatures, meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { consentBlockResponse } from '@/lib/consent'
@@ -168,6 +169,7 @@ export async function POST(request: NextRequest) {
           examScores,
           fromGuide: sourceGuide ? { title: sourceGuide.title, format: sourceGuide.format } : undefined,
           language: normalizeLanguage(body.language),
+          standards: normalizeStandards(body.standards) || undefined,
         })
 
         // Iterate manually: for-await drops the generator's return value (the usage).
@@ -239,6 +241,7 @@ export async function POST(request: NextRequest) {
             topic_focus: body.topicFocus || (studyRequest ? studyRequest.slice(0, 200) : undefined),
             difficulty_level: normalizeDifficulty(body.difficultyLevel),
             language: normalizeLanguage(body.language),
+            standards: normalizeStandards(body.standards) || null,
             additional_instructions: body.additionalInstructions,
             file_count: (body.directContent?.length || 0) + (body.files?.length || 0) + (body.images?.length || 0) + materials.length,
             source_material_ids: materials.length ? materials.map((m) => m.id) : null,

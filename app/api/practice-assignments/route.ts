@@ -25,8 +25,12 @@ export async function GET(request: NextRequest) {
   const { data } = await query
   const rows = (data ?? []) as AssignmentRow[]
   const progress = await assignmentProgress(supabase, rows)
+  // Which class each one is for (one guide is often assigned to several periods).
+  const classIds = [...new Set(rows.map((a) => a.class_id))]
+  const { data: classRows } = classIds.length ? await supabase.from('classes').select('id, name, period').in('id', classIds) : { data: [] }
+  const classes = new Map((classRows ?? []).map((c) => [c.id as string, c]))
   return NextResponse.json({
-    assignments: rows.map((a) => ({ ...a, url: shareUrl(origin(request), a.code), students: progress.get(a.id) ?? [] })),
+    assignments: rows.map((a) => ({ ...a, url: shareUrl(origin(request), a.code), students: progress.get(a.id) ?? [], className: (classes.get(a.class_id)?.name as string | undefined) ?? null, period: (classes.get(a.class_id)?.period as string | null | undefined) ?? null })),
   })
 }
 
