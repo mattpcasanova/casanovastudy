@@ -857,7 +857,7 @@ function BatchGrading() {
               <legend className="sr-only">Who marks these papers</legend>
               <p className="mb-3 text-sm font-semibold text-slate-800">Who marks these papers?</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {([[false, "Grade them for me", "Every paper is marked against the answer key, with feedback on each question. You check and change anything after."], [true, "I'll mark them myself", "Each paper opens beside a mark sheet made from your answer key. You click the marks the student earned (M1, A1, B1 or a number). Totals, grades and class results add up for you."]] as const).map(([value, title, text]) => (
+                {([[false, "Grade them for me", "Every paper is marked against the answer key, with feedback on each question. You check and change anything after."], [true, "I'll mark them myself", "Each paper opens beside a mark sheet made from your answer key. You click the marks the student earned on each question. Totals, grades and class results add up for you."]] as const).map(([value, title, text]) => (
                   <label key={title} className={cn("flex cursor-pointer gap-3 rounded-xl bg-white p-4 ring-1 ring-inset transition-colors", selfMark === value ? "ring-2 ring-blue-600" : "ring-slate-200 hover:ring-slate-300")}>
                     <input type="radio" name="who-marks" checked={selfMark === value} onChange={() => setSelfMark(value)} className="mt-1 h-4 w-4 shrink-0 border-slate-300" />
                     <span>
