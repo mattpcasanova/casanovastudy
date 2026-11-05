@@ -1,9 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ChevronLeft, ChevronRight, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, RotateCw, Trash2, X, ZoomIn, ZoomOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PaperPage } from "@/lib/grading/paper-pages"
+import type { PaperStamp } from "@/lib/grading/mark-points"
 
 // The student's paper beside the report, so the teacher can check an answer
 // the grader flagged ("Check this") without the stack of papers in front of
@@ -13,7 +14,26 @@ import type { PaperPage } from "@/lib/grading/paper-pages"
 
 const ZOOMS = [1, 1.5, 2, 3]
 
-export function PaperViewer({ pages, page, onPage, studentName, onClose, className }: {
+const STAMP_TONE = { earned: "text-emerald-700 ring-emerald-600", lost: "text-rose-700 ring-rose-600", score: "text-blue-800 ring-blue-700" } as const
+
+/** A mark as it sits on the paper: examiner's pen, a little see-through so the work under it stays readable. */
+export function StampLabel({ stamp, className }: { stamp: Pick<PaperStamp, "text" | "tone">; className?: string }) {
+  return (
+    <span className={cn("inline-block whitespace-nowrap rounded-md bg-white/85 px-1.5 py-0.5 font-mono text-[13px] font-bold leading-none ring-2 [print-color-adjust:exact]", STAMP_TONE[stamp.tone], className)}>
+      {stamp.text}
+    </span>
+  )
+}
+
+/** What the teacher is putting on the paper right now. */
+export interface PlacingStamp {
+  text: string
+  question: string
+  /** It already sits on the paper (she picked it up to move it). */
+  placed: boolean
+}
+
+export function PaperViewer({ pages, page, onPage, studentName, onClose, className, stamps = [], placing = null, onPlace, onPickStamp, onRemovePlacing, onCancelPlacing }: {
   pages: PaperPage[]
   /** 0-based page shown. */
   page: number
@@ -21,6 +41,15 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
   studentName: string
   onClose: () => void
   className?: string
+  /** Marks the teacher put on the paper (all pages; page is 1-based). */
+  stamps?: PaperStamp[]
+  /** A mark waiting to be put down: the next click on the page places it. */
+  placing?: PlacingStamp | null
+  onPlace?: (place: { page: number; x: number; y: number }) => void
+  /** A mark on the paper was clicked (to move it or take it off). */
+  onPickStamp?: (stamp: PaperStamp) => void
+  onRemovePlacing?: () => void
+  onCancelPlacing?: () => void
 }) {
   const [zoomIndex, setZoomIndex] = useState(0)
   const [rotation, setRotation] = useState(0)
@@ -47,11 +76,12 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return
       if (e.key === "ArrowLeft") { e.preventDefault(); go(current - 1) }
       else if (e.key === "ArrowRight") { e.preventDefault(); go(current + 1) }
-      else if (e.key === "Escape") onClose()
+      else if (e.key === "Escape") { if (placing && onCancelPlacing) { e.stopImmediatePropagation(); onCancelPlacing() } else onClose() }
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [current, go, onClose])
+    // Capture, so Esc puts a mark down before it ends marking.
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  }, [current, go, onClose, placing, onCancelPlacing])
 
   if (!count) return null
   const shown = pages[current]
@@ -77,6 +107,16 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
         <button type="button" onClick={onClose} className="rounded-lg p-2 hover:bg-white/10" aria-label="Close the paper"><X className="h-5 w-5" /></button>
       </header>
 
+      {placing && onPlace && (
+        <div className="flex flex-wrap items-center gap-2 bg-blue-700 px-3 py-2 text-sm" role="status">
+          <StampLabel stamp={{ text: placing.text, tone: "score" }} />
+          <span className="min-w-0 flex-1">{placing.placed ? "Click where it should go instead." : `Click the paper to put this mark on question ${placing.question}.`}</span>
+          {placing.placed && onRemovePlacing && (
+            <button type="button" onClick={onRemovePlacing} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25"><Trash2 className="h-4 w-4" />Take it off</button>
+          )}
+          {onCancelPlacing && <button type="button" onClick={onCancelPlacing} className="inline-flex h-9 items-center rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25">{placing.placed ? "Leave it" : "Skip"}</button>}
+        </div>
+      )}
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
         <div className="flex min-h-full items-start justify-center p-2">
           {/* A box the size the page takes up once rotated (its own aspect
@@ -90,22 +130,49 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
               containerType: "size",
             }}
             className="relative shrink-0 overflow-hidden rounded bg-white shadow-lg"
-            onDoubleClick={() => setZoomIndex((z) => (z === 0 ? 2 : 0))}
+            onDoubleClick={() => { if (!placing) setZoomIndex((z) => (z === 0 ? 2 : 0)) }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              key={shown.url}
-              src={shown.url}
-              alt={`Page ${current + 1} of ${studentName}'s paper`}
-              draggable={false}
-              onLoad={(e) => { const img = e.currentTarget; if (img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight) }}
+            {/* The page and the marks on it turn together; a mark's place is a
+                share of the page as scanned, so it holds through zoom and rotate. */}
+            <div
               style={{
                 width: sideways ? "100cqh" : "100%",
                 height: sideways ? "100cqw" : "100%",
                 transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
               }}
-              className="absolute left-1/2 top-1/2 max-w-none object-contain"
-            />
+              className={cn("absolute left-1/2 top-1/2", placing && onPlace && "cursor-crosshair")}
+              onClick={(e) => {
+                if (!placing || !onPlace) return
+                const box = e.currentTarget
+                const target = e.target as HTMLElement
+                if (target !== box && target.tagName !== "IMG") return
+                const { offsetX, offsetY } = e.nativeEvent
+                onPlace({ page: current + 1, x: Math.min(1, Math.max(0, offsetX / box.clientWidth)), y: Math.min(1, Math.max(0, offsetY / box.clientHeight)) })
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={shown.url}
+                src={shown.url}
+                alt={`Page ${current + 1} of ${studentName}'s paper`}
+                draggable={false}
+                onLoad={(e) => { const img = e.currentTarget; if (img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight) }}
+                className="h-full w-full max-w-none object-contain"
+              />
+              {stamps.filter((s) => s.page === current + 1).map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onPickStamp?.(s) }}
+                  disabled={!onPickStamp}
+                  style={{ left: `${s.x * 100}%`, top: `${s.y * 100}%`, transform: `translate(-50%, -50%) rotate(${-rotation}deg)` }}
+                  className="absolute cursor-pointer disabled:cursor-default"
+                  aria-label={`${s.text} on question ${s.question}${onPickStamp ? ": move or take off" : ""}`}
+                >
+                  <StampLabel stamp={s} />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {count > 1 && (
@@ -135,5 +202,28 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
         </nav>
       )}
     </section>
+  )
+}
+
+/**
+ * The paper with the teacher's marks on it, for printing (hidden on screen):
+ * one page per sheet after the report, so marked papers can be handed back.
+ */
+export function MarkedPages({ pages, stamps, studentName }: { pages: PaperPage[]; stamps: PaperStamp[]; studentName: string }) {
+  if (!pages.length || !stamps.length) return null
+  return (
+    <div className="hidden print:block">
+      {pages.map((p, i) => (
+        <div key={p.url} className="relative mx-auto break-before-page" style={{ width: "fit-content" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p.url} alt={`Page ${i + 1} of ${studentName}'s paper`} className="block max-h-[9.6in] max-w-full" />
+          {stamps.filter((s) => s.page === i + 1).map((s) => (
+            <span key={s.key} className="absolute" style={{ left: `${s.x * 100}%`, top: `${s.y * 100}%`, transform: "translate(-50%, -50%)" }}>
+              <StampLabel stamp={s} />
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
   )
 }

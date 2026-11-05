@@ -2868,6 +2868,44 @@ Total: <N> marks (marks printed on the paper | marks estimated)
   }
 
   /**
+   * A teacher marking papers herself: read the answer key (or, with none, one
+   * student's paper) once into a mark sheet: every question with its marks and
+   * the separate marks the scheme awards (M1, A1, B1 ...). parseTemplate reads
+   * the reply (lib/grading/mark-points.ts). One call per class set.
+   */
+  async readMarkingTemplate(files: Array<{ buffer: Buffer; name: string }>, source: 'key' | 'paper'): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
+    const content: Anthropic.ContentBlockParam[] = [
+      ...files.map((f) => gradingFileBlock(f)),
+      { type: 'text', text: `${source === 'key'
+        ? 'Above is the answer key or mark scheme for a test.'
+        : "Above are the pages of one student's test paper (there is no mark scheme). Use the question numbers and marks printed on it; ignore what the student wrote."} The teacher will mark every student's paper herself on screen. Write the mark sheet she will click through.
+
+For every question and sub-question that carries marks, in the order of the paper:
+- "q": the label as printed (1, 2a, 3(b)(ii)), without the word "Question".
+- "marks": the marks available.
+- "points": the separate marks the scheme awards, in order. Use the scheme's own codes exactly when it has them (M1, A1, B1, DM1, A1ft, C1 ...); a code worth two marks (B2) is one point. When the scheme lists marking points without codes (one mark each, as science schemes do), give each creditworthy point with "code": "". For "any three from" lists, give every acceptable point. Each point has a "note": what earns it, under 15 words, in the scheme's wording. Leave "points" out when the scheme only gives a total, and for answers marked by levels of response.
+- "levels": for answers marked by levels of response, how many levels the scheme has (e.g. 4). Otherwise leave it out.
+- "answer": the expected answer in under 25 words (a reminder for the teacher). Leave it out when the scheme gives none.
+The points of a question must be able to reach its marks. Do not invent codes the scheme doesn't use. No em dashes.
+
+Reply with JSON only:
+{"questions": [{"q": "1(a)", "marks": 3, "points": [{"code": "M1", "note": "attempts to differentiate"}, {"code": "A1", "note": "6x + 2"}, {"code": "B1", "note": "states x = 3"}], "answer": "6x + 2, x = 3"}, {"q": "2", "marks": 8, "levels": 4}]}` },
+    ]
+    const stream = this.anthropic.messages.stream({
+      model: GRADING_MODEL,
+      max_tokens: 32000,
+      // SDK 0.61 types lack 'adaptive'; forwarded at runtime.
+      thinking: { type: 'adaptive' } as unknown as Anthropic.ThinkingConfigParam,
+      messages: [{ role: 'user', content }],
+    })
+    const message = await stream.finalMessage()
+    const text = message.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim()
+    if (!text) throw new Error(`No mark sheet came back (stop reason: ${message.stop_reason})`)
+    console.log('Mark sheet usage:', message.usage)
+    return { text, usage: { input_tokens: message.usage.input_tokens, output_tokens: message.usage.output_tokens } }
+  }
+
+  /**
    * Class report for a graded batch (lib/grading/insights.ts builds `classData`:
    * per-question stats + feedback snippets, students numbered not named).
    * Returns the raw reply; parseClassInsights reads it. GRADING_MODEL (Sonnet 5.5),

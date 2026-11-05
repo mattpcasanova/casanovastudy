@@ -9,6 +9,7 @@
 // (the old single regex stopped at those words anywhere in the text).
 
 import { DEFAULT_SCALE, gradeFor } from './scale'
+import type { MarkPoint, StampPlace } from './mark-points'
 
 export interface GradedQuestion {
   questionNumber: string // bare label: "1", "2a", "3(b)(i)", "Section C 2a"
@@ -25,6 +26,16 @@ export interface GradedQuestion {
   checked?: boolean
   /** 1-based pages the student's answer is on, from a "Page: 3" / "Page: 3-4" line (gradings since 2026-11-04). */
   pages?: number[]
+  /** The separate marks on this question (M1, A1, B1 ...), each earned or not (lib/grading/mark-points.ts). */
+  points?: MarkPoint[]
+  /** A teacher-marked paper: this question is still waiting for its mark. */
+  unmarked?: boolean
+  /** Where the teacher put this question's score on the paper (questions with no mark points). */
+  at?: StampPlace
+  /** Levels of response: how many levels the scheme has. */
+  levels?: number
+  /** The expected answer in a line, for the teacher while marking (never sent to students). */
+  guide?: string
 }
 
 // "**Question 1a**, Mark: 2/2 - text", "Question 1a: Mark 2/2", "2b, Mark: 1/3 — text",

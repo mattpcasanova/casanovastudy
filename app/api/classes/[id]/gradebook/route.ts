@@ -3,6 +3,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
 import { buildGradebook, type GradebookPractice } from '@/lib/classes/gradebook'
+import { stillMarking } from '@/lib/grading/mark-points'
 import { ASSIGNMENT_COLUMNS, assignmentProgress, type AssignmentRow } from '@/lib/practice/server'
 
 // A class's gradebook grid: every graded set for the class × every student,
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [{ data: papers }, roster] = await Promise.all([
     supabase.from('grading_results')
-      .select('id, batch_id, exam_title, created_at, roster_id, student_name, total_marks, total_possible_marks, percentage, grade')
+      .select('id, batch_id, exam_title, created_at, roster_id, student_name, total_marks, total_possible_marks, percentage, grade, grade_breakdown')
       .eq('class_id', id).eq('user_id', user.id).not('batch_id', 'is', null).limit(5000),
     loadRoster(supabase, id),
   ])
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   )
 
   const gradebook = buildGradebook(
-    (papers ?? []).map((p) => ({
+    // A paper the teacher is still marking herself has no score yet.
+    (papers ?? []).filter((p) => !stillMarking(p.grade_breakdown)).map((p) => ({
       id: p.id, batchId: p.batch_id, title: p.exam_title, createdAt: p.created_at, rosterId: p.roster_id, studentName: p.student_name ?? '',
       marks: Number(p.total_marks), possible: Number(p.total_possible_marks), percentage: Number(p.percentage), grade: p.grade ?? '',
     })),

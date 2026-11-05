@@ -11,6 +11,7 @@ import { buildProfile, type AnswerRow } from '@/lib/learner/profile'
 import { fetchByIds } from '@/lib/school/server'
 import { assignedGuidesByRoster, assignmentProgress, ASSIGNMENT_COLUMNS, type AssignmentRow } from '@/lib/practice/server'
 import { courseAreas, focusSuggestions, scoreTrend, setSummaries, studentTrends, type CourseArea, type PracticeSummary, type ScoreRow, type StudentTrend, type Suggestion } from './progress'
+import { stillMarking } from '@/lib/grading/mark-points'
 
 export interface ProgressClass {
   id: string
@@ -62,7 +63,7 @@ export async function loadTeacherProgress(supabase: SupabaseClient, userId: stri
   const classIds = classes.map((c) => c.id)
   if (!classIds.length) return { year, years, courses: [], suggestions: [] }
 
-  const [papers, roster, assignments] = await Promise.all([
+  const [allPapers, roster, assignments] = await Promise.all([
     fetchByIds<AreaPaperRow & { percentage: number | string | null }>(classIds, (chunk, from, to) =>
       supabase.from('grading_results').select('batch_id, class_id, exam_title, created_at, roster_id, student_name, grade_breakdown, percentage')
         .in('class_id', chunk).eq('user_id', userId).not('batch_id', 'is', null).order('created_at').range(from, to)),
@@ -72,6 +73,8 @@ export async function loadTeacherProgress(supabase: SupabaseClient, userId: stri
       supabase.from('practice_assignments').select(ASSIGNMENT_COLUMNS).in('class_id', chunk).eq('teacher_id', userId).range(from, to)),
   ])
 
+  // Papers a teacher is still marking herself have no score yet.
+  const papers = allPapers.filter((p) => !stillMarking(p.grade_breakdown))
   const [topicsOf, progress, answers] = await Promise.all([
     topicsForBatches(supabase, userId, [...new Set(papers.map((p) => p.batch_id))]),
     assignmentProgress(supabase, assignments),

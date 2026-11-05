@@ -7,6 +7,7 @@ import { classWeakSpots } from '@/lib/classes/weak-spots'
 import { buildProfile, type AnswerRow } from '@/lib/learner/profile'
 import { classAreas, type AreaBatch } from '@/lib/classes/areas'
 import type { ClassInsightsAI } from '@/lib/grading/insights'
+import { stillMarking } from '@/lib/grading/mark-points'
 
 // The class page's lower half: graded class sets for this class, and the
 // class's top weak spots from linked students' answers (study_results is
@@ -26,6 +27,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const batches = new Map<string, { id: string; title: string | null; createdAt: string; papers: number; total: number; released: boolean }>()
   for (const r of graded ?? []) {
     const b = batches.get(r.batch_id) ?? { id: r.batch_id, title: r.exam_title, createdAt: r.created_at, papers: 0, total: 0, released: true }
+    // A paper the teacher is still marking herself has no score yet.
+    if (stillMarking(r.grade_breakdown)) { batches.set(r.batch_id, b); continue }
     b.papers += 1
     b.total += Number(r.percentage)
     b.released = b.released && r.released

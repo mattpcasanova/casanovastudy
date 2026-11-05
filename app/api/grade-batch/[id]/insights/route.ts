@@ -1,3 +1,4 @@
+import { stillMarking } from '@/lib/grading/mark-points'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { ClaudeService } from '@/lib/claude-api'
@@ -41,7 +42,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (dbError) return NextResponse.json({ error: 'Could not load results' }, { status: 500 })
   if (!rows?.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const papers: PaperForInsights[] = rows.map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] }))
+  // Papers the teacher is still marking herself have no marks to report on yet.
+  const papers: PaperForInsights[] = rows.filter((r) => !stillMarking(r.grade_breakdown)).map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] }))
   const signature = insightsSignature(papers)
 
   // Reuse the saved report unless the marks changed.

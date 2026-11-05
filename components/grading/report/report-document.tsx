@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, FileSearch, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronUp, FileSearch, MessageSquarePlus, Plus, Trash2, X } from "lucide-react"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { applyTags, type GradedQuestion } from "@/lib/grading/parse"
 import type { MarkingStyle } from "@/lib/grading/marking-style"
@@ -10,6 +10,7 @@ import { hasGrades, percentOf, type GradeScale } from "@/lib/grading/scale"
 import { adjustedTotals, adjustmentLine, MAX_ADJUSTMENTS, type GradeAdjustment } from "@/lib/grading/adjustments"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
+import { markedAs, pointsOf, readCode, setAllPoints, togglePoint, unmarkedCount, type MarkPoint, type StampTarget } from "@/lib/grading/mark-points"
 
 export interface ReportDraft {
   firstName: string
@@ -100,6 +101,60 @@ function AoInput({ value, onChange }: { value?: Record<string, number>; onChange
   )
 }
 
+/** A point as an examiner writes it: "M1" earned, "M0" lost; uncoded points show a tick or a cross. */
+function PointCode({ point, judged }: { point: MarkPoint; judged: boolean }) {
+  const c = readCode(point.code)
+  if (!c) return point.earned ? <Check className="h-4 w-4 shrink-0" aria-label="Earned" /> : judged ? <X className="h-4 w-4 shrink-0" aria-label="Not earned" /> : <span className="font-mono font-semibold">{point.marks}</span>
+  return <span className="shrink-0 font-mono font-semibold">{c.letters}{point.earned || !judged ? c.value : 0}{c.suffix}</span>
+}
+
+const pickButton = "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold ring-1 ring-inset transition-colors"
+
+/**
+ * Marking one question by clicking: the scheme's marks (M1, A1, B1 ...) as
+ * buttons, each earned or not, or a row of numbers when the scheme only gives
+ * a total. The mark follows the clicks.
+ */
+function MarkControls({ q, onChange, numbers, onGiven, active }: { q: GradedQuestion; onChange: (q: GradedQuestion) => void; numbers: boolean; /** A mark was just clicked: point index, or null for the question's score. */ onGiven?: (point: number | null) => void; /** The mark waiting to be put on the paper. */ active?: number | null }) {
+  const points = pointsOf(q)
+  const judged = !q.unmarked
+  if (points.length) {
+    return (
+      <div className="flex flex-wrap items-stretch gap-2 print:hidden" role="group" aria-label={`Marks for question ${q.questionNumber}`}>
+        {points.map((p, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-pressed={!!p.earned}
+            onClick={() => { onChange(togglePoint({ ...q, points }, i)); onGiven?.(i) }}
+            className={cn("flex min-h-10 max-w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm ring-1 ring-inset transition-colors", active === i && "outline outline-2 outline-offset-2 outline-blue-600",
+              p.earned ? "bg-emerald-700 text-white ring-emerald-800 hover:bg-emerald-800" : judged ? "bg-rose-50 text-rose-900 ring-rose-200 hover:bg-rose-100" : "bg-white text-slate-800 ring-slate-300 hover:bg-emerald-50")}
+          >
+            <PointCode point={p} judged={judged} />
+            {p.note && <span className="min-w-0">{p.note}</span>}
+          </button>
+        ))}
+        <button type="button" onClick={() => onChange(setAllPoints({ ...q, points }, true))} className={cn(pickButton, "bg-white text-emerald-800 ring-emerald-300 hover:bg-emerald-50")}>Full marks</button>
+        <button type="button" onClick={() => onChange(setAllPoints({ ...q, points }, false))} className={cn(pickButton, "bg-white text-rose-800 ring-rose-300 hover:bg-rose-50")}>None</button>
+      </div>
+    )
+  }
+  if (!numbers || !Number.isInteger(q.marksPossible) || q.marksPossible < 1 || q.marksPossible > 12) return null
+  return (
+    <div className="flex flex-wrap gap-1.5 print:hidden" role="group" aria-label={`Marks for question ${q.questionNumber}`}>
+      {Array.from({ length: q.marksPossible + 1 }, (_, n) => {
+        const on = judged && q.marksAwarded === n
+        return (
+          <button key={n} type="button" aria-pressed={on} onClick={() => { onChange(markedAs(q, n)); onGiven?.(null) }}
+            className={cn(pickButton, on ? "bg-blue-700 text-white ring-blue-800" : "bg-white text-slate-800 ring-slate-300 hover:bg-blue-50")}>
+            {n}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Text that is an input while editing and plain text otherwise. */
 function Editable({ value, onChange, editing, placeholder, className }: {
   value: string
@@ -123,30 +178,40 @@ function Editable({ value, onChange, editing, placeholder, className }: {
  * The grade report itself: what the teacher edits on screen and what prints.
  * Display toggles and branding come from the teacher's report settings.
  */
-export function ReportDocument({ draft, onChange, editing, settings, date, onShowPage, owner = false }: {
+export function ReportDocument({ draft, onChange, editing, marking = false, settings, date, onShowPage, owner = false, onGiven, placing = null }: {
   draft: ReportDraft
   onChange: (patch: Partial<ReportDraft>) => void
   editing: boolean
+  /** The teacher is marking this paper herself: marks are clicked, names and question labels are left alone. */
+  marking?: boolean
   settings: ReportSettings
   date: string
   /** The paper's pages are available: "Show the page" on a flagged question opens the viewer at its likely page. */
   onShowPage?: (questionIndex: number) => void
   /** The teacher who owns the report: can confirm "Check this" flags (saved on the breakdown). */
   owner?: boolean
+  /** A mark was just clicked while the paper is open: it can now be put on the page. */
+  onGiven?: (target: StampTarget) => void
+  /** The mark waiting to be put on the paper. */
+  placing?: StampTarget | null
 }) {
   const totals = reportTotals(draft)
   const showGrade = settings.showGrade && hasGrades(draft.scale)
   const aos = settings.showAo ? aoTotals(draft.breakdown) : []
   const style = draft.markingStyle
   const [confirmRemove, setConfirmRemove] = useState<number | null>(null)
+  const [commentOpen, setCommentOpen] = useState<number | null>(null)
+  const toMark = unmarkedCount(draft.breakdown)
+  // Marking keeps the report's own details as they are; only a full edit changes them.
+  const details = editing && !marking
 
   const setQuestion = (i: number, patch: Partial<GradedQuestion>) =>
     onChange({ breakdown: draft.breakdown.map((q, k) => (k === i ? { ...q, ...patch } : q)) })
 
-  const setMarks = (i: number, value: number) => {
-    const q = draft.breakdown[i]
-    setQuestion(i, { marksAwarded: Math.min(Math.max(0, value), q.marksPossible) })
-  }
+  const replaceQuestion = (i: number, next: GradedQuestion) =>
+    onChange({ breakdown: draft.breakdown.map((q, k) => (k === i ? next : q)) })
+
+  const setMarks = (i: number, value: number) => replaceQuestion(i, markedAs(draft.breakdown[i], value))
 
   const studentName = `${draft.firstName} ${draft.lastName}`.trim()
   const classLine = [draft.className, draft.classPeriod && `Period ${draft.classPeriod.replace(/^p(eriod)?\s*/i, '')}`].filter(Boolean).join(' · ')
@@ -161,7 +226,7 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
           </p>
         )}
         <div className="flex flex-wrap items-baseline gap-2">
-          {editing ? (
+          {details ? (
             <>
               <Editable value={draft.firstName} onChange={(v) => onChange({ firstName: v })} editing placeholder="First name" className={cn(fontDisplay, "w-40 text-2xl font-semibold")} />
               <Editable value={draft.lastName} onChange={(v) => onChange({ lastName: v })} editing placeholder="Last name" className={cn(fontDisplay, "w-48 text-2xl font-semibold")} />
@@ -171,7 +236,7 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-slate-600">
-          {editing ? (
+          {details ? (
             <>
               <Editable value={draft.examTitle} onChange={(v) => onChange({ examTitle: v })} editing placeholder="Exam title" className="w-56" />
               <Editable value={draft.className} onChange={(v) => onChange({ className: v })} editing placeholder="Class" className="w-40" />
@@ -208,7 +273,7 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
         )}
       </div>
 
-      {(draft.adjustments.length > 0 || editing) && (
+      {(draft.adjustments.length > 0 || details) && (
         <div className="break-inside-avoid rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
           <h3 className={cn(fontDisplay, "text-lg font-semibold text-slate-900")}>Extra credit and points off</h3>
           {draft.adjustments.length > 0 && (
@@ -231,10 +296,16 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
           ) : (
             <p className="mb-2 text-sm text-slate-600">None yet. Add extra credit, a late penalty or an accommodation for this student. The reason shows here and in the gradebook comment.</p>
           )}
-          {editing && draft.adjustments.length < MAX_ADJUSTMENTS && (
+          {details && draft.adjustments.length < MAX_ADJUSTMENTS && (
             <div className="mt-3"><AddAdjustment onAdd={(a) => onChange({ adjustments: [...draft.adjustments, a] })} /></div>
           )}
         </div>
+      )}
+
+      {toMark > 0 && (
+        <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-950 ring-1 ring-inset ring-amber-200 print:hidden" role="status">
+          <span className="font-semibold">Marking in progress.</span> {toMark} of {draft.breakdown.length} question{draft.breakdown.length === 1 ? '' : 's'} still to mark. The score counts in class results once every question has a mark.
+        </p>
       )}
 
       {aos.length > 0 && (
@@ -255,7 +326,7 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
             <div key={i} className={cn("rounded-lg border p-4 break-inside-avoid", editing ? "border-blue-200 bg-blue-50/40" : "bg-muted/30")}>
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  {editing ? (
+                  {details ? (
                     <input
                       value={q.questionNumber}
                       onChange={(e) => setQuestion(i, { questionNumber: e.target.value })}
@@ -264,6 +335,14 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                     />
                   ) : (
                     <span className="font-semibold">{label(q.questionNumber)}</span>
+                  )}
+                  {q.unmarked && (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-200 print:hidden">Not marked yet</span>
+                  )}
+                  {marking && onShowPage && (
+                    <button type="button" onClick={() => onShowPage(i)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-white print:hidden" aria-label={`Show the page for question ${label(q.questionNumber)}`}>
+                      <FileSearch className="h-3.5 w-3.5" /> Page
+                    </button>
                   )}
                   {q.check && q.checked && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200 print:hidden" title={q.check}>
@@ -280,7 +359,11 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                     <span key={k} className="rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-800">{k} {fmt(v)}</span>
                   ))}
                 </div>
-                {editing ? (
+                {marking && pointsOf(q).length > 0 ? (
+                  <span className={cn("shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold", q.unmarked ? "bg-slate-100 text-slate-700" : pillClass(q))}>
+                    {q.unmarked ? "–" : fmt(q.marksAwarded)}/{fmt(q.marksPossible)}
+                  </span>
+                ) : editing ? (
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setMarks(i, q.marksAwarded - 1)} className="rounded border border-gray-200 bg-white p-1.5 hover:bg-gray-100" aria-label="Decrease mark">
                       <ChevronDown className="h-4 w-4" />
@@ -299,6 +382,7 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                       <ChevronUp className="h-4 w-4" />
                     </button>
                     <span className="mx-1 text-sm text-muted-foreground">/</span>
+                    {marking ? <span className="w-8 text-sm font-medium">{fmt(q.marksPossible)}</span> : (
                     <input
                       type="number"
                       min={0}
@@ -311,7 +395,8 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                       className="w-14 rounded border bg-white px-1 py-1 text-center text-sm"
                       aria-label="Marks possible"
                     />
-                    {confirmRemove === i ? (
+                    )}
+                    {marking ? null : confirmRemove === i ? (
                       <span className="ml-2 flex items-center gap-1 text-xs">
                         <button type="button" onClick={() => { onChange({ breakdown: draft.breakdown.filter((_, k) => k !== i) }); setConfirmRemove(null) }} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">Remove</button>
                         <button type="button" onClick={() => setConfirmRemove(null)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">Keep</button>
@@ -323,8 +408,8 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                     )}
                   </div>
                 ) : (
-                  <span className={cn("shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", pillClass(q))}>
-                    {fmt(q.marksAwarded)}/{fmt(q.marksPossible)} marks
+                  <span className={cn("shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", q.unmarked ? "bg-slate-100 text-slate-700" : pillClass(q))}>
+                    {q.unmarked ? "–" : fmt(q.marksAwarded)}/{fmt(q.marksPossible)} marks
                   </span>
                 )}
               </div>
@@ -356,23 +441,46 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
               )}
 
               {editing ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {owner && q.guide && (
+                    <p className="text-sm text-slate-700 print:hidden"><span className="font-semibold text-slate-900">Answer:</span> {q.guide}</p>
+                  )}
+                  <MarkControls q={q} onChange={(next) => replaceQuestion(i, next)} numbers={marking} onGiven={onGiven ? (point) => onGiven({ question: i, point }) : undefined} active={placing?.question === i ? placing.point : undefined} />
+                  {q.levels && (
+                    <div className="flex flex-wrap items-center gap-1.5 print:hidden" role="group" aria-label={`Level for question ${q.questionNumber}`}>
+                      <span className="mr-1 text-sm font-medium text-slate-700">Level</span>
+                      {Array.from({ length: q.levels }, (_, n) => String(n + 1)).map((lv) => (
+                        <button key={lv} type="button" aria-pressed={q.level === lv} onClick={() => setQuestion(i, { level: q.level === lv ? undefined : lv })}
+                          className={cn(pickButton, q.level === lv ? "bg-amber-700 text-white ring-amber-800" : "bg-white text-slate-800 ring-slate-300 hover:bg-amber-50")}>
+                          {lv}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {marking && !q.explanation && commentOpen !== i ? (
+                    <button type="button" onClick={() => setCommentOpen(i)} className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-white print:hidden">
+                      <MessageSquarePlus className="h-4 w-4" /> Add a comment
+                    </button>
+                  ) : (
                   <textarea
                     value={q.explanation}
                     onChange={(e) => setQuestion(i, { explanation: e.target.value })}
-                    rows={3}
+                    rows={marking ? 2 : 3}
+                    autoFocus={marking && commentOpen === i}
+                    placeholder={marking ? "A comment for the student (optional)" : undefined}
                     className="w-full resize-y rounded-md border bg-white px-3 py-2 text-sm"
                     aria-label="Feedback"
                   />
+                  )}
                   {(style.codes || style.levels || style.ao || q.markCodes || q.level || q.ao) && (
                     <div className="flex flex-wrap gap-2 text-xs">
-                      {(style.codes || q.markCodes) && (
+                      {(style.codes || q.markCodes) && !q.points?.length && (
                         <label className="flex items-center gap-1.5 text-slate-600">
                           Codes
                           <input value={q.markCodes ?? ''} onChange={(e) => setQuestion(i, { markCodes: e.target.value || undefined })} placeholder="M1 A1 B0" className="w-36 rounded border bg-white px-2 py-1 font-mono" />
                         </label>
                       )}
-                      {(style.levels || q.level) && (
+                      {(style.levels || q.level) && !q.levels && (
                         <label className="flex items-center gap-1.5 text-slate-600">
                           Level
                           <input value={q.level ?? ''} onChange={(e) => setQuestion(i, { level: e.target.value || undefined })} placeholder="3" className="w-16 rounded border bg-white px-2 py-1" />
@@ -383,13 +491,25 @@ export function ReportDocument({ draft, onChange, editing, settings, date, onSho
                   )}
                 </div>
               ) : (
-                settings.showFeedback && q.explanation && <p className="whitespace-pre-wrap text-sm text-muted-foreground">{q.explanation}</p>
+                <>
+                  {settings.showFeedback && !q.unmarked && q.points?.some((p) => p.note) && (
+                    <ul className="mb-2 space-y-1 text-sm">
+                      {q.points.map((p, k) => (
+                        <li key={k} className={cn("flex items-start gap-2", p.earned ? "text-slate-800" : "text-slate-500")}>
+                          <span className={cn("mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs", p.earned ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}><PointCode point={p} judged /></span>
+                          <span>{p.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {settings.showFeedback && q.explanation && <p className="whitespace-pre-wrap text-sm text-muted-foreground">{q.explanation}</p>}
+                </>
               )}
             </div>
           ))}
         </div>
 
-        {editing && (
+        {details && (
           <button
             type="button"
             onClick={() => onChange({ breakdown: [...draft.breakdown, { questionNumber: String(draft.breakdown.length + 1), marksAwarded: 0, marksPossible: 1, explanation: '' }] })}

@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, Plus, FileText, RefreshCw, Trash2 } from "lucide-react"
+import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, PencilLine, Plus, FileText, RefreshCw, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
@@ -58,6 +58,19 @@ interface Row {
   has_pages?: boolean
   /** A score the teacher entered by hand (no paper, no breakdown). */
   by_hand?: boolean
+  /** Questions the teacher still has to mark herself (a mark sheet set up with "I'll mark them myself"). */
+  to_mark?: number
+  self_marked?: boolean
+}
+
+/** A paper waiting for the teacher's marks: no score yet. */
+function ToMarkChip({ r }: { r: Row }) {
+  const all = (r.grade_breakdown ?? []).length
+  return (
+    <span className="whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
+      {r.to_mark === all ? "Not marked yet" : `${all - (r.to_mark ?? 0)} of ${all} marked`}
+    </span>
+  )
 }
 
 /** The marks as graded, before extra credit / points off. */
@@ -214,7 +227,8 @@ function BatchResults({ id }: { id: string }) {
   const exportRows: ExportRow[] = useMemo(() => {
     const byRoster = new Map(roster.map((e) => [e.rosterId, e]))
     return [
-      ...(rows ?? []).map((r) => {
+      // A paper still waiting for the teacher's marks has no score to send.
+      ...(rows ?? []).filter((r) => !r.to_mark).map((r) => {
         const e = r.roster_id ? byRoster.get(r.roster_id) : undefined
         const n = e ? { firstName: e.firstName, lastName: e.lastName } : parseName(r.student_name)
         return { ...n, studentNumber: e?.studentNumber ?? null, email: e?.email ?? null, marks: Number(r.total_marks), possible: Number(r.total_possible_marks), pct: Number(r.percentage), status: e?.status ?? null, comment: gradebookComment(normalizeAdjustments(r.adjustments)) || null }
@@ -223,10 +237,13 @@ function BatchResults({ id }: { id: string }) {
     ]
   }, [rows, roster])
 
-  const reportPapers = useMemo(() => (rows ?? []).map((r) => ({ id: r.id, name: r.student_name, breakdown: r.grade_breakdown ?? [] })), [rows])
+  const reportPapers = useMemo(() => (rows ?? []).filter((r) => !r.to_mark).map((r) => ({ id: r.id, name: r.student_name, breakdown: r.grade_breakdown ?? [] })), [rows])
 
   const first = rows?.[0]
-  const average = rows?.length ? rows.reduce((s, r) => s + Number(r.percentage), 0) / rows.length : 0
+  // Papers the teacher is still marking herself have no score yet.
+  const marked = (rows ?? []).filter((r) => !r.to_mark)
+  const waiting = (rows ?? []).filter((r) => r.to_mark)
+  const average = marked.length ? marked.reduce((s, r) => s + Number(r.percentage), 0) / marked.length : 0
   const title = first?.exam_title || "Class results"
   const subtitle = [first?.class_name, first?.class_period && `Period ${first.class_period}`].filter(Boolean).join(" · ")
 
@@ -262,7 +279,7 @@ function BatchResults({ id }: { id: string }) {
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
-                <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · class average {average.toFixed(1)}% · <Link href={`/grade-exam/batch/${id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></p>
+                <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · {marked.length ? `class average ${average.toFixed(1)}%${waiting.length ? ` (${marked.length} marked)` : ""}` : "no marks yet"} · <Link href={`/grade-exam/batch/${id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></p>
               </div>
               <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
             </div>
@@ -294,6 +311,15 @@ function BatchResults({ id }: { id: string }) {
                 <option value="score">Sort by score</option>
               </select>
             </div>
+            {waiting.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200 sm:flex-row sm:items-center sm:justify-between" role="status">
+                <div className="min-w-0">
+                  <p className="font-semibold text-blue-950">{waiting.length} paper{waiting.length === 1 ? " is" : "s are"} waiting for your marks</p>
+                  <p className="text-sm text-blue-900">Each opens beside its mark sheet: click the marks the student earned, then go on to the next paper. Scores join the class average as you finish them.</p>
+                </div>
+                <Link href={`/grade-report/${(sorted.find((r) => r.to_mark) ?? waiting[0]).id}?mark=1`} className={cn(actionButtonPrimary, "h-11 w-full shrink-0 px-5 sm:w-auto")}><PencilLine />{marked.length ? "Keep marking" : "Start marking"}</Link>
+              </div>
+            )}
             {scaleOpen && scale && (
               <div className="mt-4 max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
                 <h2 className="mb-1 font-semibold text-slate-900">Grade scale for this class set</h2>
@@ -321,7 +347,7 @@ function BatchResults({ id }: { id: string }) {
                         aria-label="Student name"
                         className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-base font-semibold text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none"
                       />
-                      <span className={cn("shrink-0 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", pct >= 80 ? "bg-emerald-50 text-emerald-800" : pct >= 65 ? "bg-blue-50 text-blue-800" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{pct.toFixed(1)}%</span>{changeChip(r)}
+                      {r.to_mark ? <ToMarkChip r={r} /> : <><span className={cn("shrink-0 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", pct >= 80 ? "bg-emerald-50 text-emerald-800" : pct >= 65 ? "bg-blue-50 text-blue-800" : pct >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{pct.toFixed(1)}%</span>{changeChip(r)}</>}
                     </div>
                     <div className="mt-2 flex items-center gap-2 pl-1.5">
                       <span className="text-sm text-slate-600">{r.total_marks}/{r.total_possible_marks} marks{r.grade ? <> · <strong className="text-slate-900">{r.grade}</strong></> : null}</span>
@@ -329,7 +355,9 @@ function BatchResults({ id }: { id: string }) {
                       {r.group_id && r.group_members && r.group_members.length > 1 && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Group of {r.group_members.length}</span>}
                       {checksFor(r) > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-inset ring-amber-300" title="The grader wasn't sure it read these answers right">{checksFor(r)} to check</span>}
                       {r.by_hand && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Entered by hand</span>}
-                      <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "ml-auto text-blue-700")}><FileText />Report</Link>
+                      {r.to_mark
+                        ? <Link href={`/grade-report/${r.id}?mark=1`} className={cn(actionButtonPrimary, "ml-auto")}><PencilLine />Mark</Link>
+                        : <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "ml-auto text-blue-700")}><FileText />Report</Link>}
                     </div>
                   </li>
                 )
@@ -373,9 +401,11 @@ function BatchResults({ id }: { id: string }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{r.total_marks}/{r.total_possible_marks}</td>
-                      <td className="px-4 py-3"><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span>{changeChip(r)}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">{r.grade}</td>
-                      <td className="px-4 py-2 text-right"><Link href={`/grade-report/${r.id}`} className={cn(actionButton, "text-blue-700")}><FileText />Open report</Link></td>
+                      <td className="px-4 py-3">{r.to_mark ? <ToMarkChip r={r} /> : <><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span>{changeChip(r)}</>}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">{r.to_mark ? "" : r.grade}</td>
+                      <td className="px-4 py-2 text-right">{r.to_mark
+                        ? <Link href={`/grade-report/${r.id}?mark=1`} className={actionButtonPrimary}><PencilLine />Mark</Link>
+                        : <Link href={`/grade-report/${r.id}`} className={cn(actionButton, "text-blue-700")}><FileText />Open report</Link>}</td>
                     </tr>
                   ))}
                   {noPaperRows.map((e) => (
@@ -435,12 +465,12 @@ function BatchResults({ id }: { id: string }) {
               rows={exportRows}
               classroomSync={classInfo?.googleCourseId ? <GoogleClassroomSync batchId={id} title={title} /> : undefined}
             />
-            <ClassReport
+            {marked.length > 0 && <ClassReport
               batchId={id}
               papers={reportPapers}
               saved={saved}
               actions={<Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>}
-            />
+            />}
           </>
         )}
       </main>

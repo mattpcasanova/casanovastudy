@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GRADING_MODEL } from '@/lib/claude-api'
 import { requireTeacher } from '@/lib/api-auth'
-import { checkGrading, planBlockResponse } from '@/lib/plans'
+import { checkGrading, gradingBlock, planBlockResponse } from '@/lib/plans'
 import { gradePaper, markingProgress, type PaperFile } from '@/lib/grading/grade-paper'
 import { fetchUploadedImageBuffers } from '@/lib/uploads/server-images'
 import { pickUploadRefs } from '@/lib/uploads/refs'
@@ -11,10 +11,14 @@ import { matchRoster, parseName } from '@/lib/grading/names'
 import { groupMembersFrom } from '@/lib/grading/group'
 import { randomUUID } from 'crypto'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
+import { blankBreakdown, normalizeTemplate } from '@/lib/grading/mark-points'
+import { gradeFor } from '@/lib/grading/scale'
 
 // Batch grading, step 2: grade one student's paper (pages already uploaded to
 // Cloudinary) against the batch's answer key, save it with the batch id, and
 // stream progress then the score (NDJSON). The browser runs a few at a time.
+// With { selfMark: true, template } nothing is graded: the paper is saved with
+// a blank mark sheet for the teacher to mark herself (lib/grading/mark-points.ts).
 
 export const maxDuration = 300
 const MAX_PAGES = 40
@@ -43,7 +47,10 @@ export async function POST(request: NextRequest) {
   const str = (v: unknown, n = 200) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null)
   const studentName = str(body.studentName, 120) ?? 'Student'
 
-  const block = await checkGrading(user.id)
+  // The teacher marks these herself: no grading call, so nothing to count toward the day's papers.
+  const template = body.selfMark === true ? normalizeTemplate(body.template) : null
+  if (body.selfMark === true && !template?.length) return NextResponse.json({ error: 'The mark sheet is empty' }, { status: 400 })
+  const block = template ? await gradingBlock(user.id) : await checkGrading(user.id)
   if (block) return planBlockResponse(block)
 
   const { data: settingsRow } = await createAdminClient().from('teacher_report_settings').select('*').eq('user_id', user.id).maybeSingle()
@@ -81,20 +88,30 @@ export async function POST(request: NextRequest) {
       try {
         const markSchemeBody = (body.markScheme ?? {}) as { texts?: unknown; images?: unknown }
         send({ type: 'status', message: 'Loading pages' })
-        const [markImages, pageImages] = await Promise.all([
+        const pageUrls = pickUploadRefs(body.pages, MAX_PAGES)
+        const [markImages, pageImages] = template ? [[], []] : await Promise.all([
           fetchUploadedImageBuffers(markSchemeBody.images, MAX_PAGES, user.id),
           fetchUploadedImageBuffers(body.pages, MAX_PAGES, user.id),
         ])
         const student = [...toFiles(pageImages), ...textFiles(body.texts)]
-        const pageUrls = pickUploadRefs(body.pages, MAX_PAGES)
-        if (!student.length) throw new Error('This paper has no pages')
+        if (!student.length && !pageUrls.length) throw new Error('This paper has no pages')
 
         // Before the first marks appear Claude is reading the pages and thinking.
-        send({ type: 'status', message: `Reading ${student.length} page${student.length === 1 ? '' : 's'}` })
+        if (!template) send({ type: 'status', message: `Reading ${student.length} page${student.length === 1 ? '' : 's'}` })
         let content = ''
         let last = ''
         let countedAt = 0
-        const graded = await gradePaper({
+        const blank = template ? blankBreakdown(template) : null
+        const blankPossible = blank?.reduce((s, q) => s + q.marksPossible, 0) ?? 0
+        const graded = blank ? {
+          breakdown: blank,
+          totalMarks: 0,
+          totalPossible: blankPossible,
+          percentage: 0,
+          grade: gradeFor(scale, 0, blankPossible),
+          content: 'Marked by the teacher.',
+          usage: null,
+        } : await gradePaper({
           markScheme: [...textFiles(markSchemeBody.texts), ...toFiles(markImages)],
           student,
           additionalComments: str(body.additionalComments, 4000) ?? undefined,
@@ -134,7 +151,7 @@ export async function POST(request: NextRequest) {
             grade: graded.grade,
             content: graded.content,
             grade_breakdown: graded.breakdown,
-            ai_breakdown: graded.breakdown, // the AI's marks as graded, kept to measure teacher agreement
+            ai_breakdown: blank ? null : graded.breakdown, // the AI's marks as graded, kept to measure teacher agreement
             additional_comments: str(body.additionalComments, 4000),
             class_name: str(body.className, 120),
             class_period: str(body.classPeriod, 40),
@@ -167,6 +184,7 @@ export async function POST(request: NextRequest) {
           totalPossible: graded.totalPossible,
           percentage: graded.percentage,
           grade: graded.grade,
+          toMark: blank ? blank.length : 0,
         })
       } catch (e) {
         console.error(`Batch grading failed for ${studentName}:`, e)

@@ -9,6 +9,7 @@ import { settingsFromRow } from '@/lib/grading/report-settings'
 import { paperDaysLate } from '@/lib/grading/late'
 import { adjustedTotals, normalizeAdjustments } from '@/lib/grading/adjustments'
 import { signUploads } from '@/lib/uploads/storage-server'
+import { cleanPlace, cleanPoints, forStudent, unmarkedCount } from '@/lib/grading/mark-points'
 
 const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' ? v.trim().slice(0, max) : undefined
@@ -36,6 +37,16 @@ function cleanQuestion(raw: unknown): GradedQuestion | string {
     const pages = q.pages.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 200).slice(0, 6)
     if (pages.length) out.pages = pages
   }
+  // Mark points (M1, A1, B1 ...) and a teacher-marked paper's waiting questions.
+  const points = cleanPoints(q.points)
+  if (points.length) out.points = points
+  if (q.unmarked === true) out.unmarked = true
+  const at = cleanPlace(q.at)
+  if (at) out.at = at
+  const levels = Number(q.levels)
+  if (Number.isInteger(levels) && levels >= 2 && levels <= 8) out.levels = levels
+  const guide = str(q.guide, 300)
+  if (guide) out.guide = guide
   if (q.ao && typeof q.ao === 'object') {
     const ao: Record<string, number> = {}
     for (const [k, v] of Object.entries(q.ao as Record<string, unknown>).slice(0, 8)) {
@@ -214,9 +225,21 @@ export async function GET(
       }
     }
 
+    // The set's papers in name order, so the teacher can move paper to paper while marking.
+    let setPapers: Array<{ id: string; name: string; toMark: number }> = []
+    if (gradingResult.batch_id && requestUserId === gradingResult.user_id) {
+      const { data: siblings } = await supabase.from('grading_results').select('id, student_name, student_last_name, student_first_name, grade_breakdown')
+        .eq('batch_id', gradingResult.batch_id).eq('user_id', gradingResult.user_id).limit(500)
+      setPapers = (siblings ?? [])
+        .map((r) => ({ id: r.id as string, name: (r.student_name as string) ?? 'Student', sort: `${r.student_last_name ?? ''} ${r.student_first_name ?? ''} ${r.student_name ?? ''}`.trim().toLowerCase(), toMark: unmarkedCount(r.grade_breakdown) }))
+        .sort((a, b) => a.sort.localeCompare(b.sort))
+        .map(({ sort: _sort, ...r }) => r)
+    }
+
     return NextResponse.json({
       success: true,
       data: {
+        setPapers,
         id: gradingResult.id,
         studentName: gradingResult.student_name,
         studentFirstName: gradingResult.student_first_name,
@@ -239,7 +262,7 @@ export async function GET(
         gradeScale: normalizeScale(gradingResult.grade_scale),
         markingStyle: normalizeMarkingStyle(gradingResult.marking_style),
         content: gradingResult.content,
-        gradeBreakdown: gradingResult.grade_breakdown,
+        gradeBreakdown: requestUserId === gradingResult.user_id || !Array.isArray(gradingResult.grade_breakdown) ? gradingResult.grade_breakdown : forStudent(gradingResult.grade_breakdown),
         additionalComments: gradingResult.additional_comments,
         teacherComment: gradingResult.teacher_comment,
         adjustments: normalizeAdjustments(gradingResult.adjustments),

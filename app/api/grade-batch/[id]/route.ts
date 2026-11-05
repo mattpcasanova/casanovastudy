@@ -11,6 +11,7 @@ import { acceptAnswerPlan, applyAcceptance, normalizeAnswerList, type AcceptAnsw
 import { adjustedTotals, normalizeAdjustments, withAdjustment } from '@/lib/grading/adjustments'
 import type { GradedQuestion } from '@/lib/grading/parse'
 import { ownsUploadPath, pickUploadRefs } from '@/lib/uploads/refs'
+import { templateFromBreakdown, unmarkedCount } from '@/lib/grading/mark-points'
 
 // A batch's results (the class results page): every paper with its per-question
 // breakdown, plus the saved class report and whether it still matches the marks. Owner only.
@@ -21,15 +22,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data, error: dbError } = await createAdminClient()
     .from('grading_results')
-    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, group_id, group_members, adjustments, page_urls, student_exam_filename')
+    .select('id, student_name, total_marks, total_possible_marks, percentage, grade, grade_scale, exam_title, class_name, class_period, class_id, roster_id, student_user_id, released, created_at, grade_breakdown, ai_breakdown, group_id, group_members, adjustments, page_urls, student_exam_filename')
     .eq('batch_id', id)
     .eq('user_id', user.id)
     .order('student_name', { ascending: true })
   if (dbError) return NextResponse.json({ error: 'Could not load results' }, { status: 500 })
   // has_pages: the paper can be regraded (migration 074); by_hand: a score the teacher entered.
-  const results = (data ?? []).map(({ page_urls, student_exam_filename, ...r }) => ({ ...r, has_pages: Array.isArray(page_urls) && page_urls.length > 0, by_hand: student_exam_filename === 'Entered by hand' }))
+  // to_mark: questions the teacher still has to mark herself; self_marked: a mark sheet, not the grader.
+  const results = (data ?? []).map(({ page_urls, student_exam_filename, ai_breakdown, ...r }) => {
+    const sheet = !ai_breakdown && Array.isArray(r.grade_breakdown) && r.grade_breakdown.some((q) => q?.unmarked || Array.isArray(q?.points))
+    return { ...r, has_pages: Array.isArray(page_urls) && page_urls.length > 0, by_hand: student_exam_filename === 'Entered by hand', to_mark: unmarkedCount(r.grade_breakdown), self_marked: sheet }
+  })
+  // The set's mark sheet (from any paper the teacher is marking herself), for papers added later.
+  const sheetPaper = results.find((r) => r.self_marked)
+  const template = sheetPaper ? templateFromBreakdown(sheetPaper.grade_breakdown) : null
   const { data: saved } = await createAdminClient().from('grading_batch_insights').select('signature, data, created_at').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
-  const signature = insightsSignature(results.map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })))
+  const signature = insightsSignature(results.filter((r) => !r.to_mark).map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })))
   const insights = saved ? { insights: saved.data, current: saved.signature === signature, createdAt: saved.created_at } : null
 
   // In a class: roster students with no paper (and what the teacher marked
@@ -57,6 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // What adding more papers later reuses: the answer key, notes and Classroom assignment.
   const { data: setupRow } = await createAdminClient().from('grading_batches').select('mark_scheme, notes, classroom_course_id, classroom_work_id').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
   const setup = setupRow ? {
+    template,
     markScheme: setupRow.mark_scheme ?? null,
     notes: setupRow.notes ?? null,
     classroom: setupRow.classroom_course_id && setupRow.classroom_work_id ? { courseId: setupRow.classroom_course_id, workId: setupRow.classroom_work_id } : null,

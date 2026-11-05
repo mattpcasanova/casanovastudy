@@ -23,7 +23,8 @@ import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
+import { AlertCircle, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, PencilLine, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
+import type { TemplateQuestion } from "@/lib/grading/mark-points"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -59,6 +60,8 @@ interface Page {
 type PaperStatus = {
   state: "waiting" | "grading" | "done" | "error"
   id?: string; marks?: number; possible?: number; percentage?: number; grade?: string; error?: string
+  /** Set up for the teacher to mark herself: questions waiting. */
+  toMark?: number
   /** Live progress while grading. */
   message?: string; graded?: number; total?: number | null
   startedAt?: number; seconds?: number
@@ -95,6 +98,11 @@ function BatchGrading() {
   const [gradeScale, setGradeScale] = useState<GradeScale | null>(null)
   const [markingStyle, setMarkingStyle] = useState<MarkingStyle>({})
   const [optionsOpen, setOptionsOpen] = useState(false)
+  // Who marks: the grader, or the teacher herself on a mark sheet read from the answer key.
+  const [selfMark, setSelfMark] = useState(false)
+  const [template, setTemplate] = useState<TemplateQuestion[] | null>(null)
+  const templateRef = useRef<TemplateQuestion[] | null>(null)
+  const [sheetStatus, setSheetStatus] = useState<"idle" | "reading">("idle")
   // Start from the teacher's saved defaults (report settings).
   useEffect(() => {
     void (async () => {
@@ -191,6 +199,8 @@ function BatchGrading() {
     }
     if (setup?.notes) setNotes(setup.notes)
     if (setup?.classroom) setClassroomSource(setup.classroom)
+    // A set the teacher is marking herself: new papers get the same mark sheet.
+    if (Array.isArray(setup?.template) && setup.template.length) { templateRef.current = setup.template; setTemplate(setup.template); setSelfMark(true) }
     return true
   }
   useEffect(() => {
@@ -567,6 +577,7 @@ function BatchGrading() {
           rosterId: paper.match.confidence === "sure" && !paper.match.rosterId?.startsWith("temp-") ? paper.match.rosterId : undefined,
           groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
+          ...(selfMark ? { selfMark: true, template: templateRef.current } : {}),
           classroom: classroomSource ?? undefined,
           pages: imagePages.map((p) => ({ path: p.path, name: p.label })),
           texts: textPages.map((p) => ({ name: p.label, content: p.text })),
@@ -585,7 +596,7 @@ function BatchGrading() {
         else if (event.type === "error") throw new Error(String(event.error || "Grading failed"))
         else if (event.type === "done") {
           finished = true
-          setResults((r) => ({ ...r, [paper.key]: { state: "done", id: String(event.id), marks: Number(event.totalMarks), possible: Number(event.totalPossible), percentage: Number(event.percentage), grade: String(event.grade), seconds: (Date.now() - startedAt) / 1000 } }))
+          setResults((r) => ({ ...r, [paper.key]: { state: "done", id: String(event.id), marks: Number(event.totalMarks), possible: Number(event.totalPossible), percentage: Number(event.percentage), grade: String(event.grade), toMark: Number(event.toMark) || 0, seconds: (Date.now() - startedAt) / 1000 } }))
         }
       })
       if (!finished) throw new Error("The connection dropped before this paper finished")
@@ -600,8 +611,41 @@ function BatchGrading() {
     }
   }
 
+  // "I'll mark them myself": the answer key is read once into a mark sheet
+  // (questions, marks, the scheme's M1/A1/B1 points). With no key at all, the
+  // questions and marks come off the first paper.
+  const readMarkSheet = async (): Promise<boolean> => {
+    if (templateRef.current?.length) return true
+    setSheetStatus("reading")
+    setError(null)
+    try {
+      const firstPages = (papers[0]?.pages ?? []).map((i) => pages[i])
+      const res = await authFetch("/api/grade-batch/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          markScheme: schemeForGrading,
+          pages: firstPages.filter((p) => p.path).map((p) => ({ path: p.path, name: p.label })),
+          texts: firstPages.filter((p) => p.text).map((p) => ({ name: p.label, content: p.text })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (isPlanBlock(data)) { openPremium(data); return false }
+      if (!res.ok || !Array.isArray(data.template) || !data.template.length) throw new Error(data.error || "Could not set up the mark sheet")
+      templateRef.current = data.template
+      setTemplate(data.template)
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not set up the mark sheet")
+      return false
+    } finally {
+      setSheetStatus("idle")
+    }
+  }
+
   const gradeAll = async (only?: number[]) => {
     stopRef.current = false
+    if (selfMark && !(await readMarkSheet())) return
     setPhase("grading")
     setGradingStartedAt(Date.now())
     const queue = papers.filter((p) => (only ? only.includes(p.key) : results[p.key]?.state !== "done"))
@@ -613,7 +657,7 @@ function BatchGrading() {
     // Write the cached instructions + answer key first (a few seconds), so
     // every paper reads it at ~10% of the input price and they all start at
     // once. If this fails, the papers just write the cache themselves.
-    if (queue.length > 1) await warmGradingCache()
+    if (queue.length > 1 && !selfMark) await warmGradingCache()
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length - next) }, worker))
   }
 
@@ -745,14 +789,17 @@ function BatchGrading() {
             <div className={buttonRow}>
               {phase === "review" && <button type="button" onClick={() => setPhase("setup")} className={bigButton}><RotateCcw />Start over</button>}
               {phase === "review" && (
-                <button type="button" onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0} className={bigButtonPrimary}>
-                  {answerKey.status === "drafting" ? <><Loader2 className="animate-spin" />Writing answer key…</> : <><CheckCircle2 />Grade {papers.length} paper{papers.length === 1 ? "" : "s"}</>}
+                <button type="button" onClick={() => void gradeAll()} disabled={!papers.length || answerKey.status === "drafting" || adding > 0 || sheetStatus === "reading"} className={bigButtonPrimary}>
+                  {answerKey.status === "drafting" ? <><Loader2 className="animate-spin" />Writing answer key…</>
+                    : sheetStatus === "reading" ? <><Loader2 className="animate-spin" />Reading the answer key…</>
+                    : selfMark ? <><PencilLine />Set up {papers.length} paper{papers.length === 1 ? "" : "s"} to mark</>
+                    : <><CheckCircle2 />Grade {papers.length} paper{papers.length === 1 ? "" : "s"}</>}
                 </button>
               )}
               {phase === "grading" && running && <button type="button" onClick={() => { stopRef.current = true }} className={bigButton} title="Pause after current papers"><Pause /><span className="sm:hidden">Pause</span><span className="hidden sm:inline">Pause after current papers</span></button>}
               {phase === "grading" && !running && failed.length > 0 && <button type="button" onClick={() => void gradeAll(failed.map((p) => p.key))} className={bigButton}><RotateCcw />Retry {failed.length} failed</button>}
-              {done.length > 0 && <button type="button" onClick={downloadCsv} className={bigButton}><Download />Download CSV</button>}
-              {done.length > 0 && !running && paperClasses.size <= 1 && <Link href={`/grade-exam/batch/${batchId.current}`} className={bigButtonPrimary}>See class results<ArrowRight /></Link>}
+              {done.length > 0 && !selfMark && <button type="button" onClick={downloadCsv} className={bigButton}><Download />Download CSV</button>}
+              {done.length > 0 && !running && paperClasses.size <= 1 && <Link href={selfMark && done[0] && results[done[0].key]?.id ? `/grade-report/${results[done[0].key].id}?mark=1` : `/grade-exam/batch/${batchId.current}`} className={bigButtonPrimary}>{selfMark ? "Start marking" : "See class results"}<ArrowRight /></Link>}
               {done.length > 0 && !running && paperClasses.size > 1 && [...paperClasses.entries()].map(([cid, label]) => (
                 <Link key={cid} href={`/grade-exam/batch/${batchFor(cid)}`} className={bigButtonPrimary}>{label || "Class"} results<ArrowRight /></Link>
               ))}
@@ -805,7 +852,28 @@ function BatchGrading() {
             />
           )}
 
-          {phase === "review" && papers.length > 0 && (
+          {phase === "review" && (
+            <fieldset className="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+              <legend className="sr-only">Who marks these papers</legend>
+              <p className="mb-3 text-sm font-semibold text-slate-800">Who marks these papers?</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {([[false, "Grade them for me", "Every paper is marked against the answer key, with feedback on each question. You check and change anything after."], [true, "I'll mark them myself", "Each paper opens beside a mark sheet made from your answer key. You click the marks the student earned (M1, A1, B1 or a number). Totals, grades and class results add up for you."]] as const).map(([value, title, text]) => (
+                  <label key={title} className={cn("flex cursor-pointer gap-3 rounded-xl bg-white p-4 ring-1 ring-inset transition-colors", selfMark === value ? "ring-2 ring-blue-600" : "ring-slate-200 hover:ring-slate-300")}>
+                    <input type="radio" name="who-marks" checked={selfMark === value} onChange={() => setSelfMark(value)} className="mt-1 h-4 w-4 shrink-0 border-slate-300" />
+                    <span>
+                      <span className="block font-semibold text-slate-900">{title}</span>
+                      <span className="mt-0.5 block text-sm text-slate-600">{text}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {selfMark && template && <p className="mt-3 text-sm text-slate-600">Mark sheet ready: {template.length} question{template.length === 1 ? "" : "s"}, {template.reduce((s, q) => s + q.marks, 0)} marks.</p>}
+              {selfMark && !template && <p className="mt-3 text-sm text-slate-600">{hasScheme || answerKey.status === "ready" ? "The answer key is read once into a mark sheet (about half a minute). Nothing is graded." : "With no answer key, the questions and marks are read off the first paper. Nothing is graded."}</p>}
+            </fieldset>
+          )}
+          {phase === "review" && error && <p className="flex items-start gap-2 rounded-xl bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
+
+          {phase === "review" && papers.length > 0 && !selfMark && (
             <p className="text-sm text-slate-600">
               Grading should take <span className="font-semibold text-slate-900">{minutes(estimate)}</span> ({papers.length} paper{papers.length === 1 ? "" : "s"}, {CONCURRENCY} at a time, roughly a minute for a 9-page paper). Keep this tab open while it runs.
             </p>
@@ -819,9 +887,9 @@ function BatchGrading() {
           {phase === "grading" && running && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <p className="font-medium text-slate-700">
-                {done.length} of {papers.length} done · {clock(gradingStartedAt ? (now - gradingStartedAt) / 1000 : 0)} so far · <span className="text-slate-900">{minutes(remaining)} left</span>
+                {selfMark ? `${done.length} of ${papers.length} ready to mark` : <>{done.length} of {papers.length} done · {clock(gradingStartedAt ? (now - gradingStartedAt) / 1000 : 0)} so far · <span className="text-slate-900">{minutes(remaining)} left</span></>}
               </p>
-              <p className="text-amber-800">Keep this tab open while it grades.</p>
+              <p className="text-amber-800">{selfMark ? "Keep this tab open for a moment." : "Keep this tab open while it grades."}</p>
             </div>
           )}
           {problems.length > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{problems.join(" ")}</p>}
@@ -1024,7 +1092,7 @@ function BatchGrading() {
                     </div>
                     <div className="flex items-center gap-3 max-sm:w-full max-sm:justify-between max-sm:empty:hidden">
                       <PaperBadge status={r} now={now} />
-                      {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}`} target="_blank" className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>}
+                      {r?.state === "done" && r.id && <Link href={`/grade-report/${r.id}${r.toMark ? "?mark=1" : ""}`} target="_blank" className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">{r.toMark ? "Mark" : "Report"}</Link>}
                       {r?.state === "error" && !running && <button type="button" onClick={() => void gradeAll([paper.key])} className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Retry</button>}
                     </div>
                   </div>
@@ -1364,7 +1432,7 @@ function PaperBadge({ status, now }: { status?: PaperStatus; now: number }) {
   if (status.state === "error") return <span className="inline-flex items-center gap-1 text-sm text-rose-700" title={status.error}><AlertCircle className="h-4 w-4" />{status.error?.slice(0, 60) ?? "Failed"}</span>
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-semibold text-emerald-800">
-      <CheckCircle2 className="h-4 w-4" />{status.marks}/{status.possible} · {Math.round(status.percentage ?? 0)}% · {status.grade}
+      <CheckCircle2 className="h-4 w-4" />{status.toMark ? `Ready to mark · ${status.possible} marks` : <>{status.marks}/{status.possible} · {Math.round(status.percentage ?? 0)}% · {status.grade}</>}
     </span>
   )
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Check, Clock, Edit2, FileCheck, FileSearch, Loader2, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Clock, Edit2, FileCheck, FileSearch, Loader2, PencilLine, Printer, RefreshCw, SlidersHorizontal, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -23,9 +23,10 @@ import { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "@/lib/grading/repo
 import type { GradeScale } from "@/lib/grading/scale"
 import { actionButton, actionButtonPrimary, buttonRow } from "@/components/grading/grading-ui"
 import { lateLabel } from "@/lib/grading/late"
-import { PaperViewer } from "@/components/grading/report/paper-viewer"
+import { MarkedPages, PaperViewer } from "@/components/grading/report/paper-viewer"
 import { pageForQuestion, pickPaperPages, type PaperPage } from "@/lib/grading/paper-pages"
 import { QuestionPicker, type RegradeScope } from "@/components/grading/question-picker"
+import { placeStamp, stampText, stampsOf, unmarkedCount, type StampTarget } from "@/lib/grading/mark-points"
 
 interface GradingResult {
   id: string
@@ -54,6 +55,8 @@ interface GradingResult {
   reportSettings: ReportSettings
   /** Handed in after being marked absent/missing; days after the set was first graded. */
   daysLate: number | null
+  /** The other papers in the set (owner only), in name order, for moving paper to paper while marking. */
+  setPapers?: Array<{ id: string; name: string; toMark: number }>
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -100,6 +103,8 @@ export default function GradeReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  // Marking the paper herself: marks are clicked beside the paper (a lighter edit mode).
+  const [marking, setMarking] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState('')
@@ -115,6 +120,8 @@ export default function GradeReportPage() {
   // The paper beside the report (signed page links from the API, teacher only).
   const [paperOpen, setPaperOpen] = useState(false)
   const [paperPage, setPaperPage] = useState(0)
+  // The mark just given, waiting to be put on the paper (the next click on the page places it).
+  const [placing, setPlacing] = useState<StampTarget | null>(null)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
@@ -138,6 +145,12 @@ export default function GradeReportPage() {
         setError(null)
         setResult(data.data)
         setDraft(draftFrom(data.data))
+        // A paper waiting for the teacher's marks opens ready to mark, with the paper beside it.
+        if (data.data.isOwner && (unmarkedCount(data.data.gradeBreakdown) > 0 || new URLSearchParams(window.location.search).get('mark') === '1')) {
+          setMarking(true)
+          setEditing(true)
+          if (data.data.pages?.length && window.matchMedia('(min-width: 1024px)').matches) setPaperOpen(true)
+        }
         setSettings(data.data.reportSettings ?? DEFAULT_REPORT_SETTINGS)
       } catch {
         if (!cancelled) setError('Failed to load grading result')
@@ -224,6 +237,8 @@ export default function GradeReportPage() {
   const finishEditing = useCallback(async () => {
     // Close right away; the last save finishes in the background (status shows in the toolbar).
     setEditing(false)
+    setMarking(false)
+    setPlacing(null)
     if (draft) await saveDraft(draft)
     // Counts as checked even with no changes (teacher agreement, lib/grading/agreement.ts).
     void authFetch(`/api/grade-exam/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }) })
@@ -268,6 +283,24 @@ export default function GradeReportPage() {
   const studentName = `${draft.firstName} ${draft.lastName}`.trim() || 'Student'
   const date = new Date(result.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const { possible } = reportTotals(draft)
+  const toMark = unmarkedCount(draft.breakdown)
+  const stamps = canEdit ? stampsOf(draft.breakdown) : []
+  const placingStamp = placing && stamps.find((s) => s.target.question === placing.question && s.target.point === placing.point)
+  // A mark sheet the teacher fills in herself (set up with "I'll mark them myself").
+  const isSheet = toMark > 0 || draft.breakdown.some((q) => q.points?.length)
+  // Paper to paper while marking: the next one in name order (papers still to mark first).
+  const others = result.setPapers ?? []
+  const here = others.findIndex((p) => p.id === result.id)
+  const prevPaper = here > 0 ? others[here - 1] : null
+  // The next one still to mark (wrapping round to earlier names), else simply the next paper.
+  const nextPaper = here >= 0 ? (others.slice(here + 1).find((p) => p.toMark > 0) ?? others.slice(0, here).find((p) => p.toMark > 0) ?? others[here + 1] ?? null) : null
+  const goToPaper = async (paperId: string) => {
+    await saveDraft(draft)
+    setPlacing(null)
+    setPaperPage(0)
+    window.scrollTo({ top: 0 })
+    router.push(`/grade-report/${paperId}?mark=1`)
+  }
 
   return (
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50 print:bg-white")}>
@@ -320,8 +353,13 @@ export default function GradeReportPage() {
                   <Link href={`/grade-exam/batch/${result.batchId}`}><Users className="mr-1.5 h-4 w-4" /> Class results</Link>
                 </Button>
               )}
+              {canEdit && !editing && isSheet && (
+                <Button onClick={() => { setMarking(true); setEditing(true); if (pages.length && window.matchMedia('(min-width: 1024px)').matches) setPaperOpen(true) }} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
+                  <PencilLine className="mr-1.5 h-4 w-4" /> {toMark > 0 ? 'Mark this paper' : 'Change marks'}
+                </Button>
+              )}
               {canEdit && !editing && (
-                <Button onClick={() => setEditing(true)} className={cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
+                <Button variant={isSheet ? "ghost" : "default"} onClick={() => setEditing(true)} className={isSheet ? actionButton : cn(actionButtonPrimary, "bg-blue-600 hover:bg-blue-700")}>
                   <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
                 </Button>
               )}
@@ -358,7 +396,9 @@ export default function GradeReportPage() {
 
             {editing && canEdit && (
               <p className="rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-inset ring-blue-200 print:hidden">
-                <strong>You&apos;re editing.</strong> Change names, marks and feedback right on the report. Changes save as you go; press <strong>Done</strong> (or Esc) when you&apos;re finished.
+                {marking
+                  ? <><strong>You&apos;re marking.</strong> Click each mark the student earned (click again to take it back), or pick the number. {pages.length > 0 ? 'With the paper open, click the page to put that mark on it. ' : ''}Marks save as you go.</>
+                  : <><strong>You&apos;re editing.</strong> Change names, marks and feedback right on the report. Changes save as you go; press <strong>Done</strong> (or Esc) when you&apos;re finished.</>}
                 {result.groupId && result.groupMembers.length > 1 && (
                   <label className="mt-2 flex items-center gap-2">
                     <Switch checked={applyToGroup} onCheckedChange={setApplyToGroup} />
@@ -382,7 +422,7 @@ export default function GradeReportPage() {
                   )}
                 </div>
               )}
-              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} owner={canEdit} />
+              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} marking={marking && canEdit} onGiven={marking && paperOpen && pages.length ? setPlacing : undefined} placing={placing} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} owner={canEdit} />
             </div>
 
             {editing && canEdit && (
@@ -393,12 +433,24 @@ export default function GradeReportPage() {
                       ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
                       : saveState === 'error'
                         ? <span className="text-rose-300">Not saved: {saveError || 'check your connection'}</span>
-                        : <><Check className="h-4 w-4 text-emerald-400" />Editing · changes saved</>}
+                        : <><Check className="h-4 w-4 text-emerald-400" />{marking ? (toMark > 0 ? `${draft.breakdown.length - toMark} of ${draft.breakdown.length} marked · saved` : 'All marked · saved') : 'Editing · changes saved'}</>}
                   </span>
-                  <Button size="sm" onClick={() => void finishEditing()} className="bg-white text-slate-900 hover:bg-slate-100">Done</Button>
+                  {marking && prevPaper && (
+                    <Button size="sm" variant="ghost" onClick={() => void goToPaper(prevPaper.id)} className="text-white hover:bg-white/10 hover:text-white" aria-label={`Previous paper: ${prevPaper.name}`}>
+                      <ArrowLeft className="h-4 w-4" /><span className="ml-1 hidden sm:inline">Previous</span>
+                    </Button>
+                  )}
+                  {marking && nextPaper ? (
+                    <Button size="sm" onClick={() => void goToPaper(nextPaper.id)} className="bg-white text-slate-900 hover:bg-slate-100" title={nextPaper.name}>
+                      Next paper<ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  <Button size="sm" onClick={() => void finishEditing()} className={marking && nextPaper ? "bg-white/10 text-white hover:bg-white/20" : "bg-white text-slate-900 hover:bg-slate-100"}>Done</Button>
                 </div>
               </div>
             )}
+
+            {canEdit && <MarkedPages pages={pages} stamps={stamps} studentName={studentName} />}
 
             {isTeacher && (
               <div className="print:hidden">
@@ -411,7 +463,15 @@ export default function GradeReportPage() {
 
           {paperOpen && pages.length > 0 && canEdit && (
             <div className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
-              <PaperViewer pages={pages} page={paperPage} onPage={setPaperPage} studentName={studentName} onClose={() => setPaperOpen(false)} />
+              <PaperViewer
+                pages={pages} page={paperPage} onPage={setPaperPage} studentName={studentName} onClose={() => { setPaperOpen(false); setPlacing(null) }}
+                stamps={stamps}
+                placing={placing && editing ? { text: stampText(draft.breakdown, placing), question: draft.breakdown[placing.question]?.questionNumber ?? '', placed: !!placingStamp } : null}
+                onPlace={(at) => { if (placing) { patchDraft({ breakdown: placeStamp(draft.breakdown, placing, at) }); setPlacing(null) } }}
+                onPickStamp={editing ? (s) => setPlacing(s.target) : undefined}
+                onRemovePlacing={() => { if (placing) { patchDraft({ breakdown: placeStamp(draft.breakdown, placing, undefined) }); setPlacing(null) } }}
+                onCancelPlacing={() => setPlacing(null)}
+              />
             </div>
           )}
           {showOptions && canEdit && (
