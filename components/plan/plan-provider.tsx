@@ -167,7 +167,7 @@ function PremiumDialog({ state, plan, onClose, onRedeemed }: {
         </DialogHeader>
 
         {safetyOnly ? (
-          <button type="button" onClick={onClose} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">Back to studying</button>
+          <button type="button" onClick={onClose} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700">{block?.kind === 'grading' ? 'Got it' : 'Back to studying'}</button>
         ) : redeemedUntil ? (
           <div className="space-y-4">
             <p className="text-slate-700">Your code worked. You have Premium until <span className="font-semibold">{formatDate(redeemedUntil)}</span>.</p>

@@ -20,6 +20,12 @@ export const GUIDE_SAFETY = { guide: { limit: 8, days: 1 }, adaptive: { limit: 4
 
 // Adaptive practice AI steps, capped per user per day on every plan (and while
 // plans are off). Each session also stops at ADAPTIVE_RULES.maxRefills refills.
+// Papers graded per teacher per day, every plan (about 7.5¢ a paper all in:
+// 200 is ~$15). Real peak days were 97 and 77 papers; a teacher grading all
+// five classes on one day is about 150. This stops a runaway loop or a shared
+// account, not a busy teacher. Regrades count too.
+export const GRADING_SAFETY = { limit: 200, days: 1 } as const
+
 export const ADAPTIVE_SAFETY = {
   adaptive_refill: { limit: 20, days: 1 }, // ~$0.02-0.04 each on Sonnet 5.5
   adaptive_check: { limit: 100, days: 1 }, // ~$0.001 each on Haiku
@@ -48,19 +54,13 @@ interface Consumed {
 }
 
 /** Records one action if the user is under the limit (atomic in the database). */
-async function consume(userId: string, kind: MeteredKind | keyof typeof ADAPTIVE_SAFETY, rule: { limit: number; days: number }): Promise<Consumed> {
+async function consume(userId: string, kind: MeteredKind | 'grading' | keyof typeof ADAPTIVE_SAFETY, rule: { limit: number; days: number }): Promise<Consumed> {
   const { data, error } = await createAdminClient().rpc('try_consume_usage', {
     p_user: userId, p_kind: kind, p_window: `${rule.days} days`, p_limit: rule.limit,
   })
   if (error) throw new Error(`Usage check failed: ${error.message}`)
   const row = (Array.isArray(data) ? data[0] : data) as { allowed: boolean; used: number; resets_at: string | null; event_id: number | null }
   return { allowed: row.allowed, used: row.used, limit: rule.limit, resetsAt: row.resets_at, eventId: row.event_id }
-}
-
-/** Counted but not capped. */
-async function record(userId: string, kind: 'guide' | 'grading' | 'adaptive'): Promise<number | null> {
-  const { data } = await createAdminClient().from('usage_events').insert({ user_id: userId, kind }).select('id').single()
-  return data?.id ?? null
 }
 
 /** Gives an action back (the generation failed before the user got anything). */
@@ -163,12 +163,16 @@ export async function gradingBlock(userId: string): Promise<PlanBlock | null> {
   return null
 }
 
-/** Grading one paper: Premium only when plans are on; always recorded. */
+/** Grading one paper: Premium only when plans are on; always recorded and capped per day (GRADING_SAFETY). */
 export async function checkGrading(userId: string): Promise<PlanBlock | null> {
   const block = await gradingBlock(userId)
   if (block) return block
-  await record(userId, 'grading')
-  return null
+  const c = await consume(userId, 'grading', GRADING_SAFETY)
+  if (c.allowed) return null
+  return {
+    error: `You've graded ${c.limit} papers today. They're all saved in My Reports, and grading opens again tomorrow.`,
+    code: 'limit_reached', kind: 'grading', limit: c.limit, resetsAt: c.resetsAt ?? undefined,
+  }
 }
 
 export async function usageSummary(userId: string, tier: PlanTier) {
