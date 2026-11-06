@@ -301,14 +301,14 @@ export default function NavigationHeader() {
                     {initials}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-max min-w-56 max-w-[min(24rem,calc(100vw-1rem))]">
                   <div className="px-3 py-2">
                     <p className="text-sm font-medium">
                       {user.first_name && user.last_name
                         ? `${user.first_name} ${user.last_name}`
                         : user.email}
                     </p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="break-all text-xs text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
                   <PlanMenuItems />
@@ -338,14 +338,14 @@ export default function NavigationHeader() {
                     {initials}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-max min-w-56 max-w-[min(24rem,calc(100vw-1rem))]">
                   <div className="px-3 py-2">
                     <p className="text-sm font-medium">
                       {user.first_name && user.last_name
                         ? `${user.first_name} ${user.last_name}`
                         : user.email}
                     </p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="break-all text-xs text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground capitalize mt-1">{user.user_type}</p>
                   </div>
                   <PlanMenuItems />
