@@ -1,5 +1,6 @@
 // Server helpers for assigned practice (service role; callers check who's asking).
 
+import { translatedContentByStudent } from '@/lib/guide-edit/translation-server'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireTeacher } from '@/lib/api-auth'
@@ -73,6 +74,8 @@ export interface StudentProgress {
   inProgress: RunCount | null
   /** Status incomplete: what they had answered when it was sent at the due date. */
   incomplete: RunCount | null
+  /** Given this practice in another language (GuideLanguage), or null. */
+  language: string | null
 }
 
 const autoCount = (d: unknown, total: number): RunCount | null => {
@@ -86,13 +89,13 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
   if (!ids.length) return new Map<string, StudentProgress[]>()
   await sendUnfinishedAtDue(supabase, ids)
   const [{ data: who }, { data: tries }] = await Promise.all([
-    supabase.from('practice_assignment_students').select('assignment_id, roster_id, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email, account_confirmed_at)').in('assignment_id', ids),
+    supabase.from('practice_assignment_students').select('assignment_id, roster_id, language, class_roster(first_name, last_name, student_user_id, linked_via, student_number, email, account_confirmed_at)').in('assignment_id', ids),
     supabase.from('practice_attempts').select('assignment_id, roster_id, pct, correct, total, counted, auto, finished_at, detail, seconds').in('assignment_id', ids),
   ])
   // Started and not turned in: their saved run (adaptive totals are concepts, so show questions answered only).
   const rosterOf = (w: { class_roster: unknown }) => (Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null
   const waiting = (who ?? []).filter((w) => rosterOf(w)?.student_user_id && !(tries ?? []).some((t) => t.assignment_id === w.assignment_id && t.roster_id === w.roster_id && t.counted))
-  const runs = await savedRunsFor(supabase, [...new Set(assignments.filter((a) => waiting.some((w) => w.assignment_id === a.id)).map((a) => a.study_guide_id))], [...new Set(waiting.map((w) => rosterOf(w)!.student_user_id!))])
+  const runs = await savedRunsFor(supabase, [...new Set(assignments.filter((a) => waiting.some((w) => w.assignment_id === a.id)).map((a) => a.study_guide_id))], [...new Set(waiting.map((w) => rosterOf(w)!.student_user_id!))], (who ?? []).some((w) => (w as { language?: string | null }).language) ? await translatedContentByStudent(supabase, ids) : undefined)
   const accounts = await accountNames(supabase, (who ?? []).map((w) => ((Array.isArray(w.class_roster) ? w.class_roster[0] : w.class_roster) as { student_user_id: string | null } | null)?.student_user_id))
   const out = new Map<string, StudentProgress[]>()
   for (const a of assignments) {
@@ -125,6 +128,7 @@ export async function assignmentProgress(supabase: SupabaseClient, assignments: 
         lastAt: list.map((t) => t.finishedAt).sort().pop() ?? null,
         inProgress: saved ? { answered: saved.score.answered, total: a.grading === 'mastery' ? 0 : saved.score.total, unit: saved.score.unit } : null,
         incomplete: sent ? autoCount(sent.detail, a.grading === 'mastery' ? 0 : sent.total) : null,
+        language: (w as { language?: string | null }).language ?? null,
       } satisfies StudentProgress
     }).sort((x, y) => x.lastName.localeCompare(y.lastName) || x.firstName.localeCompare(y.firstName)))
   }

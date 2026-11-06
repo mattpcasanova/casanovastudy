@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scoreSavedRun, type SavedRunScore } from './saved-run'
 import type { AdaptiveSettings } from '@/lib/adaptive/engine'
+import { translatedContentByStudent } from '@/lib/guide-edit/translation-server'
 
 const KIND: Record<string, string> = { practice: 'practice', quiz: 'quiz', adaptive: 'adaptive' }
 
@@ -23,7 +24,8 @@ export interface SavedRun {
   scoreFor: (adaptive?: AdaptiveSettings | null) => SavedRunScore | null
 }
 
-export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[], userIds: string[]): Promise<Map<string, SavedRun>> {
+/** `seen` = the content a student actually answered when it isn't the guide's own (a translation), keyed `${guideId}|${userId}`. */
+export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[], userIds: string[], seen?: Map<string, string>): Promise<Map<string, SavedRun>> {
   const out = new Map<string, SavedRun>()
   if (!guideIds.length || !userIds.length) return out
   const [{ data: guides }, { data: rows }] = await Promise.all([
@@ -34,8 +36,9 @@ export async function savedRunsFor(supabase: SupabaseClient, guideIds: string[],
   for (const r of rows ?? []) {
     const g = byId.get(r.study_guide_id as string)
     if (!g || KIND[g.format] !== r.kind) continue
-    const score = scoreSavedRun(g.format, g.content ?? '', r.data)
-    if (score) out.set(`${g.id}|${r.user_id}`, { score, updatedAt: r.updated_at as string, scoreFor: (adaptive) => (g.format === 'adaptive' ? scoreSavedRun(g.format, g.content ?? '', r.data, adaptive) : score) })
+    const content = seen?.get(`${g.id}|${r.user_id}`) ?? g.content ?? ''
+    const score = scoreSavedRun(g.format, content, r.data)
+    if (score) out.set(`${g.id}|${r.user_id}`, { score, updatedAt: r.updated_at as string, scoreFor: (adaptive) => (g.format === 'adaptive' ? scoreSavedRun(g.format, content, r.data, adaptive) : score) })
   }
   return out
 }
@@ -69,7 +72,7 @@ export async function sendUnfinishedAtDue(supabase: SupabaseClient, assignmentId
     return userId && !hasAttempt.has(`${w.assignment_id}|${w.roster_id}`) ? [{ assignmentId: w.assignment_id as string, rosterId: w.roster_id as string, userId }] : []
   })
   if (!todo.length) return 0
-  const runs = await savedRunsFor(supabase, [...new Set(claimed.map((a) => a.study_guide_id as string))], [...new Set(todo.map((t) => t.userId))])
+  const runs = await savedRunsFor(supabase, [...new Set(claimed.map((a) => a.study_guide_id as string))], [...new Set(todo.map((t) => t.userId))], await translatedContentByStudent(supabase, ids))
   const assignment = new Map(claimed.map((a) => [a.id as string, a as { id: string; study_guide_id: string; due_at: string; mastery_pct: number | null; questions_per_concept: number | null; explain_questions: boolean }]))
   const inserts = todo.flatMap((t) => {
     const a = assignment.get(t.assignmentId)!

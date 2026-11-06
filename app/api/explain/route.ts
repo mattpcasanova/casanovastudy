@@ -6,6 +6,7 @@ import { ClaudeService, type ExplainTurn } from '@/lib/claude-api'
 import { hasPremiumFeatures, meterExplain, planBlockResponse, releaseUsage } from '@/lib/plans'
 import { buildProfile, learnerHistoryNote } from '@/lib/learner/profile'
 import { consentBlockResponse } from '@/lib/consent'
+import { assignedLanguage } from '@/lib/guide-edit/translation-server'
 import { aiRuleForGuide } from '@/lib/practice/server'
 import { describeAiUse } from '@/lib/practice/assignments'
 
@@ -65,6 +66,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Your teacher turned off AI help for this assignment.', code: 'ai_off' }, { status: 403 })
   }
 
+  // Their teacher gave them this guide in another language: answer in it.
+  const assigned = await assignedLanguage(createAdminClient(), user.id, body.studyGuideId).catch(() => null)
   const meter = await meterExplain(user.id)
   if (!meter.block && rule) {
     const last = turns[turns.length - 1]
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       try {
         const claude = new ClaudeService()
-        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, language: normalizeLanguage(guide.language), learnerNote, assignedTutor: rule?.aiHelp === 'tutor', turns })) {
+        for await (const text of claude.explainStream({ guideTitle: guide.title, subject: guide.subject, gradeLevel: guide.grade_level, topic: guide.topic_focus ?? undefined, language: assigned ?? normalizeLanguage(guide.language), learnerNote, assignedTutor: rule?.aiHelp === 'tutor', turns })) {
           controller.enqueue(encoder.encode(text))
         }
       } catch (error) {

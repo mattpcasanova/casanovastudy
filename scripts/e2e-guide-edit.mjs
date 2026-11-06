@@ -88,6 +88,8 @@ Explanation: Subtract 2x and add 3 to get 3x = 12.
 `
 
 async function main() {
+  let listed = []
+  let r
   const teacher = await makeUser('teacher', 'Tara')
   await admin.from('teacher_verifications').upsert({ user_id: teacher.id, status: 'approved', method: 'manual', decided_at: new Date().toISOString() })
   const other = await makeUser('teacher', 'Omar')
@@ -98,7 +100,7 @@ async function main() {
   const read = async (id) => (await admin.from('study_guides').select('*').eq('id', id).single()).data
 
   console.log('== Editing through the API ==')
-  let r = await t('GET', `/api/study-guides/${guide.id}/edit`)
+  r = await t('GET', `/api/study-guides/${guide.id}/edit`)
   check('owner can open the editor; an unassigned guide is not locked', r.status === 200 && r.json.locked === false, JSON.stringify(r.json))
   r = await o('GET', `/api/study-guides/${guide.id}/edit`)
   check('someone else cannot', r.status === 403)
@@ -132,7 +134,7 @@ async function main() {
     if (r.status !== 200) check('assigning works', false, JSON.stringify(r.json))
   }
   r = await t('GET', `/api/practice-assignments?guideId=${guide.id}`)
-  const listed = r.json?.assignments ?? []
+  listed = r.json?.assignments ?? []
   check('each assignment comes back with its class name and period', listed.length === 3 && listed.every((a) => a.className && a.period) && listed.some((a) => a.className === 'Algebra 1 Honors' && a.period === '7'), JSON.stringify(listed.map((a) => [a.className, a.period])))
   r = await t('GET', `/api/study-guides/${guide.id}/edit`)
   check('an assigned guide is locked', r.json?.locked === true)
@@ -160,13 +162,59 @@ async function main() {
       const kinds = (c) => (c.match(/^(?:MC|TF|SA|NUM)_QUESTION:/gm) || []).join()
       const keys = (c) => (c.match(/^(?:Correct Answer|Answer):.*$/gm) || []).join('|')
       check('same questions in the same order with the same keys', kinds(es.content) === kinds((await read(guide.id)).content) && keys(es.content) === keys((await read(guide.id)).content), `${keys(es.content)}`)
-      check('saved as its own Spanish guide with the standards, not as a copy of the original', es.language === 'es' && es.user_id === teacher.id && !es.copied_from && es.standards?.startsWith('MA.8.AR.2.1') && es.title !== 'Linear Equations Check', JSON.stringify({ l: es.language, t: es.title, s: es.standards }))
+      check('saved as its own Spanish guide with the standards, not as a copy of the original', es.language === 'es' && es.user_id === teacher.id && !es.copied_from && es.translation_of === guide.id && es.standards?.startsWith('MA.8.AR.2.1') && es.title !== 'Linear Equations Check', JSON.stringify({ l: es.language, t: es.title, s: es.standards }))
       check('and it reads as Spanish', /ecuaci|soluci|resuelve|cuál/i.test(es.content), es.content.slice(0, 200))
       console.log('   ' + es.title + ' | ' + es.content.split('\n').find((l) => l.startsWith('MC_QUESTION')).slice(0, 120))
       r = await t('GET', `/api/study-guides/${guide.id}/edit`)
       const orig = await read(guide.id)
       check('the original is untouched', orig.language === 'en' && orig.title === 'Linear Equations Check')
     }
+    // The same Spanish version, given to one student inside the English assignment.
+    console.log('\n== One student gets the assignment in Spanish ==')
+    const stu = await makeUser('student', 'Sofia')
+    const s5 = api(stu.session)
+    const { data: linked } = await admin.from('class_roster').insert({ class_id: c5, first_name: 'Sofia', last_name: 'Edit', email: stu.email, student_user_id: stu.id, linked_via: 'email' }).select('id').single()
+    const asg = listed.find((a) => a.class_id === c5)
+    await t('PATCH', `/api/practice-assignments/${asg.id}`, { addRosterIds: [linked.id] })
+    r = await s5('GET', `/api/practice-assignments/${asg.id}/me`)
+    check('before: the student gets the original (no translation)', r.status === 200 && r.json.translation === null, JSON.stringify(r.json).slice(0, 200))
+    r = await o('POST', `/api/practice-assignments/${asg.id}/language`, { language: 'es', rosterIds: [linked.id] })
+    check('another teacher cannot set it', r.status === 404 || r.status === 403)
+    r = await t('POST', `/api/practice-assignments/${asg.id}/language`, { language: 'es', rosterIds: [linked.id] })
+    check('the teacher gives that student Spanish; the copy made a moment ago is reused', r.status === 200 && r.json.made === false, JSON.stringify(r.json))
+    r = await t('GET', `/api/practice-assignments/${asg.id}`)
+    check('the teacher page lists the student with the language, the others without', r.json?.students?.find((x) => x.rosterId === linked.id)?.language === 'es' && r.json.students.filter((x) => x.language).length === 1 && r.json.guide?.language === 'en')
+    r = await s5('GET', `/api/practice-assignments/${asg.id}/me`)
+    const tr = r.json?.translation
+    check('the student is served the Spanish questions for the same assignment', tr?.language === 'es' && /Resuelve|ecuaci|soluci/i.test(tr.content || '') && r.json.guideId === guide.id, JSON.stringify(tr || r.json).slice(0, 200))
+    // The original is edited out of step: the student falls back to the original rather than a mismatched translation.
+    const beforeEdit = (await read(guide.id)).content
+    await admin.from('study_guides').update({ content: beforeEdit + '\nTF_QUESTION: 2 + 2 = 4.\nAnswer: True\n' }).eq('id', guide.id)
+    r = await s5('GET', `/api/practice-assignments/${asg.id}/me`)
+    check('a translation that no longer lines up is not served', r.json?.translation === null)
+    await admin.from('study_guides').update({ content: beforeEdit }).eq('id', guide.id)
+    {
+      const b2 = await chromium.launch()
+      const ctx = await b2.newContext({ viewport: { width: 1280, height: 900 } })
+      await ctx.addCookies(cookiesFor(stu.session))
+      const page = await ctx.newPage()
+      const errs = []
+      page.on('pageerror', (e) => errs.push(e.message))
+      await page.goto(`${BASE}/study-guide/${guide.id}?assignment=${asg.id}`)
+      await page.waitForSelector('text=/Resuelve/', { timeout: 60000 })
+      check('in the browser the student sees the Spanish quiz under the assignment banner', (await page.locator('text=/Assigned by/').count()) > 0 && (await page.locator('text=Solve for x').count()) === 0)
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/student-spanish.png` })
+      check('no page errors for the student', errs.length === 0, errs.join(' | '))
+      await b2.close()
+    }
+    r = await s5('POST', `/api/practice-assignments/${asg.id}/attempts`, { correct: 2, total: 3, detail: { answers: [{ id: 'q:q-0', correct: true, given: 'x = 4' }] } })
+    check('their score lands on the same assignment', r.status === 200, JSON.stringify(r.json))
+    r = await t('POST', `/api/practice-assignments/${asg.id}/language`, { language: 'es', rosterIds: [] })
+    r = await s5('GET', `/api/practice-assignments/${asg.id}/me`)
+    check('unticking the student gives the original back', r.json?.translation === null)
+
+    r = await t('POST', `/api/study-guides/${guide.id}/translate`, { language: 'es' })
+    check('asking for the same copy again opens the one already made', r.status === 200 && r.json?.alreadyMade === true)
     r = await t('POST', `/api/study-guides/${guide.id}/translate`, { language: 'en' })
     check('asking for the language it is already in is refused', r.status === 400)
     r = await o('POST', `/api/study-guides/${guide.id}/translate`, { language: 'es' })
@@ -206,7 +254,8 @@ async function main() {
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
     check(`${name}: nothing is wider than the screen`, !wide)
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/guide-${name}.png` })
-    await page.getByRole('button', { name: 'Open guide menu' }).click()
+    // The button is on screen before the page is interactive: press until the menu opens.
+    for (let i = 0; i < 10 && (await page.getByRole('button', { name: 'Close guide menu' }).count()) === 0; i++) { await page.getByRole('button', { name: 'Open guide menu' }).click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(500) }
     check(`${name}: the menu offers Edit guide and Copy in another language`, (await page.getByRole('link', { name: 'Edit guide' }).count()) === 1 && (await page.getByRole('button', { name: 'Copy in another language' }).count()) === 1)
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/menu-${name}.png` })
     await page.getByRole('button', { name: 'Copy in another language' }).click()
@@ -231,9 +280,29 @@ async function main() {
       const saved = (await read(guide.id)).content
       check('desktop: edits made in the page are saved (question, option text, new key)', saved.includes('MC_QUESTION: Solve for x: 2x + 6 = 14\n') && saved.includes('D) x = 4 (checked)') && saved.includes('B) x = 3') && /x = 4 \(checked\)\nCorrect Answer: D/.test(saved), saved.slice(0, 400))
     } else if (SHOTS) await page.screenshot({ path: `${SHOTS}/edit-${name}.png`, fullPage: true })
+    // The teacher's assignment page: Delete assignment in the toolbar, the language option at the bottom.
+    await page.goto(`${BASE}/teacher/practice/${listed.find((a) => a.period === '5').id}`)
+    await page.waitForSelector('text=A student who reads better in another language', { timeout: 60000 }).catch(() => {})
+    const del = page.getByRole('button', { name: 'Delete assignment' })
+    const box = await del.first().boundingBox()
+    check(`${name}: Delete assignment is near the top of the assignment page`, !!box && box.y < 700, JSON.stringify(box))
+    await del.first().click()
+    await page.waitForSelector('text=Delete this assignment?')
+    check(`${name}: and asks first, saying what is lost`, (await page.locator('text=/no scores are lost|scores for this assignment are deleted/').count()) > 0)
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/assignment-delete-${name}.png` })
+    await page.getByRole('button', { name: 'Keep it' }).click()
+    await page.getByRole('button', { name: 'Another language' }).click()
+    await page.waitForSelector('text=Who gets it in Spanish?')
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/assignment-language-${name}.png` })
+    await page.keyboard.press('Escape')
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/assignment-${name}.png`, fullPage: true })
     check(`${name}: no page errors`, errors.length === 0, errors.join(' | '))
     await ctx.close()
   }
+
+  r = await t('DELETE', `/api/practice-assignments/${listed[0].id}`)
+  const left = (await t('GET', `/api/practice-assignments?guideId=${guide.id}`)).json?.assignments ?? []
+  check('deleting an assignment removes it (the others stay)', r.status === 200 && left.length === 2 && !left.some((a) => a.id === listed[0].id))
 
   // The homepage form has the standards box under More options.
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } })

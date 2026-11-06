@@ -8,6 +8,7 @@ import { attemptsLeft } from '@/lib/practice/assignments'
 import { myAssignedRow } from '@/lib/practice/server'
 import { MAX_VERSIONS, sameShape } from '@/lib/formats/versions'
 import { meterGuide, planBlockResponse, releaseUsage } from '@/lib/plans'
+import { translationForStudent } from '@/lib/guide-edit/translation-server'
 
 // A new version of a quiz or practice set for another attempt (migration 083).
 //   POST { version, assignmentId? } -> { status: 'ready', content } | { status: 'pending' } | { status: 'failed' }
@@ -63,9 +64,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isInteger(version) || version < 1 || version > MAX_VERSIONS) return NextResponse.json({ error: 'Invalid version' }, { status: 400 })
 
   const supabase = createAdminClient()
-  const { data: guide } = await supabase.from('study_guides').select('id, format, content, title, subject, grade_level, language').eq('id', id).maybeSingle()
+  const { data: guide } = await supabase.from('study_guides').select('id, user_id, format, content, title, subject, grade_level, language').eq('id', id).maybeSingle()
   if (!guide || (guide.format !== 'quiz' && guide.format !== 'practice') || !guide.content) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // A student given this assignment in another language gets new versions in it too.
+  let source = { content: guide.content as string, language: normalizeLanguage(guide.language) }
   if (assignmentId) {
     const { data: a } = await supabase.from('practice_assignments').select('id, study_guide_id, max_attempts, grading').eq('id', assignmentId).maybeSingle()
     if (!a || a.study_guide_id !== id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -75,6 +78,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const list = (tries ?? []).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
     const used = list.filter((t) => t.counted && !t.auto).length
     // Version N is for attempt N + 1: only once N attempts are in, and while one is left.
+    const translation = await translationForStudent(supabase, a.id, rosterId, guide)
+    if (translation) source = { content: translation.content, language: translation.language }
     if (version > Math.min(used, MAX_VERSIONS) || attemptsLeft(a.max_attempts, list) === 0) return NextResponse.json({ error: 'No attempt to prepare' }, { status: 409 })
   }
 
@@ -110,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   try {
     const claude = new ClaudeService()
-    const input = { content: guide.content as string, format: guide.format as 'quiz' | 'practice', title: guide.title as string, subject: guide.subject ?? undefined, gradeLevel: guide.grade_level ?? undefined, language: normalizeLanguage(guide.language), version }
+    const input = { content: source.content, format: guide.format as 'quiz' | 'practice', title: guide.title as string, subject: guide.subject ?? undefined, gradeLevel: guide.grade_level ?? undefined, language: source.language, version }
     let out = await claude.writeNewVersion(input)
     let cost = out.usage.cost
     // The new version has to line up item for item with the original (the teacher's report and retries depend on it).

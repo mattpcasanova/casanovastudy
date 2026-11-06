@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { StudyGuideRecord } from '@/lib/supabase'
@@ -49,7 +49,7 @@ import PageBanner from '@/components/page-banner'
 import { detectExam } from '@/lib/exams/profiles'
 import LearnCallout from '@/components/learn/learn-callout'
 import { AssignBar } from '@/components/assign/assign-bar'
-import { useAssignedBy } from "@/components/assign/assignment-context"
+import { useAssignedBy, useAssignmentTranslation } from "@/components/assign/assignment-context"
 import { ShareBar } from "@/components/assign/share-class"
 import { ASSIGNABLE_FORMATS } from "@/lib/practice/assignments"
 import { DesmosProvider } from '@/components/desmos/desmos-calculator'
@@ -74,7 +74,13 @@ interface StudyGuideViewerProps {
   studyGuide: StudyGuideRecord
 }
 
-export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) {
+export default function StudyGuideViewer({ studyGuide: original }: StudyGuideViewerProps) {
+  // Assigned to this student in another language: the same guide, translated (questions line up by position).
+  const translation = useAssignmentTranslation()
+  const studyGuide = useMemo<StudyGuideRecord>(
+    () => (translation ? { ...original, content: translation.content, language: translation.language, title: translation.title } : original),
+    [original, translation],
+  )
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
@@ -494,7 +500,7 @@ export default function StudyGuideViewer({ studyGuide }: StudyGuideViewerProps) 
               </button>
             ) : undefined}
           >
-            <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}><ReadingSurface>{renderFormat()}</ReadingSurface></StudyResultsProvider>
+            <StudyResultsProvider guideId={studyGuide.id} subject={studyGuide.subject}><ReadingSurface key={translation ? `lang-${translation.language}` : 'original'}>{renderFormat()}</ReadingSurface></StudyResultsProvider>
           </ExplainProvider>
         </DesmosProvider>
       </div>

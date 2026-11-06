@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { attemptsLeft, bestAttempt, practiceStatus } from '@/lib/practice/assignments'
 import { ASSIGNMENT_COLUMNS, adaptiveSettingsOf, aiRuleForGuide, myAssignedRow, type AssignmentRow } from '@/lib/practice/server'
 import { sendUnfinishedAtDue } from '@/lib/practice/auto-submit'
+import { translationForStudent } from '@/lib/guide-edit/translation-server'
 
 // A student's view of one assignment: due date, attempts, best score, and the
 // AI help rule for this guide (the strictest of their open assignments on it).
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     aiRuleForGuide(supabase, user.id, a.study_guide_id),
     supabase.from('user_profiles').select('first_name, last_name').eq('id', a.teacher_id).maybeSingle(),
   ])
+  // Given this practice in another language by the teacher: the same questions, translated (null = the original).
+  const { data: guide } = await supabase.from('study_guides').select('id, user_id, format, content, language').eq('id', a.study_guide_id).maybeSingle()
+  const translation = guide ? await translationForStudent(supabase, a.id, rosterId, guide) : null
   const list = (tries ?? []).map((t) => ({ pct: Number(t.pct), correct: Number(t.correct), total: Number(t.total), counted: !!t.counted, auto: !!t.auto, finishedAt: t.finished_at as string }))
   return NextResponse.json({
     title: a.title,
@@ -46,6 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     timeLimit: a.time_limit_seconds ?? null,
     // Adaptive: the teacher's mastery level, questions per topic and explain-question setting.
     adaptive: a.grading === 'mastery' ? adaptiveSettingsOf(a) : null,
+    translation: translation ? { language: translation.language, title: translation.title, content: translation.content } : null,
     teacherName: teacher ? [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || null : null,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

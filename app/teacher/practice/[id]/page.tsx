@@ -21,6 +21,7 @@ import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { AssignmentLanguage, languageChip } from "@/components/assign/assignment-language"
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { compareNames, displayName } from "@/lib/grading/names"
 import { useNameOrder } from "@/lib/use-name-order"
@@ -35,13 +36,13 @@ import { estimateAdaptive, estimateText, questionRangeText, type BankShape } fro
 
 interface ReportData { questions: ReportQuestion[]; students: Array<{ rosterId: string; answers: PracticeAnswer[]; complete: boolean; version: number }> }
 const chip = "inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset"
-interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null; seconds?: number | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null }
+interface Student { rosterId: string; name: string; firstName: string; lastName: string; linked: boolean; linkedVia: string | null; account: { name: string; matches: boolean } | null; studentNumber: string | null; email: string | null; status: string; daysLate?: number; attempts: number; best: { pct: number; correct: number; total: number; detail: { mastered?: string[]; notMastered?: string[] } | null; seconds?: number | null } | null; lastAt: string | null; aiUses: AiUse[]; focus: FocusEvent[]; inProgress?: RunCount | null; incomplete?: RunCount | null; language?: string | null }
 interface Data {
   assignment: { id: string; title: string; grading: "percent" | "mastery"; max_attempts: number | null; due_at: string | null; ai_help: AiHelp; focus_mode: boolean; time_limit_seconds: number | null; mastery_pct: number | null; questions_per_concept: number | null; explain_questions: boolean; url: string; created_at: string; class_id: string }
   /** Adaptive practice: topics and questions per topic in the guide's bank. */
   bank?: BankShape | null
   students: Student[]
-  guide: { id: string; title: string; format: string } | null
+  guide: { id: string; title: string; format: string; language?: string } | null
   class: { id: string; name: string; period: string | null } | null
 }
 
@@ -311,6 +312,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                     >
                       {progressStatusText(s, STATUS_TEXT)}{s.daysLate ? ` · ${dayCount(s.daysLate)}` : ""}
                     </span>
+                    {languageChip(s.language) && <span className={cn(chip, "bg-slate-50 text-slate-700 ring-slate-200")} title="Gets this practice in another language">{languageChip(s.language)}</span>}
                     {s.aiUses.length > 0 && (
                       <button type="button" onClick={() => setAiFor(s)} className={cn(chip, "bg-violet-50 text-violet-800 ring-violet-200 hover:bg-violet-100")}><MessageCircleQuestion className="h-3.5 w-3.5" />Asked AI {s.aiUses.length}×</button>
                     )}
@@ -412,6 +414,8 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           </ul>
         </DialogContent>
       </Dialog>
+
+      {data.guide && <AssignmentLanguage assignmentId={a.id} guideLanguage={data.guide.language} students={ordered} onChanged={load} />}
 
       <AlertDialog open={confirmDelete} onOpenChange={(o) => { if (!deleting) { setConfirmDelete(o); setDeleteError("") } }}>
         <AlertDialogContent>

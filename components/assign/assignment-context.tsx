@@ -34,6 +34,8 @@ interface Mine {
   /** Adaptive practice: the teacher's mastery level, questions per topic and explain-question setting. */
   adaptive?: AdaptiveSettings | null
   teacherName: string | null
+  /** The teacher gave this student the practice in another language: the same questions, translated. */
+  translation?: { language: string; title: string; content: string } | null
   /** What they had answered, sent for them at the due date (status incomplete). */
   sentAtDue: { answered: number; total: number; pct: number } | null
 }
@@ -47,7 +49,7 @@ type Submission =
 export type FinishAnswer = { id: string; correct: boolean; given?: string }
 type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[]; version?: number } }) => void
 
-const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; adaptive: AdaptiveSettings | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null } | null>(null)
+const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; adaptive: AdaptiveSettings | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null; translation: Mine["translation"] } | null>(null)
 
 /** Report a finished run of assigned practice (no-op when not assigned). */
 export function useAssignmentFinish(): Finish | null {
@@ -80,6 +82,14 @@ export function useAssignmentAdaptiveRules(): AdaptiveRules | null {
   const on = !!c && c.counts && c.grading === "mastery"
   const a = c?.adaptive
   return useMemo(() => (on ? gradedRules(a) : null), [on, a?.masteryPct, a?.perConcept, a?.explain]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/**
+ * The guide in the language the teacher set for this student on the assignment
+ * (same questions in the same places, so answers and scores line up), or null.
+ */
+export function useAssignmentTranslation(): NonNullable<Mine["translation"]> | null {
+  return useContext(Ctx)?.translation ?? null
 }
 
 /** Who assigned this guide to the student (null outside an assignment). */
@@ -171,7 +181,7 @@ export function AssignmentProvider({ guideId, children }: { guideId: string; chi
   const best = mine.best ? (mine.grading === "mastery" ? `${mine.best.correct} of ${mine.best.total} topics mastered` : `${Math.round(mine.best.pct)}%`) : null
   return (
     <AttemptCtx.Provider value={attemptInfo}>
-    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, adaptive: mine.adaptive ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission }}>
+    <Ctx.Provider value={{ finish, aiHelp: mine.aiHelp, counts: mine.attemptsLeft !== 0, timeLimit: mine.timeLimit ?? null, adaptive: mine.adaptive ?? null, teacherName: mine.teacherName ?? null, grading: mine.grading, submission, translation: mine.translation ?? null }}>
       <div className="border-b border-emerald-200 bg-emerald-50 print:hidden">
         <div className="container mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 text-sm text-emerald-950">
           <span className="inline-flex items-center gap-2 font-semibold"><ClipboardCheck className="h-4 w-4" />{mine.teacherName ? `Assigned by ${mine.teacherName}` : "Assigned"}: {mine.title}</span>

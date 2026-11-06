@@ -19,12 +19,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     assignmentProgress(supabase, [assignment]),
     aiUsesFor(supabase, assignment.id),
     focusEventsFor(supabase, assignment.id),
-    supabase.from('study_guides').select('id, title, format, content').eq('id', assignment.study_guide_id).maybeSingle(),
+    supabase.from('study_guides').select('id, title, format, content, language').eq('id', assignment.study_guide_id).maybeSingle(),
     supabase.from('classes').select('id, name, period').eq('id', assignment.class_id).maybeSingle(),
   ])
   // Adaptive: the size of the bank (topics, questions per topic), for the settings and the time estimate.
   const bank = guide?.format === 'adaptive' ? bankShape(parseAdaptive((guide.content as string) ?? '')) : null
-  const guideInfo = guide ? { id: guide.id, title: guide.title, format: guide.format } : null
+  const guideInfo = guide ? { id: guide.id, title: guide.title, format: guide.format, language: guide.language ?? 'en' } : null
   return NextResponse.json({ assignment: { ...assignment, url: shareUrl(origin(request), assignment.code) }, bank, students: (progress.get(assignment.id) ?? []).map((st) => ({ ...st, aiUses: aiUses.get(st.rosterId) ?? [], focus: focus.get(st.rosterId) ?? [] })), guide: guideInfo, class: cls }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
