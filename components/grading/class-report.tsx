@@ -5,6 +5,7 @@
 // from every paper's marks (lib/grading/insights.ts). The AI part is written
 // once and saved; it's offered again when a mark changes.
 
+import { topicsAreStandards } from "@/lib/standards"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowUpDown, ChevronDown, Lightbulb, Loader2, RefreshCw, ClipboardList } from "lucide-react"
@@ -135,7 +136,7 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
 
             {topics.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">By topic</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{topicsAreStandards(topics.map((t) => t.name)) ? "By standard" : "By topic"}</h3>
                 <ul className="mt-3 space-y-2.5">
                   {topics.map((t) => (
                     <li key={t.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[14rem_minmax(0,1fr)_3.5rem]">

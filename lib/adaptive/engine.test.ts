@@ -258,6 +258,22 @@ describe('following a miss with the same trap', () => {
     expect(openTrap(g, 'k1', [{ q: 'a1', correct: false, given: '2' }, { q: 'a5', correct: false, given: '3' }])).toBe('t2')
   })
 
+  it('prefers a different format on the same trap, and stays on the trap when there is none', () => {
+    const g = bank()
+    // A number question that probes t1, further from the student's level than the mc that also sets it.
+    g.questions.push({ id: 'a6', conceptId: 'k1', level: 3, type: 'num', prompt: 'a6', options: [], correct: -1, answers: ['2'], feedback: {}, probes: ['t1'] } as AdaptiveQuestion)
+    g.questions.push(mc('a7', 1, { 1: 't1' }))
+    const step = nextStep(g, [{ q: 'a1', correct: false, given: '1' }])
+    expect(step).toMatchObject({ kind: 'question', question: { id: 'a6', type: 'num' }, trap: 't1' })
+    // Missing the number question next: the follow-up goes back to a multiple-choice one on the same trap.
+    const again = nextStep(g, [{ q: 'a1', correct: false, given: '1' }, { q: 'a6', correct: false, given: '9' }])
+    expect(again).toMatchObject({ kind: 'question', question: { type: 'mc' }, trap: 't1' })
+    // Never a different format on a different mistake: with only t2 questions in another format, it stays on t1.
+    const h = bank()
+    h.questions.push({ id: 'a8', conceptId: 'k1', level: 1, type: 'tf', prompt: 'a8', options: [], correct: 0, answers: [], feedback: {}, probes: ['t2'] } as AdaptiveQuestion)
+    expect(nextStep(h, [{ q: 'a1', correct: false, given: '1' }])).toMatchObject({ question: { id: 'a4' }, trap: 't1' })
+  })
+
   it('changes nothing for banks without trap tags', () => {
     const g = guide({ k1: [1, 2, 2, 3] })
     expect(openTrap(g, 'k1', [ans('a2', false)])).toBeNull()

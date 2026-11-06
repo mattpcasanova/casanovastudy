@@ -248,3 +248,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   return NextResponse.json({ ok: true })
 }
+
+// Deletes a whole graded set (a set made by mistake): every paper's report in it,
+// the scanned pages they were graded from, the class report, reteach plan, no-paper
+// statuses and the saved answer key. Owner only. Practice assigned from the set stays.
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, error } = await requireTeacher(request)
+  if (error) return error
+  const { id } = await params
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const supabase = createAdminClient()
+  const [{ data: papers }, { data: setup }] = await Promise.all([
+    supabase.from('grading_results').select('id, page_urls').eq('batch_id', id).eq('user_id', user.id),
+    supabase.from('grading_batches').select('mark_scheme').eq('batch_id', id).eq('user_id', user.id).maybeSingle(),
+  ])
+  if (!papers?.length && !setup) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // The files first (only ones in this teacher's own folder), then the rows.
+  const paths = new Set<string>()
+  for (const p of papers ?? []) for (const ref of pickUploadRefs(p.page_urls, 500)) if (ownsUploadPath(ref.path, user.id)) paths.add(ref.path)
+  for (const ref of pickUploadRefs((setup?.mark_scheme as { images?: unknown } | null)?.images, 100)) if (ownsUploadPath(ref.path, user.id)) paths.add(ref.path)
+  const files = [...paths]
+  for (let i = 0; i < files.length; i += 100) {
+    const { error: fileError } = await supabase.storage.from('uploads').remove(files.slice(i, i + 100))
+    if (fileError) console.error('Deleting a set: files not removed:', fileError.message)
+  }
+
+  const { error: dbError } = await supabase.from('grading_results').delete().eq('batch_id', id).eq('user_id', user.id)
+  if (dbError) { console.error('Deleting a set failed:', dbError); return NextResponse.json({ error: 'Could not delete the set' }, { status: 500 }) }
+  for (const table of ['batch_student_status', 'grading_batch_insights', 'reteach_plans', 'grade_syncs', 'grading_batches'] as const) {
+    const { error: e } = await supabase.from(table).delete().eq('batch_id', id).eq('user_id', user.id)
+    if (e) console.error(`Deleting a set: ${table} rows not removed:`, e.message)
+  }
+  return NextResponse.json({ ok: true, papers: papers?.length ?? 0 })
+}

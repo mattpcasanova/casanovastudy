@@ -8,6 +8,7 @@ import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } fro
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, PencilLine, Plus, FileText, RefreshCw, Trash2 } from "lucide-react"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { GoogleClassroomSync } from "@/components/grading/google-classroom-sync"
@@ -121,6 +122,9 @@ function BatchResults({ id }: { id: string }) {
   const [roster, setRoster] = useState<BatchRosterEntry[]>([])
   const [classInfo, setClassInfo] = useState<{ id: string; googleCourseId: string | null } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [sort, setSort] = useState<"name" | "score">("name")
   const [nameOrder, setNameOrder] = useNameOrder()
@@ -299,6 +303,7 @@ function BatchResults({ id }: { id: string }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />Download CSV</button>
+                <button type="button" className={cn(actionButton, "text-red-700 hover:bg-red-50 hover:text-red-800")} onClick={() => { setDeleteError(""); setDeleteOpen(true) }}><Trash2 />Delete set</button>
               </div>
               <select
                 aria-label="Sort students"
@@ -458,6 +463,29 @@ function BatchResults({ id }: { id: string }) {
             <p className="mt-3 text-xs text-slate-500" aria-live="polite">{notice || "Click a name to fix it. Open a report to read the feedback, change a mark or print it."}</p>
             <BatchClassPanel batchId={id} rows={rows} roster={roster} examTitle={first?.exam_title ?? null} possible={Number(first?.total_possible_marks) || null} onChanged={load} />
             <RegradeSetDialog open={regradeOpen} onOpenChange={setRegradeOpen} batchId={id} papers={regradable} questions={questionLabels} onDone={() => void load()} />
+            <AlertDialog open={deleteOpen} onOpenChange={(o) => { if (!deleting) setDeleteOpen(o) }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this whole set?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {rows.length === 1 ? "The 1 paper" : `All ${rows.length} papers`} in &ldquo;{title}&rdquo; {rows.length === 1 ? "is" : "are"} deleted for good: the reports, the marks, the scanned pages and the class report. It comes out of the gradebook and off students&apos; pages. This can&apos;t be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {deleteError && <p role="alert" className="text-sm font-medium text-red-700">{deleteError}</p>}
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Keep it</AlertDialogCancel>
+                  <button type="button" disabled={deleting} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                    onClick={async () => {
+                      setDeleting(true); setDeleteError("")
+                      const res = await authFetch(`/api/grade-batch/${id}`, { method: "DELETE" }).catch(() => null)
+                      if (res?.ok) { window.location.assign(classInfo ? `/teacher/classes/${classInfo.id}` : "/teach"); return }
+                      setDeleting(false); setDeleteError("Could not delete the set. Please try again.")
+                    }}>
+                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Delete {rows.length === 1 ? "the paper" : `all ${rows.length} papers`}
+                  </button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <GradebookExportDialog
               open={exportOpen}
               onOpenChange={setExportOpen}

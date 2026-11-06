@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeStandards, standardCodes, standardEntries, standardsInstructions, STANDARDS_MAX } from './standards'
+import { normalizeStandards, standardCodes, standardEntries, standardsInstructions, topicStandard, topicsAreStandards, STANDARDS_MAX } from './standards'
 
 describe('normalizeStandards', () => {
   it('tidies whitespace and caps the length', () => {
@@ -41,5 +41,25 @@ describe('standardsInstructions', () => {
     expect(quiz).toContain('MA.8.AR.2.1')
     expect(quiz).toContain('Every item assesses')
     expect(standardsInstructions('MA.8.AR.2.1', 'outline')).not.toContain('Every item assesses')
+  })
+})
+
+describe('results by standard', () => {
+  it('asks for one section per standard on scored work with two or more codes', () => {
+    const quiz = standardsInstructions('MA.8.AR.2.1, MA.8.AR.3.2', 'quiz')
+    expect(quiz).toContain('one ## section per standard')
+    expect(quiz).toContain('(MA.8.AR.2.1)')
+    expect(standardsInstructions('MA.8.AR.2.1, MA.8.AR.3.2', 'adaptive')).toContain('every CONCEPT belongs to exactly one')
+    // One standard, or a format without scores: codes stay out of the guide.
+    expect(standardsInstructions('MA.8.AR.2.1', 'quiz')).toContain("Don't print standards codes")
+    expect(standardsInstructions('MA.8.AR.2.1, MA.8.AR.3.2', 'outline')).toContain("Don't print standards codes")
+  })
+  it('reads the code a topic name ends with', () => {
+    expect(topicStandard('Solving Multi-Step Equations (MA.8.AR.2.1)')).toBe('MA.8.AR.2.1')
+    expect(topicStandard('Forces (NGSS MS-PS2-2)')).toBe('NGSS MS-PS2-2')
+    expect(topicStandard('Mitosis (cell division)')).toBeNull()
+    expect(topicStandard('World War 2')).toBeNull()
+    expect(topicsAreStandards(['A (MA.8.AR.2.1)', 'B (MA.8.AR.3.2)'])).toBe(true)
+    expect(topicsAreStandards(['A (MA.8.AR.2.1)', 'Review'])).toBe(false)
   })
 })

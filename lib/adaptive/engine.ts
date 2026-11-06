@@ -243,6 +243,16 @@ export function openTrap(guide: AdaptiveGuide, conceptId: string, answers: Adapt
   return open
 }
 
+/** The format (mc / num / tf) of the latest question the student missed on a concept. */
+function lastMissType(guide: AdaptiveGuide, conceptId: string, answers: AdaptiveAnswer[]): AdaptiveQuestion['type'] | null {
+  const byId = new Map(guide.questions.map((q) => [q.id, q]))
+  for (let i = answers.length - 1; i >= 0; i--) {
+    const q = byId.get(answers[i].q)
+    if (q && q.conceptId === conceptId && gradeable(q) && !answers[i].correct) return q.type
+  }
+  return null
+}
+
 function pickByLevel(pool: AdaptiveQuestion[], level: AdaptiveLevel, struggling: boolean): AdaptiveQuestion | null {
   if (!pool.length) return null
   return [...pool].sort((a, b) => {
@@ -294,7 +304,11 @@ export function nextStep(guide: AdaptiveGuide, answers: AdaptiveAnswer[], opts: 
     // After a miss, a question that sets the same trap comes first: it shows whether the mistake is fixed.
     const trap = openTrap(guide, p.id, answers)
     const aimed = trap ? unanswered.filter((q) => probesOf(q).includes(trap)) : []
-    const fresh = pickByLevel(aimed.length ? aimed : unanswered, p.level, p.missStreak > 0)
+    // Of those, one in a different format from the question they just missed, when the bank has one
+    // (a student's idea: the same mistake from another angle, not the same kind of question again).
+    const missedType = aimed.length ? lastMissType(guide, p.id, answers) : null
+    const varied = missedType ? aimed.filter((q) => q.type !== missedType) : []
+    const fresh = pickByLevel(varied.length ? varied : aimed.length ? aimed : unanswered, p.level, p.missStreak > 0)
     if (fresh) { options.push({ p, q: fresh, review: false, ...(aimed.length && trap ? { trap } : {}) }); continue }
     const review = reviews ? reviewQuestion(guide, p.id, answers) : null
     if (review) options.push({ p, q: review, review: true })
