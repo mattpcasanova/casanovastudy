@@ -17,17 +17,22 @@ const ZOOMS = [1, 1.5, 2, 3]
 const STAMP_TONE = { earned: "text-emerald-700 ring-emerald-600", lost: "text-rose-700 ring-rose-600", partial: "text-amber-800 ring-amber-600", score: "text-blue-800 ring-blue-700", note: "text-slate-800 ring-slate-500" } as const
 
 /** A mark as it sits on the paper: examiner's pen, a little see-through so the work under it stays readable. */
-export function StampLabel({ stamp, className }: { stamp: Pick<PaperStamp, "text" | "tone">; className?: string }) {
+export function StampLabel({ stamp, className, size = "page" }: { stamp: Pick<PaperStamp, "text" | "tone">; className?: string; /** On the page, or as a button in the palette (bigger). */ size?: "page" | "palette" }) {
   // A sentence the teacher wrote reads as handwriting in the margin; a code stays a stamp.
   const words = stamp.text.length > 12
+  const symbol = /^[✓✗½^?]$/.test(stamp.text)
   return (
-    <span className={cn("inline-block rounded-md bg-white/85 ring-2 [print-color-adjust:exact]", words ? "max-w-[16rem] whitespace-normal px-2 py-1 text-left text-xs font-semibold leading-snug" : "whitespace-nowrap px-1.5 py-0.5 font-mono text-[13px] font-bold leading-none", STAMP_TONE[stamp.tone], className)}>
+    <span className={cn("inline-block rounded-md bg-white/90 ring-2 [print-color-adjust:exact]",
+      words ? "max-w-[16rem] whitespace-normal px-2 py-1 text-left text-xs font-semibold leading-snug"
+        : size === "palette" ? cn("whitespace-nowrap px-2.5 py-1.5 font-mono font-bold leading-none", symbol ? "text-xl" : "text-base")
+          : cn("whitespace-nowrap px-1.5 py-0.5 font-mono font-bold leading-none", symbol ? "text-base" : "text-sm"),
+      STAMP_TONE[stamp.tone], className)}>
       {stamp.text}
     </span>
   )
 }
 
-const MARK_WORDS: Record<string, string> = { M: "method", A: "accuracy", B: "independent" }
+const MARK_WORDS: Record<string, string> = { M1: "method", A1: "accuracy", B1: "independent", DM1: "dependent", "✓": "right", "✗": "wrong", "½": "half" }
 
 /** What the teacher is putting on the paper right now. */
 export interface PlacingStamp {
@@ -58,6 +63,8 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
   palette?: { question: string; examBoard: boolean; onPick: (a: Annotation) => void } | null
 }) {
   const [noteText, setNoteText] = useState("")
+  // The notes row is long on a Cambridge paper; folded until wanted.
+  const [notesOpen, setNotesOpen] = useState(false)
   const [zoomIndex, setZoomIndex] = useState(0)
   const [rotation, setRotation] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -125,33 +132,35 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
         </div>
       )}
       {palette && !placing && (
-        <div className="space-y-2 border-b border-white/10 px-3 py-2.5 text-xs text-slate-200">
+        <div className="space-y-2.5 border-b border-white/10 px-3 py-3 text-xs text-slate-200">
           <p className="text-sm text-white">Marking question <span className="font-semibold">{palette.question}</span>. Pick a mark or a note, then click the spot on the paper.</p>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 w-10 font-semibold uppercase tracking-wide text-slate-400">Marks</span>
             {[...(palette.examBoard ? EXAM_BOARD_MARKS : []), ...BASIC_ANNOTATIONS.slice(0, 3)].map((a) => (
-              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="inline-flex items-center gap-1 rounded-md ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
-                <StampLabel stamp={a} />
-                {MARK_WORDS[a.text[0]] && a.text.endsWith("1") && <span className="pr-1 text-[11px] text-slate-300">{MARK_WORDS[a.text[0]]}</span>}
+              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="inline-flex flex-col items-center gap-0.5 rounded-lg p-0.5 ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
+                <StampLabel stamp={a} size="palette" />
+                {MARK_WORDS[a.text] && <span className="text-[11px] leading-none text-slate-300">{MARK_WORDS[a.text]}</span>}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 w-10 font-semibold uppercase tracking-wide text-slate-400">Notes</span>
-            {[...BASIC_ANNOTATIONS.slice(3), ...(palette.examBoard ? EXAM_BOARD_ANNOTATIONS : [])].map((a) => (
-              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="rounded-md ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
-                <StampLabel stamp={a} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setNotesOpen((o) => !o)} aria-expanded={notesOpen} className="mr-1 inline-flex h-9 items-center gap-1 rounded-md px-1.5 font-semibold uppercase tracking-wide text-slate-300 hover:bg-white/10 hover:text-white">
+              Notes <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", notesOpen && "rotate-90")} />
+            </button>
+            {(notesOpen ? [...(palette.examBoard ? EXAM_BOARD_ANNOTATIONS : []), ...BASIC_ANNOTATIONS.slice(3)] : BASIC_ANNOTATIONS.slice(3)).map((a) => (
+              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="rounded-lg p-0.5 ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
+                <StampLabel stamp={a} size="palette" />
               </button>
             ))}
             <form
               className="flex items-center gap-1"
               onSubmit={(e) => { e.preventDefault(); const text = noteText.trim().slice(0, 300); if (text) { palette.onPick({ text, tone: "note", title: "Note" }); setNoteText("") } }}
             >
-              <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Your own words" aria-label="A note in your own words" className="h-7 w-36 rounded-md bg-white/10 px-2 text-xs text-white placeholder:text-slate-400 focus:bg-white/20 focus:outline-none" />
-              <button type="submit" disabled={!noteText.trim()} className="h-7 rounded-md bg-white/15 px-2 font-semibold hover:bg-white/25 disabled:opacity-40">Place</button>
+              <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Your own words" aria-label="A note in your own words" className="h-9 w-40 rounded-md bg-white/10 px-2.5 text-sm text-white placeholder:text-slate-400 focus:bg-white/20 focus:outline-none" />
+              <button type="submit" disabled={!noteText.trim()} className="h-9 rounded-md bg-white/15 px-3 text-sm font-semibold hover:bg-white/25 disabled:opacity-40">Place</button>
             </form>
           </div>
-          {palette.examBoard && <p className="text-slate-400">M1, A1 and B1 give this question's marks (the sheet updates); M0, A0 and B0 take them back. Hover a note for what it means.</p>}
+          {palette.examBoard && <p className="text-slate-400">M1, A1, B1 and DM1 give this question's marks (the sheet updates); M0, A0 and B0 take them back. {notesOpen ? "Hover a note for what it means." : "Open Notes for ft, cao, oe and the rest."}</p>}
         </div>
       )}
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">

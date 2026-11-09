@@ -351,8 +351,10 @@ export default function GradeReportPage() {
             <Dialog open={regradeOpen} onOpenChange={setRegradeOpen}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Regrade this paper</DialogTitle>
-                  <DialogDescription>{regradeScope
+                  <DialogTitle>{isSheet ? 'Let the grader mark this paper' : 'Regrade this paper'}</DialogTitle>
+                  <DialogDescription>{isSheet && regradeScope === null
+                    ? "The paper is marked against the set's answer key from its pages, with feedback on each question, in about a minute. Marks and notes you put on this paper are replaced; you can change anything after."
+                    : regradeScope
                     ? "Only the questions you pick are graded again, against the set's answer key. Everything else on this report stays as it is."
                     : "The whole paper is graded again from its pages against the set's answer key. New marks and feedback replace the current ones (edits you made to this report are lost; extra credit stays). About a minute."}</DialogDescription>
                 </DialogHeader>
@@ -392,9 +394,9 @@ export default function GradeReportPage() {
                   <FileSearch className="mr-1.5 h-4 w-4" /> {paperOpen ? 'Hide the paper' : canEdit ? 'View the paper' : stamps.length ? 'See your marked paper' : 'See your paper'}
                 </Button>
               )}
-              {canEdit && result.canRegrade && !editing && (
-                <Button variant="ghost" onClick={() => { setRegradeNote(''); setRegradeError(''); setRegradeScope([]); setRegradeOpen(true) }} className={actionButton}>
-                  <RefreshCw className="mr-1.5 h-4 w-4" /> Regrade
+              {canEdit && result.canRegrade && (!editing || toMark > 0) && (
+                <Button variant="ghost" onClick={() => { setRegradeNote(''); setRegradeError(''); setRegradeScope(toMark > 0 ? null : []); setRegradeOpen(true) }} className={actionButton}>
+                  <RefreshCw className="mr-1.5 h-4 w-4" /> {toMark > 0 ? 'Let the grader mark it' : 'Regrade'}
                 </Button>
               )}
               {canEdit && (

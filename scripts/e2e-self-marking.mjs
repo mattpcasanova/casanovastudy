@@ -177,6 +177,7 @@ async function main() {
   check(await page.getByRole('button', { name: /^A0 on question 1\(b\)/ }).count() === 0 && await page.getByRole('button', { name: /^M1 on question 1\(a\)/ }).count() === 1, 'a stamp can be taken off the paper; the mark stays')
   check(await page.getByText('4/7').count() >= 1, 'total still 4/7')
   // A note from the palette (not one of the scheme's marks) on the question last clicked.
+  await page.getByRole('button', { name: 'Notes' }).click()
   await page.getByRole('button', { name: /Follow through.*\(ft\)/ }).click()
   await page.getByText(/Click the paper to put this on question 2/).waitFor() // the question last clicked
   await sheetImg.click({ position: { x: box.width * 0.5, y: box.height * 0.33 } })

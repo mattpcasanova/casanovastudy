@@ -37,9 +37,9 @@ export type StampTone = 'earned' | 'lost' | 'partial' | 'score' | 'note'
 /** What the palette offers. The exam-board set shows when the paper uses mark codes. */
 export interface Annotation { text: string; tone: StampTone; title: string }
 export const BASIC_ANNOTATIONS: Annotation[] = [
-  { text: '✓', tone: 'earned', title: 'Correct' },
+  { text: '✓', tone: 'earned', title: 'Right' },
   { text: '✗', tone: 'lost', title: 'Wrong' },
-  { text: '½', tone: 'partial', title: 'Partly right' },
+  { text: '½', tone: 'partial', title: 'Half right' },
   { text: '^', tone: 'lost', title: 'Something missing' },
   { text: '?', tone: 'note', title: 'Unclear' },
 ]
@@ -48,6 +48,7 @@ export const EXAM_BOARD_MARKS: Annotation[] = [
   { text: 'M1', tone: 'earned', title: 'Method mark earned' },
   { text: 'A1', tone: 'earned', title: 'Accuracy mark earned' },
   { text: 'B1', tone: 'earned', title: 'Independent mark earned' },
+  { text: 'DM1', tone: 'earned', title: 'Dependent method mark earned (needs the mark before it)' },
   { text: 'M0', tone: 'lost', title: 'Method mark not earned' },
   { text: 'A0', tone: 'lost', title: 'Accuracy mark not earned' },
   { text: 'B0', tone: 'lost', title: 'Independent mark not earned' },
@@ -64,6 +65,12 @@ export const EXAM_BOARD_ANNOTATIONS: Annotation[] = [
   { text: 'awrt', tone: 'note', title: 'Answers which round to' },
   { text: 'soi', tone: 'note', title: 'Seen or implied' },
   { text: 'seen', tone: 'note', title: 'Seen' },
+  { text: 'www', tone: 'note', title: 'Without wrong working' },
+  { text: 'nfww', tone: 'lost', title: 'Not from wrong working (the answer came from wrong working, so no mark)' },
+  { text: 'AG', tone: 'note', title: 'Answer given on the paper: the working must be complete' },
+  { text: 'ora', tone: 'note', title: 'Or reverse argument' },
+  { text: 'owtte', tone: 'note', title: 'Or words to that effect' },
+  { text: 'max', tone: 'note', title: 'The most marks this part can get' },
 ]
 
 const TONES: StampTone[] = ['earned', 'lost', 'partial', 'score', 'note']
