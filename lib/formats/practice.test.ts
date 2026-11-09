@@ -311,3 +311,35 @@ describe('passage fences', () => {
     expect(a.correct).toBe(1)
   })
 })
+
+describe('quiz markers inside a practice set (2026-11-06)', () => {
+  const content = `## Normal distributions
+
+FILL: Maria scored 82 on a test with mean 74 and standard deviation 5, a z-score of {{1.6}}.
+Explanation: (82 - 74) / 5 = 1.6.
+
+NUM_QUESTION: A machine fills bags with mean 16.2 ounces. The z-score for the 5th percentile is -1.645. What standard deviation must the fill weights have?
+Answer: 0.122 | 0.12
+Hint: Set up the z-score formula.
+Explanation: 0.2 / 1.645 = 0.122.
+
+SA_QUESTION: Explain why X can be modeled as binomial.
+Sample Answer: Binary, independent, fixed number, same probability.
+
+MC_QUESTION: Which is a z-score?
+A) 1.6
+B) 82
+Correct Answer: A
+`
+  it('ends the fill-in at the quiz marker, turns NUM into a fill-in and leaves SA out', () => {
+    const acts = parsePracticeRaw(content)
+    expect(acts.map((a) => a.kind)).toEqual(['fill', 'fill', 'choice'])
+    const first = acts[0] as { parts: Array<string | { answers: string[] }> }
+    expect(first.parts.map((p) => (typeof p === 'string' ? p : '_'))).toEqual(['Maria scored 82 on a test with mean 74 and standard deviation 5, a z-score of ', '_', '.'])
+    const num = acts[1] as { parts: Array<string | { answers: string[] }>; hint?: string; explanation?: string }
+    expect(num.parts[0]).toMatch(/^A machine fills bags/)
+    expect(num.parts[1]).toEqual({ answers: ['0.122', '0.12'] })
+    expect(num.explanation).toBe('0.2 / 1.645 = 0.122.')
+    expect(acts.map((a) => a.id)).toEqual(['p-0', 'p-1', 'p-2'])
+  })
+})

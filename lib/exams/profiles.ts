@@ -141,6 +141,10 @@ export function examInstructions(match: ExamMatch, format: string, difficulty?: 
   ]
   // The item rules come first: they override the format's own question mix (true/false counts, short answers).
   if (items) lines.push('', profile.itemRules, '', `These item rules replace the FORMAT section's mix of question types: no TF_QUESTION lines at all, no "I, II and III" lists, and only the item types named above.`)
+  // A practice set has its own markers: the quiz markers the item rules name (SA_QUESTION, NUM_QUESTION) don't exist there
+  // and were getting glued onto the previous activity (2026-11-06, eleven AP sets).
+  if (format === 'practice') lines.push(`This is a PRACTICE set, so write every item with the practice markers only: MC_QUESTION:, FILL: (a numeric or short exact answer is a FILL with the answer in {{double braces}}, listing equivalent forms with |), MATCH:, ORDER:, SORT:. Never write SA_QUESTION: or NUM_QUESTION: here; a free-response part becomes an MC_QUESTION on its key step or a FILL on its final value.`)
+  if (format === 'adaptive') lines.push(`This is ADAPTIVE practice: every item is a Q: block of type mc, tf, num or explain as the FORMAT section describes. Never write MC_QUESTION:, SA_QUESTION: or NUM_QUESTION: here.`)
   for (const d of domains) {
     lines.push('', `DOMAIN: ${d.name} (${d.share})`)
     lines.push('What it tests:')

@@ -48,7 +48,10 @@ export interface BugActivity extends Base { kind: 'bug'; code: CodeSnippet; bugL
 export interface WriteActivity extends Base { kind: 'write'; exercise: CodeExercise }
 export type PracticeActivity = MatchActivity | FillActivity | OrderActivity | SortActivity | ChoiceActivity | BugActivity | WriteActivity
 
-const MARKER = /^\*{0,2}(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION|FIND_BUG|WRITE_CODE)\s*:\*{0,2}\s*(.*)$/i
+// SA_QUESTION / NUM_QUESTION are quiz markers; the model wrote them in a few practice sets
+// (exam-profile item rules). They end the previous activity: a NUM becomes a fill-in on its
+// answer, an SA (a written answer the player can't check) is left out.
+const MARKER = /^\*{0,2}(MATCH|FILL|ORDER|SORT|MC_QUESTION|TF_QUESTION|FIND_BUG|WRITE_CODE|SA_QUESTION|NUM_QUESTION)\s*:\*{0,2}\s*(.*)$/i
 const FENCE = /^(`{3,}|~{3,})\s*([\w+#.-]*)/
 
 /** "3", "3, 5", "lines 3 and 5" → [3, 5] (positive integers, deduped, sorted). */
@@ -154,6 +157,12 @@ export function parsePracticeRaw(content: string): PracticeActivity[] {
         })
         .filter((p): p is { term: string; definition: string } => !!p)
       if (pairs.length >= 2) out.push(withCode({ kind: 'match', id, topic, prompt: head || 'Match each term to its meaning', pairs, explanation }))
+    } else if (kind === 'NUM_QUESTION') {
+      // "Answer: 0.122 | 0.12" -> the question with one blank at the end.
+      const ans = rest.find((l) => /^\*{0,2}(?:correct\s+)?answer\s*:/i.test(l))
+      const answers = ans ? clean(ans.replace(/^\*{0,2}(?:correct\s+)?answer\s*:\*{0,2}\s*/i, '')).split('|').map((a) => a.trim()).filter(Boolean) : []
+      const stem = [head, ...rest.filter((l) => l !== ans && l.trim())].join('\n').trim()
+      if (stem && answers.length) out.push(withCode({ kind: 'fill', id, topic, prompt: 'Fill in the blank', parts: [stem + ' ', { answers }], explanation }))
     } else if (kind === 'FILL') {
       const text = [head, ...rest].join(' ').trim()
       const parts: FillActivity['parts'] = []
