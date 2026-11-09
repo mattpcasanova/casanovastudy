@@ -205,6 +205,21 @@ async function main() {
   const cells = JSON.stringify(gb)
   check((cells.match(/"percentage":/g) ?? cells.match(/"pct":/g) ?? []).length === 1 || /57\.1/.test(cells), 'gradebook only has the marked paper')
 
+  console.log('Put the marks on the paper for me')
+  // Back on the first (fully marked) paper: the model finds each answer and the marks land in the margin.
+  await page.goto(`${BASE}/grade-report/${firstId}?mark=1`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: /Put the marks on the paper for me/ }).click()
+  await page.getByText(/Marks placed for|Nothing new|Couldn't find|Could not/).waitFor({ timeout: 120000 })
+  const placedNote = await page.getByRole('status').filter({ hasText: /Marks placed|Nothing new|Couldn't|Could not/ }).first().textContent()
+  console.log(`  (${placedNote})`)
+  const onPage = await page.locator('button[aria-label*=" on question "]').count()
+  check(onPage >= 6, `all 7 marks (minus the one already placed) sit on the page: ${onPage} stamps`)
+  const { data: placedRow } = await admin.from('grading_results').select('grade_breakdown').eq('id', firstId).single()
+  const ys = placedRow.grade_breakdown.map((q) => q.points?.[1]?.at?.y ?? q.points?.[0]?.at?.y)
+  console.log(`  (answer heights: ${JSON.stringify(ys)})`)
+  check(ys.every((y) => typeof y === 'number') && ys[0] < ys[1] && ys[1] < ys[2], 'the three answers were found in top-to-bottom order')
+  await page.locator('section[aria-label$="paper"]').screenshot({ path: `${OUT}/6b-auto-placed.png` })
+
   console.log('Teacher home picks the set up again')
   await page.goto(`${BASE}/teach`, { waitUntil: 'networkidle' })
   await page.getByText(/still to mark/).waitFor()

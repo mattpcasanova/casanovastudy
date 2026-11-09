@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ChevronLeft, ChevronRight, RotateCw, Trash2, X, ZoomIn, ZoomOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, RotateCw, Stamp, Trash2, X, ZoomIn, ZoomOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PaperPage } from "@/lib/grading/paper-pages"
 import { BASIC_ANNOTATIONS, EXAM_BOARD_ANNOTATIONS, EXAM_BOARD_MARKS, type Annotation, type PaperStamp } from "@/lib/grading/mark-points"
@@ -42,7 +42,7 @@ export interface PlacingStamp {
   placed: boolean
 }
 
-export function PaperViewer({ pages, page, onPage, studentName, onClose, className, stamps = [], placing = null, onPlace, onPickStamp, onRemovePlacing, onCancelPlacing, palette = null }: {
+export function PaperViewer({ pages, page, onPage, studentName, onClose, className, stamps = [], placing = null, onPlace, onPickStamp, onRemovePlacing, onCancelPlacing, palette = null, autoPlace = null }: {
   pages: PaperPage[]
   /** 0-based page shown. */
   page: number
@@ -61,6 +61,8 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
   onCancelPlacing?: () => void
   /** Notes the teacher can put on the page (ticks, "ft", a few words), for the question named. */
   palette?: { question: string; examBoard: boolean; onPick: (a: Annotation) => void } | null
+  /** "Put the marks on the paper for me": the marks of every marked question are placed at the height of its answer. */
+  autoPlace?: { busy: boolean; note: string; onClick: () => void } | null
 }) {
   const [noteText, setNoteText] = useState("")
   // The notes row is long on a Cambridge paper; folded until wanted.
@@ -133,7 +135,15 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
       )}
       {palette && !placing && (
         <div className="space-y-2.5 border-b border-white/10 px-3 py-3 text-xs text-slate-200">
-          <p className="text-sm text-white">Marking question <span className="font-semibold">{palette.question}</span>. Pick a mark or a note, then click the spot on the paper.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-white">Marking question <span className="font-semibold">{palette.question}</span>. Pick a mark or a note, then click the spot on the paper.</p>
+            {autoPlace && (
+              <button type="button" onClick={autoPlace.onClick} disabled={autoPlace.busy} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-60" title="Each question's marks go in the right margin, level with its answer. Drag any that land wrong.">
+                {autoPlace.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stamp className="h-4 w-4" />}{autoPlace.busy ? "Placing…" : "Put the marks on the paper for me"}
+              </button>
+            )}
+          </div>
+          {autoPlace?.note && <p className="text-sky-200" role="status">{autoPlace.note}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 w-10 font-semibold uppercase tracking-wide text-slate-400">Marks</span>
             {[...(palette.examBoard ? EXAM_BOARD_MARKS : []), ...BASIC_ANNOTATIONS.slice(0, 3)].map((a) => (

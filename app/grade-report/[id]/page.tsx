@@ -124,6 +124,9 @@ export default function GradeReportPage() {
   const [placing, setPlacing] = useState<StampTarget | null>(null)
   // The question the palette's notes go on (the last one clicked; the first unmarked to begin with).
   const [focusQuestion, setFocusQuestion] = useState<number | null>(null)
+  // "Put the marks on the paper for me": the model finds each answer's height, the marks go in the margin there.
+  const [placingAll, setPlacingAll] = useState(false)
+  const [placeNote, setPlaceNote] = useState('')
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
@@ -318,6 +321,22 @@ export default function GradeReportPage() {
   const prevPaper = here > 0 ? others[here - 1] : null
   // The next one still to mark (wrapping round to earlier names), else simply the next paper.
   const nextPaper = here >= 0 ? (others.slice(here + 1).find((p) => p.toMark > 0) ?? others.slice(0, here).find((p) => p.toMark > 0) ?? others[here + 1] ?? null) : null
+  const placeAll = async () => {
+    if (!draft) return
+    setPlacingAll(true); setPlaceNote('')
+    try {
+      await saveDraft(draft) // the marks as they stand now
+      const res = await authFetch(`/api/grade-exam/${id}/place`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not place the marks')
+      patchDraft({ breakdown: data.breakdown })
+      setPlaceNote(`${data.placed ? `Marks placed for ${data.placed} question${data.placed === 1 ? '' : 's'}. Drag any that landed wrong.` : 'Nothing new to place.'}${data.missing?.length ? ` Couldn't find ${data.missing.map((m: string) => `Q${m}`).join(', ')} on the page.` : ''}`)
+    } catch (e) {
+      setPlaceNote(e instanceof Error ? e.message : 'Could not place the marks')
+    } finally {
+      setPlacingAll(false)
+    }
+  }
   const goToPaper = async (paperId: string) => {
     await saveDraft(draft)
     setPlacing(null)
@@ -498,6 +517,7 @@ export default function GradeReportPage() {
                 onPickStamp={editing ? (s) => setPlacing(s.target) : undefined}
                 onRemovePlacing={() => { if (placing) { patchDraft({ breakdown: placeStamp(draft.breakdown, placing, undefined) }); setPlacing(null) } }}
                 onCancelPlacing={() => setPlacing(null)}
+                autoPlace={editing && canEdit && draft.breakdown.some((q) => !q.unmarked) ? { busy: placingAll, note: placeNote, onClick: () => void placeAll() } : null}
                 palette={editing && canEdit && draft.breakdown[focusAt] ? { question: draft.breakdown[focusAt].questionNumber, examBoard: usesCodes, onPick: (a) => { const r = applyAnnotation(draft.breakdown, focusAt, a); if (r.breakdown !== draft.breakdown) patchDraft({ breakdown: r.breakdown }); setPlacing(r.target) } } : null}
               />
             </div>
