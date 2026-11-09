@@ -22,6 +22,8 @@ import { actionButton } from "@/components/grading/grading-ui"
 export interface SavedInsights {
   insights: ClassInsightsAI
   current: boolean
+  /** Why it is no longer current: the marks changed, or the set's standards did. */
+  stale?: "marks" | "standards" | null
   createdAt: string
 }
 
@@ -40,7 +42,7 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
  * assignment's report route and `renderBreakdown` swaps in a question list
  * that shows the questions and the wrong answers students gave.
  */
-export function ClassReport({ batchId, papers, saved, insightsUrl, source = "test", actions, renderBreakdown }: {
+export function ClassReport({ batchId, papers, saved, insightsUrl, source = "test", actions, standards, renderBreakdown }: {
   batchId?: string
   papers: PaperForInsights[]
   saved: SavedInsights | null
@@ -48,6 +50,8 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
   source?: "test" | "practice"
   /** Buttons beside the heading (e.g. the reteach plan). */
   actions?: ReactNode
+  /** The standards the set assesses (shown as chips under the heading; the report groups by them when it has 2+ codes). */
+  standards?: ReactNode
   renderBreakdown?: (report: ClassInsightsAI | null) => ReactNode
 }) {
   const practice = source === "practice"
@@ -80,10 +84,12 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
     }
   }
 
-  // Write the report the first time the page is opened.
+  // Write the report the first time the page is opened, and again when the set's
+  // standards changed (the teacher just asked for results by standard).
   const started = useRef(false)
   useEffect(() => {
-    if (started.current || saved || !stats.length) return
+    if (started.current || !stats.length) return
+    if (saved && saved.stale !== "standards") return
     started.current = true
     void generate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,6 +108,7 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
         </div>
         {actions}
       </div>
+      {standards}
 
       {!consistent && (
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
@@ -116,11 +123,11 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
           <p className="flex items-center gap-2 font-semibold text-slate-900"><ClipboardList className="h-4 w-4 text-blue-600" />Class summary</p>
           {report && !loading && (
             <Button variant="ghost" onClick={() => void generate()} className={actionButton}>
-              <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : practice ? "Update with the new answers" : "Update for the new marks"}
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />{report.current ? "Write again" : report.stale === "standards" ? "Update by standard" : practice ? "Update with the new answers" : "Update for the new marks"}
             </Button>
           )}
         </div>
-        {report && !report.current && !loading && <p className="mt-2 text-sm text-amber-800">{practice ? "More students have finished since this was written." : "Some marks changed since this was written."}</p>}
+        {report && !report.current && !loading && <p className="mt-2 text-sm text-amber-800">{report.stale === "standards" ? "The standards changed since this was written: update it to see results by standard." : practice ? "More students have finished since this was written." : "Some marks changed since this was written."}</p>}
 
         {loading && <p className="mt-4 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Reading every student&apos;s {practice ? "answers" : "marks and feedback"} (about 15 seconds)…</p>}
         {error && !loading && (

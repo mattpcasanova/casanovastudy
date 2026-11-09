@@ -130,3 +130,68 @@ describe('editProblem', () => {
     expect(editProblem('summary', 'x', '   ', false)).toMatch(/empty/)
   })
 })
+
+describe('adaptive banks', () => {
+  const bank = `# Fractions
+*Adding and comparing fractions*
+
+CONCEPT: Adding fractions
+LESSON: Find a common denominator first. Then add the numerators only.
+TRAP: t1 | Adds the denominators
+
+Q: 1 | mc
+What is 1/2 + 1/4?
+A) 2/6
+B) 3/4
+C) 1/6
+D) 2/4
+ANSWER: B
+IF A: [t1] You added the denominators. Use a common denominator of 4 instead.
+HINT: Rewrite 1/2 with a denominator of 4.
+EXPLANATION: 1/2 = 2/4, and 2/4 + 1/4 = 3/4.
+
+Q: 1 | tf
+True or false: 1/3 + 1/3 = 2/6.
+A) True
+B) False
+ANSWER: False
+PROBES: t1
+EXPLANATION: Keep the denominator: 1/3 + 1/3 = 2/3.
+
+MORE: k1
+
+Q: 2 | num
+What is 3/4 + 1/8?
+ANSWER: 7/8 | 0.875
+EXPLANATION: 3/4 = 6/8, and 6/8 + 1/8 = 7/8.
+`
+  it('cuts a bank into title, topic headings, questions and MORE blocks, and joins it back', () => {
+    const pieces = splitPieces('adaptive', bank)
+    expect(pieces.map((p) => p.kind)).toEqual(['title', 'heading', 'item', 'item', 'heading', 'item'])
+    expect(pieces[1].text.split('\n')[0]).toBe('CONCEPT: Adding fractions')
+    expect(pieces[4].text).toBe('MORE: k1')
+    expect(joinPieces(pieces).trim()).toBe(bank.trim())
+    expect(itemCount('adaptive', bank)).toBe(3)
+  })
+  it('reads the Q header, options, answer and tagged feedback as fields', () => {
+    const fields = pieceFields('adaptive', splitPieces('adaptive', bank)[2].text)
+    expect(fields[0]).toMatchObject({ type: 'line', key: 'Q', value: '1 | mc' })
+    expect(fields[1]).toMatchObject({ type: 'text', value: 'What is 1/2 + 1/4?' })
+    expect(fields.filter((f) => f.type === 'option').map((f) => (f as { letter: string }).letter)).toEqual(['A', 'B', 'C', 'D'])
+    expect(fields.find((f) => f.type === 'line' && f.key === 'IF A')).toMatchObject({ label: 'If they pick A', value: '[t1] You added the denominators. Use a common denominator of 4 instead.' })
+    expect(joinFields(fields)).toBe(splitPieces('adaptive', bank)[2].text)
+  })
+  it('refuses a key that is not an option, a Q line without a type, and shape changes when assigned', () => {
+    expect(editProblem('adaptive', bank, bank, true)).toBeNull()
+    expect(editProblem('adaptive', bank, bank.replace('ANSWER: B', 'ANSWER: E'), false)).toMatch(/Question 1 needs a correct answer/)
+    expect(editProblem('adaptive', bank, bank.replace('Q: 2 | num', 'Q: 2'), false)).toMatch(/Question 3 needs a level/)
+    // A true/false question listing A) True / B) False is fine (the player ignores those lines).
+    expect(editProblem('adaptive', bank, bank.replace('ANSWER: False', 'ANSWER: True'), false)).toBeNull()
+    const reworded = bank.replace('What is 1/2 + 1/4?', 'Add 1/2 and 1/4.').replace('ANSWER: B', 'ANSWER: D')
+    expect(editProblem('adaptive', bank, reworded, true)).toBeNull()
+    const dropped = bank.replace(/Q: 2 \| num[\s\S]*$/, '')
+    expect(editProblem('adaptive', bank, dropped, false)).toBeNull()
+    expect(editProblem('adaptive', bank, dropped, true)).toMatch(/assigned to students/)
+    expect(editProblem('adaptive', bank, bank.replace('Q: 1 | tf', 'Q: 1 | num'), true)).toMatch(/assigned to students/)
+  })
+})

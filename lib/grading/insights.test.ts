@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { insightsInput, insightsSignature, markedConsistently, parseClassInsights, questionStats, topicStats, type PaperForInsights } from './insights'
+import { insightsInput, insightsSignature, markedConsistently, staleReason, parseClassInsights, questionStats, topicStats, type PaperForInsights } from './insights'
 
 const q = (questionNumber: string, marksAwarded: number, marksPossible: number, explanation = '') => ({ questionNumber, marksAwarded, marksPossible, explanation })
 
@@ -46,6 +46,18 @@ describe('insightsSignature', () => {
     const changed = papers.map((p, i) => (i === 0 ? { ...p, breakdown: [q('1a', 1, 2), ...p.breakdown.slice(1)] } : p))
     expect(insightsSignature(papers)).not.toBe(insightsSignature(changed))
     expect(insightsSignature(papers)).toBe(insightsSignature([...papers].reverse()))
+  })
+  it('changes when the set\'s standards change, and says which changed', () => {
+    const plain = insightsSignature(papers)
+    const withStd = insightsSignature(papers, 'MA.8.AR.2.1\nMA.8.AR.3.2')
+    expect(withStd).not.toBe(plain)
+    expect(insightsSignature(papers, '  ')).toBe(plain)
+    expect(staleReason(plain, plain)).toBeNull()
+    expect(staleReason(plain, withStd)).toBe('standards')
+    expect(staleReason(withStd, plain)).toBe('standards')
+    const changed = papers.map((p, i) => (i === 0 ? { ...p, breakdown: [q('1a', 1, 2), ...p.breakdown.slice(1)] } : p))
+    expect(staleReason(withStd, insightsSignature(changed, 'MA.8.AR.2.1\nMA.8.AR.3.2'))).toBe('marks')
+    expect(staleReason(withStd, insightsSignature(changed))).toBe('marks')
   })
 })
 

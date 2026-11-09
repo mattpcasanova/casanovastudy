@@ -107,11 +107,20 @@ export function topicStats(stats: QuestionStat[], topics: ClassInsightsAI['topic
 }
 
 /** Changes whenever a paper is added, removed or re-marked, so a saved report can be marked out of date. */
-export function insightsSignature(papers: PaperForInsights[]): string {
-  return papers
+export function insightsSignature(papers: PaperForInsights[], standards?: string | null): string {
+  const marks = papers
     .map((p) => `${p.id}:${(p.breakdown ?? []).map((q) => `${normalizeQuestionKey(q.questionNumber)}=${q.marksAwarded}/${q.marksPossible}`).join(',')}`)
     .sort()
     .join(';')
+  // The set's standards shape the topics, so changing them makes the report stale too.
+  return standards?.trim() ? `${marks}|standards:${standards.trim()}` : marks
+}
+
+/** Why a saved report no longer matches: the standards changed, or the marks did. */
+export function staleReason(savedSignature: string, current: string): 'marks' | 'standards' | null {
+  if (savedSignature === current) return null
+  const marksOf = (s: string) => s.split('|standards:')[0]
+  return marksOf(savedSignature) === marksOf(current) ? 'standards' : 'marks'
 }
 
 /**

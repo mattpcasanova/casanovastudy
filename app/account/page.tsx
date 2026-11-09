@@ -76,7 +76,7 @@ function Account() {
           <p className="mt-1 text-sm capitalize text-slate-500">{user?.user_type}</p>
         </section>
 
-        {user && <RemindersSection userId={user.id} />}
+        {user && <RemindersSection userId={user.id} teacher={user.user_type === "teacher"} />}
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
           <h2 className={cn(fontDisplay, "flex items-center gap-2 text-2xl font-semibold text-slate-900")}><ShieldCheck className="h-5 w-5 text-blue-600" />Your data</h2>
@@ -106,7 +106,7 @@ function Account() {
 }
 
 // Email review reminders (lib/reminders/). No row in reminder_prefs = on.
-function RemindersSection({ userId }: { userId: string }) {
+function RemindersSection({ userId, teacher }: { userId: string; teacher: boolean }) {
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -129,8 +129,10 @@ function RemindersSection({ userId }: { userId: string }) {
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className={cn(fontDisplay, "flex items-center gap-2 text-2xl font-semibold text-slate-900")}><Bell className="h-5 w-5 text-blue-600" />Study reminders</h2>
-          <p className="mt-2 text-slate-600">Email me when cards are ready for review or a weak spot needs practice. At most once a day, and less often if you take a break.</p>
+          <h2 className={cn(fontDisplay, "flex items-center gap-2 text-2xl font-semibold text-slate-900")}><Bell className="h-5 w-5 text-blue-600" />{teacher ? "Email reminders" : "Study reminders"}</h2>
+          <p className="mt-2 text-slate-600">{teacher
+            ? "Email me the day before practice I assigned is due, with who has finished and who hasn't."
+            : "Email me the day before assigned practice is due, and when cards are ready for review or a weak spot needs practice. At most once a day, and less often if you take a break."}</p>
         </div>
         <Switch checked={!!enabled} disabled={enabled === null} onCheckedChange={(v) => void change(v)} aria-label="Email study reminders" className="mt-2 shrink-0" />
       </div>

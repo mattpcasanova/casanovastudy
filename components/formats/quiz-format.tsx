@@ -15,7 +15,8 @@ import { ExplanationText } from './explanation-text'
 import { DesmosHelpButton, ExplainButton } from '@/components/explain/explain-provider'
 import { CheckWorkButton, HintLadder } from '@/components/explain/tutor-help'
 import { desmosQuizAsk, quizAsk } from '@/components/explain/asks'
-import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { ReadAloudButton, usePlayerText } from '@/components/reading/reading-provider'
+import type { PlayerText } from '@/lib/i18n/player'
 import { questionForSpeech } from '@/lib/reading/speech'
 import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
@@ -58,9 +59,11 @@ interface ShortAnswerScore {
 
 type Mode = 'practice' | 'test'
 
-const TYPE_LABEL: Record<Question['type'], string> = { mc: 'Multiple choice', tf: 'True or false', sa: 'Short answer', num: 'Type your answer' }
+const typeLabel = (t: PlayerText): Record<Question['type'], string> => ({ mc: t.multipleChoice, tf: t.trueOrFalse, sa: t.shortAnswer, num: t.typeAnswer })
 
 export default function QuizFormat({ content, subject, title, gradeLevel, studyGuideId, pace, examName }: QuizFormatProps) {
+  const t = usePlayerText()
+  const TYPE_LABEL = typeLabel(t)
   // Another attempt gets new versions of the questions (use-attempt-version.ts).
   const ver = useAttemptVersion(content, studyGuideId)
   const allQuestions = useMemo(() => (ver.content ? parseQuizContent(ver.content, ver.seed) : []), [ver.content, ver.seed])
@@ -362,7 +365,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
-            <span className="font-semibold text-slate-900">{answeredCount}</span> of {questions.length} answered
+            <span className="font-semibold text-slate-900">{answeredCount}</span> {t.of} {questions.length} {t.answered}
             {subset && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">Retrying missed</span>}
             {markedList.length > 0 && (
               <button
@@ -398,7 +401,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
             <span title="Your teacher's assignment: answers show when you finish" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"><ClipboardList className="h-4 w-4" /> Answers show when you finish</span>
           ) : (
           <div className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium">
-            {([['practice', Zap, 'Practice'], ['test', ClipboardList, 'Test']] as const).map(([m, Icon, label]) => (
+            {([['practice', Zap, t.practice], ['test', ClipboardList, t.test]] as const).map(([m, Icon, label]) => (
               <button
                 key={m}
                 type="button"
@@ -425,7 +428,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
       {/* Question */}
       <div key={current.id} className="animate-fade-up rounded-2xl border border-slate-200 border-t-4 border-t-purple-500 bg-white p-5 shadow-sm sm:p-7 print:hidden">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={cn(eyebrow, 'text-purple-700')}>Question {index + 1}</span>
+          <span className={cn(eyebrow, 'text-purple-700')}>{t.question} {index + 1}</span>
           <span className="text-slate-300">·</span>
           <span className="text-xs font-medium text-slate-500">{TYPE_LABEL[current.type]}</span>
           <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -441,7 +444,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               )}
             >
               <Flag className={cn('h-3.5 w-3.5', isMarked && 'fill-amber-400 text-amber-600')} />
-              {isMarked ? 'Marked' : 'Mark for later'}
+              {isMarked ? t.marked : t.markForLater}
             </button>
           </div>
         </div>
@@ -449,7 +452,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
           <p className={cn(fontDisplay, 'min-w-0 flex-1 text-xl font-medium leading-snug text-slate-900 sm:text-[1.4rem]')}>
             <QuestionStem text={current.question} passage={current.passage} />
           </p>
-          <ReadAloudButton text={questionForSpeech(current.passage ? `${current.passage}\n${current.question}` : current.question, current.type === 'mc' ? current.options : undefined)} label="Read the question aloud" />
+          <ReadAloudButton text={questionForSpeech(current.passage ? `${current.passage}\n${current.question}` : current.question, current.type === 'mc' ? current.options : undefined)} label={t.readAloud} />
         </div>
         {current.figure && <GraphFence text={current.figure} compact allowExplain={revealed} />}
 
@@ -477,7 +480,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
             {['true', 'false'].map((v) => (
               <OptionButton
                 key={v}
-                label={v === 'true' ? 'True' : 'False'}
+                label={v === 'true' ? t.true : t.false}
                 selected={answers[current.id] === v}
                 correct={revealed && (v === 'true') === current.correctAnswer}
                 wrong={revealed && answers[current.id] === v && (v === 'true') !== current.correctAnswer}
@@ -504,13 +507,13 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
               enterKeyHint="done"
               value={revealed ? answers[current.id] ?? '' : typed[current.id] ?? answers[current.id] ?? ''}
               onChange={(e) => { setTyped((t) => ({ ...t, [current.id]: e.target.value })); if (mode === 'test') setAnswers((a) => ({ ...a, [current.id]: e.target.value })) }}
-              placeholder="Your answer"
+              placeholder={t.yourAnswer}
               disabled={revealed}
-              aria-label="Your numeric answer"
+              aria-label={t.yourNumericAnswer}
               className="h-12 w-44 rounded-xl border border-slate-300 bg-white px-4 text-lg tabular-nums text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100 disabled:bg-slate-50"
             />
             {mode === 'practice' && !revealed && (
-              <Button type="submit" disabled={!typed[current.id]?.trim()} className="h-12 bg-purple-600 px-5 text-white hover:bg-purple-700">Check</Button>
+              <Button type="submit" disabled={!typed[current.id]?.trim()} className="h-12 bg-purple-600 px-5 text-white hover:bg-purple-700">{t.check}</Button>
             )}
             <span className="w-full text-xs text-slate-500">A number, a fraction like 7/2, or a decimal. Don&apos;t type units or a percent sign unless the answer is a percent.</span>
           </form>
@@ -565,15 +568,15 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
             correct={isObjectiveCorrect(current, answers[current.id])}
             explanation={current.explanation}
             correctLabel={correctLabel(current)}
-            pickedLabel={pickedLabel(current, answers[current.id])}
+            pickedLabel={pickedLabel(current, answers[current.id], t)}
             extra={
               <div className="flex flex-wrap gap-2">
-                <ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? 'Explain more' : 'Why?'}</ExplainButton>
+                <ExplainButton build={() => quizAsk(current, answers[current.id])}>{isObjectiveCorrect(current, answers[current.id]) ? t.explainMore : t.why}</ExplainButton>
                 {!isObjectiveCorrect(current, answers[current.id]) && (
                   <CheckWorkButton
                     question={{ prompt: current.question, options: current.type === 'mc' ? current.options : undefined, figure: current.figure }}
                     correctAnswer={correctLabel(current)}
-                    given={pickedLabel(current, answers[current.id])}
+                    given={pickedLabel(current, answers[current.id], t)}
                   />
                 )}
                 <DesmosHelpButton build={() => desmosQuizAsk(current)} />
@@ -599,15 +602,15 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
       {/* Navigation */}
       <div className="flex items-center justify-between gap-4 print:hidden">
         <Button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} variant="ghost" className="text-slate-600">
-          <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+          <ChevronLeft className="mr-1 h-4 w-4" /> {t.previous}
         </Button>
         {isLast ? (
           <Button onClick={finish} disabled={answeredCount === 0 || submitting} size="lg" className="bg-emerald-700 text-white hover:bg-emerald-800">
-            {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scoring…</> : mode === 'practice' ? 'See results' : 'Submit quiz'}
+            {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scoring…</> : mode === 'practice' ? t.seeResults : t.submitQuiz}
           </Button>
         ) : (
           <Button onClick={() => setIndex((i) => i + 1)} size="lg" className="bg-purple-600 text-white hover:bg-purple-700">
-            Next <ChevronRight className="ml-1 h-4 w-4" />
+            {t.next} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
       </div>
@@ -730,9 +733,9 @@ function TimerSetup({ pace, count, defaultSeconds, examName, onStart, onCancel }
   )
 }
 
-function pickedLabel(q: Question, answer: string | undefined): string | undefined {
+function pickedLabel(q: Question, answer: string | undefined, t: PlayerText): string | undefined {
   if (!answer) return undefined
-  if (q.type === 'tf') return answer === 'true' ? 'True' : 'False'
+  if (q.type === 'tf') return answer === 'true' ? t.true : t.false
   if (q.type === 'mc') { const i = q.options.indexOf(answer); return i < 0 ? undefined : String.fromCharCode(65 + i) }
   if (q.type === 'num') return answer
   return undefined
@@ -841,25 +844,27 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
 // Spells out which option was the student's and which is right, so a red
 // outline next to a green check can't be misread as "my answer was right".
 export function AnswerTag({ yours, correct }: { yours: boolean; correct: boolean }) {
+  const t = usePlayerText()
   if (!yours && !correct) return null
   return (
     <span className={cn(
       'rounded-full px-2 py-0.5 text-[0.7rem] font-semibold',
       correct ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
     )}>
-      {yours ? 'Your answer' : 'Correct answer'}
+      {yours ? t.yourAnswer : t.correctAnswer}
     </span>
   )
 }
 
 function Feedback({ correct, explanation, correctLabel, pickedLabel, extra, hinted }: { correct: boolean; explanation?: string; correctLabel: string; pickedLabel?: string; extra?: ReactNode; hinted?: boolean }) {
+  const t = usePlayerText()
   return (
     <div className={cn('mt-5 rounded-xl p-4 animate-fade-up', correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       <p className={cn('flex items-start gap-2 font-semibold', correct ? 'text-emerald-800' : 'text-rose-800')}>
         {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0" />}
-        {correct ? (hinted ? 'Correct, with a hint.' : 'Correct!') : (
+        {correct ? (hinted ? t.correctWithHint : t.correct) : (
           <span>
-            Not quite.{pickedLabel && <> You picked <InlineMarkdown text={pickedLabel} />.</>} The answer is <span className="font-bold"><InlineMarkdown text={correctLabel} /></span>
+            {t.notQuite}{pickedLabel && <> {t.youPicked} <InlineMarkdown text={pickedLabel} />.</>} {t.theAnswerIs} <span className="font-bold"><InlineMarkdown text={correctLabel} /></span>
           </span>
         )}
       </p>
@@ -875,6 +880,7 @@ function Feedback({ correct, explanation, correctLabel, pickedLabel, extra, hint
 }
 
 function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScore; sample: string; extra?: ReactNode }) {
+  const t = usePlayerText()
   return (
     <div className={cn('rounded-xl p-4', !score ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : score.isCorrect ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-amber-50 ring-1 ring-inset ring-amber-200')}>
       {score ? (
@@ -886,10 +892,10 @@ function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScor
           <p className="mt-1 text-sm leading-relaxed text-slate-700">{score.feedback}</p>
         </>
       ) : (
-        <p className="text-sm italic text-slate-500">Not answered</p>
+        <p className="text-sm italic text-slate-500">{t.notAnswered}</p>
       )}
       <div className="mt-3 border-t border-black/5 pt-3">
-        <p className={cn(eyebrow, 'mb-1 text-slate-500')}>Model answer</p>
+        <p className={cn(eyebrow, 'mb-1 text-slate-500')}>{t.modelAnswer}</p>
         <p className="text-sm leading-relaxed text-slate-700"><InlineMarkdown text={sample} /></p>
       </div>
       {extra}
@@ -916,17 +922,18 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
   onRestart: (ids: string[] | null) => void
   isRetry: boolean
 }) {
+  const t = usePlayerText()
   const graded = questions.filter((q) => q.type !== 'sa' || saScores[q.id])
   const correct = graded.filter((q) => status(q) === 'correct').length
   const pct = graded.length ? Math.round((correct / graded.length) * 100) : 0
   const missed = questions.filter((q) => status(q) !== 'correct')
   const router = useRouter()
   const tone = pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-purple-600' : pct >= 50 ? 'text-amber-600' : 'text-rose-600'
-  const message = pct >= 90 ? 'Excellent. You know this material.' : pct >= 70 ? 'Solid. Review the ones you missed.' : pct >= 50 ? 'Getting there. Focus on the topics below.' : 'Keep going. Retry the missed questions.'
+  const message = pct >= 90 ? t.excellent : pct >= 70 ? t.solid : pct >= 50 ? t.gettingThere : t.keepGoing
 
   const sections: Array<{ name: string; right: number; total: number }> = []
   for (const q of graded) {
-    const name = q.section || 'Questions'
+    const name = q.section || t.questions
     let s = sections.find((x) => x.name === name)
     if (!s) sections.push((s = { name, right: 0, total: 0 }))
     s.total++
@@ -956,7 +963,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
             </div>
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry result' : 'Your result'}</p>
+            <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry result' : t.yourResult}</p>
             <p className={cn(fontDisplay, 'mt-1 text-2xl font-semibold text-slate-900')}>{message}</p>
             {timing && (
               <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
@@ -999,7 +1006,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                   <Flag className="mr-2 h-4 w-4" /> Retry {marked.size} marked{next ? ' with new questions' : ''}
                 </Button>
               )}
-              {!next?.assigned && <Button onClick={() => (next ? onNext(null) : onRestart(null))} variant="outline">{next ? 'Start over with new questions' : 'Start over'}</Button>}
+              {!next?.assigned && <Button onClick={() => (next ? onNext(null) : onRestart(null))} variant="outline">{next ? t.startOverNew : t.startOver}</Button>}
             </div>
           </div>
         </div>
@@ -1025,7 +1032,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>Answer review</h3>
+        <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>{t.answerReview}</h3>
         <ol className="space-y-3">
           {questions.map((q, i) => {
             const st = status(q)
@@ -1055,9 +1062,9 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                     {q.type !== 'sa' && (
                       <>
                         <p className="text-slate-600">Your answer: <span className={ok ? 'font-medium text-emerald-700' : 'font-medium text-rose-700'}>
-                          {answers[q.id] ? <InlineMarkdown text={q.type === 'tf' ? (answers[q.id] === 'true' ? 'True' : 'False') : answers[q.id]} /> : 'Not answered'}
+                          {answers[q.id] ? <InlineMarkdown text={q.type === 'tf' ? (answers[q.id] === 'true' ? t.true : t.false) : answers[q.id]} /> : t.notAnswered}
                         </span></p>
-                        {!ok && <p className="text-slate-600">Correct answer: <span className="font-medium text-emerald-700"><InlineMarkdown text={correctLabel(q)} /></span></p>}
+                        {!ok && <p className="text-slate-600">{t.correctAnswer}: <span className="font-medium text-emerald-700"><InlineMarkdown text={correctLabel(q)} /></span></p>}
                       </>
                     )}
                     {q.type === 'sa' && (

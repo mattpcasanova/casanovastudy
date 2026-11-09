@@ -140,7 +140,7 @@ const PieceCard = memo(function PieceCard({ piece, format, label, locked, guideI
   const uid = `piece-${piece.id}`
   const isItem = piece.kind === "item"
   // Assigned quizzes and practice keep their items; headings and prose can still go.
-  const canRemove = piece.kind !== "title" && !(locked && isItem && (format === "quiz" || format === "practice"))
+  const canRemove = piece.kind !== "title" && !(locked && isItem && (format === "quiz" || format === "practice" || format === "adaptive"))
 
   const change = (index: number, value: string) => {
     const next = fields.map((f, i) => (i === index ? { ...f, value } : f)) as Field[]
@@ -319,7 +319,7 @@ export default function GuideEditor({ guide }: { guide: StudyGuideRecord }) {
           </div>
         </section>
 
-        {locked && editable && (format === "quiz" || format === "practice") && (
+        {locked && editable && (format === "quiz" || format === "practice" || format === "adaptive") && (
           <p className="mt-4 flex items-start gap-2 rounded-2xl bg-blue-50 p-4 text-sm text-slate-800 ring-1 ring-inset ring-blue-200">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
             <span><span className="font-semibold">This one is assigned to students.</span> Change any wording, answer or explanation you like. {format === "quiz" ? "Questions" : "Activities"} can&apos;t be added or removed, because students&apos; answers are matched to them in order. Students who already finished keep the score they got.</span>
@@ -331,7 +331,7 @@ export default function GuideEditor({ guide }: { guide: StudyGuideRecord }) {
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             {guide.format === "custom"
               ? <span>This guide was made in the custom builder. <Link href={`/create-guide?edit=${guide.id}`} className="font-semibold text-blue-700 underline">Open it there</Link> to change what is in it.</span>
-              : <span>You can rename this {guide.format === "adaptive" ? "adaptive practice" : "study plan"} and set its standards here. Changing what is inside it isn&apos;t available yet.</span>}
+              : <span>You can rename this study plan and set its standards here. Changing what is inside it isn&apos;t available yet.</span>}
           </p>
         ) : (
           <ul className="mt-4 space-y-3">

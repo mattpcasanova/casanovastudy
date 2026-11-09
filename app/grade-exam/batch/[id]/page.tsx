@@ -7,7 +7,7 @@
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, PencilLine, Plus, FileText, RefreshCw, Trash2 } from "lucide-react"
+import { BookUp, ChevronDown, Diff, Download, FilePlus2, GraduationCap, ListChecks, Loader2, ClipboardList, Pencil, PencilLine, Plus, FileText, RefreshCw, Tag, Trash2 } from "lucide-react"
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
@@ -32,6 +32,7 @@ import { dayCount } from "@/lib/practice/assignments"
 import { AdjustmentDialog, type AdjustablePaper } from "@/components/grading/adjustment-dialog"
 import { AcceptAnswerDialog } from "@/components/grading/accept-answer-dialog"
 import { RegradeSetDialog } from "@/components/grading/regrade-set-dialog"
+import { StandardsChips, StandardsDialog } from "@/components/grading/batch-standards"
 import type { AcceptPlanRow } from "@/lib/grading/accept-answer"
 import { adjustedTotals, adjustmentGroups, adjustmentLine, gradebookComment, normalizeAdjustments, type GradeAdjustment } from "@/lib/grading/adjustments"
 
@@ -121,6 +122,9 @@ function BatchResults({ id }: { id: string }) {
   const [saved, setSaved] = useState<SavedInsights | null>(null)
   const [roster, setRoster] = useState<BatchRosterEntry[]>([])
   const [classInfo, setClassInfo] = useState<{ id: string; googleCourseId: string | null } | null>(null)
+  // The standards this set assesses (grading_batches.standards); the class report groups by them with 2+ codes.
+  const [standards, setStandards] = useState("")
+  const [standardsOpen, setStandardsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -169,7 +173,7 @@ function BatchResults({ id }: { id: string }) {
     const res = await authFetch(`/api/grade-batch/${id}`, { cache: "no-store" })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) setError(data.error || "Could not load these results")
-    else { setRows(data.results); setSaved(data.insights ?? null); setRoster(data.roster ?? []); setClassInfo(data.classInfo ?? null) }
+    else { setRows(data.results); setSaved(data.insights ?? null); setRoster(data.roster ?? []); setClassInfo(data.classInfo ?? null); setStandards(data.setup?.standards ?? "") }
   }, [id])
   useEffect(() => { void load() }, [load])
   // Back from connecting Google Classroom to send scores: reopen the dialog.
@@ -302,6 +306,7 @@ function BatchResults({ id }: { id: string }) {
                     <DropdownMenuItem className="h-10 cursor-pointer rounded-lg px-3 text-sm" onSelect={() => setRegradeOpen(true)}><RefreshCw className="mr-2 h-4 w-4" />Regrade all papers…</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <button type="button" className={actionButton} onClick={() => setStandardsOpen(true)}><Tag />Standards</button>
                 <button type="button" className={actionButton} onClick={downloadCsv}><Download />Download CSV</button>
                 <button type="button" className={cn(actionButton, "text-red-700 hover:bg-red-50 hover:text-red-800")} onClick={() => { setDeleteError(""); setDeleteOpen(true) }}><Trash2 />Delete set</button>
               </div>
@@ -493,10 +498,25 @@ function BatchResults({ id }: { id: string }) {
               rows={exportRows}
               classroomSync={classInfo?.googleCourseId ? <GoogleClassroomSync batchId={id} title={title} /> : undefined}
             />
+            <StandardsDialog
+              open={standardsOpen}
+              onOpenChange={setStandardsOpen}
+              value={standards}
+              onSave={async (text) => {
+                const data = await patchBatch({ standards: text })
+                const next = typeof data.standards === "string" ? data.standards : ""
+                setStandards(next)
+                // The report is written against the standards: reload so it knows it is stale (it then rewrites itself).
+                await load()
+                setNotice(next ? "Standards saved" : "Standards removed")
+              }}
+            />
             {marked.length > 0 && <ClassReport
+              key={standards}
               batchId={id}
               papers={reportPapers}
               saved={saved}
+              standards={<StandardsChips standards={standards} onEdit={() => setStandardsOpen(true)} />}
               actions={<Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "bg-indigo-50 text-indigo-800 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300")}><ClipboardList />Reteach plan</Link>}
             />}
           </>

@@ -13,7 +13,7 @@ import {
 import { InlineMarkdown } from './study-markdown'
 import { ExplanationText } from './explanation-text'
 import { QuestionStem } from './question-stem'
-import { ReadAloudButton } from '@/components/reading/reading-provider'
+import { ReadAloudButton, usePlayerText } from '@/components/reading/reading-provider'
 import { questionForSpeech, textForSpeech } from '@/lib/reading/speech'
 import { CodeBlock, CodeLines } from './code-view'
 import { GraphFence } from './graph-figure'
@@ -137,6 +137,7 @@ export function PracticeSession({
   /** Page variant: new versions of the activities for another try (use-attempt-version.ts). */
   version?: { number: number; preparing: boolean; count: number; ids: string[]; next: { label: string; assigned: boolean; waiting?: boolean } | null; startNext: () => void }
 }) {
+  const t = usePlayerText()
   const inline = variant === 'inline'
   const [subset, setSubset] = useState<string[] | null>(null)
   // Activities the student put off ("Come back to it") move to the end of the run.
@@ -315,7 +316,7 @@ export function PracticeSession({
     )
   }
 
-  const meta = isTrueFalse(current) ? { label: 'True or false', icon: HelpCircle } : KIND_META[current.kind]
+  const meta = isTrueFalse(current) ? { label: t.trueOrFalse, icon: HelpCircle } : KIND_META[current.kind]
   const Icon = meta.icon
   const outcome = checked ? results[current.id] : undefined
 
@@ -365,7 +366,7 @@ export function PracticeSession({
           <div className={cn('mt-6 animate-fade-up rounded-xl p-4', outcome.correct ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : outcome.note ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
             <p className={cn('flex items-center gap-2 font-semibold', outcome.correct ? 'text-emerald-800' : outcome.note ? 'text-amber-800' : 'text-rose-800')}>
               {outcome.correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-              {outcome.correct ? (streak >= 3 ? `Correct! ${streak} in a row.` : 'Correct!') : outcome.note ?? 'Not quite. Review the answer above.'}
+              {outcome.correct ? (streak >= 3 ? `${t.correct} ${streak} in a row.` : t.correct) : outcome.note ?? t.notQuiteReview}
             </p>
             {current.explanation && (
               <p className="mt-2 flex gap-2 text-sm leading-relaxed text-slate-700">
@@ -374,7 +375,7 @@ export function PracticeSession({
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              <ExplainButton build={() => activityAsk(current)}>{outcome.correct ? 'Explain more' : 'Why?'}</ExplainButton>
+              <ExplainButton build={() => activityAsk(current)}>{outcome.correct ? t.explainMore : t.why}</ExplainButton>
               {!outcome.correct && (current.kind === 'choice' || current.kind === 'fill') && <CheckWorkButton question={activityQuestion(current)} correctAnswer={activityAnswer(current)} />}
               {(current.kind === 'choice' || current.kind === 'fill') && <DesmosHelpButton build={() => desmosActivityAsk(current)} />}
             </div>
@@ -397,7 +398,7 @@ export function PracticeSession({
         ) : <span />}
         {checked && (
           <Button onClick={advance} size={inline ? 'sm' : 'default'} className="bg-orange-700 text-white hover:bg-orange-800">
-            {index === activities.length - 1 ? 'See results' : 'Continue'} <ChevronRight className="ml-1 h-4 w-4" />
+            {index === activities.length - 1 ? t.seeResults : t.continue} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
       </div>
@@ -611,6 +612,7 @@ function MatchBoard({ activity, onDone }: { activity: MatchActivity; onDone: Don
 }
 
 function FillBlank({ activity, onDone, checked, onContinue, compact = false, autoFocus = true }: { activity: FillActivity; onDone: Done; checked: boolean; onContinue: () => void; compact?: boolean; autoFocus?: boolean }) {
+  const t = usePlayerText()
   const held = useHeld()
   const blanks = activity.parts.filter((p): p is { answers: string[] } => typeof p !== 'string')
   const [values, setValues] = useState<string[]>(() => blanks.map(() => ''))
@@ -668,7 +670,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
       </p>
       {!checked && (
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">{held ? 'Submit' : 'Check'}</Button>
+          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">{held ? t.submit : t.check}</Button>
           <span className="text-xs text-slate-400">or press Enter · spelling slips are OK</span>
         </div>
       )}
@@ -732,6 +734,7 @@ function OrderList({ activity, onDone, checked }: { activity: OrderActivity; onD
 }
 
 function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDone: Done; checked: boolean }) {
+  const t = usePlayerText()
   const held = useHeld()
   // Tap an item to pick it up (from the pool or a group), then tap where it goes.
   // A tap on an item already in a group picks it up instead of throwing it out, and
@@ -842,7 +845,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
           disabled={pool.length > 0}
           className="mt-5 bg-orange-700 text-white hover:bg-orange-800"
         >
-          {held ? 'Submit' : 'Check'}
+          {held ? t.submit : t.check}
         </Button>
       )}
     </div>
@@ -850,6 +853,7 @@ function SortBoard({ activity, onDone, checked }: { activity: SortActivity; onDo
 }
 
 function Choice({ activity, onDone, checked, hint }: { activity: ChoiceActivity; onDone: (c: boolean, note?: string, given?: string) => void; checked: boolean; hint?: React.ReactNode }) {
+  const t = usePlayerText()
   const held = useHeld()
   // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const [picked, setPicked] = useState<number | null>(null)
@@ -884,7 +888,7 @@ function Choice({ activity, onDone, checked, hint }: { activity: ChoiceActivity;
                   {String.fromCharCode(65 + i)}
                 </span>
               )}
-              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
+              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={isTF ? (i === 0 ? t.true : t.false) : opt} /></span>
               {(correct || wrong) && (
                 <span className="ml-auto flex shrink-0 items-center gap-1.5">
                   <AnswerTag yours={picked === i} correct={correct} />
@@ -902,7 +906,7 @@ function Choice({ activity, onDone, checked, hint }: { activity: ChoiceActivity;
           )
         })}
       </div>
-      <ChoiceActions hint={hint} check={<LockInButton show={!checked && picked !== null} onClick={() => picked !== null && lock(picked)} tone="orange" label={held ? 'Lock in answer' : undefined} />} />
+      <ChoiceActions hint={hint} check={<LockInButton show={!checked && picked !== null} onClick={() => picked !== null && lock(picked)} tone="orange" label={held ? t.lockIn : undefined} />} />
     </div>
   )
 }
@@ -952,11 +956,12 @@ function Results({ activities, results, bestStreak, onRestart, next = null, onNe
   inline?: boolean
   title?: string
 }) {
+  const t = usePlayerText()
   const earned = Math.round(activities.reduce((sum, a) => sum + pointsFor(results[a.id]), 0) * 100) / 100
   const correct = points(earned)
   const pct = activities.length ? Math.round((earned / activities.length) * 100) : 0
   const missed = activities.filter((a) => !results[a.id]?.correct)
-  const message = pct >= 90 ? 'Outstanding. You really know this.' : pct >= 70 ? 'Nice work. A little more practice on the misses.' : pct >= 50 ? 'Good start. Run the missed ones again.' : 'Keep at it. Practice the missed activities.'
+  const message = pct >= 90 ? t.excellent : pct >= 70 ? t.solid : pct >= 50 ? t.gettingThere : t.keepGoing
 
   const topics: Array<{ name: string; right: number; total: number }> = []
   for (const a of activities) {
@@ -1012,7 +1017,7 @@ function Results({ activities, results, bestStreak, onRestart, next = null, onNe
               <RotateCcw className="mr-2 h-4 w-4" /> Practice {missed.length} missed{next ? ' with new questions' : ''}
             </Button>
           )}
-          {!next?.assigned && <Button onClick={() => (next && onNext ? onNext(null) : onRestart(null))} variant="outline"><ShuffleIcon className="mr-2 h-4 w-4" /> {next ? 'Start over with new questions' : 'Start over'}</Button>}
+          {!next?.assigned && <Button onClick={() => (next && onNext ? onNext(null) : onRestart(null))} variant="outline"><ShuffleIcon className="mr-2 h-4 w-4" /> {next ? t.startOverNew : t.startOver}</Button>}
         </div>
       </div>
       {topics.length > 1 && (
@@ -1053,9 +1058,10 @@ function rightAnswerText(a: PracticeActivity): string {
 
 /** Every activity of the run with their answer, the right one and the explanation (where they went wrong). */
 function AnswerReview({ activities, results }: { activities: PracticeActivity[]; results: Record<string, Outcome> }) {
+  const t = usePlayerText()
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>Answer review</h3>
+      <h3 className={cn(fontDisplay, 'mb-4 text-lg font-semibold text-slate-900')}>{t.answerReview}</h3>
       <ol className="space-y-3">
         {activities.map((a, i) => {
           const r = results[a.id]
@@ -1068,7 +1074,7 @@ function AnswerReview({ activities, results }: { activities: PracticeActivity[];
                 <span className="mt-0.5 shrink-0">{ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className={cn('h-5 w-5', part ? 'text-amber-600' : 'text-rose-600')} />}</span>
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <p className="font-medium text-slate-900">{i + 1}. <InlineMarkdown text={prompt} /></p>
-                  <p className="text-slate-700"><span className="font-semibold">Your answer:</span> {r ? (r.given ? <InlineMarkdown text={r.given} /> : r.note ?? (ok ? 'Right' : 'Skipped')) : 'Not answered'}{part && r?.note ? ` (${r.note})` : ''}</p>
+                  <p className="text-slate-700"><span className="font-semibold">{t.yourAnswer}:</span> {r ? (r.given ? <InlineMarkdown text={r.given} /> : r.note ?? (ok ? 'Right' : 'Skipped')) : t.notAnswered}{part && r?.note ? ` (${r.note})` : ''}</p>
                   {!ok && rightAnswerText(a) && <p className="text-emerald-800"><span className="font-semibold">Right answer:</span> <InlineMarkdown text={rightAnswerText(a)} /></p>}
                   {a.explanation && <p className="flex gap-2 leading-relaxed text-slate-600"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span><ExplanationText text={a.explanation} /></span></p>}
                 </div>

@@ -8,7 +8,7 @@
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
 import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
-import { ReadAloudButton } from "@/components/reading/reading-provider"
+import { ReadAloudButton, usePlayerText } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { TurnedInCard, useAssignmentAdaptiveRules, useAssignmentCounts, useAssignmentFinish } from "@/components/assign/assignment-context"
@@ -91,6 +91,7 @@ function explainAsk(q: AdaptiveQuestion, given?: string) {
 }
 
 export default function AdaptiveFormat({ content: initialContent, studyGuideId, title, subject, gradeLevel, isOwner }: Props) {
+  const t = usePlayerText()
   const router = useRouter()
   const recordResult = useRecordResult()
   const { openPremium } = usePlan()
@@ -289,16 +290,16 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-sky-50/50 px-5 py-3 text-sm sm:px-7">
               <span className="inline-flex items-center gap-1.5 font-semibold text-sky-800"><Target className="h-4 w-4" /> {concept?.name}</span>
               <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
-                {q.type === "explain" ? "In your own words" : LEVEL_LABEL[q.level]}
+                {q.type === "explain" ? t.inYourOwnWords : LEVEL_LABEL[q.level]}
               </span>
-              {current?.review && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Second try</span>}
+              {current?.review && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{t.secondTry}</span>}
               <span className="ml-auto tabular-nums text-slate-500">{summary.mastered} of {summary.total} mastered</span>
             </div>
 
             <div className="p-5 sm:p-7">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1"><QuestionPrompt text={q.prompt} passage={q.passage} /></div>
-                <ReadAloudButton text={questionForSpeech(q.prompt, q.type === "mc" ? q.options : undefined)} label="Read the question aloud" />
+                <ReadAloudButton text={questionForSpeech(q.prompt, q.type === "mc" ? q.options : undefined)} label={t.readAloud} />
               </div>
               {q.figure && <div className="mt-4"><GraphFence text={q.figure} allowExplain={!!result} /></div>}
               <div className="mt-5">
@@ -328,7 +329,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                     <>
                       <p className={cn("flex items-center gap-2 font-semibold", result.correct ? "text-emerald-800" : "text-rose-800")}>
                         {result.correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                        {result.correct ? (result.hinted ? "Correct, with a hint." : "Correct!") : q.type === "num" ? <span>Not quite. The answer is <InlineMarkdown text={q.answers[0]} />.</span> : "Not quite."}
+                        {result.correct ? (result.hinted ? t.correctWithHint : t.correct) : q.type === "num" ? <span>{t.notQuite} {t.theAnswerIs} <InlineMarkdown text={q.answers[0]} />.</span> : t.notQuite}
                       </p>
                       {!result.correct && q.type === "mc" && q.feedback[Number(result.given)] && (
                         <p className="mt-2 text-sm leading-relaxed text-slate-700"><InlineMarkdown text={q.feedback[Number(result.given)]} /></p>
@@ -342,7 +343,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                     </>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <ExplainButton build={() => explainAsk(q, result.given)}>{result.correct ? "Explain more" : "Why?"}</ExplainButton>
+                    <ExplainButton build={() => explainAsk(q, result.given)}>{result.correct ? t.explainMore : t.why}</ExplainButton>
                     {!result.correct && q.type !== "explain" && (
                       <CheckWorkButton
                         question={{ prompt: q.prompt, options: q.type === "mc" ? q.options : undefined, figure: q.figure }}
@@ -367,7 +368,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
             {result && (
               <div className="flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3 sm:px-7">
                 <Button onClick={advance} autoFocus className="bg-sky-700 text-white hover:bg-sky-800">
-                  Continue <ChevronRight className="ml-1 h-4 w-4" />
+                  {t.continue} <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -402,6 +403,7 @@ function QuestionPrompt({ text, passage }: { text: string; passage?: string }) {
 // ── Answer inputs ───────────────────────────────────────────────────────────
 
 function ChoiceAnswer({ q, result, onPick, hint }: { q: AdaptiveQuestion; result: { given: string } | null; onPick: (i: number) => void; hint?: React.ReactNode }) {
+  const t = usePlayerText()
   // A pick is locked in by "Check answer" or tapping it again; options can be crossed out.
   const isTF = q.type === "tf"
   const [pending, setPending] = useState<number | null>(null)
@@ -435,7 +437,7 @@ function ChoiceAnswer({ q, result, onPick, hint }: { q: AdaptiveQuestion; result
                   {String.fromCharCode(65 + i)}
                 </span>
               )}
-              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={opt} /></span>
+              <span className="option-text leading-snug text-slate-800"><InlineMarkdown text={isTF ? (i === 0 ? t.true : t.false) : opt} /></span>
               {correct && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-600" />}
               {wrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-rose-600" />}
             </button>
@@ -455,6 +457,7 @@ function ChoiceAnswer({ q, result, onPick, hint }: { q: AdaptiveQuestion; result
 }
 
 function NumberAnswer({ result, onSubmit }: { result: { given: string; correct: boolean } | null; onSubmit: (given: string) => void }) {
+  const t = usePlayerText()
   const [value, setValue] = useState("")
   return (
     <form
@@ -472,12 +475,12 @@ function NumberAnswer({ result, onSubmit }: { result: { given: string; correct: 
               autoCapitalize="off"
               spellCheck={false}
               enterKeyHint="done"
-        placeholder="Your answer"
-        aria-label="Your answer"
+        placeholder={t.yourAnswer}
+        aria-label={t.yourAnswer}
         className={cn("w-48 rounded-xl border-2 px-4 py-2.5 text-lg tabular-nums outline-none transition focus:border-sky-400",
           result ? (result.correct ? "border-emerald-400 bg-emerald-50" : "border-rose-400 bg-rose-50") : "border-slate-200")}
       />
-      {!result && <Button type="submit" disabled={!value.trim()} className="bg-sky-700 text-white hover:bg-sky-800">Check</Button>}
+      {!result && <Button type="submit" disabled={!value.trim()} className="bg-sky-700 text-white hover:bg-sky-800">{t.check}</Button>}
     </form>
   )
 }
@@ -566,9 +569,10 @@ function masteryPercent(p: ConceptProgress, rules: AdaptiveRules): number {
 }
 
 function ConceptPanel({ progress, activeId, refilling, rules }: { progress: ConceptProgress[]; activeId?: string; refilling: string | null; rules: AdaptiveRules }) {
+  const t = usePlayerText()
   return (
     <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-24">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Your mastery</p>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{t.yourMastery}</p>
       <ul className="space-y-3">
         {progress.map((p) => {
           const pct = masteryPercent(p, rules)
@@ -625,6 +629,7 @@ function DoneCard({ progress, summary, next, onNext, onRestart }: {
   onNext: (option: NextOption) => void
   onRestart: () => void
 }) {
+  const t = usePlayerText()
   const all = summary.mastered === summary.total
   const rec = NEXT_COPY[next.recommended.kind]
   return (
@@ -637,7 +642,7 @@ function DoneCard({ progress, summary, next, onNext, onRestart }: {
           <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-2.5 text-sm">
             <span className="font-medium text-slate-800">{p.name}</span>
             <span className={cn("shrink-0 font-semibold", p.status === "mastered" ? "text-emerald-700" : "text-amber-700")}>
-              {p.status === "mastered" ? "Mastered" : "Keep practicing"} · {p.correct}/{p.answered}
+              {p.status === "mastered" ? t.mastered : t.keepPracticing} · {p.correct}/{p.answered}
             </span>
           </li>
         ))}

@@ -6,6 +6,7 @@ import { gradingBlock, planBlockResponse } from '@/lib/plans'
 import { createAdminClient } from '@/lib/supabase-server'
 import { insightsInput, insightsSignature, parseClassInsights, questionStats, type ClassInsightsAI, type PaperForInsights } from '@/lib/grading/insights'
 import { knownAreaNames } from '@/lib/classes/areas'
+import { normalizeStandards } from '@/lib/standards'
 
 // Class report, AI part: topic grouping, common mistakes and what to reteach.
 // The numbers come from lib/grading/insights.ts on the page; this only writes
@@ -44,7 +45,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Papers the teacher is still marking herself have no marks to report on yet.
   const papers: PaperForInsights[] = rows.filter((r) => !stillMarking(r.grade_breakdown)).map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] }))
-  const signature = insightsSignature(papers)
+  // The set's standards (grading_batches.standards): with 2+ codes the topics are the standards.
+  const { data: setup } = await supabase.from('grading_batches').select('standards').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
+  const standards = normalizeStandards(setup?.standards) || null
+  const signature = insightsSignature(papers, standards)
 
   // Reuse the saved report unless the marks changed.
   const { data: saved } = await supabase.from('grading_batch_insights').select('signature, data, created_at').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const knownAreas = await classAreaNames(supabase, user.id, rows.find((r) => r.class_id)?.class_id ?? null, id)
-    const { text } = await new ClaudeService().classInsights(insightsInput(papers, stats), { examTitle: rows[0].exam_title, className: rows[0].class_name, knownAreas })
+    const { text } = await new ClaudeService().classInsights(insightsInput(papers, stats), { examTitle: rows[0].exam_title, className: rows[0].class_name, knownAreas, standards })
     const insights = parseClassInsights(text)
     if (!insights) throw new Error('The report came back in a form we could not read. Try again.')
     const createdAt = new Date().toISOString()

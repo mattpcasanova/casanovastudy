@@ -34,7 +34,7 @@ const sections: LegalSection[] = [
     body: <>
       <ul>
         <li>To run the service: create your guides, show your progress, answer your questions, grade exams, and send emails you asked for (like a shared guide or a parent permission request).</li>
-        <li>To send study reminders: at most one email a day when cards are due for review or a topic needs practice, based on your own progress. Every reminder has a link to turn them off, and you can switch them off any time on your Account page.</li>
+        <li>To send study reminders: at most one email a day when cards are due for review or a topic needs practice, based on your own progress, and one email the day before practice a teacher assigned you is due if you have not finished it (the teacher gets a summary of who has finished, without your answers). Every reminder has a link to turn them off, and you can switch them off any time on your Account page.</li>
         <li>To personalize your studying: for example, a new guide may spend more time on topics you have recently found hard.</li>
         <li>To keep the service safe and fair: preventing abuse, enforcing usage limits, and fixing problems.</li>
         <li>To improve Casanova Study, using totals and trends rather than individual profiles where possible.</li>

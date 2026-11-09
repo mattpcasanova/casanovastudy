@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { stillMarking } from '@/lib/grading/mark-points'
 import { assignedGuidesByRoster } from '@/lib/practice/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
@@ -21,9 +22,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [{ data: papers }, { data: classPapers }, { data: statuses }, { data: enrollment }] = await Promise.all([
     supabase.from('grading_results')
-      .select('id, batch_id, exam_title, created_at, total_marks, total_possible_marks, percentage, grade, released, group_members')
+      .select('id, batch_id, exam_title, created_at, total_marks, total_possible_marks, percentage, grade, released, group_members, grade_breakdown')
       .eq('user_id', user.id).eq('roster_id', rosterId).order('created_at', { ascending: false }),
-    supabase.from('grading_results').select('batch_id, exam_title, created_at, percentage').eq('user_id', user.id).eq('class_id', id).not('batch_id', 'is', null),
+    supabase.from('grading_results').select('batch_id, exam_title, created_at, percentage, grade_breakdown').eq('user_id', user.id).eq('class_id', id).not('batch_id', 'is', null),
     supabase.from('batch_student_status').select('batch_id, status, updated_at').eq('roster_id', rosterId).eq('user_id', user.id),
     student.studentUserId
       ? supabase.from('class_enrollments').select('status').eq('class_id', id).eq('student_id', student.studentUserId).eq('status', 'active').maybeSingle()
@@ -31,16 +32,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ])
 
   // Class averages per graded set, for "vs class" on each test.
+  // Papers the teacher is still marking herself have no score yet: they set the set's date but not its average.
   const sets = new Map<string, { title: string | null; date: string; total: number; n: number }>()
   for (const p of classPapers ?? []) {
     const s = sets.get(p.batch_id) ?? { title: p.exam_title, date: p.created_at, total: 0, n: 0 }
-    s.total += Number(p.percentage)
-    s.n += 1
+    if (!stillMarking(p.grade_breakdown)) { s.total += Number(p.percentage); s.n += 1 }
     if (p.created_at < s.date) s.date = p.created_at
     sets.set(p.batch_id, s)
   }
   const lateSets = new Set((statuses ?? []).filter((s) => s.status === 'late').map((s) => s.batch_id))
-  const work = (papers ?? []).map((p) => ({
+  const marking = (papers ?? []).filter((p) => stillMarking(p.grade_breakdown)).map((p) => ({
+    kind: 'status' as const, id: p.id, batchId: p.batch_id, title: p.exam_title || 'Untitled', date: p.created_at, status: 'marking',
+  }))
+  const work = (papers ?? []).filter((p) => !stillMarking(p.grade_breakdown)).map((p) => ({
     kind: 'paper' as const,
     id: p.id,
     batchId: p.batch_id,
@@ -56,7 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Came in after being marked absent/missing: days after the set was first graded (0 = same day).
     daysLate: p.batch_id && lateSets.has(p.batch_id) ? paperDaysLate(sets.get(p.batch_id)?.date, p.created_at) : null,
   }))
-  const gradedBatches = new Set(work.map((w) => w.batchId))
+  const gradedBatches = new Set([...work, ...marking].map((w) => w.batchId))
   const missing = (statuses ?? []).filter((s) => !gradedBatches.has(s.batch_id) && sets.has(s.batch_id)).map((s) => ({
     kind: 'status' as const,
     batchId: s.batch_id,
@@ -110,7 +114,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return NextResponse.json({
     class: { id: cls.id, name: cls.name, period: cls.period, schoolYear: cls.school_year },
     student: { ...student, joined: !!enrollment },
-    work: [...work, ...missing].sort((a, b) => b.date.localeCompare(a.date)),
+    work: [...work, ...marking, ...missing].sort((a, b) => b.date.localeCompare(a.date)),
     areas,
     practice,
   }, { headers: { 'Cache-Control': 'no-store' } })

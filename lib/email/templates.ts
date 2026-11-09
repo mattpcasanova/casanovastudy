@@ -383,3 +383,114 @@ export function inactiveAccountEmail(e: { firstName: string | null; deleteOn: st
     ].join('\n'),
   }
 }
+
+// ── Assigned practice due soon ──────────────────────────────────────────────
+// lib/practice/reminders-server.ts: the evening before assigned practice is
+// due, one email to each student who hasn't turned it in, and one summary to
+// the teacher. Both carry the reminders unsubscribe link.
+
+export interface PracticeReminderEmail {
+  firstName: string | null
+  title: string
+  teacherName: string | null
+  /** "tomorrow" / "today" / "on Friday". */
+  dueWord: string
+  /** "Friday, Nov 13 at 11:59 PM". */
+  dueAt: string
+  /** Started and not finished: what they had answered; null when not started. */
+  progress: { answered: number; total: number; unit: 'questions' | 'activities' } | null
+  url: string
+  unsubscribeUrl: string
+  siteUrl: string
+}
+
+export function practiceReminderEmail(e: PracticeReminderEmail): Mail {
+  const hi = e.firstName ? `${escapeHtml(e.firstName)}, ` : ''
+  const from = e.teacherName ? ` from ${escapeHtml(e.teacherName)}` : ''
+  const started = e.progress && e.progress.answered > 0
+  const headline = started
+    ? `${hi}you're ${e.progress!.answered} of ${e.progress!.total || '?'} ${e.progress!.unit} into "${escapeHtml(e.title)}"`
+    : `${hi}"${escapeHtml(e.title)}" is due ${e.dueWord}`
+  const intro = started
+    ? `Your practice${from} is due ${e.dueWord}, ${escapeHtml(e.dueAt)}. Pick up where you left off and finish it; what you've answered is saved.`
+    : `Your practice${from} is due ${e.dueWord}, ${escapeHtml(e.dueAt)}, and you haven't started it yet. It takes a few minutes, and you can stop and come back.`
+  const plain = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  const body = [
+    heading(headline),
+    paragraph(intro, { muted: true }),
+    button(e.url, started ? 'Finish it' : 'Start it'),
+    linkFallback(e.url),
+  ].join('\n')
+  return {
+    subject: started ? `Finish "${e.title}" by ${e.dueWord}` : `"${e.title}" is due ${e.dueWord}`,
+    html: emailLayout({
+      preheader: `Due ${e.dueAt}.`,
+      body,
+      footer: `You get this because your teacher assigned you practice on Casanova Study. <a href="${e.unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Turn off reminders</a>`,
+      siteUrl: e.siteUrl,
+    }),
+    text: [
+      plain(headline),
+      '',
+      plain(intro),
+      '',
+      `${started ? 'Finish it' : 'Start it'}: ${e.url}`,
+      '',
+      `Turn off reminders: ${e.unsubscribeUrl}`,
+    ].join('\n'),
+  }
+}
+
+export interface PracticeTeacherEmail {
+  firstName: string | null
+  title: string
+  className: string | null
+  dueWord: string
+  dueAt: string
+  summary: { total: number; done: number; inProgress: number; notStarted: number; names: string[] }
+  maxNames: number
+  url: string
+  unsubscribeUrl: string
+  siteUrl: string
+}
+
+export function practiceTeacherEmail(e: PracticeTeacherEmail): Mail {
+  const s = e.summary
+  const behind = s.total - s.done
+  const where = e.className ? ` (${escapeHtml(e.className)})` : ''
+  const headline = behind === 0
+    ? `Everyone has finished "${escapeHtml(e.title)}"`
+    : `${behind} of ${s.total} haven't finished "${escapeHtml(e.title)}"`
+  const parts = [
+    s.done ? `${s.done} done` : '',
+    s.inProgress ? `${s.inProgress} in progress` : '',
+    s.notStarted ? `${s.notStarted} not started` : '',
+  ].filter(Boolean).join(', ')
+  const intro = `${e.firstName ? `Hi ${escapeHtml(e.firstName)}, y` : 'Y'}our practice${where} is due ${e.dueWord}, ${escapeHtml(e.dueAt)}. So far: ${parts}.${behind ? ' Students with an account were reminded by email just now.' : ''}`
+  const listed = s.names.slice(0, e.maxNames)
+  const more = s.names.length - listed.length
+  const names = listed.length
+    ? paragraph(`Still to finish: ${listed.map(escapeHtml).join(', ')}${more > 0 ? ` and ${more} more` : ''}.`, { small: true, muted: true })
+    : ''
+  const plain = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  const body = [heading(headline), paragraph(intro, { muted: true }), names, button(e.url, 'See who has finished'), linkFallback(e.url)].filter(Boolean).join('\n')
+  return {
+    subject: behind === 0 ? `Everyone finished "${e.title}"` : `Due ${e.dueWord}: ${behind} of ${s.total} haven't finished "${e.title}"`,
+    html: emailLayout({
+      preheader: parts,
+      body,
+      footer: `You get this the day before practice you assigned is due. <a href="${e.unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Turn off reminders</a>`,
+      siteUrl: e.siteUrl,
+    }),
+    text: [
+      plain(headline),
+      '',
+      plain(intro),
+      listed.length ? `\nStill to finish: ${listed.join(', ')}${more > 0 ? ` and ${more} more` : ''}.` : '',
+      '',
+      `See who has finished: ${e.url}`,
+      '',
+      `Turn off reminders: ${e.unsubscribeUrl}`,
+    ].join('\n'),
+  }
+}

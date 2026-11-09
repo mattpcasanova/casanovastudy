@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
-import { insightsSignature } from '@/lib/grading/insights'
+import { insightsSignature, staleReason } from '@/lib/grading/insights'
+import { normalizeStandards } from '@/lib/standards'
 import { parseName } from '@/lib/grading/names'
 import { gradeFor, normalizeScale } from '@/lib/grading/scale'
 import { loadRoster, ownedClass } from '@/lib/classes/server'
@@ -36,9 +37,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // The set's mark sheet (from any paper the teacher is marking herself), for papers added later.
   const sheetPaper = results.find((r) => r.self_marked)
   const template = sheetPaper ? templateFromBreakdown(sheetPaper.grade_breakdown) : null
-  const { data: saved } = await createAdminClient().from('grading_batch_insights').select('signature, data, created_at').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
-  const signature = insightsSignature(results.filter((r) => !r.to_mark).map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })))
-  const insights = saved ? { insights: saved.data, current: saved.signature === signature, createdAt: saved.created_at } : null
+  // What adding more papers later reuses: the answer key, notes, standards and Classroom assignment.
+  const [{ data: saved }, { data: setupRow }] = await Promise.all([
+    createAdminClient().from('grading_batch_insights').select('signature, data, created_at').eq('batch_id', id).eq('user_id', user.id).maybeSingle(),
+    createAdminClient().from('grading_batches').select('mark_scheme, notes, standards, classroom_course_id, classroom_work_id').eq('batch_id', id).eq('user_id', user.id).maybeSingle(),
+  ])
+  const standards = normalizeStandards(setupRow?.standards) || null
+  const signature = insightsSignature(results.filter((r) => !r.to_mark).map((r) => ({ id: r.id, name: r.student_name ?? '', breakdown: Array.isArray(r.grade_breakdown) ? r.grade_breakdown : [] })), standards)
+  const insights = saved ? { insights: saved.data, current: saved.signature === signature, stale: staleReason(saved.signature, signature), createdAt: saved.created_at } : null
 
   // In a class: roster students with no paper (and what the teacher marked
   // them as), plus student numbers for the CSV.
@@ -62,12 +68,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   const { data: cls } = classId ? await createAdminClient().from('classes').select('id, google_course_id').eq('id', classId).maybeSingle() : { data: null }
   const classInfo = cls ? { id: cls.id, googleCourseId: cls.google_course_id } : null
-  // What adding more papers later reuses: the answer key, notes and Classroom assignment.
-  const { data: setupRow } = await createAdminClient().from('grading_batches').select('mark_scheme, notes, classroom_course_id, classroom_work_id').eq('batch_id', id).eq('user_id', user.id).maybeSingle()
   const setup = setupRow ? {
     template,
     markScheme: setupRow.mark_scheme ?? null,
     notes: setupRow.notes ?? null,
+    standards,
     classroom: setupRow.classroom_course_id && setupRow.classroom_work_id ? { courseId: setupRow.classroom_course_id, workId: setupRow.classroom_work_id } : null,
   } : null
   return NextResponse.json({ results, insights, roster, classInfo, setup }, { headers: { 'Cache-Control': 'no-store' } })
@@ -190,6 +195,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { error: upErr } = await supabase.from('grading_batches').upsert({ batch_id: id, user_id: user.id, mark_scheme: { texts, images }, updated_at: now }, { onConflict: 'batch_id' })
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
     return NextResponse.json({ ok: true })
+  }
+
+  // The standards this set assesses (lib/standards.ts); '' clears them. With 2+ codes the
+  // class report groups questions by standard the next time it is written.
+  if (body.standards !== undefined) {
+    if (typeof body.standards !== 'string') return NextResponse.json({ error: 'Invalid standards' }, { status: 400 })
+    const standards = normalizeStandards(body.standards) || null
+    const { data: existing } = await supabase.from('grading_batches').select('user_id').eq('batch_id', id).maybeSingle()
+    if (existing && existing.user_id !== user.id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const { error: upErr } = await supabase.from('grading_batches').upsert({ batch_id: id, user_id: user.id, standards, updated_at: now }, { onConflict: 'batch_id' })
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+    return NextResponse.json({ ok: true, standards })
   }
 
   if (body.gradeScale !== undefined) {

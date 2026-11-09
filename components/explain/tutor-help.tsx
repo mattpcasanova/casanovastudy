@@ -15,6 +15,7 @@ import { InlineMarkdown } from '@/components/formats/study-markdown'
 import { imageToJpeg } from '@/lib/uploads/prepare'
 import { uploadKind } from '@/lib/uploads/kinds'
 import { useExplain, type ExplainRequest } from './explain-context'
+import { usePlayerText } from '@/components/reading/reading-provider'
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
 const letter = (i: number) => String.fromCharCode(65 + i)
@@ -41,6 +42,7 @@ export function HintLadder({ hint, question, onUse, className }: {
   onUse?: () => void
   className?: string
 }) {
+  const t = usePlayerText()
   const explain = useExplain()
   const [shown, setShown] = useState(false)
   const [stepAsked, setStepAsked] = useState(false)
@@ -60,7 +62,7 @@ export function HintLadder({ hint, question, onUse, className }: {
         onClick={() => { onUse?.(); if (hint) setShown(true); else askStep() }}
         className={cn('mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 print:hidden', className)}
       >
-        <Lightbulb className="h-3.5 w-3.5" /> {hint ? 'Hint' : 'Show me the first step'}
+        <Lightbulb className="h-3.5 w-3.5" /> {hint ? t.hint : t.firstStep}
       </button>
     )
   }

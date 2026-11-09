@@ -17,3 +17,10 @@ export const PLANS_ENABLED = false
 // Built 2026-10-04. While off the cron does nothing; preview and test-send with
 // scripts/reminders.ts. Turn on only after Matt has seen a sample email.
 export const REMINDERS_ENABLED = false
+
+// "Due tomorrow" emails for assigned practice (lib/practice/reminders*.ts, cron
+// /api/cron/practice-reminders): one to each student who hasn't turned it in and
+// one summary to the teacher. Built 2026-11-08. Separate from the review
+// reminders above: these are about work a teacher set, so they go out while the
+// review reminders stay off. Preview with scripts/practice-reminders.ts.
+export const PRACTICE_REMINDERS_ENABLED = true

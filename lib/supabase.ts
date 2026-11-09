@@ -71,6 +71,7 @@ export interface StudyGuideRecord {
   difficulty_level?: string
   language?: string // GuideLanguage (migration 071); default en
   standards?: string | null // standards the guide is written to (migration 085)
+  reading_level?: string | null // ReadingLevel of an easier-reading copy (migration 089); null = as requested
   additional_instructions?: string
   file_count: number
   token_usage?: {

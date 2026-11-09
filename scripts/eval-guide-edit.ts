@@ -7,6 +7,7 @@ import { parsePracticeRaw } from '../lib/formats/practice'
 import { parseTimeline } from '../lib/formats/timeline'
 import { parseCheatSheet } from '../lib/formats/cheatsheet'
 import { parseGuideStructure } from '../lib/formats/structure'
+import { parseAdaptive } from '../lib/adaptive/format'
 import { EDITABLE_FORMATS, editProblem, joinFields, joinPieces, pieceFields, splitPieces, type EditableFormat } from '../lib/guide-edit/pieces'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -14,7 +15,7 @@ const per = Number(process.argv[2]) || 150
 
 const parse: Record<EditableFormat, (c: string) => unknown> = {
   quiz: parseQuizRaw, practice: parsePracticeRaw, flashcards: (c) => c.split('\n').map((l) => l.trimEnd()).filter(Boolean), timeline: parseTimeline,
-  cheatsheet: parseCheatSheet, outline: parseGuideStructure, summary: parseGuideStructure,
+  cheatsheet: parseCheatSheet, outline: parseGuideStructure, summary: parseGuideStructure, adaptive: parseAdaptive,
 }
 
 async function main() {

@@ -11,7 +11,8 @@ import localFont from "next/font/local"
 import { Square, Type, Volume2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { GUIDE_LANGUAGES, normalizeLanguage } from "@/lib/study-options"
+import { GUIDE_LANGUAGES, normalizeLanguage, type GuideLanguage } from "@/lib/study-options"
+import { playerText, type PlayerText } from "@/lib/i18n/player"
 import { onSpeakingChange, speak, speechSupported, stopSpeaking } from "@/lib/reading/speech"
 import { cn } from "@/lib/utils"
 
@@ -54,12 +55,20 @@ interface ReadingContextValue {
   update: (patch: Partial<ReadingSettings>) => void
   /** BCP 47 code for the voice, from the guide's language. */
   speechLang: string
+  /** The language of the content on screen (a translation given to one student counts). */
+  language: GuideLanguage
 }
 
 const ReadingContext = createContext<ReadingContextValue | null>(null)
 
 export function useReading() {
   return useContext(ReadingContext)
+}
+
+/** The player's own words (Check answer, True / False, Your answer) in the guide's language; English outside a provider. */
+export function usePlayerText(): PlayerText {
+  const reading = useContext(ReadingContext)
+  return playerText(reading?.language)
 }
 
 function load(): ReadingSettings {
@@ -89,10 +98,11 @@ export function ReadingProvider({ language, children, className }: { language?: 
     return next
   })
 
-  const speechLang = GUIDE_LANGUAGES.find((l) => l.value === normalizeLanguage(language))!.speech
+  const lang = normalizeLanguage(language)
+  const speechLang = GUIDE_LANGUAGES.find((l) => l.value === lang)!.speech
 
   return (
-    <ReadingContext.Provider value={{ settings, update, speechLang }}>
+    <ReadingContext.Provider value={{ settings, update, speechLang, language: lang }}>
       <div className={cn(readableFont.variable, dyslexicFont.variable, className)}>{children}</div>
     </ReadingContext.Provider>
   )

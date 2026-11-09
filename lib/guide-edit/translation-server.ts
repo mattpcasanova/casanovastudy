@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ClaudeService } from '@/lib/claude-api'
-import { GUIDE_LANGUAGES, normalizeLanguage, type GuideLanguage } from '@/lib/study-options'
+import { GUIDE_LANGUAGES, READING_LEVELS, normalizeLanguage, type GuideLanguage, type ReadingLevel } from '@/lib/study-options'
 import { GUIDE_TITLE_MAX } from './pieces'
 import { translationLinesUp } from './translation'
 
@@ -19,9 +19,57 @@ export interface Translation { id: string; title: string; content: string; langu
 /** The owner's translation of this guide in that language, if it still matches the original item for item. */
 export async function findTranslation(supabase: SupabaseClient, guide: Pick<GuideRow, 'id' | 'user_id' | 'format' | 'content'>, language: GuideLanguage): Promise<Translation | null> {
   if (!guide.user_id) return null
-  const { data } = await supabase.from('study_guides').select('id, title, content').eq('translation_of', guide.id).eq('user_id', guide.user_id).eq('language', language).eq('format', guide.format).order('created_at', { ascending: false }).limit(5)
+  const { data } = await supabase.from('study_guides').select('id, title, content').eq('translation_of', guide.id).eq('user_id', guide.user_id).eq('language', language).eq('format', guide.format).is('reading_level', null).order('created_at', { ascending: false }).limit(5)
   const hit = (data ?? []).find((t) => translationLinesUp(guide.format, String(guide.content ?? ''), String(t.content ?? '')))
   return hit ? { id: hit.id as string, title: hit.title as string, content: hit.content as string, language } : null
+}
+
+/** The owner's copy of this guide at that reading level, if it still matches the original item for item. */
+export async function findReadingCopy(supabase: SupabaseClient, guide: Pick<GuideRow, 'id' | 'user_id' | 'format' | 'content'>, level: ReadingLevel): Promise<{ id: string; title: string; content: string } | null> {
+  if (!guide.user_id) return null
+  const { data } = await supabase.from('study_guides').select('id, title, content').eq('translation_of', guide.id).eq('user_id', guide.user_id).eq('reading_level', level).eq('format', guide.format).order('created_at', { ascending: false }).limit(5)
+  const hit = (data ?? []).find((t) => translationLinesUp(guide.format, String(guide.content ?? ''), String(t.content ?? '')))
+  return hit ? { id: hit.id as string, title: hit.title as string, content: hit.content as string } : null
+}
+
+/**
+ * "Copy at an easier reading level": same items and answers, simpler wording, saved as
+ * the owner's new guide with `reading_level` set. Throws when it can't be made to line up (after one retry).
+ */
+export async function makeReadingCopy(supabase: SupabaseClient, guide: GuideRow, level: ReadingLevel): Promise<{ id: string; title: string; content: string }> {
+  const content = String(guide.content ?? '')
+  const claude = new ClaudeService()
+  const input = { content, format: guide.format, title: guide.title, language: normalizeLanguage(guide.language), level }
+  let out = await claude.simplifyGuide(input)
+  let cost = out.usage.cost
+  if (!translationLinesUp(guide.format, content, out.text)) {
+    out = await claude.simplifyGuide(input)
+    cost += out.usage.cost
+    if (!translationLinesUp(guide.format, content, out.text)) throw new Error('The rewrite did not line up with the original')
+  }
+  const label = READING_LEVELS.find((l) => l.value === level)!.label.toLowerCase()
+  const base = out.title && out.title.toLowerCase() !== guide.title.toLowerCase() ? out.title : guide.title
+  const title = `${base} (easier reading, ${label})`.slice(0, GUIDE_TITLE_MAX)
+  const { data: saved, error } = await supabase.from('study_guides').insert({
+    title,
+    subject: guide.subject,
+    grade_level: guide.grade_level,
+    format: guide.format,
+    content: out.text,
+    topic_focus: guide.topic_focus,
+    difficulty_level: guide.difficulty_level,
+    additional_instructions: guide.additional_instructions,
+    file_count: guide.file_count ?? 0,
+    language: normalizeLanguage(guide.language),
+    standards: guide.standards ?? null,
+    reading_level: level,
+    // Not copied_from: that sends a student's copy back to an assigned original.
+    translation_of: guide.id,
+    token_usage: { input_tokens: out.usage.input_tokens, output_tokens: out.usage.output_tokens, total_tokens: out.usage.input_tokens + out.usage.output_tokens, cost },
+    user_id: guide.user_id,
+  }).select('id').single()
+  if (error || !saved) throw error ?? new Error('Save failed')
+  return { id: saved.id as string, title, content: out.text }
 }
 
 /** Writes the translation and saves it as the owner's new guide. Throws when it can't be made to line up (after one retry). */

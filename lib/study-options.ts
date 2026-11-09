@@ -116,6 +116,25 @@ export function languageName(value: unknown): string {
   return GUIDE_LANGUAGES.find((l) => l.value === normalizeLanguage(value))!.name
 }
 
+/**
+ * Reading levels for "Copy at an easier reading level" (study_guides.reading_level,
+ * migration 089): the same guide with the same questions and answers, written so a
+ * student who reads below grade level can read it (ELL, ESE, younger readers).
+ */
+export type ReadingLevel = 'grade2' | 'grade4' | 'grade6' | 'grade8'
+export const READING_LEVELS: Array<{ value: ReadingLevel; label: string; note: string; words: string }> = [
+  { value: 'grade8', label: 'About 8th grade', note: 'Everyday words, shorter sentences, each term explained once.', words: 'an 8th-grade reading level (about age 13): clear everyday vocabulary, sentences of 15 words or fewer on average, one idea per sentence, and every subject term defined in plain words the first time it appears' },
+  { value: 'grade6', label: 'About 6th grade', note: 'Short sentences and common words; harder terms get a plain-words definition.', words: 'a 6th-grade reading level (about age 11): common words, short sentences of about 12 words, concrete examples before abstract statements, and every subject term defined in plain words the first time it appears' },
+  { value: 'grade4', label: 'About 4th grade', note: 'Very short sentences, simple words, step-by-step wording.', words: 'a 4th-grade reading level (about age 9): simple high-frequency words, very short sentences of 8 to 10 words, one step at a time, no idioms, and every subject term defined in a few plain words' },
+  { value: 'grade2', label: 'About 2nd grade', note: 'The simplest wording possible, for early or emerging readers.', words: 'a 2nd-grade reading level (about age 7, an early or emerging reader): the simplest words possible, sentences of 6 to 8 words, familiar examples, no idioms or figurative language, and subject terms kept only where the question needs them, each explained in a few simple words' },
+]
+export function normalizeReadingLevel(value: unknown): ReadingLevel | null {
+  return READING_LEVELS.some((l) => l.value === value) ? (value as ReadingLevel) : null
+}
+export function readingLevelLabel(value: unknown): string | null {
+  return READING_LEVELS.find((l) => l.value === value)?.label ?? null
+}
+
 // Grade 8 and under: from the level picker, or from the title/topic when the
 // level was left blank ("Help my 6th grader study math").
 const YOUNG_TEXT = /middle school|elementary|\b[1-8](st|nd|rd|th)[ -]grade|\b(first|second|third|fourth|fifth|sixth|seventh|eighth) grade|\bgrade [1-8]\b/i

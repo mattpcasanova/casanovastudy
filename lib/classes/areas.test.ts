@@ -40,3 +40,17 @@ describe('knownAreaNames', () => {
     expect(knownAreaNames([unit1.topics, unit2.topics])).toEqual(['Stoichiometry', 'Gas laws'])
   })
 })
+
+describe('areaBatchesFromRows', () => {
+  it('leaves out papers the teacher is still marking (their unmarked questions would read as 0)', async () => {
+    const { areaBatchesFromRows } = await import('./server')
+    const topics = new Map([['b1', [{ name: 'Stoichiometry', questions: ['1'] }]]])
+    const rows = [
+      { batch_id: 'b1', exam_title: 'T', created_at: '2026-09-01T00:00:00Z', roster_id: 'r1', student_name: 'Sean', grade_breakdown: [q('1', 4, 4)] },
+      { batch_id: 'b1', exam_title: 'T', created_at: '2026-09-01T00:00:00Z', roster_id: 'r2', student_name: 'Ava', grade_breakdown: [{ ...q('1', 0, 4), unmarked: true }] },
+    ]
+    const out = areaBatchesFromRows(rows, topics)
+    expect(out).toHaveLength(1)
+    expect(out[0].papers.map((p) => p.name)).toEqual(['Sean'])
+  })
+})

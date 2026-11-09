@@ -8,6 +8,7 @@ import { rosterRowForStudent } from './roster'
 import { normalizeName } from '@/lib/grading/names'
 import type { AreaBatch } from './areas'
 import type { ClassInsightsAI } from '@/lib/grading/insights'
+import { stillMarking } from '@/lib/grading/mark-points'
 
 export interface RosterRow {
   id: string
@@ -156,8 +157,9 @@ export interface AreaPaperRow {
   grade_breakdown: unknown
 }
 
-/** Papers grouped into sets, keeping only sets whose class report (topics) exists. Pure. */
-export function areaBatchesFromRows(rows: AreaPaperRow[], topicsOf: Map<string, AreaBatch['topics']>): AreaBatch[] {
+/** Papers grouped into sets, keeping only sets whose class report (topics) exists. Papers the teacher is still marking herself are left out (their unmarked questions would read as 0). Pure. */
+export function areaBatchesFromRows(allRows: AreaPaperRow[], topicsOf: Map<string, AreaBatch['topics']>): AreaBatch[] {
+  const rows = allRows.filter((r) => !stillMarking(r.grade_breakdown))
   const batchIds = [...new Set(rows.map((r) => r.batch_id))]
   return batchIds.filter((b) => topicsOf.has(b)).map((b) => {
     const mine = rows.filter((r) => r.batch_id === b)

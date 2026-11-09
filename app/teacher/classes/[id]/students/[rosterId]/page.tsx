@@ -46,7 +46,7 @@ interface StudentData {
 
 const tone = (pct: number) => (pct >= 80 ? "text-emerald-700" : pct >= 65 ? "text-blue-700" : pct >= 50 ? "text-amber-700" : "text-rose-700")
 const bar = (pct: number) => (pct >= 80 ? "bg-emerald-500" : pct >= 65 ? "bg-blue-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500")
-const STATUS: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late" }
+const STATUS: Record<string, string> = { absent: "Absent", missing: "Missing", exempt: "Exempt", late: "Late", marking: "Not marked yet" }
 
 export default function StudentPage({ params }: { params: Promise<{ id: string; rosterId: string }> }) {
   const { id, rosterId } = use(params)
@@ -136,7 +136,10 @@ function Student({ classId, rosterId }: { classId: string; rosterId: string }) {
                             <Link href={`/grade-report/${w.id}`} className="inline-flex h-9 items-center rounded-xl px-3.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Report</Link>
                           </>
                         ) : (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">{STATUS[w.status ?? ""] ?? w.status}</span>
+                          <>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">{STATUS[w.status ?? ""] ?? w.status}</span>
+                            {w.status === "marking" && w.id && <Link href={`/grade-report/${w.id}?mark=1`} className="inline-flex h-9 items-center rounded-xl px-3.5 text-sm font-semibold text-blue-700 ring-1 ring-slate-300 hover:bg-blue-50">Mark it</Link>}
+                          </>
                         )}
                       </li>
                     ))}

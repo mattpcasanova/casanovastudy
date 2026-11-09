@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Share2, Printer, Trash2, Mail, BookmarkPlus, BookmarkCheck, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers, Languages } from 'lucide-react'
+import { Share2, Printer, Trash2, Mail, BookmarkPlus, BookmarkCheck, Menu, X, Pencil, School, List, CreditCard, HelpCircle, ScrollText, Puzzle, Map as MapIcon, ArrowLeft, FileText, History, Target, Blocks, Layers, Languages, BookOpen } from 'lucide-react'
 import NavigationHeader from '@/components/navigation-header'
 import { useAuth } from '@/lib/auth'
 import OutlineFormat from '@/components/formats/outline-format'
@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 import { signInPath } from '@/lib/sign-in-path'
 import { NextFormatDialog, canMakeAnotherFormat } from '@/components/next-format'
 import { TranslateDialog } from '@/components/guide-edit/translate-dialog'
+import { ReadingLevelDialog } from '@/components/guide-edit/reading-level-dialog'
 import { GuideStandards } from '@/components/guide-standards'
 import { ReadingProvider, ReadingSettingsButton, ReadingSurface } from '@/components/reading/reading-provider'
 import { displaySerif } from '@/lib/formats/fonts'
@@ -104,6 +105,7 @@ export default function StudyGuideViewer({ studyGuide: original }: StudyGuideVie
   const showNextFormat = !!user && canMakeAnotherFormat(studyGuide)
   const [nextFormatOpen, setNextFormatOpen] = useState(false)
   const [translateOpen, setTranslateOpen] = useState(false)
+  const [readingOpen, setReadingOpen] = useState(false)
   // Your own guide: change its wording, or get the same guide in another language (the custom builder has its own editor).
   const canEdit = isOwner && studyGuide.format !== 'custom'
   const isTeacherOwner = CLASSES_ENABLED && isOwner && user?.user_type === 'teacher'
@@ -413,6 +415,17 @@ export default function StudyGuideViewer({ studyGuide: original }: StudyGuideVie
               Copy in another language
             </Button>
           )}
+          {canEdit && (
+            <Button
+              onClick={() => { setReadingOpen(true); setIsMenuOpen(false) }}
+              variant="outline"
+              className="bg-white hover:bg-blue-50 text-blue-700 hover:text-blue-800 border-blue-300 shadow-lg"
+              size="lg"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Copy at an easier reading level
+            </Button>
+          )}
           {isOwner && studyGuide.format === 'custom' && (
             <Button
               asChild
@@ -506,6 +519,7 @@ export default function StudyGuideViewer({ studyGuide: original }: StudyGuideVie
       </div>
       {showNextFormat && <NextFormatDialog guide={studyGuide} open={nextFormatOpen} onOpenChange={setNextFormatOpen} />}
       {canEdit && <TranslateDialog guide={studyGuide} open={translateOpen} onOpenChange={setTranslateOpen} teacher={user?.user_type === 'teacher'} />}
+      {canEdit && <ReadingLevelDialog guide={studyGuide} open={readingOpen} onOpenChange={setReadingOpen} teacher={user?.user_type === 'teacher'} />}
 
       <p className="hidden pt-6 text-center text-[0.7rem] text-slate-400 print:block">Made with Casanova Study</p>
 
