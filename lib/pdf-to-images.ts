@@ -63,31 +63,42 @@ async function compressImage(
 }
 
 /**
- * Load PDF.js library from CDN
- * This avoids Turbopack bundling issues with pdfjs-dist
+ * Load PDF.js (UMD build 3.11.174) from our own /public/vendor/pdfjs, with the
+ * cdnjs copy as a fallback. A school network blocked the CDN (2026-11-06: "Failed
+ * to load PDF.js from CDN", none of a teacher's scanned PDFs could be read), and
+ * Turbopack can't bundle pdfjs-dist here, so the files are served by the site.
  */
-export async function loadPdfJs(): Promise<any> {
-  // Check if already loaded
-  if ((window as any).pdfjsLib) {
-    return (window as any).pdfjsLib
-  }
+const PDFJS_VERSION = '3.11.174'
+const PDFJS_SOURCES = [
+  { script: '/vendor/pdfjs/pdf.min.js', worker: '/vendor/pdfjs/pdf.worker.min.js' },
+  { script: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`, worker: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js` },
+]
 
-  // Load the UMD build from CDN (more compatible than ES modules)
+function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-    script.onload = () => {
-      const pdfjsLib = (window as any).pdfjsLib
-      if (pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-        resolve(pdfjsLib)
-      } else {
-        reject(new Error('PDF.js failed to load'))
-      }
-    }
-    script.onerror = () => reject(new Error('Failed to load PDF.js from CDN'))
+    script.src = src
+    script.onload = () => resolve()
+    script.onerror = () => { script.remove(); reject(new Error(`Could not load ${src}`)) }
     document.head.appendChild(script)
   })
+}
+
+export async function loadPdfJs(): Promise<any> {
+  if ((window as any).pdfjsLib) return (window as any).pdfjsLib
+  let lastError: Error | null = null
+  for (const source of PDFJS_SOURCES) {
+    try {
+      await loadScript(source.script)
+      const pdfjsLib = (window as any).pdfjsLib
+      if (!pdfjsLib) throw new Error('PDF.js failed to load')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = source.worker
+      return pdfjsLib
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+    }
+  }
+  throw new Error(`The PDF reader could not be loaded (${lastError?.message ?? 'unknown error'}). Check your connection and try again, or take photos of the pages instead.`)
 }
 
 /**
