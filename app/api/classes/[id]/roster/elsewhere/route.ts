@@ -8,7 +8,9 @@ import { matchRoster } from '@/lib/grading/names'
 // Names that aren't on this class's list but are on another of the teacher's
 // classes this year (a student who takes two of their classes), so they can be
 // added with their full name, ID and email. Owner only.
-// POST { names: string[] } -> { found: { [name]: { rosterId, firstName, lastName, studentNumber, email, className, period } } }
+// The class id comes back too, so the grader can send that paper to its own
+// class instead (a period 2 paper that got into the period 1 stack).
+// POST { names: string[] } -> { found: { [name]: { rosterId, classId, firstName, lastName, studentNumber, email, className, period } } }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireTeacher(request)
   if (error) return error
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (m.confidence !== 'sure' || !m.rosterId) continue
     const r = rowOf.get(m.rosterId)!
     const c = classOf.get(r.class_id)!
-    found[name] = { rosterId: r.id, firstName: r.first_name, lastName: r.last_name, studentNumber: r.student_number, email: r.email, className: c.name, period: c.period }
+    found[name] = { rosterId: r.id, classId: c.id, firstName: r.first_name, lastName: r.last_name, studentNumber: r.student_number, email: r.email, className: c.name, period: c.period }
   }
   return NextResponse.json({ found })
 }

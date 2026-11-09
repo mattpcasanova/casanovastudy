@@ -23,7 +23,7 @@ import { fullName, matchRoster, parseName, type RosterName } from "@/lib/grading
 import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib/grading/file-names"
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
-import { AlertCircle, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, PencilLine, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
+import { AlertCircle, ArrowLeftRight, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, PencilLine, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
 import type { TemplateQuestion } from "@/lib/grading/mark-points"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
@@ -231,39 +231,54 @@ function BatchGrading() {
   const namedFiles = paperFiles.filter((f) => nameFromFileName(f.name)).length
   const onePerFile = onePerFileChoice ?? looksLikeOnePerFile(paperFiles.map((f) => f.name), rosterNames)
 
+  // Papers that belong to another of the teacher's classes (a period 2 student in
+  // the period 1 stack), keyed by first page: graded into that class's own set
+  // and linked to the student there. Cleared when the teacher types a new name.
+  const [otherClass, setOtherClass] = useState<Record<number, NonNullable<ElsewhereMatch>>>({})
   const papers = useMemo(() => {
     return groupPages(starts, headers, removed).map((g) => {
-      const name = g.pages.map((i) => names[i]).find((n) => n !== undefined) ?? g.name
+      const other = otherClass[g.pages[0]]
+      const name = other ? `${other.firstName} ${other.lastName}`.trim() : (g.pages.map((i) => names[i]).find((n) => n !== undefined) ?? g.name)
       // A stamped copy knows its student, unless the teacher renamed it.
       const stamp = headers[g.pages[0]]?.stamp
       const renamed = g.pages.some((i) => names[i] !== undefined)
-      const match: ReturnType<typeof matchRoster> = stamp?.rosterId && !renamed ? { rosterId: stamp.rosterId, score: 1, confidence: "sure" } : matchRoster(name, rosterNames)
+      const match: ReturnType<typeof matchRoster> = other ? { rosterId: other.rosterId, score: 1, confidence: "sure" }
+        : stamp?.rosterId && !renamed ? { rosterId: stamp.rosterId, score: 1, confidence: "sure" } : matchRoster(name, rosterNames)
       const missing = stamp ? missingPages(g.pages.map((i) => headers[i]?.stamp?.page ?? 0), stamp.total) : []
       // Group work: the members the teacher typed, else the other names read off the cover.
       const fromCover = groups[g.pages[0]] === undefined && !!headers[g.pages[0]]?.others?.length
       const others = (groups[g.pages[0]] ?? headers[g.pages[0]]?.others ?? [])
         .filter((n) => n.toLowerCase() !== name.toLowerCase())
         .map((n) => ({ name: n, match: matchRoster(n, rosterNames) }))
-      return { ...g, key: g.pages[0], name, match, stamp, missing, others, fromCover }
+      return { ...g, key: g.pages[0], name, match, stamp, missing, others, fromCover, other: other ?? null }
     })
-  }, [starts, headers, removed, names, rosterNames, groups])
+  }, [starts, headers, removed, names, rosterNames, groups, otherClass])
 
   // Most papers in a set have the same number of pages; one that doesn't is a split to check.
   const typicalPages = useMemo(() => typicalPageCount(papers.filter((p) => !p.stamp).map((p) => p.pages.length)), [papers])
   const oddPapers = papers.filter((p) => !p.stamp && pageCountLooksOff(p.pages.length, typicalPages))
 
-  // Stamped copies from several classes: one class set (and results page) per class.
+  // Stamped copies from several classes, or papers sent to another class: one
+  // class set (and results page) per class.
   const paperClasses = useMemo(() => {
     const seen = new Map<string, string>()
-    for (const p of papers) if (p.stamp?.classId) seen.set(p.stamp.classId, [p.stamp.className, p.stamp.classPeriod && `P${p.stamp.classPeriod}`].filter(Boolean).join(" "))
+    const label = (name: string | null | undefined, period: string | null | undefined) => [name, period && `P${period}`].filter(Boolean).join(" ")
+    for (const p of papers) if (p.stamp?.classId) seen.set(p.stamp.classId, label(p.stamp.className, p.stamp.classPeriod))
+    if (papers.some((p) => p.other) && classId) {
+      const here = classes.find((c) => c.id === classId)
+      seen.set(classId, label(here?.name ?? className, here?.period ?? classPeriod))
+      for (const p of papers) if (p.other) seen.set(p.other.classId, label(p.other.className, p.other.period))
+    }
     return seen
-  }, [papers])
+  }, [papers, classId, classes, className, classPeriod])
   const classBatches = useRef(new Map<string, string>())
   const batchFor = (paperClassId: string | null | undefined) => {
     if (paperClasses.size <= 1 || !paperClassId) return batchId.current
+    // The class picked for this stack keeps the main set; the others get their own.
+    if (classId && paperClassId === classId) return batchId.current
     let b = classBatches.current.get(paperClassId)
     if (!b) {
-      b = classBatches.current.size === 0 ? batchId.current : crypto.randomUUID()
+      b = classBatches.current.size === 0 && !classId ? batchId.current : crypto.randomUUID()
       classBatches.current.set(paperClassId, b)
     }
     return b
@@ -283,7 +298,7 @@ function BatchGrading() {
     // Students graded earlier in this set have handed in (by class-list id, or a sure name match).
     const gradedBefore = (r: RosterRow) => gradedIds.has(r.id) || alreadyGraded.some((n) => { const m = matchRoster(n, [r]); return m.confidence === "sure" && m.rosterId === r.id })
     const missing = roster.filter((r) => !seen.has(r.id) && !gradedBefore(r))
-    const unknown = papers.filter((p) => p.match.confidence === "none" && !/^Student \d+$/.test(p.name))
+    const unknown = papers.filter((p) => !p.other && p.match.confidence === "none" && !/^Student \d+$/.test(p.name))
     return { duplicates, missing, unknown }
   }, [papers, roster, gradedIds, alreadyGraded])
 
@@ -306,27 +321,30 @@ function BatchGrading() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, unknownKey, phase])
-  const addUnknownToRoster = async (only?: { name: string; paperKey: number; from?: ElsewhereMatch }) => {
-    const list = only ? [only.name] : rosterCheck.unknown.map((p) => p.name)
+  // The paper belongs to a student of another class: grade it into that class's own set.
+  const sendToOwnClass = (paperKey: number, from: NonNullable<ElsewhereMatch>) => {
+    setOtherClass((m) => ({ ...m, [paperKey]: from }))
+    setDetailsFor((d) => (d === paperKey ? null : d))
+  }
+  const keepHere = (paperKey: number) => setOtherClass((m) => { const next = { ...m }; delete next[paperKey]; return next })
+  // Unknown names on the stack that are on another of the teacher's classes, for the one-click fix.
+  const fromOtherClasses = rosterCheck.unknown.filter((p) => elsewhere[p.name])
+  const plainUnknown = rosterCheck.unknown.filter((p) => !elsewhere[p.name])
+  const classLabel = (from: NonNullable<ElsewhereMatch>) => `${from.className}${from.period ? ` P${from.period}` : ""}`
+  const addUnknownToRoster = async (only?: { name: string; paperKey: number }) => {
+    // Names on another of the teacher's classes have their own button (Grade in P2 instead), so the bulk add skips them.
+    const list = only ? [only.name] : plainUnknown.map((p) => p.name)
     if (!classId || !list.length) return
     const before = roster
-    const from = only?.from
-    // Copying a student from another class keeps their full name, so this paper
-    // is renamed to it (the roster spelling).
-    if (from && only) setNames((m) => ({ ...m, [only.paperKey]: `${from.firstName} ${from.lastName}`.trim() }))
-    setRoster((r) => [...r, ...(from
-      ? [{ id: `temp-${Date.now()}`, firstName: from.firstName, lastName: from.lastName, studentUserId: null, studentNumber: from.studentNumber, email: from.email, left: false, accountConfirmed: false, linked: false }]
-      : list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, accountConfirmed: false, linked: false })))])
+    setRoster((r) => [...r, ...list.map((n, i) => ({ ...parseName(n), id: `temp-${Date.now()}-${i}`, studentUserId: null, studentNumber: null, email: null, left: false, accountConfirmed: false, linked: false }))])
     setAdding((n) => n + 1)
     try {
-      const body = from ? { names: [{ firstName: from.firstName, lastName: from.lastName, studentNumber: from.studentNumber ?? undefined, email: from.email }] } : { text: list.join("\n") }
-      const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      const res = await authFetch(`/api/classes/${classId}/roster`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: list.join("\n") }) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { setRoster(before); setRosterNotice(data.error || "Could not add those names"); return }
       setRoster(data.roster ?? [])
-      if (from) setRosterNotice(`Added ${from.firstName} ${from.lastName} to the class list with their details from ${from.className}${from.period ? ` (P${from.period})` : ""}.`)
-      else setRosterNotice(only ? `Added ${only.name} to the class list. Add their student ID or email below if you have it.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
-      if (only && !from) setDetailsFor(only.paperKey)
+      setRosterNotice(only ? `Added ${only.name} to the class list. Add their student ID or email below if you have it.` : `Added ${data.added} name${data.added === 1 ? "" : "s"} to the class.`)
+      if (only) setDetailsFor(only.paperKey)
     } finally {
       setAdding((n) => n - 1)
     }
@@ -356,6 +374,15 @@ function BatchGrading() {
     setSelected((cur) => { const keys = new Set(papers.map((p) => p.key)); const next = new Set([...cur].filter((k) => keys.has(k))); return next.size === cur.size ? cur : next })
   }, [papers])
   /** Class-list names to offer for a paper: no paper yet first, each by last name. */
+  // Matched / to check / needing a name, for the summary strip and the filter.
+  const matchCounts = useMemo(() => {
+    const counts = { sure: 0, check: 0, none: 0 }
+    papers.forEach((p) => { counts[paperMatchState(p, roster.length > 0)] += 1 })
+    return counts
+  }, [papers, roster.length])
+  useEffect(() => {
+    if (onlyToCheck && matchCounts.check + matchCounts.none === 0) setOnlyToCheck(false)
+  }, [onlyToCheck, matchCounts])
   const suggestions = useMemo(() => {
     const without = new Set(rosterCheck.missing.map((r) => r.id))
     const sorted = [...roster].filter((r) => !r.id.startsWith("temp-")).sort((a, b) => a.lastName.localeCompare(b.lastName, undefined, { sensitivity: "base" }) || a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" }))
@@ -565,15 +592,15 @@ function BatchGrading() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          batchId: batchFor(paper.stamp?.classId),
+          batchId: batchFor(paper.other?.classId ?? paper.stamp?.classId),
           studentName: paper.name,
           examTitle,
-          className: paperClasses.size > 1 && paper.stamp?.className ? paper.stamp.className : className,
-          classPeriod: paperClasses.size > 1 && paper.stamp ? paper.stamp.classPeriod ?? "" : classPeriod,
+          className: paper.other ? paper.other.className : paperClasses.size > 1 && paper.stamp?.className ? paper.stamp.className : className,
+          classPeriod: paper.other ? paper.other.period ?? "" : paperClasses.size > 1 && paper.stamp ? paper.stamp.classPeriod ?? "" : classPeriod,
           additionalComments: notes,
           gradeScale,
           markingStyle,
-          classId: paper.stamp?.classId || classId || undefined,
+          classId: paper.other?.classId || paper.stamp?.classId || classId || undefined,
           rosterId: paper.match.confidence === "sure" && !paper.match.rosterId?.startsWith("temp-") ? paper.match.rosterId : undefined,
           groupMembers: paper.others.length ? paper.others.map((o) => ({ name: o.name, rosterId: o.match.confidence === "sure" ? o.match.rosterId : null })) : undefined,
           markScheme: schemeForGrading,
@@ -914,10 +941,22 @@ function BatchGrading() {
                   <p className="mt-3 text-xs text-slate-500">Mark them absent or missing on the class results page after grading, or add their papers later with Add more papers.</p>
                 </div>
               )}
-              {rosterCheck.unknown.length > 0 && (
+              {fromOtherClasses.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-sky-950">
+                    <ArrowLeftRight className="h-4 w-4 shrink-0" />
+                    {fromOtherClasses.length === 1
+                      ? `${elsewhere[fromOtherClasses[0].name]!.firstName} ${elsewhere[fromOtherClasses[0].name]!.lastName} is in ${classLabel(elsewhere[fromOtherClasses[0].name]!)}, not this class.`
+                      : `${fromOtherClasses.length} papers are from students in your other classes.`}
+                    {" "}Grade {fromOtherClasses.length === 1 ? "it" : "them"} there instead, and {fromOtherClasses.length === 1 ? "it gets its" : "each class gets its"} own results page.
+                  </p>
+                  <button type="button" onClick={() => fromOtherClasses.forEach((p) => sendToOwnClass(p.key, elsewhere[p.name]!))} className={bigButton}><ArrowLeftRight />Grade {fromOtherClasses.length === 1 ? "it" : "them"} in {fromOtherClasses.length === 1 ? classLabel(elsewhere[fromOtherClasses[0].name]!) : "their own classes"}</button>
+                </div>
+              )}
+              {plainUnknown.length > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-medium text-slate-800">{rosterCheck.unknown.length} name{rosterCheck.unknown.length === 1 ? " isn't" : "s aren't"} on the class list.</p>
-                  <button type="button" onClick={() => void addUnknownToRoster()} className={bigButton}><UserPlus />Add {rosterCheck.unknown.length === 1 ? "it" : "them"} to the class</button>
+                  <p className="text-sm font-medium text-slate-800">{plainUnknown.length} name{plainUnknown.length === 1 ? " isn't" : "s aren't"} on the class list.</p>
+                  <button type="button" onClick={() => void addUnknownToRoster()} className={bigButton}><UserPlus />Add {plainUnknown.length === 1 ? "it" : "them"} to the class</button>
                 </div>
               )}
             </div>
@@ -927,8 +966,7 @@ function BatchGrading() {
 
           {/* How the names stand: matched / to check / needing a name. */}
           {papers.length > 0 && (() => {
-            const counts = { sure: 0, check: 0, none: 0 }
-            papers.forEach((p) => { counts[paperMatchState(p, roster.length > 0)] += 1 })
+            const counts = matchCounts
             const toCheck = counts.check + counts.none
             return (
               <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 text-sm ring-1 ring-slate-200">
@@ -941,11 +979,10 @@ function BatchGrading() {
                 ) : (
                   <span className="text-slate-600">No class picked, so names aren&apos;t checked against a class list.</span>
                 )}
-                {toCheck > 0 && roster.length > 0 && (
-                  <label className="ml-auto flex items-center gap-2 text-slate-600">
-                    <input type="checkbox" checked={onlyToCheck} onChange={(e) => setOnlyToCheck(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-                    Show only the ones to check
-                  </label>
+                {roster.length > 0 && (onlyToCheck || toCheck > 0) && (
+                  <button type="button" onClick={() => setOnlyToCheck((v) => !v)} aria-pressed={onlyToCheck} className={cn("ml-auto", onlyToCheck ? actionButtonPrimary : actionButton)}>
+                    {onlyToCheck ? `Show all ${papers.length} papers` : `Show only the ${toCheck} to check`}
+                  </button>
                 )}
               </div>
             )
@@ -973,6 +1010,12 @@ function BatchGrading() {
               <button type="button" onClick={() => { setRemoved((s) => { const next = new Set(s); lastRemoved.pages.forEach((i) => next.delete(i)); return next }); setLastRemoved(null) }} className={actionButton}><RotateCcw />Undo</button>
             </p>
           )}
+          {onlyToCheck && matchCounts.sure > 0 && (
+            <p className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700" aria-live="polite">
+              <span>Showing the {matchCounts.check + matchCounts.none} paper{matchCounts.check + matchCounts.none === 1 ? "" : "s"} to check. {matchCounts.sure} matched paper{matchCounts.sure === 1 ? " is" : "s are"} hidden.</span>
+              <button type="button" onClick={() => setOnlyToCheck(false)} className={actionButton}>Show all {papers.length}</button>
+            </p>
+          )}
           <ul className="space-y-3">
             {papers.map((paper, n) => {
               const state = paperMatchState(paper, roster.length > 0)
@@ -994,7 +1037,7 @@ function BatchGrading() {
                     <div className="min-w-[11.5rem] flex-1">
                       <input
                         value={paper.name}
-                        onChange={(e) => setNames((m) => ({ ...m, [paper.key]: e.target.value }))}
+                        onChange={(e) => { if (paper.other) keepHere(paper.key); setNames((m) => ({ ...m, [paper.key]: e.target.value })) }}
                         disabled={phase === "grading"}
                         aria-label={`Student ${n + 1} name`}
                         list={roster.length ? "roster-names" : undefined}
@@ -1004,6 +1047,11 @@ function BatchGrading() {
                       <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 px-1.5 text-xs", tone.text)}>
                         {duplicate ? (
                           <span className="font-medium">Same student as another paper: check the name</span>
+                        ) : paper.other ? (
+                          <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
+                            <ArrowLeftRight className="h-3.5 w-3.5" />Graded in {classLabel(paper.other)} instead{paper.other.studentNumber ? ` · ID ${paper.other.studentNumber}` : ""}
+                            {phase === "review" && <button type="button" onClick={() => keepHere(paper.key)} className="ml-1 inline-flex h-8 items-center rounded-lg bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50">Keep in this class</button>}
+                          </span>
                         ) : state === "sure" ? (
                           <span className="inline-flex flex-wrap items-center gap-1 font-medium">
                             <CheckCircle2 className="h-3.5 w-3.5" />{row?.id.startsWith("temp-") ? "Adding to the class list…" : "Matched to the class list"}{row?.studentNumber ? ` · ID ${row.studentNumber}` : ""}
@@ -1018,7 +1066,7 @@ function BatchGrading() {
                           </span>
                         ) : state === "none" && roster.length > 0 ? (
                           <span className="inline-flex flex-wrap items-center gap-1.5 font-medium">
-                            {/^Student \d+$/.test(paper.name) ? "Needs a name: open page 1 to read it" : "Not on the class list"}
+                            {/^Student \d+$/.test(paper.name) ? "Needs a name: open page 1 to read it" : elsewhere[paper.name] ? `Not on this class list: ${elsewhere[paper.name]!.firstName} ${elsewhere[paper.name]!.lastName} is in ${classLabel(elsewhere[paper.name]!)}` : "Not on the class list"}
                             {/* The class-list names with no paper yet are the likely ones. */}
                             {rosterCheck.missing.length > 0 && rosterCheck.missing.length <= 4 && phase === "review" && (
                               <>
@@ -1051,10 +1099,13 @@ function BatchGrading() {
                             {classId && state === "none" && elsewhere[paper.name] && (() => {
                               const from = elsewhere[paper.name]!
                               return (
-                                <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key, from })} aria-label={`Add ${from.firstName} ${from.lastName} from ${from.className}`} title={`Add ${from.firstName} ${from.lastName} from ${from.className}${from.period ? ` (P${from.period})` : ""}${from.studentNumber ? ` · ID ${from.studentNumber}` : ""}`} className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-xl bg-blue-600 px-3 max-sm:shrink-0 font-semibold text-white shadow-sm hover:bg-blue-700">
-                                  <UserPlus className="h-4 w-4 shrink-0" />
-                                  <span className="hidden truncate sm:inline">Add from {from.className}{from.period ? ` P${from.period}` : ""}</span>
-                                </button>
+                                <>
+                                  {/* The paper got into the wrong stack: it goes to that class's own set. */}
+                                  <button type="button" onClick={() => sendToOwnClass(paper.key, from)} aria-label={`Grade ${from.firstName} ${from.lastName} in ${classLabel(from)} instead`} title={`Grade this paper in ${classLabel(from)}, where ${from.firstName} ${from.lastName} is on the class list${from.studentNumber ? ` (ID ${from.studentNumber})` : ""}. It gets its own class results.`} className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-xl bg-blue-600 px-3 max-sm:shrink-0 font-semibold text-white shadow-sm hover:bg-blue-700">
+                                    <ArrowLeftRight className="h-4 w-4 shrink-0" />
+                                    <span className="hidden truncate sm:inline">Grade in {from.period ? `P${from.period}` : from.className} instead</span>
+                                  </button>
+                                </>
                               )
                             })()}
                             {roster.length > 0 && (
@@ -1070,8 +1121,8 @@ function BatchGrading() {
                               </select>
                             )}
                             {classId && state === "none" && !/^Student \d+$/.test(paper.name) && paper.name.trim() && (
-                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} aria-label={elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`} title={elsewhere[paper.name] ? "Add as a new student instead" : `Add ${paper.name.trim()} to the class list`} className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 font-semibold ring-1", elsewhere[paper.name] ? "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50" : "bg-blue-600 text-white ring-blue-600 hover:bg-blue-700")}>
-                                <UserPlus className="h-4 w-4" /><span className="hidden sm:inline">{elsewhere[paper.name] ? "New student" : "Add to class"}</span>
+                              <button type="button" onClick={() => void addUnknownToRoster({ name: paper.name.trim(), paperKey: paper.key })} aria-label={`Add ${paper.name.trim()} to this class list`} title={`Add ${paper.name.trim()} to this class list`} className={cn("inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 font-semibold ring-1", elsewhere[paper.name] ? "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50" : "bg-blue-600 text-white ring-blue-600 hover:bg-blue-700")}>
+                                <UserPlus className="h-4 w-4" /><span className="hidden sm:inline">Add to class</span>
                               </button>
                             )}
                             <button type="button" onClick={() => removePaper(paper)} aria-label="Leave this paper out of this grading" title="Leave this paper out of this grading" className="ml-auto inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50"><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">Leave out</span></button>
@@ -1145,7 +1196,7 @@ async function uploadAll(items: Array<{ blob: Blob; name: string }>, kind: strin
 }
 
 /** Group work on a paper: the members graded with it (first = the paper's name). */
-type ElsewhereMatch = { rosterId: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; className: string; period: string | null } | null
+type ElsewhereMatch = { rosterId: string; classId: string; firstName: string; lastName: string; studentNumber: string | null; email: string | null; className: string; period: string | null } | null
 
 function RosterDetailsForm({ row, onSave, onClose }: { row: RosterRow; onSave: (d: { studentNumber: string; email: string }) => Promise<string | null>; onClose: () => void }) {
   const [studentNumber, setStudentNumber] = useState(row.studentNumber ?? "")
