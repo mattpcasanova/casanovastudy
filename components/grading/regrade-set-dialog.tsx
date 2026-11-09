@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Loader2, RefreshCw, Upload } from "lucide-react"
+import { WorkBar } from "@/components/ui/loader"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { authFetch } from "@/lib/auth-fetch"
@@ -123,7 +124,7 @@ export function RegradeSetDialog({ open, onOpenChange, batchId, papers, question
         {progress && (
           <div className="space-y-3" role="status" aria-live="polite">
             <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">{running ? <Loader2 className="h-4 w-4 animate-spin text-blue-700" /> : null}{status || `Regraded ${progress.done} of ${progress.total}`}</p>
-            <div className="h-2 overflow-hidden rounded-full bg-blue-100"><div className="h-full rounded-full bg-blue-700 transition-[width] duration-500" style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} /></div>
+            <WorkBar value={Math.round((progress.done / Math.max(1, progress.total)) * 100)} active={running} label="Regrading" />
             {progress.failed.length > 0 && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">Couldn&apos;t regrade: {progress.failed.join(", ")}. Open those reports and try Regrade there.</p>}
             {!running && <div className="flex justify-end"><button type="button" className={actionButton} onClick={() => onOpenChange(false)}>Close</button></div>}
           </div>

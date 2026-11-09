@@ -742,6 +742,23 @@ export interface GradingModelOptions {
   effort?: 'low' | 'medium' | 'high'
 }
 
+/**
+ * Refill questions are written with a "WORK:" line (the solution, worked before
+ * the options and key are chosen). It is scratch work for the writer: everything
+ * from that line up to the first option or ANSWER line is removed.
+ */
+export function stripWorkLines(text: string): string {
+  const out: string[] = []
+  let skipping = false
+  for (const line of text.split('\n')) {
+    if (/^\s*WORK\s*:/i.test(line)) { skipping = true; continue }
+    if (skipping && line.trim() && !/^\s*(?:[A-F]\)|ANSWER\s*:|Q\s*:|```|~~~)/i.test(line)) continue
+    skipping = false
+    out.push(line)
+  }
+  return out.join('\n')
+}
+
 export class ClaudeService {
   private anthropic: Anthropic
   private grading: Required<Pick<GradingModelOptions, 'model'>> & GradingModelOptions
@@ -2577,6 +2594,7 @@ Use exactly this format, a blank line between questions:
 
 Q: <1|2|3> | <mc|num|tf>
 <question>
+WORK: <one line, written BEFORE the options: solve the question from the wording and numbers above and end with the final answer. The app deletes this line, so the student never sees it>
 A) <option>
 B) <option>
 C) <option>
@@ -2587,6 +2605,7 @@ HINT: <a nudge toward the method or the idea to use, at most about 15 words, oft
 EXPLANATION: <1-2 short sentences, at most about 35 words: the key step>
 
 For num questions: no options; ANSWER is the number (equivalent forms separated by |, e.g. 3.5 | 7/2), and the question says the form wanted. For tf: ANSWER is True or False.${traps.length ? ' A num or tf question that a student most likely misses through one of the common mistakes gets a line "PROBES: <id>" after ANSWER.' : ''} Use num whenever the answer is a single number. Distractors are answers students really get from common mistakes. Every question must be answerable from the lesson's scope; each must be self-contained.
+The key comes from the WORK line: the correct option (or the ANSWER number) is the value WORK ends on, exactly, and the wrong options are built around it afterwards. Do the arithmetic in WORK step by step; never guess a product. The EXPLANATION arrives at the same value and never says an option is "closest" or corrects itself.
 Math: plain Unicode for simple powers (x², x³); LaTeX inside $$...$$ for anything else, including x-bar and p-hat ($$\\bar{x}$$, $$\\hat{p}$$; never x̄ or p̂). Never calculator notation like x^2. Never use em dashes.
 ${params.language && params.language !== 'en' ? `
 ${languageInstructions(params.language)}
@@ -2596,7 +2615,8 @@ ${languageInstructions(params.language)}
       model: 'claude-sonnet-5-5',
       max_tokens: 8000,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'low' },
+      // A teacher's bank is graded and shared by the whole class, so it gets more care than one student's refill.
+      output_config: { effort: params.spread ? 'medium' : 'low' },
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       messages: [{ role: 'user', content: prompt }],
@@ -2604,8 +2624,9 @@ ${languageInstructions(params.language)}
     const block = response.content.find((b) => b.type === 'text')
     if (!block || block.type !== 'text') throw new Error('No questions came back')
     const cost = (response.usage.input_tokens * 2 + response.usage.output_tokens * 10) / 1_000_000
+    const text = stripWorkLines(block.text)
     console.log('Adaptive refill usage:', { input: response.usage.input_tokens, output: response.usage.output_tokens, cost: `$${cost.toFixed(4)}` })
-    return { text: block.text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens, cost } }
+    return { text, usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens, cost } }
   }
 
   /**

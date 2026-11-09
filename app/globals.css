@@ -184,10 +184,87 @@
   animation: shake 320ms ease-in-out;
 }
 
+/* Waiting mark: a page whose lines write themselves in (components/ui/loader.tsx) */
+.cs-writing {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.11em;
+  width: 0.86em;
+  height: 1em;
+  padding: 0 0.15em;
+  border-radius: 0.14em;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08), 0 0.08em 0.24em rgb(30 64 175 / 0.14);
+  vertical-align: middle;
+}
+
+.cs-writing > span {
+  display: block;
+  height: 0.07em;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: left center;
+  animation: cs-write 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite both;
+}
+
+.cs-writing > span:nth-child(2) { width: 82%; animation-delay: 0.16s; }
+.cs-writing > span:nth-child(3) { animation-delay: 0.32s; }
+.cs-writing > span:nth-child(4) { width: 58%; animation-delay: 0.48s; }
+
+@keyframes cs-write {
+  0% { transform: scaleX(0); opacity: 1; }
+  32% { transform: scaleX(1); opacity: 1; }
+  68% { transform: scaleX(1); opacity: 1; }
+  86%, 100% { transform: scaleX(1); opacity: 0; }
+}
+
+/* Placeholder blocks: soft grey with a light sweep */
+.cs-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(226 232 240 / 0.75);
+}
+
+.cs-skeleton::after,
+.cs-workbar-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.cs-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+}
+
+/* Bars for work under way: a slow sheen over the fill */
+.cs-workbar {
+  position: relative;
+  overflow: hidden;
+}
+
+.cs-workbar-active::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  animation-duration: 1.8s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-shake {
     animation: none;
+  }
+
+  .cs-writing > span {
+    animation: none;
+    opacity: 0.75;
+  }
+
+  .cs-skeleton::after,
+  .cs-workbar-active::after {
+    animation: none;
+    display: none;
   }
 }
 

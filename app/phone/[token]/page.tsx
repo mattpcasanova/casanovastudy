@@ -8,6 +8,7 @@
 import { use, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { AlertCircle, Camera, CheckCircle2, ChevronDown, Images, Loader2, Send, X } from "lucide-react"
+import { WorkBar } from "@/components/ui/loader"
 import { supabase } from "@/lib/supabase"
 import { prepareMaterials } from "@/lib/uploads/prepare"
 import { PHONE_LIMITS, orderPicked } from "@/lib/scan-inbox/phone"
@@ -276,9 +277,7 @@ export default function PhoneUploadPage({ params }: { params: Promise<{ token: s
               {preparing ? preparing.message : picking === "open" ? "Choose the photos, then tap Done" : "Getting your photos from your phone…"}
             </p>
             {preparing?.total ? (
-              <div className="mx-auto mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-blue-600 transition-all duration-300" style={{ width: `${Math.max(4, Math.round(((preparing.done ?? 0) / preparing.total) * 100))}%` }} />
-              </div>
+              <WorkBar value={Math.max(4, Math.round(((preparing.done ?? 0) / preparing.total) * 100))} label="Getting pages ready" className="mx-auto mt-4 h-2.5" />
             ) : null}
             <p className="mt-3 text-sm text-slate-600">
               {preparing

@@ -156,7 +156,7 @@ export default function StudyGuideGenerating({ title, format, content, statusMes
             ) : (
               <div className="space-y-4 pt-2" aria-label="Loading">
                 {[45, 90, 80, 95, 60, 85, 70].map((w, i) => (
-                  <div key={i} className={cn("h-3 animate-pulse rounded-full bg-slate-100", i === 0 && "h-6")} style={{ width: `${w}%`, animationDelay: `${i * 120}ms` }} />
+                  <div key={i} className={cn("cs-skeleton h-3 rounded-full", i === 0 && "h-6")} style={{ width: `${w}%` }} />
                 ))}
                 <p className="pt-4 text-center text-sm text-slate-400">
                   Planning your guide. Text will start appearing in a few seconds.

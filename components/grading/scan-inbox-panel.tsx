@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, CheckCircle2, Copy, Inbox, Loader2, Printer, Smartphone, Trash2 } from "lucide-react"
+import { WorkBar } from "@/components/ui/loader"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 
@@ -170,9 +171,7 @@ export function ScanInboxPanel({ onFiles, openItemId, disabled }: { onFiles: (fi
                     {!busy && <button type="button" onClick={() => void remove(item.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Delete this scan"><Trash2 className="h-4 w-4" /></button>}
                   </div>
                   {busy && adding.total > 0 && (
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100" role="progressbar" aria-valuemin={0} aria-valuemax={adding.total} aria-valuenow={adding.done} aria-label="Adding to the stack">
-                      <div className="h-full rounded-full bg-blue-700 transition-[width] duration-300" style={{ width: `${Math.max(3, Math.round((adding.done / adding.total) * 100))}%` }} />
-                    </div>
+                    <WorkBar value={Math.max(3, Math.round((adding.done / adding.total) * 100))} label="Adding to the stack" className="mt-2" />
                   )}
                 </li>
               )

@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
-import { Loader2 } from 'lucide-react'
+import { PageLoader } from '@/components/ui/loader'
 import { signInPath } from '@/lib/sign-in-path'
 import { useConsentStep } from '@/lib/use-consent'
 
@@ -40,9 +40,8 @@ export default function AuthGate({ children }: AuthGateProps) {
   // Show loading state (and while a student's consent step is being checked)
   if (loading || (user && !consentOpen && consentStep !== 'ok')) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50" role="status" aria-live="polite">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="sr-only">Loading…</span>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <PageLoader />
       </div>
     )
   }

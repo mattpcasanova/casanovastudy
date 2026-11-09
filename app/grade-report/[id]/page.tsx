@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import NavigationHeader from "@/components/navigation-header"
+import { PageLoader } from "@/components/ui/loader"
 import { ReportDocument, reportTotals, type ReportDraft } from "@/components/grading/report/report-document"
 import type { GradeAdjustment } from "@/lib/grading/adjustments"
 import { ReportOptions } from "@/components/grading/report/report-options"
@@ -264,10 +265,7 @@ export default function GradeReportPage() {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavigationHeader />
-        <div className="flex flex-col items-center justify-center gap-4 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading grading report...</p>
-        </div>
+        <PageLoader label="Opening the report" fill />
       </div>
     )
   }

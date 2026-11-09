@@ -24,6 +24,7 @@ import { looksLikeOnePerFile, nameFromFileName, studentNameForFile } from "@/lib
 import type { RosterRow } from "@/lib/classes/server"
 import Link from "next/link"
 import { AlertCircle, ArrowLeftRight, ArrowRight, CheckCircle2, Pause, Download, FileText, KeyRound, Loader2, PencilLine, RotateCcw, Scissors, Trash2, UserPlus, UsersRound, X, ScanText } from "lucide-react"
+import { WorkBar } from "@/components/ui/loader"
 import type { TemplateQuestion } from "@/lib/grading/mark-points"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
@@ -907,9 +908,7 @@ function BatchGrading() {
           )}
 
           {phase === "grading" && (
-            <div className="h-2 overflow-hidden rounded-full bg-slate-200" aria-label="Grading progress">
-              <div className="h-full bg-blue-600 transition-all" style={{ width: `${(done.length / Math.max(1, papers.length)) * 100}%` }} />
-            </div>
+            <WorkBar value={(done.length / Math.max(1, papers.length)) * 100} label="Grading progress" />
           )}
           {phase === "grading" && running && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -1352,9 +1351,7 @@ function SortingProgress({ progress, status, elapsed }: { progress: SortProgress
                 {state === "now" && progress.total > 0 && <span className="ml-auto tabular-nums text-slate-600">{Math.min(progress.done, progress.total)} of {progress.total} {step.unit}{progress.total === 1 ? "" : "s"}</span>}
               </div>
               {state === "now" && (
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={step.label}>
-                  <div className="h-full rounded-full bg-blue-700 transition-[width] duration-500" style={{ width: `${pct}%` }} />
-                </div>
+                <WorkBar value={pct} label={step.label} className="mt-2" />
               )}
             </li>
           )
@@ -1475,7 +1472,7 @@ function PaperBadge({ status, now }: { status?: PaperStatus; now: number }) {
           {status.startedAt && <span className="ml-auto shrink-0 tabular-nums text-xs text-slate-400">{clock((now - status.startedAt) / 1000)}</span>}
         </span>
         {pct !== null && (
-          <span className="h-1 overflow-hidden rounded-full bg-blue-100"><span className="block h-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} /></span>
+          <WorkBar value={pct} label={label} className="h-1" />
         )}
       </span>
     )

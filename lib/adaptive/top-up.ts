@@ -14,6 +14,7 @@ import { ClaudeService } from '@/lib/claude-api'
 import { normalizeLanguage } from '@/lib/study-options'
 import { detectExam, examInstructions } from '@/lib/exams/profiles'
 import { PER_CONCEPT_PICKS } from './engine'
+import { questionKeyProblem } from '@/lib/formats/key-check'
 import { parseAdaptive, refillBlock, type AdaptiveQuestion } from './format'
 
 const MAX_PER_CALL = 8
@@ -81,6 +82,8 @@ export async function topUpAdaptiveBank(supabase: SupabaseClient, row: AdaptiveG
       })
       const fresh = parseAdaptive(`CONCEPT: ${concept.name}\n\n${text}`).questions
         .filter((q) => q.type !== 'explain')
+        // A key that disagrees with its own working never reaches the class's bank.
+        .filter((q) => !questionKeyProblem(q))
         .slice(0, count)
         .map(({ id: _id, conceptId: _c, ...q }) => q)
       if (fresh.length) blocks.set(conceptId, refillBlock(conceptId, fresh, 'MORE'))

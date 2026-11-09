@@ -18,6 +18,7 @@ import {
 import { ChevronLeft, ChevronRight, Shuffle, Check, X, RotateCcw, Layers, LayoutGrid, RotateCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { WritingMark } from '@/components/ui/loader'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow, state as stateStyle, capitalizeFirst, formatAccent } from '@/lib/formats/design'
 import { normalizeGuideMarkdown, stripEmoji, toTitleCase, plainText } from '@/lib/formats/normalize'
@@ -439,7 +440,7 @@ function StudyCard({
       {isLoadingProgress && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/80">
           <div className="flex flex-col items-center gap-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            <WritingMark className="text-[2.25rem] text-indigo-600" />
             <span className="text-sm text-slate-600">Loading your progress…</span>
           </div>
         </div>

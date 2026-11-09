@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { questionKeyProblem } from '@/lib/formats/key-check'
 import { normalizeLanguage } from '@/lib/study-options'
 import { ClaudeService } from '@/lib/claude-api'
 import { createAdminClient } from '@/lib/supabase-server'
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Parse the batch on its own (under a stand-in concept) and keep the well-formed, gradeable ones.
     const fresh = parseAdaptive(`CONCEPT: ${concept.name}\n\n${text}`).questions
       .filter((q) => q.type !== 'explain')
+      .filter((q) => !questionKeyProblem(q))
       .slice(0, BATCH)
       .map(({ id: _id, conceptId: _c, ...q }) => q)
     if (!fresh.length) throw new Error('No usable questions came back')
