@@ -204,6 +204,12 @@ async function main() {
   const cells = JSON.stringify(gb)
   check((cells.match(/"percentage":/g) ?? cells.match(/"pct":/g) ?? []).length === 1 || /57\.1/.test(cells), 'gradebook only has the marked paper')
 
+  console.log('Teacher home picks the set up again')
+  await page.goto(`${BASE}/teach`, { waitUntil: 'networkidle' })
+  await page.getByText(/still to mark/).waitFor()
+  check(await page.getByText('2 of 3 papers still to mark').count() === 1 && await page.getByText('Keep marking →').count() === 1, 'the teacher home shows "2 of 3 papers still to mark · Keep marking"')
+  await shot('7-teach-home')
+
   console.log('A student sees the marks, not the answer line')
   const student = await admin.auth.admin.createUser({ email: `e2e-selfmark-student-${Date.now()}@example.com`, password: 'E2eTest!' + Math.random().toString(36).slice(2, 10), email_confirm: true })
   created.studentId = student.data.user.id

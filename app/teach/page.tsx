@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, Plus, TrendingUp, Users, ClipboardCheck } from "lucide-react"
+import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, PencilLine, Plus, TrendingUp, Users, ClipboardCheck } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -22,7 +22,8 @@ import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 interface HomeData {
   firstName: string | null
   year: string
-  recent: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; average: number; date: string; released: boolean }>
+  recent: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; average: number; date: string; released: boolean; toMark?: number }>
+  marking?: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; papers: number; toMark: number }>
   classes: Array<{ id: string; name: string; period: string | null; students: number }>
   scansWaiting: number
 }
@@ -105,6 +106,14 @@ function TeacherHome() {
           </Link>
         )}
 
+        {data?.marking?.map((s) => (
+          <Link key={s.batchId} href={`/grade-exam/batch/${s.batchId}`} className="flex items-center gap-3 rounded-2xl bg-blue-50 p-4 text-blue-950 ring-1 ring-blue-200 hover:bg-blue-100">
+            <PencilLine className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 flex-1"><span className="block font-semibold">{s.title || "Untitled"}{s.className ? ` · ${s.className}${s.period ? ` P${s.period}` : ""}` : ""}</span><span className="block text-sm">{s.toMark} of {s.papers} paper{s.papers === 1 ? "" : "s"} still to mark</span></span>
+            <span className="shrink-0 font-semibold">Keep marking →</span>
+          </Link>
+        ))}
+
         {!data ? (
           <p className="flex items-center justify-center gap-2 py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
         ) : (
@@ -124,10 +133,10 @@ function TeacherHome() {
                   {data.recent.map((s) => (
                     <li key={s.batchId}>
                       <Link href={`/grade-exam/batch/${s.batchId}`} className="group flex items-center gap-3 py-3">
-                        <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold", s.average >= 80 ? "bg-emerald-50 text-emerald-700" : s.average >= 65 ? "bg-blue-50 text-blue-700" : s.average >= 50 ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700")}>{Math.round(s.average)}%</span>
+                        <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold", s.toMark ? "bg-amber-50 text-amber-800" : s.average >= 80 ? "bg-emerald-50 text-emerald-700" : s.average >= 65 ? "bg-blue-50 text-blue-700" : s.average >= 50 ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700")}>{s.toMark ? <PencilLine className="h-5 w-5" aria-label="Still marking" /> : `${Math.round(s.average)}%`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{s.title || "Untitled"}</span>
-                          <span className="block text-xs text-slate-500">{[s.className, s.period && `P${s.period}`].filter(Boolean).join(" · ")}{s.className ? " · " : ""}{s.papers} paper{s.papers === 1 ? "" : "s"} · {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                          <span className="block text-xs text-slate-500">{[s.className, s.period && `P${s.period}`].filter(Boolean).join(" · ")}{s.className ? " · " : ""}{s.papers} paper{s.papers === 1 ? "" : "s"}{s.toMark ? ` · ${s.toMark} to mark` : ""} · {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
                         </span>
                         <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-600" />
                       </Link>

@@ -3,6 +3,7 @@ import { requireTeacher } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { schoolYearFor } from '@/lib/classes/years'
 import { sortClasses } from '@/lib/classes/sort'
+import { stillMarking } from '@/lib/grading/mark-points'
 
 // The teacher home (/teach): recent graded sets, this year's classes, and
 // scans waiting in the scanner inbox. Owner only.
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const [{ data: graded }, { data: classes }, { count: waiting }, { data: profile }] = await Promise.all([
     supabase.from('grading_results')
-      .select('batch_id, exam_title, class_name, class_period, class_id, percentage, created_at, released')
+      .select('batch_id, exam_title, class_name, class_period, class_id, percentage, created_at, released, grade_breakdown')
       .eq('user_id', user.id).not('batch_id', 'is', null)
       .order('created_at', { ascending: false }).limit(600),
     supabase.from('classes').select('id, name, period, school_year, created_at').eq('teacher_id', user.id).eq('school_year', year).eq('is_archived', false).order('name'),
@@ -23,11 +24,13 @@ export async function GET(request: NextRequest) {
     supabase.from('user_profiles').select('first_name').eq('id', user.id).single(),
   ])
 
-  const sets = new Map<string, { batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; total: number; date: string; released: boolean }>()
+  const sets = new Map<string, { batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; total: number; date: string; released: boolean; toMark: number }>()
   for (const r of graded ?? []) {
-    const s = sets.get(r.batch_id) ?? { batchId: r.batch_id, title: r.exam_title, className: r.class_name, period: r.class_period, classId: r.class_id, papers: 0, total: 0, date: r.created_at, released: true }
+    const s = sets.get(r.batch_id) ?? { batchId: r.batch_id, title: r.exam_title, className: r.class_name, period: r.class_period, classId: r.class_id, papers: 0, total: 0, date: r.created_at, released: true, toMark: 0 }
     s.papers += 1
-    s.total += Number(r.percentage)
+    // A paper the teacher is still marking herself has no score yet.
+    if (stillMarking(r.grade_breakdown)) s.toMark += 1
+    else s.total += Number(r.percentage)
     s.released = s.released && r.released
     sets.set(r.batch_id, s)
   }
@@ -42,7 +45,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     firstName: profile?.first_name ?? null,
     year,
-    recent: [...sets.values()].slice(0, 6).map(({ total, ...s }) => ({ ...s, average: s.papers ? total / s.papers : 0 })),
+    recent: [...sets.values()].slice(0, 6).map(({ total, ...s }) => ({ ...s, average: s.papers - s.toMark ? total / (s.papers - s.toMark) : 0 })),
+    // Sets she set up to mark herself and hasn't finished: pick them up again from here.
+    marking: [...sets.values()].filter((s) => s.toMark > 0).slice(0, 5).map((s) => ({ batchId: s.batchId, title: s.title, className: s.className, period: s.period, papers: s.papers, toMark: s.toMark })),
     classes: sortClasses(classes ?? []).map((c) => ({ id: c.id, name: c.name, period: c.period, students: counts.get(c.id) ?? 0 })),
     scansWaiting: waiting ?? 0,
   }, { headers: { 'Cache-Control': 'no-store' } })
