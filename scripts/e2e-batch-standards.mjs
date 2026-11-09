@@ -102,6 +102,17 @@ async function main() {
   check('GET returns them in setup', r.json?.setup?.standards === 'MA.8.AR.3.2, MA.8.AR.2.1', JSON.stringify(r.json?.setup))
   check('no report yet', r.json?.insights === null)
 
+  console.log('\n== Florida standards search ==')
+  r = await t('GET', '/api/standards/search?q=MA.8.AR.3')
+  check('a code prefix finds the Florida benchmarks', r.status === 200 && r.json?.results?.length >= 2 && r.json.results.every((x) => x.code.startsWith('MA.8.AR.3')), JSON.stringify(r.json?.results?.slice(0, 2)))
+  r = await t('GET', '/api/standards/search?q=slope&grade=6th-8th&subject=mathematics')
+  check('words find them too, grade 8 math first', r.status === 200 && r.json?.results?.[0]?.code.startsWith('MA.8.') && /slope/i.test(r.json.results[0].text), JSON.stringify(r.json?.results?.[0]))
+  check('every hit links to CPALMS', (r.json?.results ?? []).every((x) => x.url?.startsWith('https://www.cpalms.org/')))
+  r = await s('GET', '/api/standards/search?q=slope')
+  check('students can search too (signed in)', r.status === 200)
+  r = await fetch(`${BASE}/api/standards/search?q=slope`)
+  check('signed out is refused', r.status === 401)
+
   if (NO_AI) { console.log('  (skipping the class report: --no-ai)'); return }
 
   console.log('\n== Class report by standard ==')

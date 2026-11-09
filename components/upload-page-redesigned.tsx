@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { StandardsField } from "@/components/standards-field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -79,7 +80,7 @@ import { codeEditorRelevant } from "@/lib/code-exercise/policy"
 
 const VISUALS_PREF_KEY = "cs:pref:visuals"
 const LANGUAGE_PREF_KEY = "cs:pref:language"
-const STANDARDS_MAX_INPUT = 600
+const STANDARDS_MAX_INPUT = 1500
 const CODE_EDITOR_PREF_KEY = "cs:pref:code-editor"
 /** Premium shows its monthly guide count on the homepage once fewer than this are left. */
 const PREMIUM_GUIDES_WARN_UNDER = 10
@@ -1193,17 +1194,15 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   </div>
                   <div className="sm:col-span-2">
                     <Label htmlFor="standards" className="mb-1.5 block text-sm font-medium text-slate-700">Standards <span className="font-normal text-slate-500">(optional)</span></Label>
-                    <Textarea
+                    <StandardsField
                       id="standards"
-                      placeholder="e.g. MA.8.AR.2.1, or paste the standard's wording"
                       value={standards}
-                      onChange={(e) => setStandards(e.target.value.slice(0, STANDARDS_MAX_INPUT))}
-                      rows={2}
+                      onChange={(v) => setStandards(v.slice(0, STANDARDS_MAX_INPUT))}
+                      grade={gradeLevel || null}
+                      subject={subject || null}
                       disabled={isGenerating}
-                      className="resize-none"
-                      aria-describedby="standards-help"
+                      help="State or national standards this should teach to. The guide is written to them and shows them at the top and on the printout."
                     />
-                    <p id="standards-help" className="mt-1.5 text-sm text-slate-500">State or national standards this should teach to. The guide is written to them and shows them at the top and on the printout.</p>
                   </div>
                   <div className="sm:col-span-2">
                     <Label htmlFor="instructions" className="mb-1.5 block text-sm font-medium text-slate-700">Anything else?</Label>

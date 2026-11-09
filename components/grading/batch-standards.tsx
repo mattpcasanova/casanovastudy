@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { actionButton, actionButtonPrimary } from "@/components/grading/grading-ui"
 import { STANDARDS_MAX, standardCodes, standardEntries } from "@/lib/standards"
+import { StandardsField } from "@/components/standards-field"
 import { cn } from "@/lib/utils"
 
 export function StandardsDialog({ open, onOpenChange, value, onSave }: {
@@ -40,14 +41,7 @@ export function StandardsDialog({ open, onOpenChange, value, onSave }: {
           <DialogDescription>Type the standards codes, one per line or separated by commas. With two or more, the class report groups the questions by standard, so you can see how the class did on each one.</DialogDescription>
         </DialogHeader>
         <label htmlFor="batch-standards" className="sr-only">Standards</label>
-        <textarea
-          id="batch-standards"
-          value={text}
-          onChange={(e) => setText(e.target.value.slice(0, STANDARDS_MAX))}
-          placeholder={"e.g. MA.8.AR.2.1, MA.8.AR.3.2\nor a code followed by its wording"}
-          rows={4}
-          className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm leading-relaxed text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-        />
+        <StandardsField id="batch-standards" value={text} onChange={(v) => setText(v.slice(0, STANDARDS_MAX))} rows={3} />
         <p className="text-xs text-slate-500">
           {codes >= 2 ? `${codes} standards: the class report will show results by standard.` : codes === 1 ? "One standard: add a second to see results by standard." : "The report keeps grouping by topic until you add two or more codes."}
         </p>

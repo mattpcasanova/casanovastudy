@@ -20,6 +20,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { useAuth } from "@/lib/auth"
 import { usePlan } from "@/components/plan/plan-provider"
 import { STANDARDS_MAX } from "@/lib/standards"
+import { StandardsField } from "@/components/standards-field"
 import { BODY_HINTS, GUIDE_TITLE_MAX, ITEM_NOUN, editProblem, isEditableFormat, joinFields, joinPieces, pieceFields, splitPieces, type EditableFormat, type Field, type Piece } from "@/lib/guide-edit/pieces"
 import type { StudyGuideRecord } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
@@ -314,8 +315,7 @@ export default function GuideEditor({ guide }: { guide: StudyGuideRecord }) {
           </div>
           <div>
             <label htmlFor="guide-standards" className="mb-1 block text-sm font-semibold text-slate-700">Standards <span className="font-normal text-slate-500">(optional)</span></label>
-            <AutoTextarea id="guide-standards" value={standards} onChange={(v) => setStandards(v.slice(0, STANDARDS_MAX))} placeholder="e.g. MA.8.AR.2.1, or paste the standard's wording" />
-            <p className="mt-1 text-sm text-slate-500">Shown at the top of the guide and on the printout.</p>
+            <StandardsField id="guide-standards" value={standards} onChange={(v) => setStandards(v.slice(0, STANDARDS_MAX))} grade={guide.grade_level ?? null} subject={guide.subject ?? null} help="Shown at the top of the guide and on the printout." />
           </div>
         </section>
 

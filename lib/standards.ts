@@ -4,7 +4,7 @@
 // wording the user didn't give: a wrong code on a guide is worse than none.
 // Pure; unit-tested.
 
-export const STANDARDS_MAX = 600
+export const STANDARDS_MAX = 1500
 
 /** Tidy what was typed: one line per entry, no control characters, capped. Empty = none. */
 export function normalizeStandards(raw: unknown): string {
