@@ -26,7 +26,7 @@ import { lateLabel } from "@/lib/grading/late"
 import { MarkedPages, PaperViewer } from "@/components/grading/report/paper-viewer"
 import { pageForQuestion, pickPaperPages, type PaperPage } from "@/lib/grading/paper-pages"
 import { QuestionPicker, type RegradeScope } from "@/components/grading/question-picker"
-import { placeStamp, stampText, stampsOf, unmarkedCount, type StampTarget } from "@/lib/grading/mark-points"
+import { applyAnnotation, placeStamp, stampText, stampsOf, unmarkedCount, type StampTarget } from "@/lib/grading/mark-points"
 
 interface GradingResult {
   id: string
@@ -122,6 +122,8 @@ export default function GradeReportPage() {
   const [paperPage, setPaperPage] = useState(0)
   // The mark just given, waiting to be put on the paper (the next click on the page places it).
   const [placing, setPlacing] = useState<StampTarget | null>(null)
+  // The question the palette's notes go on (the last one clicked; the first unmarked to begin with).
+  const [focusQuestion, setFocusQuestion] = useState<number | null>(null)
 
   const isTeacher = user?.user_type === 'teacher'
   const canEdit = !!(isTeacher && result?.isOwner)
@@ -146,6 +148,7 @@ export default function GradeReportPage() {
         setResult(data.data)
         setDraft(draftFrom(data.data))
         // A paper waiting for the teacher's marks opens ready to mark, with the paper beside it.
+        setFocusQuestion(null)
         if (data.data.isOwner && (unmarkedCount(data.data.gradeBreakdown) > 0 || new URLSearchParams(window.location.search).get('mark') === '1')) {
           setMarking(true)
           setEditing(true)
@@ -280,11 +283,32 @@ export default function GradeReportPage() {
     )
   }
 
-  const studentName = `${draft.firstName} ${draft.lastName}`.trim() || 'Student'
-  const date = new Date(result.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const { possible } = reportTotals(draft)
+  const studentName = `${draft.firstName} ${draft.lastName}`.trim() || 'Student'
+  // Customize: a side column normally; right under the toolbar while the paper has the side column (it used to land below the report, out of sight).
+  const optionsPanel = (
+    <aside className={cn("h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-blue-900/5 print:hidden", !(paperOpen && pages.length) && "lg:sticky lg:top-4")}>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h3 className={cn(fontDisplay, "text-lg font-semibold text-slate-900")}>Customize report</h3>
+        <Button variant="ghost" size="sm" onClick={() => setShowOptions(false)} className={actionButton}>Done</Button>
+      </div>
+      <ReportOptions
+        settings={settings}
+        onSettings={patchSettings}
+        scale={draft.scale}
+        onScale={(scale) => patchDraft({ scale })}
+        onScaleDefault={() => draft.scale && patchSettings({ defaultScale: draft.scale })}
+        markingStyle={draft.markingStyle}
+        onMarkingStyle={(markingStyle) => patchDraft({ markingStyle })}
+        possible={possible}
+      />
+    </aside>
+  )
+  const date = new Date(result.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const toMark = unmarkedCount(draft.breakdown)
-  const stamps = canEdit ? stampsOf(draft.breakdown) : []
+  const stamps = pages.length ? stampsOf(draft.breakdown) : []
+  const focusAt = focusQuestion ?? Math.max(0, draft.breakdown.findIndex((q) => q.unmarked))
+  const usesCodes = !!draft.markingStyle.codes || draft.breakdown.some((q) => q.markCodes || q.points?.some((p) => p.code))
   const placingStamp = placing && stamps.find((s) => s.target.question === placing.question && s.target.point === placing.point)
   // A mark sheet the teacher fills in herself (set up with "I'll mark them myself").
   const isSheet = toMark > 0 || draft.breakdown.some((q) => q.points?.length)
@@ -363,9 +387,9 @@ export default function GradeReportPage() {
                   <Edit2 className="mr-1.5 h-4 w-4" /> Edit report
                 </Button>
               )}
-              {canEdit && pages.length > 0 && (
+              {pages.length > 0 && (
                 <Button variant="ghost" aria-pressed={paperOpen} onClick={() => setPaperOpen((o) => !o)} className={cn(actionButton, paperOpen && "bg-blue-50 text-blue-800 ring-blue-300 hover:bg-blue-50")}>
-                  <FileSearch className="mr-1.5 h-4 w-4" /> {paperOpen ? 'Hide the paper' : 'View the paper'}
+                  <FileSearch className="mr-1.5 h-4 w-4" /> {paperOpen ? 'Hide the paper' : canEdit ? 'View the paper' : stamps.length ? 'See your marked paper' : 'See your paper'}
                 </Button>
               )}
               {canEdit && result.canRegrade && !editing && (
@@ -394,10 +418,11 @@ export default function GradeReportPage() {
               )}
             </div>
 
+            {showOptions && canEdit && paperOpen && pages.length > 0 && optionsPanel}
             {editing && canEdit && (
               <p className="rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-inset ring-blue-200 print:hidden">
                 {marking
-                  ? <><strong>You&apos;re marking.</strong> Click each mark the student earned (click again to take it back), or pick the number. {pages.length > 0 ? 'With the paper open, click the page to put that mark on it. ' : ''}Marks save as you go.</>
+                  ? <><strong>You&apos;re marking.</strong> Click each mark the student earned (click again to take it back), or pick the number. {pages.length > 0 ? 'With the paper open, click the page to put that mark on it, or pick a note from the row above the page. Students see the marked paper once you make the report visible to them. ' : ''}Marks save as you go.</>
                   : <><strong>You&apos;re editing.</strong> Change names, marks and feedback right on the report. Changes save as you go; press <strong>Done</strong> (or Esc) when you&apos;re finished.</>}
                 {result.groupId && result.groupMembers.length > 1 && (
                   <label className="mt-2 flex items-center gap-2">
@@ -422,7 +447,7 @@ export default function GradeReportPage() {
                   )}
                 </div>
               )}
-              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} marking={marking && canEdit} onGiven={marking && paperOpen && pages.length ? setPlacing : undefined} placing={placing} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} owner={canEdit} />
+              <ReportDocument draft={draft} onChange={patchDraft} editing={editing && canEdit} marking={marking && canEdit} onGiven={marking && paperOpen && pages.length ? (t) => { setPlacing(t); setFocusQuestion(t.question) } : undefined} placing={placing} focusQuestion={marking ? focusAt : undefined} onFocusQuestion={marking ? setFocusQuestion : undefined} settings={settings} date={date} onShowPage={canEdit && pages.length ? showPageFor : undefined} owner={canEdit} />
             </div>
 
             {editing && canEdit && (
@@ -450,7 +475,7 @@ export default function GradeReportPage() {
               </div>
             )}
 
-            {canEdit && <MarkedPages pages={pages} stamps={stamps} studentName={studentName} />}
+            <MarkedPages pages={pages} stamps={stamps} studentName={studentName} />
 
             {isTeacher && (
               <div className="print:hidden">
@@ -461,7 +486,7 @@ export default function GradeReportPage() {
             )}
           </div>
 
-          {paperOpen && pages.length > 0 && canEdit && (
+          {paperOpen && pages.length > 0 && (
             <div className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
               <PaperViewer
                 pages={pages} page={paperPage} onPage={setPaperPage} studentName={studentName} onClose={() => { setPaperOpen(false); setPlacing(null) }}
@@ -471,24 +496,11 @@ export default function GradeReportPage() {
                 onPickStamp={editing ? (s) => setPlacing(s.target) : undefined}
                 onRemovePlacing={() => { if (placing) { patchDraft({ breakdown: placeStamp(draft.breakdown, placing, undefined) }); setPlacing(null) } }}
                 onCancelPlacing={() => setPlacing(null)}
+                palette={editing && canEdit && draft.breakdown[focusAt] ? { question: draft.breakdown[focusAt].questionNumber, examBoard: usesCodes, onPick: (a) => { const r = applyAnnotation(draft.breakdown, focusAt, a); if (r.breakdown !== draft.breakdown) patchDraft({ breakdown: r.breakdown }); setPlacing(r.target) } } : null}
               />
             </div>
           )}
-          {showOptions && canEdit && (
-            <aside className={cn("h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-blue-900/5 print:hidden", paperOpen && pages.length ? "lg:col-start-1" : "lg:sticky lg:top-4")}>
-              <h3 className={cn(fontDisplay, "mb-4 text-lg font-semibold text-slate-900")}>Customize report</h3>
-              <ReportOptions
-                settings={settings}
-                onSettings={patchSettings}
-                scale={draft.scale}
-                onScale={(scale) => patchDraft({ scale })}
-                onScaleDefault={() => draft.scale && patchSettings({ defaultScale: draft.scale })}
-                markingStyle={draft.markingStyle}
-                onMarkingStyle={(markingStyle) => patchDraft({ markingStyle })}
-                possible={possible}
-              />
-            </aside>
-          )}
+          {showOptions && canEdit && !(paperOpen && pages.length > 0) && optionsPanel}
         </div>
       </div>
     </div>

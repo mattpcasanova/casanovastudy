@@ -178,7 +178,7 @@ function Editable({ value, onChange, editing, placeholder, className }: {
  * The grade report itself: what the teacher edits on screen and what prints.
  * Display toggles and branding come from the teacher's report settings.
  */
-export function ReportDocument({ draft, onChange, editing, marking = false, settings, date, onShowPage, owner = false, onGiven, placing = null }: {
+export function ReportDocument({ draft, onChange, editing, marking = false, settings, date, onShowPage, owner = false, onGiven, placing = null, focusQuestion, onFocusQuestion }: {
   draft: ReportDraft
   onChange: (patch: Partial<ReportDraft>) => void
   editing: boolean
@@ -194,6 +194,9 @@ export function ReportDocument({ draft, onChange, editing, marking = false, sett
   onGiven?: (target: StampTarget) => void
   /** The mark waiting to be put on the paper. */
   placing?: StampTarget | null
+  /** The question notes from the paper's palette go on; clicking a question card picks it. */
+  focusQuestion?: number
+  onFocusQuestion?: (index: number) => void
 }) {
   const totals = reportTotals(draft)
   const showGrade = settings.showGrade && hasGrades(draft.scale)
@@ -323,7 +326,7 @@ export function ReportDocument({ draft, onChange, editing, marking = false, sett
         <h3 className={cn(fontDisplay, "mb-4 text-xl font-semibold text-slate-900")}>Question breakdown</h3>
         <div className="space-y-3">
           {draft.breakdown.map((q, i) => (
-            <div key={i} className={cn("rounded-lg border p-4 break-inside-avoid", editing ? "border-blue-200 bg-blue-50/40" : "bg-muted/30")}>
+            <div key={i} onClickCapture={onFocusQuestion ? () => onFocusQuestion(i) : undefined} className={cn("rounded-lg border p-4 break-inside-avoid", editing ? "border-blue-200 bg-blue-50/40" : "bg-muted/30", marking && focusQuestion === i && "border-blue-500 ring-2 ring-blue-200")}>
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {details ? (
@@ -462,15 +465,22 @@ export function ReportDocument({ draft, onChange, editing, marking = false, sett
                       <MessageSquarePlus className="h-4 w-4" /> Add a comment
                     </button>
                   ) : (
-                  <textarea
-                    value={q.explanation}
-                    onChange={(e) => setQuestion(i, { explanation: e.target.value })}
-                    rows={marking ? 2 : 3}
-                    autoFocus={marking && commentOpen === i}
-                    placeholder={marking ? "A comment for the student (optional)" : undefined}
-                    className="w-full resize-y rounded-md border bg-white px-3 py-2 text-sm"
-                    aria-label="Feedback"
-                  />
+                  <div className="space-y-1.5">
+                    <textarea
+                      value={q.explanation}
+                      onChange={(e) => setQuestion(i, { explanation: e.target.value })}
+                      rows={marking ? 2 : 3}
+                      autoFocus={marking && commentOpen === i}
+                      placeholder={marking ? "A comment for the student (optional)" : undefined}
+                      className="w-full resize-y rounded-md border bg-white px-3 py-2 text-sm"
+                      aria-label="Feedback"
+                    />
+                    {marking && onGiven && q.explanation.trim() && (
+                      <button type="button" onClick={() => onGiven({ question: i, point: null, add: { text: q.explanation.trim().slice(0, 300), tone: 'note', title: 'Comment' } })} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-white print:hidden">
+                        <FileSearch className="h-4 w-4" /> Put this comment on the paper too
+                      </button>
+                    )}
+                  </div>
                   )}
                   {(style.codes || style.levels || style.ao || q.markCodes || q.level || q.ao) && (
                     <div className="flex flex-wrap gap-2 text-xs">

@@ -143,7 +143,7 @@ async function main() {
   // Put that mark on the paper itself.
   const sheetImg = page.locator('section[aria-label$="paper"] img[alt^="Page 1 of"]')
   const box = await sheetImg.boundingBox()
-  await page.getByText(/Click the paper to put this mark on question 1\(a\)/).waitFor()
+  await page.getByText(/Click the paper to put this on question 1\(a\)/).waitFor()
   await sheetImg.click({ position: { x: box.width * 0.6, y: box.height * 0.23 } })
   check(await page.getByRole('button', { name: /^M1 on question 1\(a\)/ }).count() === 1, 'M1 is stamped on the paper where she clicked')
   check(await q1.getByRole('button', { name: /^A0/ }).count() === 1, 'once a question is marked, a mark not clicked reads A0')
@@ -160,6 +160,7 @@ async function main() {
   check(await page.getByText('4/7').count() >= 1, 'total is 4/7')
   await page.getByText(/All marked · saved/).waitFor()
   await shot('4-marking-done')
+  await page.locator('section[aria-label$="paper"]').screenshot({ path: `${OUT}/4b-paper-panel.png` })
   const firstId = page.url().match(/grade-report\/([0-9a-f-]+)/)[1]
   let after = null
   for (let i = 0; i < 20; i++) { // autosave runs 700 ms after the last click
@@ -175,6 +176,12 @@ async function main() {
   await page.getByRole('button', { name: 'Take it off' }).click()
   check(await page.getByRole('button', { name: /^A0 on question 1\(b\)/ }).count() === 0 && await page.getByRole('button', { name: /^M1 on question 1\(a\)/ }).count() === 1, 'a stamp can be taken off the paper; the mark stays')
   check(await page.getByText('4/7').count() >= 1, 'total still 4/7')
+  // A note from the palette (not one of the scheme's marks) on the question last clicked.
+  await page.getByRole('button', { name: /Follow through.*\(ft\)/ }).click()
+  await page.getByText(/Click the paper to put this on question 2/).waitFor() // the question last clicked
+  await sheetImg.click({ position: { x: box.width * 0.5, y: box.height * 0.33 } })
+  check(await page.getByRole('button', { name: /^ft on question 2/ }).count() === 1, 'a palette note ("ft") lands on the page')
+  check(await page.getByText('4/7').count() >= 1, 'notes change no marks')
   await page.waitForTimeout(1500)
 
   await page.getByRole('button', { name: /Next paper/ }).click()
@@ -207,7 +214,12 @@ async function main() {
   const { data: s2 } = await anon.auth.signInWithPassword({ email: student.data.user.email, password: 'StudentPass!234' })
   const res = await fetch(`${BASE}/api/grade-exam/${markedId}`, { headers: { Authorization: `Bearer ${s2.session.access_token}` } })
   const seen = (await res.json()).data
-  check(seen && seen.gradeBreakdown.every((q) => q.guide === undefined) && seen.gradeBreakdown[0].points?.length === 2 && seen.pages.length === 0 && seen.setPapers.length === 0, 'student gets points and marks, no answer line, no scan, no classmates')
+  check(seen && seen.gradeBreakdown.every((q) => q.guide === undefined) && seen.gradeBreakdown[0].points?.length === 2 && seen.setPapers.length === 0, 'student gets points and marks, no answer line, no classmates')
+  check(seen && seen.pages.length === 1 && seen.gradeBreakdown[0].points[0].at && seen.gradeBreakdown[2].notes?.[0]?.text === 'ft', 'the released student gets their marked paper (page, stamps and notes)')
+  const unreleased = (await admin.from('grading_results').select('id').eq('user_id', created.userId).neq('id', markedId).limit(1).single()).data.id
+  await admin.from('grading_results').update({ student_user_id: created.studentId }).eq('id', unreleased)
+  const hidden = await fetch(`${BASE}/api/grade-exam/${unreleased}`, { headers: { Authorization: `Bearer ${s2.session.access_token}` } })
+  check(hidden.status === 404, 'an unreleased report stays hidden from the student')
 
   check(errors.length === 0, `no page errors${errors.length ? ': ' + errors.slice(0, 3).join(' / ') : ''}`)
   await browser.close()

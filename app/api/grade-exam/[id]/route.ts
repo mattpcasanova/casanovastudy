@@ -9,7 +9,7 @@ import { settingsFromRow } from '@/lib/grading/report-settings'
 import { paperDaysLate } from '@/lib/grading/late'
 import { adjustedTotals, normalizeAdjustments } from '@/lib/grading/adjustments'
 import { signUploads } from '@/lib/uploads/storage-server'
-import { cleanPlace, cleanPoints, forStudent, unmarkedCount } from '@/lib/grading/mark-points'
+import { cleanNotes, cleanPlace, cleanPoints, forStudent, unmarkedCount } from '@/lib/grading/mark-points'
 
 const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' ? v.trim().slice(0, max) : undefined
@@ -43,6 +43,8 @@ function cleanQuestion(raw: unknown): GradedQuestion | string {
   if (q.unmarked === true) out.unmarked = true
   const at = cleanPlace(q.at)
   if (at) out.at = at
+  const notes = cleanNotes(q.notes)
+  if (notes.length) out.notes = notes
   const levels = Number(q.levels)
   if (Number.isInteger(levels) && levels >= 2 && levels <= 8) out.levels = levels
   const guide = str(q.guide, 300)
@@ -251,8 +253,10 @@ export async function GET(
         // Regrade needs the saved pages (migration 074) and the set's answer key.
         canRegrade: requestUserId === gradingResult.user_id && Array.isArray(gradingResult.page_urls) && gradingResult.page_urls.length > 0 && !!gradingResult.batch_id,
         // The paper itself (signed links, 1 hour), so the teacher can check the
-        // pages beside the report. Teacher only: students see the report, not the scan.
-        pages: requestUserId === gradingResult.user_id ? await signUploads(gradingResult.page_urls, gradingResult.user_id, 60) : [],
+        // pages beside the report, and the student can see the marks on it (canRead already
+        // limits this to the owner, or the linked student once released).
+        // Students get their own paper too once the report is released (the teacher's marks sit on it).
+        pages: await signUploads(gradingResult.page_urls, gradingResult.user_id, 60),
         answerSheetFilename: gradingResult.answer_sheet_filename,
         studentExamFilename: gradingResult.student_exam_filename,
         totalMarks: Number(gradingResult.total_marks),

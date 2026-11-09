@@ -26,6 +26,63 @@ export interface MarkPoint {
 /** A spot on the scanned paper: 1-based page, x and y as fractions of the page (0-1, from the top left as scanned). */
 export interface StampPlace { page: number; x: number; y: number }
 
+/** A note the teacher put on the paper that isn't one of the scheme's marks: a tick, a cross, "ft", "cao", a few words. */
+export interface FreeStamp extends StampPlace {
+  text: string
+  tone: StampTone
+}
+
+export type StampTone = 'earned' | 'lost' | 'partial' | 'score' | 'note'
+
+/** What the palette offers. The exam-board set shows when the paper uses mark codes. */
+export interface Annotation { text: string; tone: StampTone; title: string }
+export const BASIC_ANNOTATIONS: Annotation[] = [
+  { text: '✓', tone: 'earned', title: 'Correct' },
+  { text: '✗', tone: 'lost', title: 'Wrong' },
+  { text: '½', tone: 'partial', title: 'Partly right' },
+  { text: '^', tone: 'lost', title: 'Something missing' },
+  { text: '?', tone: 'note', title: 'Unclear' },
+]
+/** Cambridge mark codes: on a question whose sheet has that kind of mark, these give or take the mark itself. */
+export const EXAM_BOARD_MARKS: Annotation[] = [
+  { text: 'M1', tone: 'earned', title: 'Method mark earned' },
+  { text: 'A1', tone: 'earned', title: 'Accuracy mark earned' },
+  { text: 'B1', tone: 'earned', title: 'Independent mark earned' },
+  { text: 'M0', tone: 'lost', title: 'Method mark not earned' },
+  { text: 'A0', tone: 'lost', title: 'Accuracy mark not earned' },
+  { text: 'B0', tone: 'lost', title: 'Independent mark not earned' },
+]
+export const EXAM_BOARD_ANNOTATIONS: Annotation[] = [
+  { text: 'ft', tone: 'note', title: 'Follow through: correct working from an earlier wrong answer' },
+  { text: 'cao', tone: 'note', title: 'Correct answer only' },
+  { text: 'oe', tone: 'note', title: 'Or equivalent' },
+  { text: 'dep', tone: 'note', title: 'Dependent on the previous mark' },
+  { text: 'SC', tone: 'note', title: 'Special case' },
+  { text: 'ECF', tone: 'note', title: 'Error carried forward' },
+  { text: 'BOD', tone: 'note', title: 'Benefit of the doubt' },
+  { text: 'ISW', tone: 'note', title: 'Ignore subsequent working' },
+  { text: 'awrt', tone: 'note', title: 'Answers which round to' },
+  { text: 'soi', tone: 'note', title: 'Seen or implied' },
+  { text: 'seen', tone: 'note', title: 'Seen' },
+]
+
+const TONES: StampTone[] = ['earned', 'lost', 'partial', 'score', 'note']
+
+export function cleanNotes(raw: unknown): FreeStamp[] {
+  if (!Array.isArray(raw)) return []
+  const out: FreeStamp[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const r = item as Record<string, unknown>
+    const at = cleanPlace(r)
+    const text = typeof r.text === 'string' ? r.text.replace(/\s+/g, ' ').trim().slice(0, 300) : ''
+    if (!at || !text) continue
+    out.push({ ...at, text, tone: TONES.includes(r.tone as StampTone) ? (r.tone as StampTone) : 'note' })
+    if (out.length >= 40) break
+  }
+  return out
+}
+
 export function cleanPlace(raw: unknown): StampPlace | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const r = raw as Record<string, unknown>
@@ -235,15 +292,19 @@ export function forStudent(breakdown: GradedQuestion[]): GradedQuestion[] {
 // Marks on the paper itself: the teacher places each mark where it was earned
 // (or lost), the way an examiner annotates a script.
 
-/** Which mark is being placed: a question's point, or (point null) the question's score. */
-export interface StampTarget { question: number; point: number | null }
+/**
+ * Which mark is being placed: a question's point; its score (point null); or
+ * one of the teacher's own notes on it (note = index into q.notes, or a new one
+ * when `add` is given).
+ */
+export interface StampTarget { question: number; point: number | null; note?: number; add?: Annotation }
 
 export interface PaperStamp extends StampPlace {
   key: string
   target: StampTarget
   /** "M1", "A0", "✓", "✗", or a score like "2/3". */
   text: string
-  tone: 'earned' | 'lost' | 'score'
+  tone: StampTone
   question: string
 }
 
@@ -260,6 +321,8 @@ const scoreText = (q: GradedQuestion) => `${Number.isInteger(q.marksAwarded) ? q
 export function stampText(breakdown: GradedQuestion[], target: StampTarget): string {
   const q = breakdown[target.question]
   if (!q) return ''
+  if (target.add) return target.add.text
+  if (target.note !== undefined) return q.notes?.[target.note]?.text ?? ''
   if (target.point === null) return scoreText(q)
   const p = pointsOf(q)[target.point]
   return p ? pointText(p) : ''
@@ -269,6 +332,7 @@ export function stampText(breakdown: GradedQuestion[], target: StampTarget): str
 export function stampsOf(breakdown: GradedQuestion[]): PaperStamp[] {
   const out: PaperStamp[] = []
   breakdown.forEach((q, qi) => {
+    ;(q.notes ?? []).forEach((n, ni) => out.push({ page: n.page, x: n.x, y: n.y, key: `${qi}:n${ni}`, target: { question: qi, point: null, note: ni }, text: n.text, tone: n.tone, question: q.questionNumber }))
     if (q.unmarked) return
     if (q.at) out.push({ ...q.at, key: `${qi}`, target: { question: qi, point: null }, text: scoreText(q), tone: 'score', question: q.questionNumber })
     pointsOf(q).forEach((p, pi) => {
@@ -282,6 +346,13 @@ export function stampsOf(breakdown: GradedQuestion[]): PaperStamp[] {
 export function placeStamp(breakdown: GradedQuestion[], target: StampTarget, at: StampPlace | undefined): GradedQuestion[] {
   return breakdown.map((q, qi) => {
     if (qi !== target.question) return q
+    if (target.add) return at ? { ...q, notes: [...(q.notes ?? []), { ...at, text: target.add.text, tone: target.add.tone }].slice(0, 40) } : q
+    if (target.note !== undefined) {
+      const notes = (q.notes ?? []).map((n, ni) => (ni === target.note && at ? { ...n, ...at } : n)).filter((_, ni) => at || ni !== target.note)
+      const next: GradedQuestion = { ...q, notes }
+      if (!notes.length) delete next.notes
+      return next
+    }
     if (target.point === null) {
       const next = { ...q }
       if (at) next.at = at
@@ -298,4 +369,34 @@ export function placeStamp(breakdown: GradedQuestion[], target: StampTarget, at:
       return next
     }) }
   })
+}
+
+/**
+ * A pick from the palette for one question. A mark code (M1, A0 ...) on a
+ * question whose sheet has a mark of that kind gives or takes that mark and is
+ * then placed as it; a tick earns the next uncoded point; anything else is a
+ * note on the page. Returns the breakdown and what to place.
+ */
+export function applyAnnotation(breakdown: GradedQuestion[], question: number, a: Annotation): { breakdown: GradedQuestion[]; target: StampTarget } {
+  const q = breakdown[question]
+  const asNote = { breakdown, target: { question, point: null, add: a } as StampTarget }
+  if (!q) return asNote
+  const points = pointsOf(q)
+  const code = readCode(a.text)
+  let index = -1
+  if (code && /^[A-Z]{1,2}$/.test(code.letters) && a.tone !== 'note') {
+    const wanted = code.value > 0
+    index = points.findIndex((p) => readCode(p.code)?.letters === code.letters && !!p.earned !== wanted)
+    // Every mark of that kind already stands as asked: place the first one again.
+    if (index < 0) index = points.findIndex((p) => readCode(p.code)?.letters === code.letters)
+    if (index < 0) return asNote
+    const next = points.map((p, i) => (i === index ? { ...p, earned: wanted } : p))
+    return { breakdown: breakdown.map((x, i) => (i === question ? withPoints({ ...x, points }, next) : x)), target: { question, point: index } }
+  }
+  if (a.text === '✓') {
+    index = points.findIndex((p) => !readCode(p.code) && !p.earned)
+    if (index < 0) return asNote
+    return { breakdown: breakdown.map((x, i) => (i === question ? togglePoint({ ...x, points }, index) : x)), target: { question, point: index } }
+  }
+  return asNote
 }

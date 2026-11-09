@@ -9,7 +9,7 @@
 // (the old single regex stopped at those words anywhere in the text).
 
 import { DEFAULT_SCALE, gradeFor } from './scale'
-import type { MarkPoint, StampPlace } from './mark-points'
+import type { FreeStamp, MarkPoint, StampPlace } from './mark-points'
 
 export interface GradedQuestion {
   questionNumber: string // bare label: "1", "2a", "3(b)(i)", "Section C 2a"
@@ -32,6 +32,8 @@ export interface GradedQuestion {
   unmarked?: boolean
   /** Where the teacher put this question's score on the paper (questions with no mark points). */
   at?: StampPlace
+  /** The teacher's own notes on the paper for this question (ticks, "ft", a few words), placed on the page. */
+  notes?: FreeStamp[]
   /** Levels of response: how many levels the scheme has. */
   levels?: number
   /** The expected answer in a line, for the teacher while marking (never sent to students). */

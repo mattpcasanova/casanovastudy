@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight, RotateCw, Trash2, X, ZoomIn, ZoomOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PaperPage } from "@/lib/grading/paper-pages"
-import type { PaperStamp } from "@/lib/grading/mark-points"
+import { BASIC_ANNOTATIONS, EXAM_BOARD_ANNOTATIONS, EXAM_BOARD_MARKS, type Annotation, type PaperStamp } from "@/lib/grading/mark-points"
 
 // The student's paper beside the report, so the teacher can check an answer
 // the grader flagged ("Check this") without the stack of papers in front of
@@ -14,16 +14,20 @@ import type { PaperStamp } from "@/lib/grading/mark-points"
 
 const ZOOMS = [1, 1.5, 2, 3]
 
-const STAMP_TONE = { earned: "text-emerald-700 ring-emerald-600", lost: "text-rose-700 ring-rose-600", score: "text-blue-800 ring-blue-700" } as const
+const STAMP_TONE = { earned: "text-emerald-700 ring-emerald-600", lost: "text-rose-700 ring-rose-600", partial: "text-amber-800 ring-amber-600", score: "text-blue-800 ring-blue-700", note: "text-slate-800 ring-slate-500" } as const
 
 /** A mark as it sits on the paper: examiner's pen, a little see-through so the work under it stays readable. */
 export function StampLabel({ stamp, className }: { stamp: Pick<PaperStamp, "text" | "tone">; className?: string }) {
+  // A sentence the teacher wrote reads as handwriting in the margin; a code stays a stamp.
+  const words = stamp.text.length > 12
   return (
-    <span className={cn("inline-block whitespace-nowrap rounded-md bg-white/85 px-1.5 py-0.5 font-mono text-[13px] font-bold leading-none ring-2 [print-color-adjust:exact]", STAMP_TONE[stamp.tone], className)}>
+    <span className={cn("inline-block rounded-md bg-white/85 ring-2 [print-color-adjust:exact]", words ? "max-w-[16rem] whitespace-normal px-2 py-1 text-left text-xs font-semibold leading-snug" : "whitespace-nowrap px-1.5 py-0.5 font-mono text-[13px] font-bold leading-none", STAMP_TONE[stamp.tone], className)}>
       {stamp.text}
     </span>
   )
 }
+
+const MARK_WORDS: Record<string, string> = { M: "method", A: "accuracy", B: "independent" }
 
 /** What the teacher is putting on the paper right now. */
 export interface PlacingStamp {
@@ -33,7 +37,7 @@ export interface PlacingStamp {
   placed: boolean
 }
 
-export function PaperViewer({ pages, page, onPage, studentName, onClose, className, stamps = [], placing = null, onPlace, onPickStamp, onRemovePlacing, onCancelPlacing }: {
+export function PaperViewer({ pages, page, onPage, studentName, onClose, className, stamps = [], placing = null, onPlace, onPickStamp, onRemovePlacing, onCancelPlacing, palette = null }: {
   pages: PaperPage[]
   /** 0-based page shown. */
   page: number
@@ -50,7 +54,10 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
   onPickStamp?: (stamp: PaperStamp) => void
   onRemovePlacing?: () => void
   onCancelPlacing?: () => void
+  /** Notes the teacher can put on the page (ticks, "ft", a few words), for the question named. */
+  palette?: { question: string; examBoard: boolean; onPick: (a: Annotation) => void } | null
 }) {
+  const [noteText, setNoteText] = useState("")
   const [zoomIndex, setZoomIndex] = useState(0)
   const [rotation, setRotation] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -110,11 +117,41 @@ export function PaperViewer({ pages, page, onPage, studentName, onClose, classNa
       {placing && onPlace && (
         <div className="flex flex-wrap items-center gap-2 bg-blue-700 px-3 py-2 text-sm" role="status">
           <StampLabel stamp={{ text: placing.text, tone: "score" }} />
-          <span className="min-w-0 flex-1">{placing.placed ? "Click where it should go instead." : `Click the paper to put this mark on question ${placing.question}.`}</span>
+          <span className="min-w-0 flex-1">{placing.placed ? "Click where it should go instead." : `Click the paper to put this on question ${placing.question}.`}</span>
           {placing.placed && onRemovePlacing && (
             <button type="button" onClick={onRemovePlacing} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25"><Trash2 className="h-4 w-4" />Take it off</button>
           )}
           {onCancelPlacing && <button type="button" onClick={onCancelPlacing} className="inline-flex h-9 items-center rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25">{placing.placed ? "Leave it" : "Skip"}</button>}
+        </div>
+      )}
+      {palette && !placing && (
+        <div className="space-y-2 border-b border-white/10 px-3 py-2.5 text-xs text-slate-200">
+          <p className="text-sm text-white">Marking question <span className="font-semibold">{palette.question}</span>. Pick a mark or a note, then click the spot on the paper.</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 w-10 font-semibold uppercase tracking-wide text-slate-400">Marks</span>
+            {[...(palette.examBoard ? EXAM_BOARD_MARKS : []), ...BASIC_ANNOTATIONS.slice(0, 3)].map((a) => (
+              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="inline-flex items-center gap-1 rounded-md ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
+                <StampLabel stamp={a} />
+                {MARK_WORDS[a.text[0]] && a.text.endsWith("1") && <span className="pr-1 text-[11px] text-slate-300">{MARK_WORDS[a.text[0]]}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 w-10 font-semibold uppercase tracking-wide text-slate-400">Notes</span>
+            {[...BASIC_ANNOTATIONS.slice(3), ...(palette.examBoard ? EXAM_BOARD_ANNOTATIONS : [])].map((a) => (
+              <button key={a.text} type="button" title={a.title} onClick={() => palette.onPick(a)} className="rounded-md ring-2 ring-transparent hover:ring-sky-400" aria-label={`${a.title} (${a.text})`}>
+                <StampLabel stamp={a} />
+              </button>
+            ))}
+            <form
+              className="flex items-center gap-1"
+              onSubmit={(e) => { e.preventDefault(); const text = noteText.trim().slice(0, 300); if (text) { palette.onPick({ text, tone: "note", title: "Note" }); setNoteText("") } }}
+            >
+              <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Your own words" aria-label="A note in your own words" className="h-7 w-36 rounded-md bg-white/10 px-2 text-xs text-white placeholder:text-slate-400 focus:bg-white/20 focus:outline-none" />
+              <button type="submit" disabled={!noteText.trim()} className="h-7 rounded-md bg-white/15 px-2 font-semibold hover:bg-white/25 disabled:opacity-40">Place</button>
+            </form>
+          </div>
+          {palette.examBoard && <p className="text-slate-400">M1, A1 and B1 give this question's marks (the sheet updates); M0, A0 and B0 take them back. Hover a note for what it means.</p>}
         </div>
       )}
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">

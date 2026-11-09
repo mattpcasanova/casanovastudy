@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GradedQuestion } from './parse'
 import {
   blankBreakdown, codesFromPoints, forStudent, markedAs, normalizeTemplate, parseTemplate, pointsFromCodes, pointsOf,
-  placeStamp, pointsTotal, readCode, setAllPoints, stampText, stampsOf, stillMarking, templateFromBreakdown, togglePoint, unmarkedCount, cleanPlace, cleanPoints,
+  placeStamp, pointsTotal, cleanNotes, applyAnnotation, readCode, setAllPoints, stampText, stampsOf, stillMarking, templateFromBreakdown, togglePoint, unmarkedCount, cleanPlace, cleanPoints,
 } from './mark-points'
 
 const q = (patch: Partial<GradedQuestion> = {}): GradedQuestion => ({ questionNumber: '1', marksAwarded: 0, marksPossible: 3, explanation: '', ...patch })
@@ -126,5 +126,57 @@ describe('marks on the paper', () => {
     expect(cleanPlace({ page: 0, x: 0.5, y: 0.5 })).toBeUndefined()
     expect(cleanPlace({ page: 1, x: 1.2, y: 0.5 })).toBeUndefined()
     expect(cleanPoints([{ code: 'M1', earned: true, at: { page: 1, x: 0.5, y: 0.5 } }])[0].at).toEqual({ page: 1, x: 0.5, y: 0.5 })
+  })
+})
+
+describe('notes on the paper', () => {
+  const sheet = [markedAs(q({ questionNumber: '1', marksPossible: 2, unmarked: true }), 1)]
+  it('adds, moves and removes a free note', () => {
+    let b = placeStamp(sheet, { question: 0, point: null, add: { text: 'ft', tone: 'note', title: '' } }, { page: 1, x: 0.2, y: 0.3 })
+    b = placeStamp(b, { question: 0, point: null, add: { text: '✓', tone: 'earned', title: '' } }, { page: 1, x: 0.4, y: 0.3 })
+    expect(stampsOf(b).map((s) => s.text)).toEqual(['ft', '✓'])
+    expect(stampText(b, { question: 0, point: null, note: 0 })).toBe('ft')
+    b = placeStamp(b, { question: 0, point: null, note: 0 }, { page: 2, x: 0.5, y: 0.5 })
+    expect(b[0].notes?.[0]).toMatchObject({ page: 2, text: 'ft' })
+    b = placeStamp(b, { question: 0, point: null, note: 0 }, undefined)
+    expect(b[0].notes?.map((n) => n.text)).toEqual(['✓'])
+    expect(placeStamp(b, { question: 0, point: null, note: 0 }, undefined)[0].notes).toBeUndefined()
+    expect(b[0].marksAwarded).toBe(1)
+  })
+  it('cleans notes from the browser', () => {
+    expect(cleanNotes([{ text: ' cao ', tone: 'note', page: 1, x: 0.5, y: 0.5 }, { text: 'x', tone: 'bad', page: 1, x: 0.1, y: 0.1 }, { text: '', page: 1, x: 0, y: 0 }, { text: 'off', page: 0, x: 0, y: 0 }]))
+      .toEqual([{ text: 'cao', tone: 'note', page: 1, x: 0.5, y: 0.5 }, { text: 'x', tone: 'note', page: 1, x: 0.1, y: 0.1 }])
+  })
+})
+
+describe('palette picks', () => {
+  const sheet = [q({ questionNumber: '1', marksPossible: 3, unmarked: true, points: [{ code: 'M1', marks: 1 }, { code: 'M1', marks: 1 }, { code: 'A1', marks: 1 }] })]
+  const pick = (text: string, tone: 'earned' | 'lost' | 'note' = 'earned') => ({ text, tone, title: '' })
+
+  it('M1 gives the next method mark, A0 takes the accuracy mark, and each is placed as that mark', () => {
+    let r = applyAnnotation(sheet, 0, pick('M1'))
+    expect(r.target).toEqual({ question: 0, point: 0 })
+    expect(r.breakdown[0].marksAwarded).toBe(1)
+    r = applyAnnotation(r.breakdown, 0, pick('M1'))
+    expect(r.target).toEqual({ question: 0, point: 1 })
+    expect(r.breakdown[0].marksAwarded).toBe(2)
+    r = applyAnnotation(r.breakdown, 0, pick('A0', 'lost'))
+    expect(r.target).toEqual({ question: 0, point: 2 })
+    expect(r.breakdown[0]).toMatchObject({ marksAwarded: 2, markCodes: 'M1 M1 A0' })
+    expect(r.breakdown[0].unmarked).toBeUndefined()
+  })
+
+  it('a code the sheet has no mark for, and words, are notes', () => {
+    expect(applyAnnotation(sheet, 0, pick('B1')).target.add?.text).toBe('B1')
+    expect(applyAnnotation(sheet, 0, pick('ft', 'note')).target.add?.text).toBe('ft')
+    expect(applyAnnotation(sheet, 0, pick('see me', 'note')).breakdown).toBe(sheet)
+  })
+
+  it('a tick earns the next uncoded point', () => {
+    const sci = [q({ marksPossible: 2, unmarked: true, points: [{ code: '', marks: 1, note: 'cell wall' }, { code: '', marks: 1, note: 'chloroplasts' }] })]
+    const r = applyAnnotation(sci, 0, pick('✓'))
+    expect(r.target).toEqual({ question: 0, point: 0 })
+    expect(r.breakdown[0].marksAwarded).toBe(1)
+    expect(applyAnnotation(sheet, 0, pick('✓')).target.add?.text).toBe('✓')
   })
 })
