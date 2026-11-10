@@ -87,8 +87,8 @@ export function wantsChemModels({ subject, text }: FigureContext): boolean {
   return CHEM_MODEL_TOPICS.test(text ?? '')
 }
 
-/** Formats that can show figures at all (flashcards, plans and timelines can't). */
-export const FIGURE_FORMATS = new Set(['outline', 'summary', 'cheatsheet', 'custom', 'quiz', 'practice', 'adaptive'])
+/** Formats that can show figures at all (plans and timelines can't; flashcards show one on the answer side of a few cards). */
+export const FIGURE_FORMATS = new Set(['outline', 'summary', 'cheatsheet', 'custom', 'quiz', 'practice', 'adaptive', 'flashcards'])
 export const CHEM_MODEL_FORMATS = FIGURE_FORMATS
 
 // Genetics: Punnett squares and pedigrees.

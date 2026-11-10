@@ -106,7 +106,9 @@ describe('bio/physics detection and visualsRelevant', () => {
   it('shows the visuals switch only when it matters', () => {
     expect(visualsRelevant({ subject: 'mathematics', text: 'Quadratics', format: 'quiz' })).toBe(true)
     expect(visualsRelevant({ subject: 'history', text: 'Civil War', format: 'outline' })).toBe(false)
-    expect(visualsRelevant({ subject: 'science', text: 'Genetics', format: 'flashcards' })).toBe(false)
+    // Flashcards can carry a figure on the answer side since 2026-11-10; plans and timelines still can't.
+    expect(visualsRelevant({ subject: 'science', text: 'Genetics', format: 'flashcards' })).toBe(true)
+    expect(visualsRelevant({ subject: 'science', text: 'Genetics', format: 'plan' })).toBe(false)
     expect(visualsRelevant({ subject: '', text: '', format: 'quiz' })).toBe(false)
   })
 })
