@@ -20,6 +20,9 @@ import { useDesmos } from '@/components/desmos/desmos-context'
 import { useExplain } from '@/components/explain/explain-context'
 import { LewisFigure, MoleculeFigure, ReactionFigure, VseprFigure } from './chem-figures'
 import { OrbitalDiagramFigure, OrbitalShapesFigure } from './orbital-figures'
+import { AreaModelFigure, ArrayFigure, FractionBarFigure, NormalFigure, PlaceValueFigure, ProbabilityTreeFigure, TapeFigure, UnitCircleFigure } from './math-figures'
+import { CircuitFigure, DnaFigure, HeatingCurveFigure, PeriodicFigure, SupplyDemandFigure, TitrationFigure } from './science-figures'
+import { AnnotatedFigure, PlotFigure } from './text-figures'
 import { AnatomyFigure, LayersFigure, MiniTimelineFigure, PartsFigure, SpectrumFigure, VennFigure } from './general-figures'
 import { PedigreeFigure, PunnettFigure } from './bio-figures'
 import { FreeBodyFigure } from './physics-figures'
@@ -810,7 +813,7 @@ function DiagramFigure({ spec }: { spec: DiagramSpec }) {
 
 // ── Public components ───────────────────────────────────────────────────────
 
-function Drawing({ spec }: { spec: GraphSpec }) {
+function Drawing({ spec, interactive }: { spec: GraphSpec; interactive?: boolean }) {
   switch (spec.kind) {
     case 'plane': return <PlaneFigure spec={spec} />
     case 'geometry': return <GeometryFigure spec={spec} />
@@ -828,6 +831,22 @@ function Drawing({ spec }: { spec: GraphSpec }) {
     case 'orbital-diagram': return <OrbitalDiagramFigure spec={spec} />
     case 'orbitals': return <OrbitalShapesFigure spec={spec} />
     case 'diagram': return <DiagramFigure spec={spec} />
+    case 'normal': return <NormalFigure spec={spec} interactive={interactive} />
+    case 'unit-circle': return <UnitCircleFigure spec={spec} interactive={interactive} />
+    case 'fraction-bar': return <FractionBarFigure spec={spec} />
+    case 'area-model': return <AreaModelFigure spec={spec} />
+    case 'tape': return <TapeFigure spec={spec} />
+    case 'probability-tree': return <ProbabilityTreeFigure spec={spec} />
+    case 'place-value': return <PlaceValueFigure spec={spec} />
+    case 'array': return <ArrayFigure spec={spec} />
+    case 'periodic': return <PeriodicFigure spec={spec} />
+    case 'titration': return <TitrationFigure spec={spec} interactive={interactive} />
+    case 'heating-curve': return <HeatingCurveFigure spec={spec} />
+    case 'circuit': return <CircuitFigure spec={spec} />
+    case 'dna': return <DnaFigure spec={spec} />
+    case 'supply-demand': return <SupplyDemandFigure spec={spec} interactive={interactive} />
+    case 'annotated': return <AnnotatedFigure spec={spec} />
+    case 'plot': return <PlotFigure spec={spec} />
     case 'venn': return <VennFigure spec={spec} />
     case 'layers': return <LayersFigure spec={spec} />
     case 'spectrum': return <SpectrumFigure spec={spec} />
@@ -840,13 +859,15 @@ function Drawing({ spec }: { spec: GraphSpec }) {
   }
 }
 
-const WIDE_KINDS = new Set<GraphSpec['kind']>(['venn', 'layers', 'spectrum', 'parts', 'anatomy', 'timeline'])
+const WIDE_KINDS = new Set<GraphSpec['kind']>(['venn', 'layers', 'spectrum', 'parts', 'anatomy', 'timeline', 'fraction-bar', 'area-model', 'tape', 'probability-tree', 'place-value', 'array', 'periodic', 'dna', 'annotated', 'plot', 'normal', 'titration', 'heating-curve', 'circuit', 'unit-circle', 'supply-demand'])
 
 const FIGURE_NAMES: Record<GraphSpec['kind'], string> = {
   plane: 'graph', geometry: 'geometry figure', scatter: 'scatterplot', bar: 'bar chart', histogram: 'histogram',
   dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', table: 'table', diagram: 'diagram', 'free-body': 'free-body diagram',
   reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model', 'orbital-diagram': 'orbital diagram', orbitals: 'orbital shapes',
   punnett: 'Punnett square', pedigree: 'pedigree',
+  normal: 'normal curve', 'unit-circle': 'unit circle', 'fraction-bar': 'fraction bars', 'area-model': 'area model', tape: 'tape diagram', 'probability-tree': 'probability tree', 'place-value': 'place value chart', array: 'array',
+  periodic: 'periodic table', titration: 'titration curve', 'heating-curve': 'heating curve', circuit: 'circuit', dna: 'DNA strands', 'supply-demand': 'supply and demand graph', annotated: 'annotated text', plot: 'plot diagram',
   venn: 'comparison', layers: 'layers', spectrum: 'scale', parts: 'breakdown', anatomy: 'labelled parts', timeline: 'timeline',
 }
 
@@ -907,7 +928,7 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
       {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}
       {/* Inside a question the figure supports the text, so keep it smaller. */}
       <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' || spec.kind === 'orbital-diagram' || spec.kind === 'orbitals' || WIDE_KINDS.has(spec.kind) ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
-        <Drawing spec={spec} />
+        <Drawing spec={spec} interactive={allowExplain && !compact} />
       </div>
       {(spec.caption || notes.length > 0 || canExplore) && (
         <figcaption className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-slate-500">

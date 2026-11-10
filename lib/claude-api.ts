@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ClaudeApiRequest, ClaudeApiResponse, StudyGuideFormat, type GuideImage } from '@/types'
 import { standardCodes, standardEntries, standardsInstructions } from '@/lib/standards'
-import { FIGURE_FORMATS, figureBudget, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigureTier } from '@/lib/formats/figures'
+import { FIGURE_FORMATS, figureBudget, figurePacks, figurePolicy, wantsBioModels, wantsChemModels, wantsPhysicsModels, type FigureContext, type FigurePack, type FigureTier } from '@/lib/formats/figures'
 import { CustomGuideContent, CustomSection, GuideControls } from '@/lib/types/custom-guide'
 import { detectExam, examInstructions } from '@/lib/exams/profiles'
 import { DIFFICULTY_FORMATS, READING_LEVELS, SUBJECTS, SUBJECT_VALUES, isYoungLearner, languageName, type GuideDifficulty, type GuideLanguage, type ReadingLevel } from '@/lib/study-options'
@@ -233,6 +233,7 @@ Data displays (each also takes title:, x-label:, y-label:, caption:):
 const CHEM_MODELS = `CHEMISTRY MODELS (the app draws these; they don't count toward any figure amount above):
 - Whenever the guide teaches one of these, show the matching model right where it is taught instead of only describing it in words or a table:
   an electron configuration, orbital diagram, Hund's rule, the Pauli principle or the quantum numbers of an electron → kind: orbital-diagram; the shapes of s, p and d orbitals (the ℓ and mℓ quantum numbers) → kind: orbitals;
+  the periodic table, its groups, blocks or a periodic trend → kind: periodic; a titration → kind: titration; a heating or cooling curve (phase changes) → kind: heating-curve;
   a Lewis structure → kind: lewis; a molecular shape or VSEPR geometry → kind: vsepr; bond length and bond energy (a potential energy well) → kind: energy-well; activation energy, catalysts, ΔH or a reaction mechanism's energy profile → kind: reaction; the 3D structure of a specific named compound (usually organic or biological, e.g. glucose, caffeine, an amino acid) → kind: molecule.
 - Cover every case the guide teaches, not just one:
   every worked Lewis structure example gets its lewis model (add "formal: on" when the example is about formal charge; show each resonance form as its own lewis model, one after another);
@@ -294,7 +295,163 @@ element: Fe | charge: +3
 kind: orbitals
 subshells: s, p, d
 \`\`\`
-(Draws the shapes of each listed subshell's orbitals with ℓ, the number of orbitals and the mℓ values.)`
+(Draws the shapes of each listed subshell's orbitals with ℓ, the number of orbitals and the mℓ values.)
+\`\`\`graph
+kind: periodic
+highlight: alkali metals
+highlight: group 17 | Halogens
+trend: atomic radius
+\`\`\`
+(The whole table. "highlight:" takes a group ("group 2", "groups 3 to 12"), "period 3", "d block", a family (alkali metals, alkaline earth metals, transition metals, halogens, noble gases, metals, nonmetals, metalloids, lanthanides, actinides) or symbols ("Na, Cl"), with an optional label after |; up to 5. "trend:" draws the arrows for atomic radius, electronegativity, ionization energy, electron affinity or metallic character: never state a trend's direction differently from the arrows. "show: main" hides the f block.)
+\`\`\`graph
+kind: titration
+analyte: weak acid | pKa: 4.76 | 0.100 M | 25.0 mL
+titrant: strong base | 0.100 M
+\`\`\`
+(The app computes the whole curve, the starting pH, the half-equivalence point and the equivalence point from these numbers, so use the same numbers in the text and never state a pH that you worked out differently. analyte is "strong acid", "weak acid | pKa: …", "strong base" or "weak base | pKb: …"; the titrant is the strong opposite. "labels: hide" when the question asks for one of those values.)
+\`\`\`graph
+kind: heating-curve
+substance: water
+melting: 0
+boiling: 100
+\`\`\`
+("direction: cooling" for a cooling curve; "labels: hide" letters the five segments A to E for a question.)`
+
+// Topic packs (figurePacks in lib/formats/figures.ts decides which a guide gets). Each is
+// short on purpose: the app computes everything, so the guide only writes the givens.
+const PACK_BLOCKS: Record<FigurePack, string> = {
+  stats: `STATISTICS FIGURES (the app computes every number; these don't count toward any figure amount above):
+- A normal distribution, z-scores, the empirical rule or a probability "between/above/below" → kind: normal. The app computes the z-scores and the shaded area, so the text must use that same mean, sd and bounds.
+\`\`\`graph
+kind: normal
+mean: 100
+sd: 15
+shade: between 85 and 115
+\`\`\`
+("shade:" is "below 85", "above 130", "between 85 and 115" or "outside 70 and 130" (both tails). Leave mean and sd out for the standard normal. "rule: on" with no shade draws the 68-95-99.7 bands. "area: hide" when the question asks for the probability.)
+- Two-stage or conditional probability → kind: probability-tree. The app multiplies along each path.
+\`\`\`graph
+kind: probability-tree
+branch: Rain | 0.3
+branch: Rain > Late | 0.4
+branch: Rain > On time | 0.6
+branch: Dry | 0.7
+branch: Dry > Late | 0.1
+branch: Dry > On time | 0.9
+\`\`\`
+(Each first branch before its own sub-branches; branches from one point add to 1; fractions like 2/5 stay fractions. "answers: hide" hides the path products.)`,
+  trig: `TRIGONOMETRY FIGURE (computed by the app; doesn't count toward any figure amount above):
+- An angle on the unit circle, its reference triangle or its sine and cosine → kind: unit-circle. The app gives the exact coordinates.
+\`\`\`graph
+kind: unit-circle
+angle: 150
+angle: 5pi/4
+\`\`\`
+(Degrees, or radians written with pi; up to 4 angles. "coords: hide" when the coordinates are the answer.)`,
+  arithmetic: `NUMBER MODELS (computed by the app; these don't count toward any figure amount above). Use the one that fits wherever the guide teaches or works such a problem:
+\`\`\`graph
+kind: fraction-bar
+bar: 3/4
+bar: 2/3
+\`\`\`
+(comparing, adding or picturing fractions; up to 5 bars, improper fractions allowed; a label can follow |)
+\`\`\`graph
+kind: area-model
+multiply: 23 x 14
+\`\`\`
+(multi-digit multiplication by place value, or binomials: "multiply: (x + 3)(x - 2)". The app fills in every partial product and the total. "answers: hide" leaves the boxes blank.)
+\`\`\`graph
+kind: tape
+tape: Boys | 3
+tape: Girls | 5
+total: 32
+\`\`\`
+(a ratio word problem: each tape is a number of equal parts; give "total:", or "unit: 4", or one "known: Boys | 12", and the app finds the rest. "answers: hide" for a question.)
+\`\`\`graph
+kind: place-value
+number: 3,482.5
+\`\`\`
+(a number broken into its places, with decimals)`,
+  cs: `COMPUTER SCIENCE FIGURES (drawn by the app; these don't count toward any figure amount above):
+\`\`\`graph
+kind: array
+name: nums
+array: 3, 8, 1, 9, 4
+pointer: left | 0
+pointer: right | 4
+highlight: 0-1 | sorted
+\`\`\`
+(an array at one moment of an algorithm: index numbers are drawn under the boxes, pointers above; up to 3 highlights of indexes ("2, 3" or "0-1") with a label. Show one per step that matters when tracing an algorithm.)
+\`\`\`graph
+kind: place-value
+number: 1011 | base: 2
+\`\`\`
+(a binary, octal (base: 8) or hexadecimal (base: 16) number with each place's weight and its base 10 total)`,
+  circuit: `CIRCUIT FIGURE (computed by the app; doesn't count toward any figure amount above):
+- Whenever the guide works a resistor circuit, show it. The app computes the total resistance, the current and every resistor's voltage and current, so use the same numbers in the text.
+\`\`\`graph
+kind: circuit
+battery: 12
+resistor: 4
+parallel: 6, 3
+resistor: 2
+\`\`\`
+(Parts are in series in the order written; "parallel:" is a group of 2-3 branches. Resistors are named R₁, R₂… in order unless you write "resistor: Bulb | 4". Up to 4 parts. "answers: hide" shows only the given values, for a question.)`,
+  dna: `DNA FIGURE (computed by the app; doesn't count toward any figure amount above):
+- Base pairing, transcription or translation of a specific sequence → kind: dna. The app writes the complementary strand, the mRNA and the amino acids, so never write those out yourself beside it.
+\`\`\`graph
+kind: dna
+coding: ATGGCCTTCTAA
+show: mrna, protein
+\`\`\`
+(3-36 bases; give the coding strand 5′ to 3′, or "template:" 3′ to 5′. Leave out "show:" for base pairing only, "show: mrna" for transcription. When the mRNA or protein is the answer, leave it out of show.)`,
+  econ: `ECONOMICS FIGURE (drawn by the app; doesn't count toward any figure amount above):
+- A market's supply and demand, a shift, or a price control → kind: supply-demand. The app draws both curves, the old and new equilibrium and says what happens to price and quantity.
+\`\`\`graph
+kind: supply-demand
+shift: demand right
+\`\`\`
+("shift:" is demand or supply, right (an increase) or left (a decrease); one line per curve that moves. "floor: on" or "ceiling: on" draws a binding price control with its surplus or shortage. With no shift it is the plain market. "result: hide" when the question asks what happens.)`,
+  writing: `WRITING FIGURES (drawn by the app; these don't count toward any figure amount above):
+- Whenever the guide teaches how a paragraph, essay, argument or written answer is built, show a short model with each piece named instead of only listing the pieces:
+\`\`\`graph
+kind: annotated
+part: Claim | Schools should start later in the morning.
+part: Evidence | A 2014 study of 9,000 students found that later start times raised attendance.
+part: Reasoning | Teenagers' body clocks run late, so an early bell cuts into the sleep memory depends on.
+\`\`\`
+(One line per piece: its role, then the actual sentence(s). 2-12 pieces; a role can repeat. Write a real model on the guide's own topic, not placeholders. Good for claim-evidence-reasoning, an introduction (hook, context, thesis), a body paragraph, a counterargument, a DBQ or free-response answer, or a lab conclusion.)
+- The structure of a story the guide covers → kind: plot.
+\`\`\`graph
+kind: plot
+exposition: Verona; two families feud
+rising: Romeo and Juliet meet and marry in secret
+rising: Tybalt is killed
+climax: Romeo is banished
+falling: The message never arrives
+resolution: Both die and the families make peace
+\`\`\`
+(exposition, up to 3 rising, climax, up to 2 falling, resolution; short phrases.)
+- For the named parts of ONE sentence (subject, verb, clause types), use kind: anatomy.`,
+}
+
+/**
+ * Get help can draw too. Kept to a few lines (it rides on every help message):
+ * the six any-subject figures in one line each, plus the packs that fit this
+ * guide and question. Not offered on assigned work, where a computed figure
+ * could hand over an answer.
+ */
+export function explainFigures(ctx: FigureContext): string {
+  const packs = figurePacks(ctx).map((p) => PACK_BLOCKS[p]).join('\n')
+  return `FIGURES: when a picture explains it better than a sentence, you may include ONE figure as a \`\`\`graph block (the app draws it; one line per item, exactly as shown). Never for a "first step" ask, and never one that shows the answer to a question they haven't answered. Most answers need none.
+kind: venn / set: Name | item; item / set: Name | item; item / both: item; item (compare two things)
+kind: layers / shape: pyramid / layer: Label | detail (levels, top to bottom)
+kind: spectrum / from: 0 | Acidic / to: 14 | Basic / mark: 7 | Pure water (a scale)
+kind: parts / unit: % / part: 78 | Nitrogen (a whole split into amounts)
+kind: anatomy / part: mx | slope times input / part: + b | y-intercept (the named pieces of a formula or sentence)
+kind: timeline / event: 1765 | Stamp Act (dated events in order)
+(Each "/" above is a new line inside the block.)${packs ? `\n${packs}` : ''}`
+}
 
 // Biology (genetics) models: computed from genotypes / family lists.
 const BIO_MODELS = `BIOLOGY MODELS (the app draws these; they don't count toward any figure amount above):
@@ -420,7 +577,7 @@ ${exerciseRules(lang)}
 function figureInstructions(tier: FigureTier, format: string, hasMaterials: boolean, ctx?: FigureContext): string {
   const budget = figureBudget(tier, format)
   const models = ctx && FIGURE_FORMATS.has(format)
-    ? [wantsChemModels(ctx) && CHEM_MODELS, wantsBioModels(ctx) && BIO_MODELS, wantsPhysicsModels(ctx) && PHYSICS_MODELS].filter(Boolean).join('\n\n')
+    ? [wantsChemModels(ctx) && CHEM_MODELS, wantsBioModels(ctx) && BIO_MODELS, wantsPhysicsModels(ctx) && PHYSICS_MODELS, ...figurePacks(ctx).map((p) => PACK_BLOCKS[p])].filter(Boolean).join('\n\n')
     : ''
   const extra = models ? `${models}\n\n` : ''
   if (!budget || (tier === 'rare' && !hasMaterials)) {
@@ -2897,7 +3054,10 @@ Output only the new ${kind}, nothing before or after it.`
   async *explainStream(params: { guideTitle: string; subject?: string; gradeLevel?: string; topic?: string; language?: GuideLanguage; learnerNote?: string; assignedTutor?: boolean; turns: ExplainTurn[] }): AsyncGenerator<string> {
     const subject = params.subject && params.subject !== 'general' ? params.subject : 'their course'
     const audience = explainAudience(params.gradeLevel, [params.guideTitle, params.topic].filter(Boolean).join('\n'))
-    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${explainLanguage(params.language)}\n${EXPLAIN_RULES}${params.assignedTutor ? `\n\n${ASSIGNED_TUTOR_RULES}` : ''}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
+    // The student's latest words help pick which figure kinds to describe (a circuit question gets the circuit syntax).
+    const last = [...params.turns].reverse().find((t) => t.role === 'user')
+    const lastAsk = typeof last?.content === 'string' ? last.content.slice(0, 600) : ''
+    const system = `You are a patient tutor inside a study app. A student is studying the guide "${params.guideTitle}" (${subject}) and asked for help with part of it.\n${audience}\n${explainLanguage(params.language)}\n${EXPLAIN_RULES}${params.assignedTutor ? `\n\n${ASSIGNED_TUTOR_RULES}` : `\n\n${explainFigures({ subject: params.subject, text: [params.guideTitle, params.topic, lastAsk].filter(Boolean).join('\n') })}`}${params.learnerNote ? `\n\n${params.learnerNote}` : ''}`
     const stream = this.anthropic.beta.messages.stream({
       model: GUIDE_MODEL,
       max_tokens: 4000,

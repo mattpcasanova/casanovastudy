@@ -31,6 +31,9 @@ import { ExprError, evaluate, parseExpr, type Expr } from './expr'
 import { parseDiagram, type DiagramData } from './diagram'
 import { parsePedigree, parsePunnett, type BioSpec } from '@/lib/bio/specs'
 import { parseFreeBody, type FreeBodyData } from '@/lib/physics/fbd'
+import { describeMath, parseAreaModel, parseArray, parseFractionBar, parseNormal, parsePlaceValue, parseProbabilityTree, parseTape, parseUnitCircle, type MathSpec } from './math-figs'
+import { describeScience, parseCircuit, parseDna, parseHeatingCurve, parsePeriodic, parseSupplyDemand, parseTitration, type ScienceSpec } from './science-figs'
+import { describeText, parseAnnotated, parsePlot, type TextSpec } from './text-figs'
 import { describeGeneral, parseAnatomy, parseLayers, parseMiniTimeline, parseParts, parseSpectrum, parseVenn, partsAreAmounts, type GeneralSpec } from './general'
 import { parseEnergyWell, parseLewis, parseMolecule, parseOrbitalDiagram, parseOrbitals, parseReaction, parseVsepr, type ChemSpec } from '@/lib/chem/specs'
 
@@ -146,7 +149,7 @@ export interface NumberlineSpec extends Common {
 export interface DiagramSpec extends Common { kind: 'diagram'; data: DiagramData }
 export interface FreeBodySpec extends Common { kind: 'free-body'; data: FreeBodyData }
 
-export type GraphSpec = GeneralSpec | PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | TableSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
+export type GraphSpec = GeneralSpec | MathSpec | ScienceSpec | TextSpec | PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | TableSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
 // energy-well is not its own drawn kind: it parses into a plane.
 export type GraphKind = GraphSpec['kind'] | 'energy-well'
 
@@ -177,6 +180,22 @@ const KIND_ALIASES: Record<string, GraphKind> = {
   punnett: 'punnett', 'punnett-square': 'punnett', cross: 'punnett',
   'free-body': 'free-body', fbd: 'free-body', 'free-body-diagram': 'free-body', forces: 'free-body', 'force-diagram': 'free-body',
   pedigree: 'pedigree', 'pedigree-chart': 'pedigree', 'family-tree': 'pedigree',
+  normal: 'normal', 'normal-curve': 'normal', 'bell-curve': 'normal', 'normal-distribution': 'normal', bell: 'normal',
+  'unit-circle': 'unit-circle', unitcircle: 'unit-circle', trig: 'unit-circle',
+  'fraction-bar': 'fraction-bar', 'fraction-bars': 'fraction-bar', fraction: 'fraction-bar', fractions: 'fraction-bar',
+  'area-model': 'area-model', 'box-method': 'area-model', 'area': 'area-model',
+  tape: 'tape', 'tape-diagram': 'tape', 'bar-model': 'tape', ratio: 'tape',
+  'probability-tree': 'probability-tree', 'tree-diagram': 'probability-tree', 'prob-tree': 'probability-tree',
+  'place-value': 'place-value', 'place-value-chart': 'place-value', binary: 'place-value',
+  array: 'array', list: 'array',
+  periodic: 'periodic', 'periodic-table': 'periodic',
+  titration: 'titration', 'titration-curve': 'titration',
+  'heating-curve': 'heating-curve', 'cooling-curve': 'heating-curve', 'phase-change': 'heating-curve',
+  circuit: 'circuit', 'circuit-diagram': 'circuit',
+  dna: 'dna', transcription: 'dna', translation: 'dna', 'base-pairs': 'dna',
+  'supply-demand': 'supply-demand', 'supply-and-demand': 'supply-demand', market: 'supply-demand',
+  annotated: 'annotated', 'annotated-text': 'annotated', paragraph: 'annotated', structure: 'annotated', 'essay-structure': 'annotated',
+  plot: 'plot', 'plot-diagram': 'plot', 'story-arc': 'plot', 'plot-arc': 'plot', freytag: 'plot',
   venn: 'venn', 'venn-diagram': 'venn', compare: 'venn', 'compare-contrast': 'venn',
   layers: 'layers', pyramid: 'layers', stack: 'layers', hierarchy: 'layers', levels: 'layers',
   spectrum: 'spectrum', scale: 'spectrum', continuum: 'spectrum',
@@ -350,6 +369,22 @@ export function parseGraphSpec(text: string): ParseResult {
       return typeof d === 'string' ? d : { ...c, kind: 'free-body', data: d }
     },
     pedigree: parsePedigree,
+    normal: parseNormal,
+    'unit-circle': parseUnitCircle,
+    'fraction-bar': parseFractionBar,
+    'area-model': parseAreaModel,
+    tape: parseTape,
+    'probability-tree': parseProbabilityTree,
+    'place-value': parsePlaceValue,
+    array: parseArray,
+    periodic: parsePeriodic,
+    titration: parseTitration,
+    'heating-curve': parseHeatingCurve,
+    circuit: parseCircuit,
+    dna: parseDna,
+    'supply-demand': parseSupplyDemand,
+    annotated: parseAnnotated,
+    plot: parsePlot,
     venn: parseVenn,
     layers: parseLayers,
     spectrum: parseSpectrum,
@@ -379,6 +414,16 @@ function inferKind(keys: string[], lines: { key: string; value: string }[]): Gra
   if (has('subshells') || has('subshell')) return 'orbitals'
   if (has('center') || has('central')) return 'lewis'
   if (has('name') && !has('point')) return 'molecule'
+  if (has('battery')) return 'circuit'
+  if (has('analyte') || has('titrant')) return 'titration'
+  if (has('melting') && has('boiling')) return 'heating-curve'
+  if (has('branch')) return 'probability-tree'
+  if (has('multiply')) return 'area-model'
+  if (has('tape')) return 'tape'
+  if (has('climax')) return 'plot'
+  if (has('shade') || (has('mean') && has('sd'))) return 'normal'
+  if (has('angle')) return 'unit-circle'
+  if (has('array')) return 'array'
   if (has('set')) return 'venn'
   if (has('layer')) return 'layers'
   if (has('mark') && has('from')) return 'spectrum'
@@ -851,6 +896,9 @@ export function describeGraph(spec: GraphSpec): string {
     case 'free-body': return `${t}Free-body diagram with forces: ${spec.data.forces.map((f) => `${f.name}${f.magnitude ? ` (${f.magnitude})` : ''} at ${Math.round(f.angle)}°`).join(', ')}.`
     case 'punnett': return `${t}Punnett square for ${spec.cross}${spec.showRatios ? `: ${spec.result.phenotypeRatio.map((p) => `${p.count} ${p.phenotype}`).join(', ')} out of ${spec.result.total}` : ''}.`
     case 'pedigree': return `${t}Pedigree chart of ${spec.data.people.length} people over ${spec.layout.generations} generations; affected: ${spec.data.people.filter((p) => p.affected).map((p) => p.id).join(', ') || 'none'}.`
+    case 'normal': case 'unit-circle': case 'fraction-bar': case 'area-model': case 'tape': case 'probability-tree': case 'place-value': case 'array': return `${t}${describeMath(spec)}`
+    case 'periodic': case 'titration': case 'heating-curve': case 'circuit': case 'dna': case 'supply-demand': return `${t}${describeScience(spec)}`
+    case 'annotated': case 'plot': return `${t}${describeText(spec)}`
     case 'venn': case 'layers': case 'spectrum': case 'parts': case 'anatomy': case 'timeline': return `${t}${describeGeneral(spec)}`
     case 'diagram': return `${t}Diagram: ${spec.data.edges.map((e) => {
       const name = (id: string) => spec.data.nodes.find((n) => n.id === id)?.label ?? id

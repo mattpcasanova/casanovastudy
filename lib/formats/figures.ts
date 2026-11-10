@@ -108,6 +108,40 @@ export function wantsPhysicsModels({ subject, text }: FigureContext): boolean {
   return PHYSICS_MODEL_TOPICS.test(text ?? '')
 }
 
+// Topic packs: figures the app computes for one kind of topic (lib/graphs/math-figs.ts,
+// science-figs.ts, text-figs.ts). A pack's instructions are only added to the prompt when
+// the topic calls for it, so a history guide never pays for the titration syntax.
+export type FigurePack = 'stats' | 'trig' | 'arithmetic' | 'cs' | 'circuit' | 'dna' | 'econ' | 'writing'
+
+const PACK_TOPICS: Record<FigurePack, RegExp> = {
+  stats: /normal (curve|distribution|model)|bell curve|z.?scores?|standard deviation|empirical rule|68.95.99|p.?values?|confidence interval|hypothesis test|sampling distribution|probabilit|tree diagram|conditional prob|\bAP stat|statistics/i,
+  trig: /unit circle|trigonometr|\btrig\b|\bsine\b|\bcosine\b|radians?\b|reference angle|precalc/i,
+  arithmetic: /fractions?\b|ratios?\b|proportion|place value|area model|box method|distributive|\bfoil\b|binomials?|multiply(ing)? (polynomial|binomial|decimal|whole|two|multi)|multi.?digit|tape diagram|equivalent (fraction|ratio)|mixed numbers?|expanded form/i,
+  cs: /\barrays?\b|two.pointers?|binary search|sliding window|sorting algorithm|(bubble|insertion|selection|merge|quick) ?sort|binary (numbers?|to decimal)|decimal to binary|hexadecimal|leetcode|coding interview|data structures?/i,
+  circuit: /circuits?\b|resistors?\b|resistance|ohm'?s law|voltage|series (and|or|vs\.?) parallel|electric(ity| current)/i,
+  dna: /\bdna\b|\bm?rna\b|codons?\b|protein synthesis|central dogma|base.?pair|nucleotides?|gene expression|transcription and translation/i,
+  econ: /supply (and|&) demand|\bsupply curve|\bdemand curve|shifts? in (supply|demand)|equilibrium price|market equilibrium|price (floor|ceiling|control)s?|\bsurplus\b|\bshortage\b|microeconom|macroeconom|\bAP (micro|macro)|\beconomics\b/i,
+  writing: /\bessays?\b|thesis statement|body paragraph|topic sentence|claim.{0,25}(evidence|reasoning)|\bCER\b|rhetorical analysis|argumentative|persuasive writing|\bDBQ\b|\bLEQ\b|synthesis essay|plot (diagram|structure|arc)|rising action|\bclimax\b|short stor(y|ies)|\bnovels?\b|narrative|literary analysis|story structure/i,
+}
+
+/** The topic packs this guide's prompt should describe. */
+export function figurePacks({ subject, text }: FigureContext): FigurePack[] {
+  const s = (subject ?? '').toLowerCase()
+  const t = text ?? ''
+  const wordy = NON_VISUAL_SUBJECTS.has(s)
+  const packs: FigurePack[] = []
+  const has = (p: FigurePack) => PACK_TOPICS[p].test(t)
+  if (!wordy && has('stats')) packs.push('stats')
+  if (!wordy && has('trig')) packs.push('trig')
+  if (!wordy && s !== 'computer-science' && has('arithmetic')) packs.push('arithmetic')
+  if (s === 'computer-science' ? !/web design|html|css\b/i.test(t) : !wordy && has('cs')) packs.push('cs')
+  if (!wordy && s !== 'computer-science' && has('circuit')) packs.push('circuit')
+  if (!wordy && s !== 'computer-science' && s !== 'business' && has('dna')) packs.push('dna')
+  if (s !== 'computer-science' && has('econ')) packs.push('econ')
+  if (s === 'english' || (s !== 'computer-science' && s !== 'mathematics' && has('writing'))) packs.push('writing')
+  return packs
+}
+
 /**
  * Whether the "Include visuals" switch matters for this request: the format can
  * show figures and the topic would get graphs or science models. When false the
@@ -116,7 +150,7 @@ export function wantsPhysicsModels({ subject, text }: FigureContext): boolean {
 export function visualsRelevant(ctx: FigureContext & { format?: string | null }): boolean {
   if (ctx.format && !FIGURE_FORMATS.has(ctx.format)) return false
   if (!(ctx.text ?? '').trim() && !ctx.subject) return false
-  return figurePolicy(ctx) !== 'rare' || wantsChemModels(ctx) || wantsBioModels(ctx) || wantsPhysicsModels(ctx)
+  return figurePolicy(ctx) !== 'rare' || wantsChemModels(ctx) || wantsBioModels(ctx) || wantsPhysicsModels(ctx) || figurePacks(ctx).length > 0
 }
 
 export type CalculatorMode = 'basic' | 'scientific' | 'graphing'

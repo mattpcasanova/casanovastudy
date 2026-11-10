@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { signInPath } from '@/lib/sign-in-path'
+import { figureProgress } from '@/lib/formats/figure-progress'
 import { StudyMarkdown } from '@/components/formats/study-markdown'
 import { useDesmos, useDesmosSheet } from '@/components/desmos/desmos-context'
 import { DesmosStepsStreaming } from '@/components/formats/desmos-steps'
@@ -428,7 +429,8 @@ function ExplainPanel({ signedIn, turns, busy, error, onSend, onClear, onClose, 
             <div key={i} className="text-[0.95rem]">
               {t.content ? (
                 <DesmosStepsStreaming.Provider value={busy && i === turns.length - 1}>
-                  <StudyMarkdown content={t.content} compact />
+                  {/* While the answer streams, a half-written figure is held back until its block closes. */}
+                  <StudyMarkdown content={busy && i === turns.length - 1 ? figureProgress(t.content).text : t.content} compact />
                 </DesmosStepsStreaming.Provider>
               ) : <span className="inline-flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Thinking…</span>}
             </div>

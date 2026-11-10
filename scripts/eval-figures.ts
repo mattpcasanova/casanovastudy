@@ -2,7 +2,7 @@
 // quizzes and reports how many figures each got, their kinds, and any that fail
 // to parse. Use it to tune the budgets in lib/formats/figures.ts.
 //
-//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs|general] [--only=case,case]
+//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs|general|topics] [--only=case,case]
 //   GUIDE_EFFORT=low … to compare effort levels
 //
 // Costs real API calls (one Opus quiz generation per case).
@@ -40,6 +40,18 @@ const GENERAL_CASES: Case[] = [
   { name: 'grammar-summary', format: 'summary', subject: 'english', goal: 'class', gradeLevel: '9th', studyRequest: 'English: clauses, phrases and the four sentence types, and simile vs metaphor', expect: [1, 6] },
   { name: 'ecology-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '9th', studyRequest: 'Biology: energy flow in ecosystems, trophic levels, and mitosis vs meiosis', expect: [1, 8] },
   { name: 'history-quiz', subject: 'history', goal: 'class', gradeLevel: '11th', studyRequest: 'US History: causes of the Civil War', expect: [0, 2] },
+]
+
+// The topic packs (normal curve, writing structure, titration, circuits, DNA, supply and demand, number models, arrays).
+const TOPIC_CASES: Case[] = [
+  { name: 'stats-outline', format: 'outline', subject: 'mathematics', goal: 'exam', gradeLevel: '12th', studyRequest: 'AP Statistics: the normal distribution, z-scores, the empirical rule and finding probabilities', expect: [2, 10] },
+  { name: 'stats-quiz', subject: 'mathematics', goal: 'exam', gradeLevel: '12th', studyRequest: 'AP Statistics: normal distribution probabilities and conditional probability with tree diagrams', expect: [2, 9] },
+  { name: 'essay-summary', format: 'summary', subject: 'english', goal: 'class', gradeLevel: '9th', studyRequest: 'English 9: writing an argumentative essay (claim, evidence, reasoning, counterclaim) and the plot structure of a short story', expect: [1, 6] },
+  { name: 'acid-base-outline', format: 'outline', subject: 'science', goal: 'exam', gradeLevel: '11th', studyRequest: 'AP Chemistry: acid-base titrations (strong and weak), buffers, and periodic trends review', expect: [2, 10] },
+  { name: 'circuits-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '11th', studyRequest: "Physics: Ohm's law, series and parallel circuits", expect: [1, 8] },
+  { name: 'dna-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '10th', studyRequest: 'Biology: DNA structure, transcription and translation (protein synthesis)', expect: [1, 8] },
+  { name: 'econ-outline', format: 'outline', subject: 'business', goal: 'exam', gradeLevel: '12th', studyRequest: 'AP Microeconomics: supply and demand, shifts, equilibrium, price floors and ceilings', expect: [2, 10] },
+  { name: 'fractions-outline', format: 'outline', subject: 'mathematics', goal: 'class', gradeLevel: '6th-8th', studyRequest: '6th grade math: equivalent fractions, ratios and multi-digit multiplication', expect: [2, 10] },
 ]
 
 // Biology/physics packs and the general diagram (content-triggered, loose ranges).
@@ -111,8 +123,8 @@ async function main() {
   const svc = new ClaudeService()
   const set = process.argv.find((a) => a.startsWith('--set='))?.slice(6)
   const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7).split(',')
-  const all = [...CASES, ...CHEM_CASES, ...PACK_CASES, ...GENERAL_CASES]
-  const cases = only ? all.filter((c) => only.includes(c.name)) : set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : set === 'general' ? GENERAL_CASES : all
+  const all = [...CASES, ...CHEM_CASES, ...PACK_CASES, ...GENERAL_CASES, ...TOPIC_CASES]
+  const cases = only ? all.filter((c) => only.includes(c.name)) : set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : set === 'general' ? GENERAL_CASES : set === 'topics' ? TOPIC_CASES : all
   const results = await Promise.all(cases.map((c) => run(c, svc, outDir).catch((e) => ({ case: c.name, error: String(e) }))))
   console.log(JSON.stringify(results, null, 2))
   const total = results.reduce((sum, r) => sum + ((r as { cost?: number }).cost ?? 0), 0)

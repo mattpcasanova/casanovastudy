@@ -110,3 +110,27 @@ describe('bio/physics detection and visualsRelevant', () => {
     expect(visualsRelevant({ subject: '', text: '', format: 'quiz' })).toBe(false)
   })
 })
+
+import { figurePacks } from './figures'
+
+describe('figurePacks', () => {
+  const packs = (subject: string, text: string) => figurePacks({ subject, text })
+  it('adds a pack only for its topics', () => {
+    expect(packs('mathematics', 'AP Statistics: normal distributions and z-scores')).toEqual(['stats'])
+    expect(packs('mathematics', 'Precalculus: the unit circle and radians')).toEqual(['trig'])
+    expect(packs('mathematics', '5th grade: adding fractions and place value')).toEqual(['arithmetic'])
+    expect(packs('science', 'Physics: series and parallel circuits, Ohm\'s law')).toEqual(['circuit'])
+    expect(packs('science', 'Biology: DNA, mRNA and protein synthesis')).toEqual(['dna'])
+    expect(packs('business', 'AP Microeconomics: supply and demand, price ceilings')).toEqual(['econ'])
+    expect(packs('computer-science', 'Coding interview: arrays and two pointers')).toEqual(['cs'])
+    expect(packs('english', 'Commas and semicolons')).toEqual(['writing'])
+    expect(packs('history', 'APUSH: writing a DBQ essay on Reconstruction')).toEqual(['writing'])
+  })
+  it('stays out of unrelated guides', () => {
+    expect(packs('history', 'Causes of the Civil War')).toEqual([])
+    expect(packs('science', 'Photosynthesis and cellular respiration')).toEqual([])
+    expect(packs('foreign-language', 'Spanish: translation practice, preterite vs imperfect')).toEqual([])
+    expect(packs('mathematics', 'Solving linear equations')).toEqual([])
+    expect(packs('english', 'Probability of rain in the novel')).toEqual(['writing'])
+  })
+})
