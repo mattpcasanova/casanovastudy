@@ -321,7 +321,13 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold text-slate-900">Students</h2>
+          <h2 className="font-semibold text-slate-900">Students{active && <span className="ml-2 text-sm font-normal text-slate-500">{listed.length} of {students.length}</span>}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+          {active && listedEmails.length > 0 && (
+            <button type="button" className={cn(actionButton, "h-11")} title="Comma-separated, ready to paste into Bcc" onClick={async () => { await navigator.clipboard.writeText(listedEmails.join(", ")); setCopiedEmails(true); setTimeout(() => setCopiedEmails(false), 2000) }}>
+              {copiedEmails ? <><Check />Copied</> : <><Mail />Copy emails</>}
+            </button>
+          )}
           <select
             aria-label="Sort students"
             value={byScore ? "score" : nameOrder}
@@ -332,20 +338,16 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             <option value="first">Sort by first name</option>
             <option value="score">Sort by score</option>
           </select>
+          </div>
         </div>
         {shows.length > 1 && (
-          <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="Show students">
+          <div className="mb-3 flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-3" role="group" aria-label="Show students">
             {[{ key: "all" as Show, label: "Everyone", n: students.length }, ...shows].map((f) => (
               <button key={f.key} type="button" aria-pressed={(active?.key ?? "all") === f.key} onClick={() => setShow(f.key)}
-                className={cn("inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold ring-1 ring-inset transition", (active?.key ?? "all") === f.key ? "bg-blue-600 text-white ring-blue-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50")}>
-                {f.label}<span className={cn("rounded-full px-1.5 text-xs tabular-nums", (active?.key ?? "all") === f.key ? "bg-white/20" : "bg-slate-100 text-slate-600")}>{f.n}</span>
+                className={cn("inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition", (active?.key ?? "all") === f.key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}>
+                {f.label}<span className={cn("text-xs tabular-nums", (active?.key ?? "all") === f.key ? "text-slate-300" : "text-slate-500")}>{f.n}</span>
               </button>
             ))}
-            {active && listedEmails.length > 0 && (
-              <button type="button" className={cn(actionButton, "sm:ml-auto")} title="Comma-separated, ready to paste into Bcc" onClick={async () => { await navigator.clipboard.writeText(listedEmails.join(", ")); setCopiedEmails(true); setTimeout(() => setCopiedEmails(false), 2000) }}>
-                {copiedEmails ? <><Check />Copied</> : <><Mail />Copy {listedEmails.length === 1 ? "their email" : `${listedEmails.length} emails`}</>}
-              </button>
-            )}
           </div>
         )}
         <ul className="divide-y divide-slate-100">

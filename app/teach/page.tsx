@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, Check, CheckCheck, ChevronRight, ClipboardCheck, EyeOff, FileCheck, Inbox, ListChecks, PencilLine, Plus, ScanSearch, TrendingUp, Users } from "lucide-react"
+import { ArrowRight, BookOpen, Check, CheckCheck, ChevronRight, ClipboardCheck, EyeOff, FileCheck, Inbox, ListChecks, PencilLine, Plus, ScanSearch, TrendingUp, Undo2, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -175,11 +175,17 @@ function TeacherHome() {
           </section>
         )}
 
-        {undo && (
-          <div role="status" className="flex items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm text-white">
-            <span>{undo.length === 1 ? "Ticked off." : `${undo.length} ticked off.`} It comes back if something changes.</span>
-            <button type="button" onClick={bringBack} className="h-9 shrink-0 rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25">Undo</button>
-          </div>
+        {data && waitingShown.length === 0 && (
+          <section role="status" className="animate-fade-up flex flex-col gap-3 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white"><Check className="h-6 w-6" /></span>
+              <div className="min-w-0">
+                <p className="font-semibold text-emerald-950">Nothing waiting on you</p>
+                <p className="text-sm text-emerald-900">{undo ? `You ticked off ${undo.length === 1 ? "the last item" : `${undo.length} items`}. Anything that changes shows up here again.` : "Scans, papers to mark, answers to check and sets to release show up here."}</p>
+              </div>
+            </div>
+            {undo && <button type="button" onClick={bringBack} className={cn(actionButton, "w-full sm:w-auto")}><Undo2 />Bring {undo.length === 1 ? "it" : "them"} back</button>}
+          </section>
         )}
 
         {waitingShown.length > 0 && (
@@ -212,6 +218,12 @@ function TeacherHome() {
               })}
             </ul>
             {waiting.length > waitingShown.length && <p className="px-3 pb-2 pt-1 text-sm text-slate-500">And {waiting.length - waitingShown.length} more after these.</p>}
+            {undo && (
+              <p role="status" className="mx-1 mb-1 mt-1 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 py-1.5 pl-3 pr-1.5 text-sm text-slate-600">
+                <span>{undo.length === 1 ? "1 item" : `${undo.length} items`} ticked off.</span>
+                <button type="button" onClick={bringBack} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 font-semibold text-blue-700 hover:bg-blue-50"><Undo2 className="h-4 w-4" />Undo</button>
+              </p>
+            )}
           </section>
         )}
 
