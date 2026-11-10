@@ -17,6 +17,7 @@ import { InlineMarkdown } from "@/components/formats/study-markdown"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GradebookExportDialog } from "@/components/grading/gradebook-export-dialog"
 import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-panel"
+import { StatTile } from "@/components/grading/stat-tiles"
 import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
@@ -184,10 +185,10 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
         <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Turned in" value={`${counts.done} of ${students.length}`} bar={students.length ? counts.done / students.length : 0} hint={counts.done === students.length && students.length > 0 ? "Everyone is done" : undefined} />
-        <Stat label="Average" value={avg == null ? "-" : `${Math.round(avg)}%`} hint={avg == null ? "No scores yet" : a.grading === "mastery" ? "of topics mastered" : `best attempt of ${finished.length} student${finished.length === 1 ? "" : "s"}`} />
-        <Stat label="In progress" value={String(counts.progress)} hint={counts.incomplete ? `${counts.incomplete} sent unfinished at the due date` : "Started, not turned in"} />
-        <Stat label="Not started" value={String(counts.todo)} hint={counts.missing ? `${counts.missing} past the due date` : counts.todo ? "Nothing saved yet" : "Everyone has opened it"} warn={counts.missing > 0} />
+        <StatTile label="Turned in" value={`${counts.done} of ${students.length}`} bar={students.length ? counts.done / students.length : 0} hint={counts.done === students.length && students.length > 0 ? "Everyone is done" : undefined} />
+        <StatTile label="Average" value={avg == null ? "-" : `${Math.round(avg)}%`} hint={avg == null ? "No scores yet" : a.grading === "mastery" ? "of topics mastered" : `best attempt of ${finished.length} student${finished.length === 1 ? "" : "s"}`} />
+        <StatTile label="In progress" value={String(counts.progress)} hint={counts.incomplete ? `${counts.incomplete} sent unfinished at the due date` : "Started, not turned in"} />
+        <StatTile label="Not started" value={String(counts.todo)} hint={counts.missing ? `${counts.missing} past the due date` : counts.todo ? "Nothing saved yet" : "Everyone has opened it"} tone={counts.missing > 0 ? "text-rose-700" : undefined} />
       </div>
 
       <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
@@ -523,18 +524,6 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
-
-/** One headline number above the student list. */
-function Stat({ label, value, hint, bar, warn }: { label: string; value: string; hint?: string; bar?: number; warn?: boolean }) {
-  return (
-    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={cn(fontDisplay, "mt-1 text-3xl font-semibold tabular-nums tracking-tight", warn ? "text-rose-700" : "text-slate-900")}>{value}</p>
-      {bar != null && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span className={cn("block h-full rounded-full transition-[width] duration-700", bar >= 1 ? "bg-emerald-500" : "bg-blue-600")} style={{ width: `${Math.round(bar * 100)}%` }} /></span>}
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-    </div>
-  )
-}
 
 /** One labeled setting in the settings grid. */
 function Field({ label, icon: Icon, wide, children }: { label: string; icon: typeof CalendarClock; wide?: boolean; children: React.ReactNode }) {

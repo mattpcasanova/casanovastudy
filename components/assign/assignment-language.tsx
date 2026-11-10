@@ -100,9 +100,11 @@ export function AssignmentLanguage({ assignmentId, guideLanguage, students, onCh
                   {options.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
               </label>
-              <fieldset className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
-                <legend className="mb-1.5 text-sm font-semibold text-slate-800">Who gets it in {name}?</legend>
-                <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {/* A plain div does the scrolling: a <fieldset> ignores flex shrinking, so a long class list
+                  ran under the note and the buttons instead of scrolling inside the dialog. */}
+              <div role="group" aria-labelledby="language-who" className="flex min-h-0 flex-1 flex-col">
+                <p id="language-who" className="mb-1.5 text-sm font-semibold text-slate-800">Who gets it in {name}?</p>
+                <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
                   {students.map((s) => {
                     const other = s.language && s.language !== language ? languageChip(s.language) : null
                     return (
@@ -116,7 +118,7 @@ export function AssignmentLanguage({ assignmentId, guideLanguage, students, onCh
                     )
                   })}
                 </ul>
-              </fieldset>
+              </div>
               <p className="text-sm text-slate-600">Best set before a student starts: answers they already saved were in the other language. Untick a student to give them the original again.</p>
               {error && <p role="alert" className="text-sm font-medium text-red-700">{error}</p>}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

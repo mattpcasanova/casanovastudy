@@ -4,6 +4,7 @@
 // class average, links to each report (where marks can be adjusted), CSV, and
 // the class report (components/grading/class-report.tsx).
 
+import { ScoreSpread, StatTile, scoreText } from "@/components/grading/stat-tiles"
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
 import { use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -253,6 +254,7 @@ function BatchResults({ id }: { id: string }) {
   const marked = (rows ?? []).filter((r) => !r.to_mark)
   const waiting = (rows ?? []).filter((r) => r.to_mark)
   const average = marked.length ? marked.reduce((s, r) => s + Number(r.percentage), 0) / marked.length : 0
+  const toCheckTotal = (rows ?? []).reduce((n, r) => n + checksFor(r), 0)
   const title = first?.exam_title || "Class results"
   const subtitle = [first?.class_name, first?.class_period && `Period ${first.class_period}`].filter(Boolean).join(" · ")
 
@@ -288,9 +290,18 @@ function BatchResults({ id }: { id: string }) {
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{title}</h1>
-                <p className="text-slate-600">{subtitle ? `${subtitle} · ` : ""}{rows.length} student{rows.length === 1 ? "" : "s"} · {marked.length ? `class average ${average.toFixed(1)}%${waiting.length ? ` (${marked.length} marked)` : ""}` : "no marks yet"} · <Link href={`/grade-exam/batch/${id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></p>
+                <p className="text-slate-600">{[subtitle, first?.created_at && `Graded ${new Date(first.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}`].filter(Boolean).join(" · ") || "Class set"}</p>
               </div>
-              <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link href={`/grade-exam/batch/${id}/reteach`} className={cn(actionButton, "h-11 w-full px-4 sm:w-auto")}><ClipboardList />Reteach plan</Link>
+                <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={() => setExportOpen(true)}><BookUp />Send to gradebook</button>
+              </div>
+            </div>
+            {/* The set at a glance: average, how many papers, the range, and how the scores spread. */}
+            <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatTile label="Class average" value={marked.length ? `${average.toFixed(1)}%` : "-"} tone={marked.length ? scoreText(average) : undefined} hint={marked.length ? (waiting.length ? `from the ${marked.length} marked so far` : `across ${marked.length} paper${marked.length === 1 ? "" : "s"}`) : "No marks yet"} />
+              <StatTile label="Papers" value={String(rows.length)} hint={waiting.length ? `${waiting.length} still to mark` : toCheckTotal ? `${toCheckTotal} answer${toCheckTotal === 1 ? "" : "s"} flagged to check` : "All marked"} />
+              <ScoreSpread percents={marked.map((r) => Number(r.percentage))} className="col-span-2" />
             </div>
             {/* Toolbar: papers and marks on the left, how the list is shown on the right. */}
             <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
@@ -413,7 +424,7 @@ function BatchResults({ id }: { id: string }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">{r.total_marks}/{r.total_possible_marks}</td>
-                      <td className="px-4 py-3">{r.to_mark ? <ToMarkChip r={r} /> : <><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span>{changeChip(r)}</>}</td>
+                      <td className="px-4 py-3">{r.to_mark ? <ToMarkChip r={r} /> : <><span className={cn("rounded-lg px-2 py-1 font-semibold tabular-nums", Number(r.percentage) >= 80 ? "bg-emerald-50 text-emerald-800" : Number(r.percentage) >= 65 ? "bg-blue-50 text-blue-800" : Number(r.percentage) >= 50 ? "bg-amber-50 text-amber-900" : "bg-rose-50 text-rose-800")}>{Number(r.percentage).toFixed(1)}%</span><span className="ml-2 hidden h-1.5 w-20 overflow-hidden rounded-full bg-slate-100 align-middle lg:inline-block" aria-hidden="true"><span className={cn("block h-full rounded-full", Number(r.percentage) >= 80 ? "bg-emerald-500" : Number(r.percentage) >= 65 ? "bg-blue-500" : Number(r.percentage) >= 50 ? "bg-amber-400" : "bg-rose-500")} style={{ width: `${Math.max(2, Math.min(100, Number(r.percentage)))}%` }} /></span>{changeChip(r)}</>}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.to_mark ? "" : r.grade}</td>
                       <td className="px-4 py-2 text-right">{r.to_mark
                         ? <Link href={`/grade-report/${r.id}?mark=1`} className={actionButtonPrimary}><PencilLine />Mark</Link>

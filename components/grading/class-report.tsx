@@ -152,7 +152,7 @@ export function ClassReport({ batchId, papers, saved, insightsUrl, source = "tes
                         <span className="block truncate text-xs text-slate-500">Questions {t.questions.join(", ")}</span>
                       </span>
                       <span className="order-3 col-span-2 h-2.5 overflow-hidden rounded-full bg-slate-100 sm:order-none sm:col-span-1">
-                        <span className={cn("block h-full rounded-full", tone(t.avgPct))} style={{ width: `${Math.max(2, t.avgPct)}%` }} />
+                        <span className={cn("animate-grow block h-full rounded-full", tone(t.avgPct))} style={{ width: `${Math.max(2, t.avgPct)}%` }} />
                       </span>
                       <span className={cn("text-right text-sm font-semibold tabular-nums", toneText(t.avgPct))}>{Math.round(t.avgPct)}%</span>
                     </li>

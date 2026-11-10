@@ -4,6 +4,7 @@
 // period, students to watch, assigned practice, their own studying, and the
 // course across past years (folded).
 
+import { StatTile, scoreText } from "@/components/grading/stat-tiles"
 import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -102,13 +103,15 @@ function Course({ courseKey }: { courseKey: string }) {
             <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
                 <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{course.name}</h1>
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-600">
-                  <span>{data.year} · {course.classes.length} period{course.classes.length === 1 ? "" : "s"} · {course.graded} student{course.graded === 1 ? "" : "s"} graded · {course.sets} graded set{course.sets === 1 ? "" : "s"}</span>
-                  {course.average !== null && <span className={cn("font-semibold", scoreTone(course.average))}>{Math.round(course.average)}% average</span>}
-                  <TrendChip trend={course.trend} />
-                </p>
+                <p className="text-slate-600">{data.year} · {course.classes.length} period{course.classes.length === 1 ? "" : "s"}</p>
               </div>
               <Link href={course.classes.length === 1 ? `/grade-exam/batch?class=${course.classes[0].id}` : "/grade-exam/batch"} className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")}><ClipboardList />Grade a set</Link>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatTile label="Average" value={course.average === null ? "-" : `${Math.round(course.average)}%`} tone={course.average === null ? undefined : scoreText(course.average)} extra={<TrendChip trend={course.trend} />} hint={course.average === null ? "Nothing graded yet" : "across this year's graded sets"} />
+              <StatTile label="Students graded" value={String(course.graded)} hint={`in ${course.classes.length} period${course.classes.length === 1 ? "" : "s"}`} />
+              <StatTile label="Graded sets" value={String(course.sets)} hint={course.sets ? "this school year" : "Grade a set to start"} />
+              <StatTile label="To watch" value={String(course.studentsToWatch.length)} tone={course.studentsToWatch.length ? "text-rose-700" : undefined} hint={course.studentsToWatch.length ? "under 60% or dropped 10+ points" : "Nobody is flagged"} />
             </div>
             {data.years.length > 1 && (
               <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200">
