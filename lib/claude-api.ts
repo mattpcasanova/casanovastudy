@@ -840,7 +840,10 @@ function withImages(prompt: string, images?: Array<{ name: string; mediaType: st
   return blocks
 }
 
-function guideRequest(content: Anthropic.MessageParam['content'], system: string | undefined, format?: string, length?: GuideLength, difficulty?: GuideDifficulty, examItems = false): any {
+/** A guide's rules in two parts: `shared` is byte-identical for every guide (and cached), `specific` is this guide's format, length, level, language and figures. */
+export interface GuideSystem { shared: string; specific: string }
+
+function guideRequest(content: Anthropic.MessageParam['content'], system: GuideSystem | undefined, format?: string, length?: GuideLength, difficulty?: GuideDifficulty, examItems = false): any {
   // Short guides of any format also run at low effort: less to write, less to plan.
   // Hard guides never do: hard multi-step questions need the thinking to come
   // out hard and keyed correctly. Neither do quiz/practice items written for a
@@ -859,11 +862,14 @@ function guideRequest(content: Anthropic.MessageParam['content'], system: string
     output_config: { effort },
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    // The rules (format skeleton, length, difficulty, language, figures, style)
-    // are the same for every guide with the same settings, so they're cached
-    // for an hour: 77% of guides follow another of the same format within an
-    // hour (14-day count, 2026-10-26); reads cost 5% of the input price.
-    ...(system ? { system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral', ttl: '1h' } }] } : {}),
+    // Only the part every guide shares (scope + style rules) is cached, for an
+    // hour; this guide's own rules follow it uncached. Until 2026-11-10 the whole
+    // system block was one cache entry, but it differs with format, length,
+    // level, language, test and figure packs, so it was almost never read back
+    // (3% of guide input over 30 days) while every guide paid the 2x one-hour
+    // write. On the same 30 days of timestamps a shared prefix is read by 81% of
+    // guides (scripts/cache-sim.ts). Reads cost 5% of the input price.
+    ...(system ? { system: [{ type: 'text', text: system.shared, cache_control: { type: 'ephemeral', ttl: '1h' } }, { type: 'text', text: system.specific }] } : {}),
     messages: [{ role: 'user', content }],
   }
 }
@@ -941,6 +947,21 @@ LENGTH: about 60-160 words.`
  */
 export const GRADING_MODEL = 'claude-sonnet-5-5'
 
+// The page read that sorts a stack into papers (one call per page, the highest
+// volume call in grading). EVAL_PAGE_MODEL overrides it for scripts/eval-page-split.ts only.
+// Claude Haiku 5.5 since 2026-11-10 (a tenth of Haiku 4.5's price): on 130 real pages from 20 graded papers it
+// found 20 of 20 first pages (4.5 found 19), neither called an inside page a first page, and the split came out the same.
+const PAGE_HEADER_MODEL = process.env.EVAL_PAGE_MODEL || 'claude-haiku-5-5'
+
+/**
+ * Model and output settings for a short structured read. Claude Haiku 5.5
+ * thinks by default and thinking counts toward max_tokens, so it gets low
+ * effort and room to think before the answer; Haiku 4.5 takes neither setting.
+ */
+function smallCall(model: string, answerTokens: number): { model: string; max_tokens: number; output_config?: { effort: 'low' } } {
+  return model === 'claude-haiku-4-5' ? { model, max_tokens: answerTokens } : { model, max_tokens: answerTokens + 1500, output_config: { effort: 'low' } }
+}
+
 export interface GradingStreamParams {
   markSchemeText: string
   studentExamText: string
@@ -1007,7 +1028,7 @@ export class ClaudeService {
       const { system, user: prompt, examItems } = this.buildPrompt(request)
 
       // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
-      const estimatedInputTokens = Math.ceil((system.length + prompt.length) / 4)
+      const estimatedInputTokens = Math.ceil((system.shared.length + system.specific.length + prompt.length) / 4)
 
       console.log('📊 Token Usage Analysis:', {
         promptLength: prompt.length,
@@ -1096,7 +1117,7 @@ export class ClaudeService {
    * length, difficulty, language, visuals, code editor), cached by guideRequest.
    * `user`: this learner's request and materials.
    */
-  private buildPrompt(request: ClaudeApiRequest): { system: string; user: string; examItems: boolean } {
+  private buildPrompt(request: ClaudeApiRequest): { system: GuideSystem; user: string; examItems: boolean } {
     const { content, format, topicFocus, additionalInstructions, studyRequest } = request
     const goal = request.goal && GOAL_GUIDANCE[request.goal] ? request.goal : null
     const level = describeLevel(request.gradeLevel)
@@ -1158,9 +1179,14 @@ export class ClaudeService {
 - The learner also typed what they want to focus on (below). Prioritize those parts of the materials.` : ''}`
     }
 
-    const system = `You are an expert tutor writing a study guide. The learner's request and materials follow these rules.
+    // `shared` must stay byte-identical across guides or the cache never hits: nothing per-request goes in it.
+    const system: GuideSystem = {
+      shared: `You are an expert tutor writing a study guide. The learner's request and materials follow these rules.
 
 ${SCOPE_RULES}
+
+${STUDY_GUIDE_STYLE_RULES}`,
+      specific: `THIS GUIDE (these rules are specific to the guide being written; where they set a count, a format or an amount, they win):
 
 ${formatInstructions}
 
@@ -1170,7 +1196,8 @@ ${difficultyInstructions(String(format), request.difficultyLevel)}
 
 ${examBlock}${languageInstructions(request.language)}
 
-${figures}${exercises}${STUDY_GUIDE_STYLE_RULES}`
+${figures}${exercises}`.trimEnd(),
+    }
 
     const user = `${goal ? `This guide is to help someone prepare for ${GOAL_GUIDANCE[goal].label}.\n\n` : ''}LEARNER LEVEL: ${level}
 SUBJECT: ${subject}
@@ -3103,7 +3130,7 @@ Output only the new ${kind}, nothing before or after it.`
    * Grading: read just the top of one exam page. Batch grading uses the name
    * and first-page flag to find where each student's paper starts
    * (lib/grading/batch.ts); both graders use the title, course and period to
-   * fill in the report details. Haiku, ~$0.002 per page.
+   * fill in the report details. Haiku 5.5, about $0.0004 per page.
    */
   async readPageHeader(image: { mediaType: GuideImage['mediaType']; data: string }, roster: string[] = []): Promise<PageHeaderRead> {
     // The list only helps read messy handwriting. An earlier version asked the
@@ -3115,8 +3142,7 @@ Output only the new ${kind}, nothing before or after it.`
       ? `\nStudents in this class: ${roster.slice(0, 200).join('; ')}.\nIf the name written on this sheet is one of them written messily, give it as listed; if the writing says a different name, copy the writing. A sheet with no name written stays null: never choose a student from this list for it.`
       : ''
     const response = await this.anthropic.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 200,
+      ...smallCall(PAGE_HEADER_MODEL, 200),
       messages: [{
         role: 'user',
         content: [

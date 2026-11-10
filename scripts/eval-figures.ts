@@ -51,6 +51,8 @@ const TOPIC_CASES: Case[] = [
   { name: 'circuits-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '11th', studyRequest: "Physics: Ohm's law, series and parallel circuits", expect: [1, 8] },
   { name: 'dna-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '10th', studyRequest: 'Biology: DNA structure, transcription and translation (protein synthesis)', expect: [1, 8] },
   { name: 'econ-outline', format: 'outline', subject: 'business', goal: 'exam', gradeLevel: '12th', studyRequest: 'AP Microeconomics: supply and demand, shifts, equilibrium, price floors and ceilings', expect: [2, 10] },
+  { name: 'chem-flashcards', format: 'flashcards', subject: 'science', goal: 'class', gradeLevel: '11th', studyRequest: 'Chemistry: periodic trends, ion charges and polyatomic ions', expect: [0, 0] },
+  { name: 'stats-cheatsheet', format: 'cheatsheet', subject: 'mathematics', goal: 'exam', gradeLevel: '12th', studyRequest: 'AP Statistics: inference for proportions and means (conditions, formulas, interpretation)', expect: [0, 4] },
   { name: 'fractions-outline', format: 'outline', subject: 'mathematics', goal: 'class', gradeLevel: '6th-8th', studyRequest: '6th grade math: equivalent fractions, ratios and multi-digit multiplication', expect: [2, 10] },
 ]
 
