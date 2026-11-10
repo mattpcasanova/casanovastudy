@@ -130,6 +130,54 @@ const STUDY_GUIDE_STYLE_RULES = `STYLE RULES (the guide is rendered by an app; f
   protest -> repeal
   \`\`\`
   (boxes and arrows the app lays out: use it when ideas branch, merge or loop, e.g. causes and effects, feedback loops, food webs, concept maps, state machines. "node: id | label" declares a box; "a -> b | label" is an arrow, "a <-> b" goes both ways, "a -- b" is a plain link. 3-12 boxes with short labels (under 6 words). Add "layout: right" for left to right or "layout: cycle" for a loop. Use steps for a straight sequence and tree for a hierarchy; one or two diagrams per guide where relationships matter, in any subject.)
+- More pictures the app draws from a few lines, in any subject. Use one where the idea IS that shape, in place of a paragraph or table:
+  \`\`\`graph
+  kind: venn
+  set: Mitosis | one division; two identical cells; body cells
+  set: Meiosis | two divisions; four different cells; gametes
+  both: DNA is copied first; the cell divides
+  \`\`\`
+  (comparing exactly two things: what is true only of each, and what both share; 2-5 short items each, separated by semicolons)
+  \`\`\`graph
+  kind: layers
+  shape: pyramid
+  layer: Tertiary consumers | hawks
+  layer: Secondary consumers | snakes
+  layer: Producers | grass
+  \`\`\`
+  (levels listed top to bottom: an energy pyramid, a court system, layers of the Earth or the atmosphere, a social hierarchy. Leave out "shape: pyramid" for equal layers. 2-8 layers; the part after | is an optional short detail.)
+  \`\`\`graph
+  kind: spectrum
+  from: 0 | Acidic
+  to: 14 | Basic
+  mark: 2 | Lemon juice
+  mark: 7 | Pure water
+  \`\`\`
+  (where things sit on a scale. With numbers the marks are placed to scale. For a scale with no numbers write "from: Strong central government", "to: Strong states" and "mark: Hamilton", and the marks are spread in the order written. Up to 7 marks.)
+  \`\`\`graph
+  kind: parts
+  unit: %
+  part: 78 | Nitrogen
+  part: 21 | Oxygen
+  part: 1 | Other gases
+  \`\`\`
+  (a whole split into amounts: a composition, a budget, seats, a fraction. The app works out each share. 2-8 parts.)
+  \`\`\`graph
+  kind: anatomy
+  part: y | output
+  part: =
+  part: mx | slope times the input
+  part: + b | y-intercept
+  \`\`\`
+  (the named pieces of a formula, a sentence, a citation, a line of code or a word, in order; a part with no label is drawn plain. $$LaTeX$$ works inside a part. Up to 10 parts.)
+  \`\`\`graph
+  kind: timeline
+  event: 1765 | Stamp Act
+  event: 1773 | Boston Tea Party
+  event: 1776 | Declaration of Independence
+  \`\`\`
+  (3-8 dated events in order, inside an outline or summary; never in a timeline guide, which has its own format.)
+  How many: usually 1-3 of these across an outline or summary, and at most one small one in a cheat sheet box. In a quiz or practice set, only under a question that asks the student to read it, and never one that gives the answer away. Never in flashcards or study plans. Never decorative, and never beside a table that already shows the same thing. Keep every label short, and get the facts in them right.
 - Math: prefer plain Unicode for simple expressions (x², √x, π, ≤, ≠, H₂O, Δ). For real formulas use LaTeX inside double dollar signs: $$\\bar{x} = \\frac{\\sum x_i}{n}$$ (inline); never single dollar signs, and write money as "$5" normally. Statistics symbols with marks over a letter (x-bar, p-hat, mu-hat) are always LaTeX, $$\\bar{x}$$ and $$\\hat{p}$$, never Unicode combining characters (x̄, p̂), which display badly.
   Never use calculator notation in text (x^2, e^(2x), x_1, a/b for fractions of expressions, sqrt(...)). A power Unicode can show is fine as Unicode (x², x³, x⁻¹, 10⁶); anything else goes in LaTeX: $$e^{2x}$$, $$x^{n-1}$$, $$a_{n+1}$$, $$\\frac{2y - x^2}{y^2 - 2x}$$, $$\\sqrt{x^2 + 1}$$, $$\\frac{dy}{dx}$$, $$\\int_0^1 x\\,dx$$, $$\\lim_{x \\to 0}$$. This applies everywhere, including quiz questions, answer options, flashcards and explanations (inline $$...$$ works on a single line).
   Chemical formulas inside LaTeX go in \\mathrm{} so they aren't italicized: $$6\\mathrm{CO_2} + 6\\mathrm{H_2O} \\rightarrow \\mathrm{C_6H_{12}O_6} + 6\\mathrm{O_2}$$. In running text just use Unicode (CO₂).

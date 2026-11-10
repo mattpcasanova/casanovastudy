@@ -31,6 +31,7 @@ import { ExprError, evaluate, parseExpr, type Expr } from './expr'
 import { parseDiagram, type DiagramData } from './diagram'
 import { parsePedigree, parsePunnett, type BioSpec } from '@/lib/bio/specs'
 import { parseFreeBody, type FreeBodyData } from '@/lib/physics/fbd'
+import { describeGeneral, parseAnatomy, parseLayers, parseMiniTimeline, parseParts, parseSpectrum, parseVenn, partsAreAmounts, type GeneralSpec } from './general'
 import { parseEnergyWell, parseLewis, parseMolecule, parseOrbitalDiagram, parseOrbitals, parseReaction, parseVsepr, type ChemSpec } from '@/lib/chem/specs'
 
 export type Color = 'blue' | 'red' | 'green' | 'orange' | 'purple' | 'gray'
@@ -145,7 +146,7 @@ export interface NumberlineSpec extends Common {
 export interface DiagramSpec extends Common { kind: 'diagram'; data: DiagramData }
 export interface FreeBodySpec extends Common { kind: 'free-body'; data: FreeBodyData }
 
-export type GraphSpec = PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | TableSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
+export type GraphSpec = GeneralSpec | PlaneSpec | GeometrySpec | ScatterSpec | BarSpec | HistogramSpec | DotplotSpec | BoxplotSpec | NumberlineSpec | TableSpec | DiagramSpec | FreeBodySpec | ChemSpec | BioSpec
 // energy-well is not its own drawn kind: it parses into a plane.
 export type GraphKind = GraphSpec['kind'] | 'energy-well'
 
@@ -176,6 +177,12 @@ const KIND_ALIASES: Record<string, GraphKind> = {
   punnett: 'punnett', 'punnett-square': 'punnett', cross: 'punnett',
   'free-body': 'free-body', fbd: 'free-body', 'free-body-diagram': 'free-body', forces: 'free-body', 'force-diagram': 'free-body',
   pedigree: 'pedigree', 'pedigree-chart': 'pedigree', 'family-tree': 'pedigree',
+  venn: 'venn', 'venn-diagram': 'venn', compare: 'venn', 'compare-contrast': 'venn',
+  layers: 'layers', pyramid: 'layers', stack: 'layers', hierarchy: 'layers', levels: 'layers',
+  spectrum: 'spectrum', scale: 'spectrum', continuum: 'spectrum',
+  parts: 'parts', 'parts-of-a-whole': 'parts', composition: 'parts', 'pie': 'parts', 'pie-chart': 'parts', 'stacked-bar': 'parts',
+  anatomy: 'anatomy', 'labelled-parts': 'anatomy', 'labeled-parts': 'anatomy', breakdown: 'anatomy',
+  timeline: 'timeline', 'mini-timeline': 'timeline',
   diagram: 'diagram', 'concept-map': 'diagram', flowchart: 'diagram', 'cause-effect': 'diagram', 'food-web': 'diagram', network: 'diagram', 'feedback-loop': 'diagram',
 }
 
@@ -317,6 +324,9 @@ export function parseGraphSpec(text: string): ParseResult {
   }
   const rest = lines.filter((l) => !['kind', 'type', 'title', 'caption', 'x-label', 'xlabel', 'x-axis', 'y-label', 'ylabel', 'y-axis'].includes(l.key))
 
+  // "kind: pyramid" is layers drawn as a pyramid.
+  if (kindLine && normKey(kindLine.value) === 'pyramid' && !rest.some((l) => l.key === 'shape')) rest.push({ key: 'shape', value: 'pyramid', raw: 'shape: pyramid' })
+
   const parsers: Record<GraphKind, (ls: typeof rest, c: Common, w: string[]) => GraphSpec | string> = {
     plane: parsePlane,
     geometry: parseGeometry,
@@ -340,6 +350,12 @@ export function parseGraphSpec(text: string): ParseResult {
       return typeof d === 'string' ? d : { ...c, kind: 'free-body', data: d }
     },
     pedigree: parsePedigree,
+    venn: parseVenn,
+    layers: parseLayers,
+    spectrum: parseSpectrum,
+    parts: parseParts,
+    anatomy: parseAnatomy,
+    timeline: parseMiniTimeline,
     diagram: (ls, c, w) => {
       const d = parseDiagram(ls, w)
       return typeof d === 'string' ? d : { ...c, kind: 'diagram', data: d }
@@ -363,6 +379,11 @@ function inferKind(keys: string[], lines: { key: string; value: string }[]): Gra
   if (has('subshells') || has('subshell')) return 'orbitals'
   if (has('center') || has('central')) return 'lewis'
   if (has('name') && !has('point')) return 'molecule'
+  if (has('set')) return 'venn'
+  if (has('layer')) return 'layers'
+  if (has('mark') && has('from')) return 'spectrum'
+  if (has('part')) return partsAreAmounts(lines.filter((l) => l.key === 'part').map((l) => l.value)) ? 'parts' : 'anatomy'
+  if (has('event')) return 'timeline'
   if (has('row') || has('columns') || has('header')) return 'table'
   if (has('bar')) return 'bar'
   if (has('bin')) return 'histogram'
@@ -830,6 +851,7 @@ export function describeGraph(spec: GraphSpec): string {
     case 'free-body': return `${t}Free-body diagram with forces: ${spec.data.forces.map((f) => `${f.name}${f.magnitude ? ` (${f.magnitude})` : ''} at ${Math.round(f.angle)}°`).join(', ')}.`
     case 'punnett': return `${t}Punnett square for ${spec.cross}${spec.showRatios ? `: ${spec.result.phenotypeRatio.map((p) => `${p.count} ${p.phenotype}`).join(', ')} out of ${spec.result.total}` : ''}.`
     case 'pedigree': return `${t}Pedigree chart of ${spec.data.people.length} people over ${spec.layout.generations} generations; affected: ${spec.data.people.filter((p) => p.affected).map((p) => p.id).join(', ') || 'none'}.`
+    case 'venn': case 'layers': case 'spectrum': case 'parts': case 'anatomy': case 'timeline': return `${t}${describeGeneral(spec)}`
     case 'diagram': return `${t}Diagram: ${spec.data.edges.map((e) => {
       const name = (id: string) => spec.data.nodes.find((n) => n.id === id)?.label ?? id
       return `${name(e.from)} ${e.arrow === 'none' ? 'linked to' : 'leads to'} ${name(e.to)}${e.label ? ` (${e.label})` : ''}`

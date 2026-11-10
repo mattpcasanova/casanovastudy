@@ -20,6 +20,7 @@ import { useDesmos } from '@/components/desmos/desmos-context'
 import { useExplain } from '@/components/explain/explain-context'
 import { LewisFigure, MoleculeFigure, ReactionFigure, VseprFigure } from './chem-figures'
 import { OrbitalDiagramFigure, OrbitalShapesFigure } from './orbital-figures'
+import { AnatomyFigure, LayersFigure, MiniTimelineFigure, PartsFigure, SpectrumFigure, VennFigure } from './general-figures'
 import { PedigreeFigure, PunnettFigure } from './bio-figures'
 import { FreeBodyFigure } from './physics-figures'
 
@@ -827,17 +828,26 @@ function Drawing({ spec }: { spec: GraphSpec }) {
     case 'orbital-diagram': return <OrbitalDiagramFigure spec={spec} />
     case 'orbitals': return <OrbitalShapesFigure spec={spec} />
     case 'diagram': return <DiagramFigure spec={spec} />
+    case 'venn': return <VennFigure spec={spec} />
+    case 'layers': return <LayersFigure spec={spec} />
+    case 'spectrum': return <SpectrumFigure spec={spec} />
+    case 'parts': return <PartsFigure spec={spec} />
+    case 'anatomy': return <AnatomyFigure spec={spec} />
+    case 'timeline': return <MiniTimelineFigure spec={spec} />
     case 'punnett': return <PunnettFigure spec={spec} />
     case 'pedigree': return <PedigreeFigure spec={spec} />
     case 'free-body': return <FreeBodyFigure data={spec.data} />
   }
 }
 
+const WIDE_KINDS = new Set<GraphSpec['kind']>(['venn', 'layers', 'spectrum', 'parts', 'anatomy', 'timeline'])
+
 const FIGURE_NAMES: Record<GraphSpec['kind'], string> = {
   plane: 'graph', geometry: 'geometry figure', scatter: 'scatterplot', bar: 'bar chart', histogram: 'histogram',
   dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', table: 'table', diagram: 'diagram', 'free-body': 'free-body diagram',
   reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model', 'orbital-diagram': 'orbital diagram', orbitals: 'orbital shapes',
   punnett: 'Punnett square', pedigree: 'pedigree',
+  venn: 'comparison', layers: 'layers', spectrum: 'scale', parts: 'breakdown', anatomy: 'labelled parts', timeline: 'timeline',
 }
 
 function figureName(spec: GraphSpec): string {
@@ -896,7 +906,7 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
       )}
       {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}
       {/* Inside a question the figure supports the text, so keep it smaller. */}
-      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' || spec.kind === 'orbital-diagram' || spec.kind === 'orbitals' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
+      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' || spec.kind === 'orbital-diagram' || spec.kind === 'orbitals' || WIDE_KINDS.has(spec.kind) ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
         <Drawing spec={spec} />
       </div>
       {(spec.caption || notes.length > 0 || canExplore) && (

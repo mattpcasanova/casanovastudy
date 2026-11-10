@@ -2,7 +2,7 @@
 // quizzes and reports how many figures each got, their kinds, and any that fail
 // to parse. Use it to tune the budgets in lib/formats/figures.ts.
 //
-//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs] [--only=case,case]
+//   npx tsx --env-file=.env.local scripts/eval-figures.ts [outDir] [--set=math|chem|packs|general] [--only=case,case]
 //   GUIDE_EFFORT=low … to compare effort levels
 //
 // Costs real API calls (one Opus quiz generation per case).
@@ -32,6 +32,14 @@ const CHEM_CASES: Case[] = [
   { name: 'chem-bonding-outline', format: 'outline', subject: 'science', goal: 'exam', gradeLevel: '11th', studyRequest: 'AP Chemistry Unit 2: chemical bonding, Lewis structures, formal charge, VSEPR and molecular geometry, bond energy and bond length', expect: [5, 20] },
   { name: 'chem-bonding-quiz', subject: 'science', goal: 'exam', gradeLevel: '11th', studyRequest: 'AP Chemistry Unit 2: Lewis structures, VSEPR shapes and polarity', expect: [2, 9] },
   { name: 'kinetics-summary', format: 'summary', subject: 'science', goal: 'class', gradeLevel: '11th', studyRequest: 'Reaction kinetics: activation energy, catalysts and reaction energy diagrams', expect: [1, 6] },
+]
+
+// The general figures (venn, layers, spectrum, parts, anatomy, timeline) in subjects with no pack.
+const GENERAL_CASES: Case[] = [
+  { name: 'history-outline', format: 'outline', subject: 'history', goal: 'class', gradeLevel: '11th', studyRequest: 'US History: the road to the American Revolution and the Federalist vs Anti-Federalist debate', expect: [1, 6] },
+  { name: 'grammar-summary', format: 'summary', subject: 'english', goal: 'class', gradeLevel: '9th', studyRequest: 'English: clauses, phrases and the four sentence types, and simile vs metaphor', expect: [1, 6] },
+  { name: 'ecology-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '9th', studyRequest: 'Biology: energy flow in ecosystems, trophic levels, and mitosis vs meiosis', expect: [1, 8] },
+  { name: 'history-quiz', subject: 'history', goal: 'class', gradeLevel: '11th', studyRequest: 'US History: causes of the Civil War', expect: [0, 2] },
 ]
 
 // Biology/physics packs and the general diagram (content-triggered, loose ranges).
@@ -103,8 +111,8 @@ async function main() {
   const svc = new ClaudeService()
   const set = process.argv.find((a) => a.startsWith('--set='))?.slice(6)
   const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7).split(',')
-  const all = [...CASES, ...CHEM_CASES, ...PACK_CASES]
-  const cases = only ? all.filter((c) => only.includes(c.name)) : set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : all
+  const all = [...CASES, ...CHEM_CASES, ...PACK_CASES, ...GENERAL_CASES]
+  const cases = only ? all.filter((c) => only.includes(c.name)) : set === 'chem' ? CHEM_CASES : set === 'math' ? CASES : set === 'packs' ? PACK_CASES : set === 'general' ? GENERAL_CASES : all
   const results = await Promise.all(cases.map((c) => run(c, svc, outDir).catch((e) => ({ case: c.name, error: String(e) }))))
   console.log(JSON.stringify(results, null, 2))
   const total = results.reduce((sum, r) => sum + ((r as { cost?: number }).cost ?? 0), 0)
