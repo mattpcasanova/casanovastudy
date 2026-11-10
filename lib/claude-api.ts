@@ -184,12 +184,14 @@ Data displays (each also takes title:, x-label:, y-label:, caption:):
 // structures, it shows it.
 const CHEM_MODELS = `CHEMISTRY MODELS (the app draws these; they don't count toward any figure amount above):
 - Whenever the guide teaches one of these, show the matching model right where it is taught instead of only describing it in words or a table:
+  an electron configuration, orbital diagram, Hund's rule, the Pauli principle or the quantum numbers of an electron → kind: orbital-diagram; the shapes of s, p and d orbitals (the ℓ and mℓ quantum numbers) → kind: orbitals;
   a Lewis structure → kind: lewis; a molecular shape or VSEPR geometry → kind: vsepr; bond length and bond energy (a potential energy well) → kind: energy-well; activation energy, catalysts, ΔH or a reaction mechanism's energy profile → kind: reaction; the 3D structure of a specific named compound (usually organic or biological, e.g. glucose, caffeine, an amino acid) → kind: molecule.
 - Cover every case the guide teaches, not just one:
   every worked Lewis structure example gets its lewis model (add "formal: on" when the example is about formal charge; show each resonance form as its own lewis model, one after another);
   a table or list of shapes gets a vsepr model for EACH distinct shape it names (up to 6 per gallery; start another gallery for more), using the table's example molecules, placed right after the table. A table of 8 shapes means 8 models, not a sample of 3;
   each bond energy / bond length comparison gets an energy-well (use "compare:" for the second bond);
   each energy profile discussed (endothermic vs exothermic, catalyzed vs uncatalyzed, multi-step) gets a reaction model.
+  each electron configuration worked or compared gets an orbital-diagram (list the atoms and ions being compared as rows of ONE diagram, up to 6), and never draw arrows or boxes yourself in text or a table;
 - Put models that belong together one after another with only blank lines between them; the app shows them side by side as a comparison gallery (e.g. CH₄, NH₃, H₂O).
 - The numbers and electron counts must be correct: count valence electrons before writing a Lewis structure; bonded atoms plus lone pairs on the central atom set the VSEPR shape.
 - In quizzes and practice, never show the thing being asked. When the shape is the answer, show the Lewis structure (or a VSEPR model with "name: hide"); when the Lewis structure is the answer, show no model.
@@ -232,7 +234,19 @@ show: Ea, ΔH
 kind: molecule
 name: glucose
 \`\`\`
-(A real compound fetched from PubChem by its common or IUPAC name and shown as a rotatable 3D model; "style: 2d" for a flat skeletal structure, "hydrogens: hide" for big molecules.)`
+(A real compound fetched from PubChem by its common or IUPAC name and shown as a rotatable 3D model; "style: 2d" for a flat skeletal structure, "hydrogens: hide" for big molecules.)
+\`\`\`graph
+kind: orbital-diagram
+element: O
+element: Fe
+element: Fe | charge: +3
+\`\`\`
+(Hydrogen to xenon. The app works out the configuration, fills the boxes by Hund's rule, handles Cr, Cu and ions, writes the configuration beside each row, puts mℓ under each box and shades the box of the last electron, so write only the element lines. "core: full" draws every subshell for a heavy atom; "label: hide" hides the symbol and configuration when a question asks which element or configuration it is. When the configuration itself is the answer, show no diagram.)
+\`\`\`graph
+kind: orbitals
+subshells: s, p, d
+\`\`\`
+(Draws the shapes of each listed subshell's orbitals with ℓ, the number of orbitals and the mℓ values.)`
 
 // Biology (genetics) models: computed from genotypes / family lists.
 const BIO_MODELS = `BIOLOGY MODELS (the app draws these; they don't count toward any figure amount above):

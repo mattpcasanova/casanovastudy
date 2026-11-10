@@ -48,7 +48,7 @@ const CHEM_WORDS = /\bchem|stoichiometr|molar|titration|gas law|equilibri|\bpH\b
 
 // Topics where Lewis structures, VSEPR shapes, energy wells, reaction energy
 // diagrams or 3D molecules belong (chemistry, plus biochemistry/enzymes).
-const CHEM_MODEL_TOPICS = /\bchem|lewis|vsepr|molecul|electron (geometry|domain)|hybridi[sz]|polarity|intermolecular|covalent|ionic bond|chemical bond|bonding|resonance|formal charge|potential energy (curve|well|diagram)|bond (energy|length|enthalp)|activation energy|reaction (rate|energy|mechanism|coordinate)|energy diagram|catalys|enzyme|kinetics|thermochem|enthalpy|organic|functional group|isomer|biomolecule|carbohydrate|amino acid|lipid/i
+const CHEM_MODEL_TOPICS = /\bchem|lewis|vsepr|quantum number|electron config|orbital|subshell|aufbau|hund'?s rule|pauli|valence electron|periodic (table|trend)|molecul|electron (geometry|domain)|hybridi[sz]|polarity|intermolecular|covalent|ionic bond|chemical bond|bonding|resonance|formal charge|potential energy (curve|well|diagram)|bond (energy|length|enthalp)|activation energy|reaction (rate|energy|mechanism|coordinate)|energy diagram|catalys|enzyme|kinetics|thermochem|enthalpy|organic|functional group|isomer|biomolecule|carbohydrate|amino acid|lipid/i
 
 const NON_VISUAL_SUBJECTS = new Set(['english', 'history', 'foreign-language', 'arts', 'health'])
 

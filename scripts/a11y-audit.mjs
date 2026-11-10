@@ -176,6 +176,13 @@ async function main() {
           if (process.argv.includes('--layout')) for (const issue of await layoutIssues(page)) console.log(`    layout: ${issue}`)
           const shots = flag('shots') // --shots <dir>: a full-page screenshot per page
           if (shots) await page.screenshot({ path: `${shots}/${who}${url.replace(/[^a-z0-9]+/gi, '_').slice(0, 60)}.png`, fullPage: true })
+          // The guide maker again with a topic typed and a format picked (the steps tick, the button is ready).
+          if (shots && url === '/' && who === 'student') {
+            await page.fill('#study-request', 'Quantum numbers and electron configurations')
+            await page.getByRole('button', { name: /^Quiz/ }).first().click()
+            await page.waitForTimeout(900)
+            await page.screenshot({ path: `${shots}/student_home_filled.png`, fullPage: true })
+          }
           report.push({ who, url, violations: v })
           console.log(`${who.padEnd(9)} ${url.padEnd(70)} ${v.length ? v.map((x) => `${x.id}(${x.nodes.length})`).join(' ') : 'clean'}`)
         } catch (e) {

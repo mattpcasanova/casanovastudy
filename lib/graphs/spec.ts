@@ -31,7 +31,7 @@ import { ExprError, evaluate, parseExpr, type Expr } from './expr'
 import { parseDiagram, type DiagramData } from './diagram'
 import { parsePedigree, parsePunnett, type BioSpec } from '@/lib/bio/specs'
 import { parseFreeBody, type FreeBodyData } from '@/lib/physics/fbd'
-import { parseEnergyWell, parseLewis, parseMolecule, parseReaction, parseVsepr, type ChemSpec } from '@/lib/chem/specs'
+import { parseEnergyWell, parseLewis, parseMolecule, parseOrbitalDiagram, parseOrbitals, parseReaction, parseVsepr, type ChemSpec } from '@/lib/chem/specs'
 
 export type Color = 'blue' | 'red' | 'green' | 'orange' | 'purple' | 'gray'
 export type Pt = [number, number]
@@ -171,6 +171,8 @@ const KIND_ALIASES: Record<string, GraphKind> = {
   lewis: 'lewis', 'lewis-structure': 'lewis', 'lewis-dot': 'lewis',
   vsepr: 'vsepr', 'molecular-geometry': 'vsepr', shape: 'vsepr',
   molecule: 'molecule', '3d-molecule': 'molecule', compound: 'molecule',
+  'orbital-diagram': 'orbital-diagram', 'orbital-boxes': 'orbital-diagram', 'electron-configuration': 'orbital-diagram', 'electron-config': 'orbital-diagram', 'orbital-filling': 'orbital-diagram',
+  orbitals: 'orbitals', 'orbital-shapes': 'orbitals', subshells: 'orbitals',
   punnett: 'punnett', 'punnett-square': 'punnett', cross: 'punnett',
   'free-body': 'free-body', fbd: 'free-body', 'free-body-diagram': 'free-body', forces: 'free-body', 'force-diagram': 'free-body',
   pedigree: 'pedigree', 'pedigree-chart': 'pedigree', 'family-tree': 'pedigree',
@@ -330,6 +332,8 @@ export function parseGraphSpec(text: string): ParseResult {
     lewis: parseLewis,
     vsepr: parseVsepr,
     molecule: parseMolecule,
+    'orbital-diagram': parseOrbitalDiagram,
+    orbitals: parseOrbitals,
     punnett: parsePunnett,
     'free-body': (ls, c, w) => {
       const d = parseFreeBody(ls, w)
@@ -355,6 +359,8 @@ function inferKind(keys: string[], lines: { key: string; value: string }[]): Gra
   if (has('depth') || has('bond-energy')) return 'energy-well'
   if (has('reactants') || has('transition')) return 'reaction'
   if (has('bonded')) return 'vsepr'
+  if (has('element') || has('ion')) return 'orbital-diagram'
+  if (has('subshells') || has('subshell')) return 'orbitals'
   if (has('center') || has('central')) return 'lewis'
   if (has('name') && !has('point')) return 'molecule'
   if (has('row') || has('columns') || has('header')) return 'table'
@@ -819,6 +825,8 @@ export function describeGraph(spec: GraphSpec): string {
     case 'lewis': return `${t}Lewis structure of ${spec.layout.atoms.map((a) => a.symbol).join('')}.`
     case 'vsepr': return `${t}3D model of ${spec.center}${spec.model.atoms.slice(1).map((a) => a.symbol).join('')}${spec.showName ? `, ${spec.model.shape}` : ''}.`
     case 'molecule': return `${t}Model of ${spec.name}.`
+    case 'orbital-diagram': return `${t}Orbital diagram (boxes with up and down arrows for electrons)${spec.showLabel ? ` of ${spec.rows.map((r) => `${r.label}: ${r.short}`).join('; ')}` : ''}.`
+    case 'orbitals': return `${t}Shapes of the ${spec.subshells.join(', ')} orbitals.`
     case 'free-body': return `${t}Free-body diagram with forces: ${spec.data.forces.map((f) => `${f.name}${f.magnitude ? ` (${f.magnitude})` : ''} at ${Math.round(f.angle)}°`).join(', ')}.`
     case 'punnett': return `${t}Punnett square for ${spec.cross}${spec.showRatios ? `: ${spec.result.phenotypeRatio.map((p) => `${p.count} ${p.phenotype}`).join(', ')} out of ${spec.result.total}` : ''}.`
     case 'pedigree': return `${t}Pedigree chart of ${spec.data.people.length} people over ${spec.layout.generations} generations; affected: ${spec.data.people.filter((p) => p.affected).map((p) => p.id).join(', ') || 'none'}.`

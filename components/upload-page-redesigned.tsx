@@ -686,18 +686,18 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
 
         {/* Floating format previews — decorative, wide screens only */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hidden xl:block">
-          <div className="absolute left-[6%] top-20 w-52 -rotate-6 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
+          <div className="animate-float absolute left-[6%] top-20 w-52 -rotate-6 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-indigo-600">Flashcard</p>
             <p className={cn(fontDisplay, "mt-2 text-[0.95rem] font-semibold leading-snug")}>What does the mitochondria do?</p>
             <p className="mt-3 text-[0.65rem] text-slate-400">Tap to flip</p>
           </div>
-          <div className="absolute bottom-24 left-[10%] w-56 rotate-3 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
+          <div style={{ animationDelay: "-2.2s", animationDuration: "6.5s" }} className="animate-float absolute bottom-24 left-[10%] w-56 rotate-3 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-orange-600">Fill in the blank</p>
             <p className="mt-2 text-sm leading-relaxed">
               Plants make glucose through <span className="rounded bg-emerald-100 px-1.5 font-semibold text-emerald-800">photosynthesis</span>.
             </p>
           </div>
-          <div className="absolute right-[6%] top-24 w-56 rotate-6 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
+          <div style={{ animationDelay: "-1.1s", animationDuration: "6s" }} className="animate-float absolute right-[6%] top-24 w-56 rotate-6 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-purple-600">Quiz</p>
             <div className="mt-2 space-y-1.5 text-xs">
               <div className="rounded-lg border border-slate-200 px-2 py-1.5">A) 1776</div>
@@ -705,7 +705,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <div className="rounded-lg border border-slate-200 px-2 py-1.5">C) 1804</div>
             </div>
           </div>
-          <div className="absolute bottom-28 right-[9%] w-52 -rotate-3 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
+          <div style={{ animationDelay: "-3.4s", animationDuration: "7s" }} className="animate-float absolute bottom-28 right-[9%] w-52 -rotate-3 rounded-2xl bg-white/95 p-4 text-slate-800 shadow-2xl shadow-blue-950/30">
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-blue-600">Outline</p>
             <div className="mt-2 space-y-1.5">
               {["Causes", "Key events", "Outcomes"].map((t, i) => (
@@ -774,7 +774,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               busy={isGenerating}
             />
           )}
-          <StepHeading n={1} title="Your topic and materials" hint="Type, upload, or both" />
+          <StepHeading n={1} title="Your topic and materials" hint="Type, upload, or both" done={hasSource} />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
             {/* Type */}
@@ -919,7 +919,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
         {/* 2 — Format */}
         <section className="mt-14">
           <span id="pick-format" className="block scroll-mt-24" />
-          <StepHeading n={2} title="Pick a format" />
+          <StepHeading n={2} title="Pick a format" done={!!format} hint={formatLabel(format) ?? undefined} />
           <AdaptiveCard
             on={format === "adaptive"}
             disabled={isGenerating}
@@ -956,7 +956,7 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
                   ) : plan && !isPremium && !isFreeFormat(f.value) ? (
                     <PremiumBadge className="absolute right-3 top-3" />
                   ) : null}
-                  <span className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-xl transition-colors", on ? f.iconOn : f.iconIdle)}>
+                  <span className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-xl transition duration-200 group-hover:scale-110 group-hover:-rotate-3", on ? f.iconOn : f.iconIdle)}>
                     <Icon className="h-5 w-5" />
                   </span>
                   <span className="text-lg font-semibold text-slate-900">{f.label}</span>
@@ -1229,14 +1229,14 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
             disabled={isGenerating}
             size="lg"
             className={cn(
-              "h-14 w-full rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 text-lg font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:brightness-110 hover:shadow-xl sm:w-auto sm:px-12",
-              !isFormValid && "opacity-80"
+              "group/go h-14 w-full rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 text-lg font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:brightness-110 hover:shadow-xl sm:w-auto sm:px-12",
+              isFormValid ? "shadow-xl shadow-blue-600/35 ring-4 ring-blue-500/15" : "opacity-80"
             )}
           >
             {isGenerating ? (
               <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating…</>
             ) : (
-              <><ArrowRight className="mr-2 h-5 w-5" /> {format === "adaptive" ? "Start adaptive practice" : "Generate study guide"}</>
+              <>{format === "adaptive" ? "Start adaptive practice" : "Generate study guide"} <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover/go:translate-x-1" /></>
             )}
           </Button>
           {format === "adaptive" && freeAdaptive ? (
@@ -1262,7 +1262,8 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
               <button type="button" onClick={() => openPremium()} className="font-semibold text-blue-700 hover:underline">Premium</button>
             </p>
           )}
-          <p className="text-sm text-slate-500">
+          <p className={cn("flex items-center justify-center gap-1.5 text-center text-sm", isFormValid && sourceSummary ? "font-medium text-slate-700" : "text-slate-500")}>
+            {isFormValid && sourceSummary && <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />}
             {isFormValid && sourceSummary
               ? `${formatLabel(format)} from ${sourceSummary} · ${format === "adaptive" ? "ready in about a minute, then it adapts as you go" : difficulty === "hard" && DIFFICULTY_FORMATS.includes(format) ? "hard questions take about 2 minutes" : "usually ready in under a minute"}`
               : "Takes about a minute. Your guide is saved to My Guides."}
@@ -1320,10 +1321,16 @@ export default function UploadPageRedesigned({ onGenerateStudyGuide, isGeneratin
   )
 }
 
-function StepHeading({ n, title, hint }: { n: number; title: string; hint?: string }) {
+function StepHeading({ n, title, hint, done }: { n: number; title: string; hint?: string; done?: boolean }) {
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 text-base font-bold text-white shadow-md shadow-blue-600/25">{n}</span>
+      {done ? (
+        <span key="done" className="animate-pop-in flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-600/25">
+          <Check className="h-5 w-5" strokeWidth={3} aria-hidden="true" /><span className="sr-only">Step {n}, done</span>
+        </span>
+      ) : (
+        <span key="todo" className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 text-base font-bold text-white shadow-md shadow-blue-600/25">{n}</span>
+      )}
       <h2 className={cn(fontDisplay, "text-2xl font-semibold text-slate-900 sm:text-[1.7rem]")}>{title}</h2>
       {hint && <span className="text-sm font-medium text-slate-400">{hint}</span>}
     </div>
@@ -1535,7 +1542,7 @@ function AdaptiveCard({ on, disabled, badge, onPick }: { on: boolean; disabled: 
               {pct === 100 && <Check className="h-3 w-3 text-emerald-600" />}
             </span>
             <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-200">
-              <span className={cn("block h-full rounded-full", color as string)} style={{ width: `${pct}%` }} />
+              <span className={cn("animate-grow block h-full rounded-full", color as string)} style={{ width: `${pct}%` }} />
             </span>
           </span>
         ))}

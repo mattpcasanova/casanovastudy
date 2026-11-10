@@ -28,6 +28,7 @@ const CASES: Case[] = [
 
 // Chemistry models are content-triggered, so `expect` is a loose total figure range.
 const CHEM_CASES: Case[] = [
+  { name: 'quantum-outline', format: 'outline', subject: 'science', goal: 'class', gradeLevel: '10th', studyRequest: 'Chemistry: quantum numbers, orbital shapes, electron configurations and orbital diagrams (Aufbau, Hund, Pauli), including ions and the Cr and Cu exceptions', expect: [2, 10] },
   { name: 'chem-bonding-outline', format: 'outline', subject: 'science', goal: 'exam', gradeLevel: '11th', studyRequest: 'AP Chemistry Unit 2: chemical bonding, Lewis structures, formal charge, VSEPR and molecular geometry, bond energy and bond length', expect: [5, 20] },
   { name: 'chem-bonding-quiz', subject: 'science', goal: 'exam', gradeLevel: '11th', studyRequest: 'AP Chemistry Unit 2: Lewis structures, VSEPR shapes and polarity', expect: [2, 9] },
   { name: 'kinetics-summary', format: 'summary', subject: 'science', goal: 'class', gradeLevel: '11th', studyRequest: 'Reaction kinetics: activation energy, catalysts and reaction energy diagrams', expect: [1, 6] },

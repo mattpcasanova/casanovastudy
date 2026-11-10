@@ -13,6 +13,10 @@
 // kind: vsepr         center: S   bonded: F, F, F, F   lone: 1   name: hide
 //                     (bonded atoms may be written O= or =O for double bonds)
 // kind: molecule      name: caffeine   style: 3d | 2d   hydrogens: hide
+// kind: orbital-diagram   element: Fe   element: Fe | charge: +2   (one row each)
+//                     core: full | short   label: hide   ml: hide   highlight: off
+//   → boxes and arrows computed by lib/chem/orbitals.ts
+// kind: orbitals      subshells: s, p, d   (the shapes of each subshell's orbitals)
 //   → fetched from PubChem by name in the browser
 
 import { parseExpr } from '@/lib/graphs/expr'
@@ -21,6 +25,7 @@ import { normalizeSymbol } from './elements'
 import { layoutLewis, type LewisLayout } from './lewis'
 import { buildVsepr, type VseprModel } from './vsepr'
 import { morseExpr, type ReactionLevel } from './energy'
+import { orbitalRow, parseSpecies, SUBSHELL_SHAPES, type OrbitalRow } from './orbitals'
 
 interface CommonFields { title?: string; caption?: string; xLabel?: string; yLabel?: string; notes: string[] }
 type Line = { key: string; value: string; raw: string }
@@ -36,7 +41,10 @@ export interface LewisSpec extends CommonFields { kind: 'lewis'; layout: LewisLa
 export interface VseprSpec extends CommonFields { kind: 'vsepr'; model: VseprModel; center: string; showName: boolean }
 export interface MoleculeSpec extends CommonFields { kind: 'molecule'; name: string; style: '3d' | '2d'; hydrogens: boolean }
 
-export type ChemSpec = ReactionSpec | LewisSpec | VseprSpec | MoleculeSpec
+export interface OrbitalDiagramSpec extends CommonFields { kind: 'orbital-diagram'; rows: OrbitalRow[]; showLabel: boolean; showMl: boolean; highlight: boolean }
+export interface OrbitalsSpec extends CommonFields { kind: 'orbitals'; subshells: string[] }
+
+export type ChemSpec = ReactionSpec | LewisSpec | VseprSpec | MoleculeSpec | OrbitalDiagramSpec | OrbitalsSpec
 
 function number(s: string | undefined): number | null {
   if (!s) return null
@@ -223,4 +231,51 @@ export function parseMolecule(ls: Line[], c: CommonFields, w: string[]): Molecul
   }
   if (!name || name.length > 80 || !/^[\w\s,()'+-]+$/.test(name)) return 'A molecule needs name: (a compound name)'
   return { ...c, kind: 'molecule', name, style, hydrogens }
+}
+
+// ── Orbital diagrams and orbital shapes ─────────────────────────────────────
+
+export function parseOrbitalDiagram(ls: Line[], c: CommonFields, w: string[]): OrbitalDiagramSpec | string {
+  const wanted: { symbol: string; charge: number }[] = []
+  let core: 'auto' | 'full' | 'short' = 'auto'
+  let showLabel = true, showMl = true, highlight = true
+  for (const { key, value, raw } of ls) {
+    if (key === 'element' || key === 'atom' || key === 'ion' || key === 'elements') {
+      // "Fe", "Fe2+", "Fe | charge: +2", or several separated by commas.
+      const [first, ...rest] = value.split('|').map((p) => p.trim())
+      const extra = rest.map((p) => p.match(/^charge\s*[:=]\s*(.+)$/i)?.[1]).find(Boolean)
+      for (const name of first.split(',').map((p) => p.trim()).filter(Boolean)) {
+        const sp = parseSpecies(name)
+        if (!sp) { w.push(`Bad element "${raw}"`); continue }
+        const q = extra ? parseCharge(extra) : null
+        if (wanted.length < 6) wanted.push({ symbol: sp.symbol, charge: q ?? sp.charge })
+      }
+    } else if (key === 'core' || key === 'noble-gas') core = /full|all|off|no/i.test(value) ? 'full' : /short|noble|on|yes/i.test(value) ? 'short' : 'auto'
+    else if (key === 'label' || key === 'labels' || key === 'config' || key === 'configuration') { if (falsy(value)) showLabel = false }
+    else if (key === 'ml' || key === 'm-l' || key === 'numbers') { if (falsy(value)) showMl = false }
+    else if (key === 'highlight' || key === 'last') { if (falsy(value)) highlight = false }
+    else if (key !== 'note') w.push(`Unknown line "${raw}"`)
+  }
+  if (!wanted.length) return 'An orbital diagram needs element:'
+  const rows: OrbitalRow[] = []
+  for (const x of wanted) {
+    const row = orbitalRow(x.symbol, x.charge, core)
+    if (typeof row === 'string') return row
+    rows.push(row)
+  }
+  return { ...c, kind: 'orbital-diagram', rows, showLabel, showMl, highlight }
+}
+
+export function parseOrbitals(ls: Line[], c: CommonFields, w: string[]): OrbitalsSpec | string {
+  const subshells: string[] = []
+  for (const { key, value, raw } of ls) {
+    if (key === 'subshells' || key === 'subshell' || key === 'show' || key === 'orbitals') {
+      for (const tok of value.toLowerCase().split(/[,\s]+/).filter(Boolean)) {
+        const letter = tok.replace(/^\d/, '')[0]
+        if (SUBSHELL_SHAPES[letter]) { if (!subshells.includes(letter)) subshells.push(letter) }
+        else w.push(`Unknown subshell "${tok}"`)
+      }
+    } else if (key !== 'note') w.push(`Unknown line "${raw}"`)
+  }
+  return { ...c, kind: 'orbitals', subshells: subshells.length ? subshells : ['s', 'p', 'd'] }
 }

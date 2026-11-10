@@ -19,6 +19,7 @@ import {
 import { useDesmos } from '@/components/desmos/desmos-context'
 import { useExplain } from '@/components/explain/explain-context'
 import { LewisFigure, MoleculeFigure, ReactionFigure, VseprFigure } from './chem-figures'
+import { OrbitalDiagramFigure, OrbitalShapesFigure } from './orbital-figures'
 import { PedigreeFigure, PunnettFigure } from './bio-figures'
 import { FreeBodyFigure } from './physics-figures'
 
@@ -823,6 +824,8 @@ function Drawing({ spec }: { spec: GraphSpec }) {
     case 'lewis': return <LewisFigure spec={spec} />
     case 'vsepr': return <VseprFigure spec={spec} />
     case 'molecule': return <MoleculeFigure spec={spec} />
+    case 'orbital-diagram': return <OrbitalDiagramFigure spec={spec} />
+    case 'orbitals': return <OrbitalShapesFigure spec={spec} />
     case 'diagram': return <DiagramFigure spec={spec} />
     case 'punnett': return <PunnettFigure spec={spec} />
     case 'pedigree': return <PedigreeFigure spec={spec} />
@@ -833,7 +836,7 @@ function Drawing({ spec }: { spec: GraphSpec }) {
 const FIGURE_NAMES: Record<GraphSpec['kind'], string> = {
   plane: 'graph', geometry: 'geometry figure', scatter: 'scatterplot', bar: 'bar chart', histogram: 'histogram',
   dotplot: 'dot plot', boxplot: 'box plot', numberline: 'number line', table: 'table', diagram: 'diagram', 'free-body': 'free-body diagram',
-  reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model',
+  reaction: 'energy diagram', lewis: 'Lewis structure', vsepr: '3D shape', molecule: 'molecule model', 'orbital-diagram': 'orbital diagram', orbitals: 'orbital shapes',
   punnett: 'Punnett square', pedigree: 'pedigree',
 }
 
@@ -893,7 +896,7 @@ export function GraphFigure({ spec, source, className, compact = false, allowExp
       )}
       {spec.title && <div className={cn('mb-2 text-center text-sm font-semibold text-slate-800', explain && allowExplain && 'px-20')}>{cleanLabel(spec.title)}</div>}
       {/* Inside a question the figure supports the text, so keep it smaller. */}
-      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
+      <div className={cn('mx-auto', spec.kind === 'diagram' || spec.kind === 'pedigree' || spec.kind === 'punnett' || spec.kind === 'table' || spec.kind === 'orbital-diagram' || spec.kind === 'orbitals' ? 'max-w-full' : compact ? 'max-w-[380px]' : 'max-w-[520px]')}>
         <Drawing spec={spec} />
       </div>
       {(spec.caption || notes.length > 0 || canExplore) && (
