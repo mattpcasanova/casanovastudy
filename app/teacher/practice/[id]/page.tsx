@@ -9,7 +9,7 @@ import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
-import { AlertTriangle, ArrowLeft, BookUp, CalendarClock, Check, CheckCircle2, Clock, Copy, Eye, Layers, ListChecks, Loader2, MessageCircleQuestion, PenLine, QrCode, Target, Timer, Trash2, XCircle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BookOpen, BookUp, CalendarClock, Check, CheckCircle2, ChevronDown, ClipboardList, Clock, Copy, Eye, Layers, ListChecks, Loader2, Mail, MessageCircleQuestion, PenLine, QrCode, Settings2, Target, Timer, Trash2, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { FOCUS_MODE_HINT, durationText, focusChip, focusChipShort, focusEventText, summarizeFocus, type FocusEvent } from "@/lib/practice/focus"
 import { givenText, type PracticeAnswer, type ReportQuestion } from "@/lib/practice/report"
@@ -20,6 +20,8 @@ import { ClassroomPracticePanel } from "@/components/assign/classroom-practice-p
 import { PracticeReport } from "@/components/assign/practice-report"
 import type { ExportRow } from "@/lib/grading/exports"
 import NavigationHeader from "@/components/navigation-header"
+import { PageLoader } from "@/components/ui/loader"
+import { dueLabel } from "@/lib/student/classwork-rules"
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { AssignmentLanguage, languageChip } from "@/components/assign/assignment-language"
 import { actionButton, actionButtonPrimary, backLink, buttonRow, selectBox } from "@/components/grading/grading-ui"
@@ -29,7 +31,7 @@ import { authFetch } from "@/lib/auth-fetch"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
-import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, dayCount, overTimeLimit, progressStatusText, runLengthText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
+import { AI_HELP_OPTIONS, TIME_LIMIT_PICKS, timeLimitText, dayCount, overTimeLimit, progressStatusText, runLengthText, type AiHelp, type RunCount } from "@/lib/practice/assignments"
 import type { AiUse } from "@/lib/practice/server"
 import { ADAPTIVE_SETTING_DEFAULTS, MASTERY_PICKS, PER_CONCEPT_PICKS, masteryRuleText, neededRight } from "@/lib/adaptive/engine"
 import { estimateAdaptive, estimateText, questionRangeText, type BankShape } from "@/lib/adaptive/estimate"
@@ -64,6 +66,19 @@ const AI_KIND: Record<string, string> = {
   figure: "Explain a figure",
   desmos: "Desmos steps",
 }
+type Show = "all" | "done" | "progress" | "todo" | "incomplete" | "ai" | "focus"
+const isDone = (s: Student) => s.status === "done" || s.status === "late"
+const isInProgress = (s: Student) => !!s.inProgress && (s.status === "not_started" || s.status === "missing")
+const isTodo = (s: Student) => !s.inProgress && (s.status === "not_started" || s.status === "missing")
+const SHOWS: Array<{ key: Show; label: string; test: (s: Student) => boolean }> = [
+  { key: "done", label: "Turned in", test: isDone },
+  { key: "progress", label: "In progress", test: isInProgress },
+  { key: "todo", label: "Not started", test: isTodo },
+  { key: "incomplete", label: "Incomplete", test: (s) => s.status === "incomplete" },
+  { key: "ai", label: "Used AI help", test: (s) => s.aiUses.length > 0 },
+  { key: "focus", label: "Left the page", test: (s) => !!focusChip(summarizeFocus(s.focus)) },
+]
+const scoreTone = (pct: number) => pct >= 80 ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : pct >= 65 ? "bg-blue-50 text-blue-800 ring-blue-200" : pct >= 50 ? "bg-amber-50 text-amber-900 ring-amber-200" : "bg-rose-50 text-rose-800 ring-rose-200"
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
 
 export default function PracticeAssignmentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -96,6 +111,10 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   }
   const [nameOrder, setNameOrder] = useNameOrder()
   const [byScore, setByScore] = useState(false)
+  // Which students the list shows, and whether the settings are open (closed once anyone has started: by then the teacher comes for results).
+  const [show, setShow] = useState<Show>("all")
+  const [settingsOpen, setSettingsOpen] = useState<boolean | null>(null)
+  const [copiedEmails, setCopiedEmails] = useState(false)
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/practice-assignments/${id}`, { cache: "no-store" })
@@ -135,13 +154,19 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
   }
 
   if (error) return <Shell><p className="rounded-xl bg-rose-50 p-4 text-rose-800">{error}</p></Shell>
-  if (!data) return <Shell><p className="mt-10 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p></Shell>
+  if (!data) return <Shell><PageLoader label="Getting the assignment" /></Shell>
 
   const { assignment: a, students } = data
   const finished = students.filter((s) => s.best)
   const avg = finished.length ? finished.reduce((n, s) => n + s.best!.pct, 0) / finished.length : null
   // Best score first, students with none last; otherwise by name.
+  const counts = { done: students.filter(isDone).length, progress: students.filter(isInProgress).length, todo: students.filter(isTodo).length, missing: students.filter((s) => isTodo(s) && s.status === "missing").length, incomplete: students.filter((s) => s.status === "incomplete").length }
+  const shows = SHOWS.map((f) => ({ ...f, n: students.filter(f.test).length })).filter((f) => f.n > 0)
+  const active = shows.find((f) => f.key === show)
+  const settingsShown = settingsOpen ?? !students.some((s) => s.best || s.inProgress || s.status === "incomplete")
   const ordered = [...students].sort((x, y) => (byScore ? (y.best?.pct ?? -1) - (x.best?.pct ?? -1) : 0) || compareNames(x, y, nameOrder))
+  const listed = active ? ordered.filter(active.test) : ordered
+  const listedEmails = listed.map((s) => s.email).filter((e): e is string => !!e)
   const score = (s: Student) => !s.best ? "-" : a.grading === "mastery" ? `${s.best.correct}/${s.best.total} topics` : `${s.best.correct}/${s.best.total} · ${Math.round(s.best.pct)}%`
 
   return (
@@ -150,25 +175,29 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight text-slate-900")}>{a.title}</h1>
-          <p className="text-slate-600">
-            {students.length} student{students.length === 1 ? "" : "s"} · {students.filter((s) => s.status === "done" || s.status === "late").length} done
-            {students.some((s) => s.status === "incomplete") && <> · {students.filter((s) => s.status === "incomplete").length} incomplete</>}
-            {students.some((s) => s.inProgress && (s.status === "not_started" || s.status === "missing")) && <> · {students.filter((s) => s.inProgress && (s.status === "not_started" || s.status === "missing")).length} in progress</>}
-            {avg != null && <> · average {a.grading === "mastery" ? `${Math.round(avg)}% of topics mastered` : `${Math.round(avg)}%`}</>}
-            {students.some((s) => s.aiUses.length) && <> · {students.filter((s) => s.aiUses.length).length} used AI help</>}
-            {students.some((s) => focusChip(summarizeFocus(s.focus))) && <> · {students.filter((s) => focusChip(summarizeFocus(s.focus))).length} left the page</>}
-            {data.guide && <> · <Link href={`/study-guide/${data.guide.id}`} className="font-medium text-blue-700 hover:underline">open the practice</Link></>}
-            {finished.length > 0 && <> · <Link href={`/teacher/practice/${a.id}/reteach`} className="font-medium text-blue-700 hover:underline">Reteach plan</Link></>}
+          <p className="mt-1 text-slate-600">
+            {data.guide ? (data.guide.format === "adaptive" ? "Adaptive practice" : data.guide.format === "quiz" ? "Quiz" : "Practice set") : "Assigned practice"}
+            {" · "}{a.due_at ? dueLabel(a.due_at) : "No due date"}
+            {" · "}assigned {new Date(a.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
           </p>
         </div>
         <button type="button" className={cn(actionButtonPrimary, "h-11 w-full px-5 sm:w-auto")} onClick={async () => { await navigator.clipboard.writeText(a.url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>{copied ? <><Check />Copied</> : <><Copy />Copy link</>}</button>
       </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Turned in" value={`${counts.done} of ${students.length}`} bar={students.length ? counts.done / students.length : 0} hint={counts.done === students.length && students.length > 0 ? "Everyone is done" : undefined} />
+        <Stat label="Average" value={avg == null ? "-" : `${Math.round(avg)}%`} hint={avg == null ? "No scores yet" : a.grading === "mastery" ? "of topics mastered" : `best attempt of ${finished.length} student${finished.length === 1 ? "" : "s"}`} />
+        <Stat label="In progress" value={String(counts.progress)} hint={counts.incomplete ? `${counts.incomplete} sent unfinished at the due date` : "Started, not turned in"} />
+        <Stat label="Not started" value={String(counts.todo)} hint={counts.missing ? `${counts.missing} past the due date` : counts.todo ? "Nothing saved yet" : "Everyone has opened it"} warn={counts.missing > 0} />
+      </div>
+
       <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
         <div className={buttonRow}>
+          {data.guide && <Link href={`/study-guide/${data.guide.id}`} className={actionButton}><BookOpen /><span className="sm:hidden">Open it</span><span className="hidden sm:inline">Open the practice</span></Link>}
+          {finished.length > 0 && <Link href={`/teacher/practice/${a.id}/reteach`} className={actionButton}><ClipboardList />Reteach plan</Link>}
           <button type="button" className={cn(actionButton, showQr && "bg-blue-50 text-blue-800 ring-blue-300")} aria-pressed={showQr} onClick={() => setShowQr((v) => !v)}><QrCode />QR code</button>
-          <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp />Send to gradebook</button>
+          <button type="button" className={actionButton} onClick={() => setExportOpen(true)} disabled={!finished.length && !students.some((s) => s.status === "missing")}><BookUp /><span className="sm:hidden">Gradebook</span><span className="hidden sm:inline">Send to gradebook</span></button>
         </div>
-        <button type="button" className={cn(actionButton, "text-red-700 hover:bg-red-50 hover:text-red-800")} onClick={() => setConfirmDelete(true)}><Trash2 />Delete assignment</button>
+        <button type="button" className={cn(actionButton, "text-red-700 hover:bg-red-50 hover:text-red-800")} onClick={() => setConfirmDelete(true)}><Trash2 /><span className="sm:hidden">Delete</span><span className="hidden sm:inline">Delete assignment</span></button>
       </div>
 
       {showQr && (
@@ -180,7 +209,25 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
 
       <ClassroomPracticePanel assignmentId={a.id} students={students.length} />
 
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <button type="button" onClick={() => setSettingsOpen(!settingsShown)} aria-expanded={settingsShown} className="flex w-full items-center gap-3 rounded-3xl p-4 text-left transition hover:bg-slate-50 sm:px-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Settings2 className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-slate-900">Settings</span>
+            <span className="block truncate text-sm text-slate-600">
+              {[
+                a.due_at ? `Due ${new Date(a.due_at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "No due date",
+                a.grading === "mastery" ? `Mastery at ${a.mastery_pct ?? ADAPTIVE_SETTING_DEFAULTS.masteryPct}%` : a.max_attempts ? `${a.max_attempts} attempt${a.max_attempts === 1 ? "" : "s"}` : "Unlimited attempts",
+                a.grading === "percent" && (a.time_limit_seconds ? `${timeLimitText(a.time_limit_seconds)} limit` : "No time limit"),
+                `AI help: ${AI_HELP_OPTIONS.find((o) => o.value === a.ai_help)?.label ?? a.ai_help}`,
+                a.focus_mode && "Focus mode on",
+              ].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+          <span className="hidden shrink-0 text-sm font-semibold text-blue-700 sm:inline">{settingsShown ? "Close" : "Change"}</span>
+          <ChevronDown className={cn("h-5 w-5 shrink-0 text-slate-400 transition-transform", settingsShown && "rotate-180")} />
+        </button>
+        {settingsShown && <div className="border-t border-slate-100 p-5">
         <div className={cn("grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2", a.grading === "mastery" ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
           <Field label="Due" icon={CalendarClock} wide={editDue}>
             {editDue ? (
@@ -193,7 +240,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             ) : (
               <>
                 <span className="font-medium text-slate-900">{a.due_at ? new Date(a.due_at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "No due date"}</span>
-                <button type="button" className="text-sm font-semibold text-blue-700 hover:underline" onClick={() => { setDue(a.due_at ? toLocalInput(a.due_at) : ""); setEditDue(true) }}>Change</button>
+                <button type="button" className={actionButton} onClick={() => { setDue(a.due_at ? toLocalInput(a.due_at) : ""); setEditDue(true) }}><CalendarClock />Change</button>
               </>
             )}
           </Field>
@@ -269,6 +316,7 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
           </span>
           <Switch checked={a.focus_mode} onCheckedChange={(on) => void patch({ focusMode: on })} aria-label="Focus mode" className="mt-0.5" />
         </label>
+        </div>}
       </section>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -285,8 +333,23 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
             <option value="score">Sort by score</option>
           </select>
         </div>
+        {shows.length > 1 && (
+          <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="Show students">
+            {[{ key: "all" as Show, label: "Everyone", n: students.length }, ...shows].map((f) => (
+              <button key={f.key} type="button" aria-pressed={(active?.key ?? "all") === f.key} onClick={() => setShow(f.key)}
+                className={cn("inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold ring-1 ring-inset transition", (active?.key ?? "all") === f.key ? "bg-blue-600 text-white ring-blue-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50")}>
+                {f.label}<span className={cn("rounded-full px-1.5 text-xs tabular-nums", (active?.key ?? "all") === f.key ? "bg-white/20" : "bg-slate-100 text-slate-600")}>{f.n}</span>
+              </button>
+            ))}
+            {active && listedEmails.length > 0 && (
+              <button type="button" className={cn(actionButton, "sm:ml-auto")} title="Comma-separated, ready to paste into Bcc" onClick={async () => { await navigator.clipboard.writeText(listedEmails.join(", ")); setCopiedEmails(true); setTimeout(() => setCopiedEmails(false), 2000) }}>
+                {copiedEmails ? <><Check />Copied</> : <><Mail />Copy {listedEmails.length === 1 ? "their email" : `${listedEmails.length} emails`}</>}
+              </button>
+            )}
+          </div>
+        )}
         <ul className="divide-y divide-slate-100">
-          {ordered.map((s) => {
+          {listed.map((s) => {
             const focus = summarizeFocus(s.focus)
             const focusText = focusChipShort(focus)
             const over = s.best?.seconds != null && overTimeLimit(s.best.seconds, a.time_limit_seconds)
@@ -327,12 +390,14 @@ export default function PracticeAssignmentPage({ params }: { params: Promise<{ i
                   </div>
                   {a.grading === "mastery" && s.best?.detail?.notMastered?.length ? <p className="mt-1 text-xs text-slate-500">Not mastered yet: {s.best.detail.notMastered.join(", ")}</p> : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
-                  <span className={cn("font-semibold tabular-nums", s.best ? "text-slate-900" : "text-slate-300")}>{score(s)}</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-col sm:items-end sm:text-right">
+                  {s.best
+                    ? <span className={cn("inline-flex h-8 items-center rounded-lg px-2.5 font-semibold tabular-nums ring-1 ring-inset", scoreTone(s.best.pct))}>{score(s)}</span>
+                    : <span className="text-slate-300" aria-label="No score yet">-</span>}
                   {(s.attempts > 0 || s.lastAt) && (
                     <span className="text-xs text-slate-500 tabular-nums">{s.attempts ? `${s.attempts} attempt${s.attempts === 1 ? "" : "s"}` : ""}{s.attempts && s.lastAt ? " · " : ""}{s.lastAt ? new Date(s.lastAt).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}</span>
                   )}
-                  {s.best && <button type="button" onClick={() => openAnswers(s, a.id)} className="text-xs font-semibold text-blue-700 hover:underline">See answers</button>}
+                  {s.best && <button type="button" onClick={() => openAnswers(s, a.id)} className={cn(actionButton, "h-9")}><ListChecks />See answers</button>}
                 </div>
               </li>
             )
@@ -456,6 +521,18 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+
+/** One headline number above the student list. */
+function Stat({ label, value, hint, bar, warn }: { label: string; value: string; hint?: string; bar?: number; warn?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={cn(fontDisplay, "mt-1 text-3xl font-semibold tabular-nums tracking-tight", warn ? "text-rose-700" : "text-slate-900")}>{value}</p>
+      {bar != null && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span className={cn("block h-full rounded-full transition-[width] duration-700", bar >= 1 ? "bg-emerald-500" : "bg-blue-600")} style={{ width: `${Math.round(bar * 100)}%` }} /></span>}
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    </div>
+  )
+}
 
 /** One labeled setting in the settings grid. */
 function Field({ label, icon: Icon, wide, children }: { label: string; icon: typeof CalendarClock; wide?: boolean; children: React.ReactNode }) {

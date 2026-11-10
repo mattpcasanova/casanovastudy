@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueLabel, homeStrip, missingTests, openWork } from './classwork-rules'
+import { dueLabel, missingTests, openWork, stripCards } from './classwork-rules'
 
 const now = new Date(2026, 9, 21, 10, 0) // Wed Oct 21, 10am local
 const at = (d: number, h = 23, m = 59) => new Date(2026, 9, d, h, m).toISOString()
@@ -25,22 +25,26 @@ describe('dueLabel', () => {
   })
 })
 
-describe('homeStrip', () => {
-  it('shows the next two and counts the rest, plus reports from the last week', () => {
+describe('stripCards', () => {
+  const id = (c: ReturnType<typeof stripCards>['cards'][number]) => c.kind === 'practice' ? c.a.id : c.kind === 'test' ? c.t.batchId : c.kind === 'report' ? c.r.id : c.kind === 'material' ? c.m.id : c.g.id
+  const days = (n: number) => new Date(now.getTime() - n * 86400000).toISOString()
+  const r = (rid: string, ago: number) => ({ id: rid, title: rid, createdAt: days(ago) })
+  it('shows two things to do, then unopened reports and this week\'s materials and shared guides', () => {
     const list = [a('x', 'not_started', at(22)), a('y', 'not_started', at(23)), a('z', 'not_started', at(24)), a('d', 'done', at(20))]
-    const reports = [{ id: 'r1', title: 'Unit 3', createdAt: new Date(2026, 9, 18).toISOString() }, { id: 'r2', title: 'Unit 1', createdAt: new Date(2026, 8, 30).toISOString() }]
-    const s = homeStrip(list, reports, now)
-    expect(s.next.map((x) => (x.kind === 'practice' ? x.a.id : x.t.batchId))).toEqual(['x', 'y'])
-    expect(s.moreOpen).toBe(1)
+    const s = stripCards({ assignments: list, reports: [r('r-old', 40), r('r-seen', 2), r('r-late-release', 20)], seenReports: ['r-seen'], materials: [r('m-new', 1), r('m-old', 9)], shared: [r('g-new', 3)], now })
+    expect(s.cards.map(id)).toEqual(['x', 'y', 'r-late-release', 'm-new'])
     expect(s.openCount).toBe(3)
-    expect(s.newReports.map((r) => r.id)).toEqual(['r1'])
+    expect(s.more).toEqual({ open: 1, reports: 0, fromTeacher: 1 })
   })
-  it('puts overdue work first, then tests not turned in, then upcoming', () => {
+  it('puts overdue work first, then tests not turned in, then upcoming, and uses spare room for more to do', () => {
     const list = [a('up', 'not_started', at(22)), a('late', 'missing', at(19))]
     const tests = [{ batchId: 't1', title: 'Unit 2', classId: 'c', firstGraded: at(18), status: null }]
-    const s = homeStrip(list, [], now, 3, tests)
-    expect(s.next.map((x) => (x.kind === 'practice' ? x.a.id : x.t.batchId))).toEqual(['late', 't1', 'up'])
-    expect(s.openCount).toBe(3)
+    const s = stripCards({ assignments: list, reports: [r('r1', 1)], tests, now })
+    expect(s.cards.map(id)).toEqual(['late', 't1', 'up', 'r1'])
+    expect(s.more).toEqual({ open: 0, reports: 0, fromTeacher: 0 })
+  })
+  it('is empty when nothing is new', () => {
+    expect(stripCards({ assignments: [a('d', 'done', at(20))], reports: [r('old', 60)], now }).cards).toEqual([])
   })
 })
 
@@ -55,13 +59,5 @@ describe('missingTests', () => {
     const papers = [p('fresh', 'x', 1), p('ex', 'x', 48)]
     const out = missingTests(papers, me, [{ batchId: 'fresh', status: 'missing' }, { batchId: 'ex', status: 'exempt' }], now)
     expect(out.map((t) => [t.batchId, t.status])).toEqual([['fresh', 'missing']])
-  })
-})
-
-describe('homeStrip shared guides', () => {
-  it('shows guides the teacher shared this week, not older ones', () => {
-    const now = new Date('2026-10-26T12:00:00Z')
-    const r = homeStrip([], [], now, 2, [], [{ id: 's1', title: 'Cheat sheet', createdAt: '2026-10-24T12:00:00Z' }, { id: 's2', title: 'Old', createdAt: '2026-10-01T12:00:00Z' }])
-    expect(r.newShared.map((s) => s.id)).toEqual(['s1'])
   })
 })

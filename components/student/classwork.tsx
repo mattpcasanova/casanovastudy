@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, CheckCircle2, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileCheck, FileText, Presentation } from "lucide-react"
+import { ArrowRight, BookOpen, CheckCircle2, CalendarClock, ChevronRight, ClipboardCheck, Clock, ExternalLink, FileText, Presentation } from "lucide-react"
 import { openHomeWithPrefill } from "@/lib/prefill"
 import { materialTitle } from "@/lib/classes/materials"
 import { useAuth } from "@/lib/auth"
@@ -15,7 +15,8 @@ import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
 import { lateLabel } from "@/lib/grading/late"
-import { dueLabel, homeStrip, isOpenWork, type MissingTest } from "@/lib/student/classwork-rules"
+import { seenReports } from "@/lib/student/seen-reports"
+import { dueLabel, isOpenWork, stripCards, type MissingTest } from "@/lib/student/classwork-rules"
 import type { StudentClass, StudentMaterial, StudentPractice, StudentReportRow, StudentSharedGuide } from "@/lib/student/classwork"
 
 export interface Classwork { classes: StudentClass[]; assignments: StudentPractice[]; reports: StudentReportRow[]; missingTests: MissingTest[]; shared?: StudentSharedGuide[]; materials?: StudentMaterial[]; /** Classes this request just connected them to (by their sign-in email). */ linkedNow?: string[] }
@@ -221,19 +222,43 @@ export function MissingTestRow({ t, className }: { t: MissingTest; className?: s
   )
 }
 
-/** Top of the guide maker for students in a class: what's due next and new reports. */
+/** Whether this device holds an unfinished run of the guide (quiz, practice or adaptive). */
+function hasSavedRun(guideId: string): boolean {
+  try {
+    return ["quiz", "practice", "adaptive"].some((kind) => {
+      const raw = localStorage.getItem(`cs:${kind}:${guideId}`)
+      if (!raw) return false
+      const saved = JSON.parse(raw)
+      if (kind === "adaptive") return Array.isArray(saved) ? saved.length > 0 : !!saved && Object.keys(saved).length > 0
+      return !!saved?.run
+    })
+  } catch { return false }
+}
+
+const stripCard = "group flex min-w-0 items-center gap-3 rounded-2xl p-3.5 text-left ring-1 ring-inset transition"
+const stripGo = "inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-700"
+
+/** Top of the guide maker for students in a class: what's due next, reports they haven't opened, and what the teacher added this week. */
 export function ClassworkStrip({ data: given }: { data?: Classwork | null } = {}) {
   const own = useClasswork(given !== undefined)
   const data = given !== undefined ? given : own
+  const router = useRouter()
+  // Read after mount: both live in this browser only.
+  const [seen, setSeen] = useState<string[] | null>(null)
+  const [started, setStarted] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setSeen(seenReports())
+    setStarted(new Set((data?.assignments ?? []).filter((a) => isOpenWork(a.status) && hasSavedRun(a.guideId)).map((a) => a.id)))
+  }, [data])
   if (!data) return null
-  const { next, moreOpen, openCount, newReports, newShared } = homeStrip(data.assignments, data.reports, new Date(), 2, data.missingTests ?? [], data.shared ?? [])
   const connected = <JustConnected data={data} />
-  if (!next.length && !newReports.length && !newShared.length) return connected
-  const shownReports = newReports.slice(0, 2 - next.length)
-  const moreReports = newReports.length - shownReports.length
-  const shownShared = newShared.slice(0, Math.max(0, 2 - next.length - shownReports.length))
-  const moreShared = newShared.length - shownShared.length
-  const footer = [moreOpen > 0 && `${moreOpen} more to do`, moreReports > 0 && `${moreReports} new report${moreReports === 1 ? "" : "s"}`, moreShared > 0 && `${moreShared} more from your teacher`].filter(Boolean)
+  if (!seen) return connected
+  const { cards, openCount, more } = stripCards({ assignments: data.assignments, reports: data.reports, tests: data.missingTests ?? [], shared: data.shared ?? [], materials: data.materials ?? [], seenReports: seen })
+  if (!cards.length) return connected
+  // With two or more classes, each card says which one it is from.
+  const classOf = (id: string | null) => (data.classes.length > 1 && id ? data.classes.find((c) => c.id === id)?.name ?? null : null)
+  const teacherOf = (id: string) => data.classes.find((c) => c.id === id)?.teacherName ?? null
+  const footer = [more.open > 0 && `${more.open} more to do`, more.reports > 0 && `${more.reports} more new report${more.reports === 1 ? "" : "s"}`, more.fromTeacher > 0 && `${more.fromTeacher} more from your teacher`].filter(Boolean)
   return (
     <>
     {connected}
@@ -248,45 +273,66 @@ export function ClassworkStrip({ data: given }: { data?: Classwork | null } = {}
         </Link>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {next.map((item) => item.kind === "test" ? (
-          <div key={item.t.batchId} className="flex items-center gap-3 rounded-2xl bg-rose-50/60 p-3.5 ring-1 ring-inset ring-rose-200">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-slate-900">{item.t.title}</span>
-              <span className="text-sm font-medium text-rose-700">{testStatusText(item.t)}</span>
-            </span>
-            {item.t.classroomUrl && <ClassroomLink href={item.t.classroomUrl} compact />}
-          </div>
-        ) : (
-          <Link key={item.a.id} href={practiceHref(item.a)} className={cn("group flex items-center gap-3 rounded-2xl p-3.5 ring-1 ring-inset transition", item.a.status === "missing" ? "bg-rose-50/60 ring-rose-200 hover:bg-rose-50" : "bg-blue-50/50 ring-blue-200 hover:bg-blue-50")}>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{item.a.title}</span>
-              <span className={cn("flex items-center gap-1 text-sm", item.a.status === "missing" ? "font-medium text-rose-700" : "text-slate-600")}>
-                <CalendarClock className="h-3.5 w-3.5" />{dueLabel(item.a.dueAt)}
+        {cards.map((card) => {
+          if (card.kind === "test") return (
+            <div key={card.t.batchId} className={cn(stripCard, "bg-rose-50/60 ring-rose-200")}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-slate-900">{card.t.title}</span>
+                <span className="block truncate text-sm font-medium text-rose-700">{[testStatusText(card.t), classOf(card.t.classId)].filter(Boolean).join(" · ")}</span>
               </span>
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-700">Start <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
-          </Link>
-        ))}
-        {shownReports.map((r) => (
-          <Link key={r.id} href={`/grade-report/${r.id}`} className="group flex items-center gap-3 rounded-2xl bg-emerald-50/50 p-3.5 ring-1 ring-inset ring-emerald-200 transition hover:bg-emerald-50">
-            <FileCheck className="h-5 w-5 shrink-0 text-emerald-700" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{r.title}</span>
-              <span className="text-sm text-slate-600">New report · {Math.round(r.pct)}%</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-blue-700" />
-          </Link>
-        ))}
-        {shownShared.map((g) => (
-          <Link key={g.id} href={`/study-guide/${g.guideId}`} className="group flex items-center gap-3 rounded-2xl bg-blue-50/50 p-3.5 ring-1 ring-inset ring-blue-200 transition hover:bg-blue-50">
-            <BookOpen className="h-5 w-5 shrink-0 text-blue-700" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{g.title}</span>
-              <span className="block truncate text-sm text-slate-600">{g.note || "From your teacher"}</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-blue-700" />
-          </Link>
-        ))}
+              {card.t.classroomUrl && <ClassroomLink href={card.t.classroomUrl} compact />}
+            </div>
+          )
+          if (card.kind === "practice") {
+            const a = card.a
+            const overdue = a.status === "missing"
+            return (
+              <Link key={a.id} href={practiceHref(a)} className={cn(stripCard, overdue ? "bg-rose-50/60 ring-rose-200 hover:bg-rose-50" : "bg-blue-50/50 ring-blue-200 hover:bg-blue-50")}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{a.title}</span>
+                  <span className={cn("flex min-w-0 items-center gap-1 text-sm", overdue ? "font-medium text-rose-700" : "text-slate-600")}>
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{[a.status === "incomplete" ? "Sent unfinished" : dueLabel(a.dueAt), classOf(a.classId)].filter(Boolean).join(" · ")}</span>
+                  </span>
+                </span>
+                <span className={stripGo}>{a.status === "incomplete" ? "Finish it" : started.has(a.id) ? "Continue" : "Start"} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+              </Link>
+            )
+          }
+          if (card.kind === "report") return (
+            <Link key={card.r.id} href={`/grade-report/${card.r.id}`} className={cn(stripCard, "bg-emerald-50/50 ring-emerald-200 hover:bg-emerald-50")}>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-bold tabular-nums text-emerald-800 ring-1 ring-inset ring-emerald-200">{Math.round(card.r.pct)}%</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{card.r.title}</span>
+                <span className="block truncate text-sm text-slate-600">{["New report", classOf(card.r.classId)].filter(Boolean).join(" · ")}</span>
+              </span>
+              <span className={stripGo}>See it <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+            </Link>
+          )
+          if (card.kind === "material") {
+            const Icon = card.m.kind === "slides" ? Presentation : FileText
+            return (
+              <button key={card.m.id} type="button" onClick={() => router.push(materialPrefillHref(card.m, teacherOf(card.m.classId)))} className={cn(stripCard, "bg-orange-50/50 ring-orange-200 hover:bg-orange-50")}>
+                <Icon className="h-5 w-5 shrink-0 text-orange-700" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{materialTitle(card.m.name)}</span>
+                  <span className="block truncate text-sm text-slate-600">{["New from your teacher", classOf(card.m.classId)].filter(Boolean).join(" · ")}</span>
+                </span>
+                <span className={stripGo}>Make a guide <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+              </button>
+            )
+          }
+          return (
+            <Link key={card.g.id} href={`/study-guide/${card.g.guideId}`} className={cn(stripCard, "bg-blue-50/50 ring-blue-200 hover:bg-blue-50")}>
+              <BookOpen className="h-5 w-5 shrink-0 text-blue-700" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-slate-900 group-hover:text-blue-700">{card.g.title}</span>
+                <span className="block truncate text-sm text-slate-600">{card.g.note || ["From your teacher", classOf(card.g.classId)].filter(Boolean).join(" · ")}</span>
+              </span>
+              <span className={stripGo}>Open <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+            </Link>
+          )
+        })}
       </div>
       {footer.length > 0 && <p className="mt-2 text-sm text-slate-500">{footer.join(" · ")}</p>}
     </section>

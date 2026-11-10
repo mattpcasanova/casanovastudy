@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, ChevronRight, ClipboardCheck, EyeOff, FileCheck, Inbox, ListChecks, PencilLine, Plus, ScanSearch, TrendingUp, Users } from "lucide-react"
+import { ArrowRight, BookOpen, Check, CheckCheck, ChevronRight, ClipboardCheck, EyeOff, FileCheck, Inbox, ListChecks, PencilLine, Plus, ScanSearch, TrendingUp, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -20,7 +20,7 @@ import { actionButton } from "@/components/grading/grading-ui"
 import { TeacherVerificationCard } from "@/components/teacher/verification-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { dueLabel } from "@/lib/student/classwork-rules"
-import type { Attention, HomePractice } from "@/lib/teacher/home"
+import { HOME_RULES, type Attention, type HomePractice } from "@/lib/teacher/home"
 
 interface HomeData {
   firstName: string | null
@@ -40,6 +40,14 @@ const ATTENTION_LOOK: Record<Attention["kind"], { icon: typeof Inbox; tile: stri
   check: { icon: ScanSearch, tile: "bg-amber-100 text-amber-800" },
   release: { icon: EyeOff, tile: "bg-slate-100 text-slate-700" },
   practice: { icon: ListChecks, tile: "bg-violet-100 text-violet-800" },
+}
+
+// Items the teacher ticked off, kept in this browser. The key carries the item's
+// wording, so a set comes back when something about it changes (more flags, more papers to mark).
+const DONE_KEY = "cs:teach:done"
+const doneId = (item: Attention) => `${item.key}|${item.detail}`
+function readDone(): string[] {
+  try { const list = JSON.parse(localStorage.getItem(DONE_KEY) || "[]"); return Array.isArray(list) ? list : [] } catch { return [] }
 }
 
 export default function TeachPage() {
@@ -72,6 +80,24 @@ function TeacherHome() {
   }, [])
 
   const name = data?.firstName ?? user?.first_name ?? ""
+
+  const [done, setDone] = useState<string[]>([])
+  const [undo, setUndo] = useState<string[] | null>(null)
+  useEffect(() => { setDone(readDone()) }, [])
+  const tickOff = (ids: string[]) => {
+    const next = [...new Set([...done, ...ids])].slice(-200)
+    setDone(next)
+    setUndo(ids)
+    try { localStorage.setItem(DONE_KEY, JSON.stringify(next)) } catch {}
+  }
+  const bringBack = () => {
+    const next = done.filter((d) => !undo?.includes(d))
+    setDone(next)
+    setUndo(null)
+    try { localStorage.setItem(DONE_KEY, JSON.stringify(next)) } catch {}
+  }
+  const waiting = (data?.attention.items ?? []).filter((item) => !done.includes(doneId(item)))
+  const waitingShown = waiting.slice(0, HOME_RULES.max)
 
   return (
     <div className={cn(displaySerif.variable, "min-h-screen bg-slate-50")}>
@@ -116,36 +142,81 @@ function TeacherHome() {
 
         <TeacherVerificationCard />
 
-        {data && data.attention.items.length > 0 && (
+        {/* Classes sit right under the main jobs: the most clicked part of the page. */}
+        {data && (
+          <section aria-labelledby="classes-heading" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 id="classes-heading" className="font-semibold text-slate-900">Your classes <span className="ml-1 text-sm font-normal text-slate-500">{data.year}</span></h2>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/teacher/progress" className={actionButton}><TrendingUp /><span className="sm:hidden">Progress</span><span className="hidden sm:inline">How they&apos;re doing</span></Link>
+                <Link href="/teacher/classes" className={actionButton}><Users /><span className="sm:hidden">Manage</span><span className="hidden sm:inline">Manage classes</span></Link>
+              </div>
+            </div>
+            {data.classes.length === 0 ? (
+              <Link href="/teacher/classes" className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 hover:bg-blue-50">
+                <Plus className="h-4 w-4 shrink-0 text-blue-700" />Add your classes (import a CSV or Google Classroom) so names match automatically.
+              </Link>
+            ) : (
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {data.classes.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/teacher/classes/${c.id}`} className="group flex items-center gap-3 rounded-2xl p-3 ring-1 ring-inset ring-slate-200 transition hover:bg-blue-50/50 hover:ring-blue-300">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-bold text-blue-700 group-hover:bg-white">{c.period ? `P${c.period}` : <Users className="h-5 w-5" />}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{c.name}</span>
+                        <span className="block text-sm text-slate-500">{c.students} student{c.students === 1 ? "" : "s"}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-600" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {undo && (
+          <div role="status" className="flex items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm text-white">
+            <span>{undo.length === 1 ? "Ticked off." : `${undo.length} ticked off.`} It comes back if something changes.</span>
+            <button type="button" onClick={bringBack} className="h-9 shrink-0 rounded-lg bg-white/15 px-3 font-semibold hover:bg-white/25">Undo</button>
+          </div>
+        )}
+
+        {waitingShown.length > 0 && (
           <section aria-labelledby="waiting-heading" className="animate-fade-up rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
-            <h2 id="waiting-heading" className="flex items-center gap-2 px-3 pb-1 pt-3 font-semibold text-slate-900">
-              Waiting on you
-              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">{data.attention.items.length + data.attention.more}</span>
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-1 pt-2">
+              <h2 id="waiting-heading" className="flex items-center gap-2 font-semibold text-slate-900">
+                Waiting on you
+                <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">{waiting.length}</span>
+              </h2>
+              {waiting.length > 1 && <button type="button" className={actionButton} onClick={() => tickOff(waiting.map(doneId))}><CheckCheck />Tick off all</button>}
+            </div>
             <ul>
-              {data.attention.items.map((item) => {
+              {waitingShown.map((item) => {
                 const look = ATTENTION_LOOK[item.kind]
                 return (
-                  <li key={item.key}>
-                    <Link href={item.href} className="group flex items-center gap-3 rounded-2xl p-3 transition hover:bg-slate-50">
+                  <li key={item.key} className="flex items-center gap-1">
+                    <Link href={item.href} className="group flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-3 transition hover:bg-slate-50">
                       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", look.tile)}><look.icon className="h-5 w-5" /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium text-slate-900">{item.title}</span>
                         <span className="block text-sm text-slate-600">{item.detail}</span>
                       </span>
                       <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-blue-700 sm:inline-flex">{item.action}<ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
-                      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 sm:hidden" />
                     </Link>
+                    <button type="button" onClick={() => tickOff([doneId(item)])} aria-label={`Tick off: ${item.title}`} title="Tick off: I've seen this" className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 ring-1 ring-inset ring-slate-300 transition hover:bg-emerald-50 hover:text-emerald-700 hover:ring-emerald-300">
+                      <Check className="h-5 w-5" />
+                    </button>
                   </li>
                 )
               })}
             </ul>
-            {data.attention.more > 0 && <p className="px-3 pb-2 pt-1 text-sm text-slate-500">And {data.attention.more} more in your recent sets.</p>}
+            {waiting.length > waitingShown.length && <p className="px-3 pb-2 pt-1 text-sm text-slate-500">And {waiting.length - waitingShown.length} more after these.</p>}
           </section>
         )}
 
         {!data ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]" role="status" aria-label="Loading your classes and recent sets">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" role="status" aria-label="Loading your classes and recent sets">
             {[4, 3].map((rows, i) => (
               <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <Skeleton className="mb-5 h-5 w-36 rounded-full" />
@@ -161,8 +232,7 @@ function TeacherHome() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="space-y-6">
+          <div className={cn("grid grid-cols-1 items-start gap-6", data.practice.length > 0 && "lg:grid-cols-2")}>
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Recently graded</h2>
@@ -220,38 +290,7 @@ function TeacherHome() {
                 </ul>
               </section>
             )}
-            </div>
 
-            <section className="self-start rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-slate-900">Your classes <span className="block text-xs font-normal text-slate-500">{data.year}</span></h2>
-                <Link href="/teacher/classes" className={actionButton}><Users />Manage classes</Link>
-              </div>
-              <Link href="/teacher/progress" className="mb-3 flex items-center gap-3 rounded-2xl bg-blue-50 p-3 text-sm text-blue-900 hover:bg-blue-100">
-                <TrendingUp className="h-5 w-5 shrink-0 text-blue-700" />
-                <span className="min-w-0 flex-1"><span className="block font-semibold">How your classes are doing</span><span className="block text-xs text-blue-800">Trends by course, period and student, and what to focus on.</span></span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-blue-600" />
-              </Link>
-              {data.classes.length === 0 ? (
-                <Link href="/teacher/classes" className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 hover:bg-blue-50">
-                  <Plus className="h-4 w-4 text-blue-700" />Add your classes (import a CSV or Google Classroom) so names match automatically.
-                </Link>
-              ) : (
-                <ul className="space-y-1.5">
-                  {data.classes.map((c) => (
-                    <li key={c.id}>
-                      <Link href={`/teacher/classes/${c.id}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xs font-bold text-blue-700">{c.period ? `P${c.period}` : <Users className="h-4 w-4" />}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-slate-900">{c.name}</span>
-                          <span className="block text-xs text-slate-500">{c.students} student{c.students === 1 ? "" : "s"}</span>
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
           </div>
         )}
       </main>

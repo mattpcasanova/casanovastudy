@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { schoolYearFor } from '@/lib/classes/years'
 import { sortClasses } from '@/lib/classes/sort'
 import { stillMarking } from '@/lib/grading/mark-points'
-import { attentionItems, type HomePractice } from '@/lib/teacher/home'
+import { attentionItems, HOME_RULES, type HomePractice } from '@/lib/teacher/home'
 
 // The teacher home (/teach): recent graded sets, this year's classes, and
 // scans waiting in the scanner inbox. Owner only.
@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
     firstName: profile?.first_name ?? null,
     year,
     recent: allSets.slice(0, 6),
-    attention: attentionItems({ scansWaiting: waiting ?? 0, sets: allSets, practice }),
+    // Everything, not just the first few: the page hides what the teacher ticked off, then shows the top of what is left.
+    attention: attentionItems({ scansWaiting: waiting ?? 0, sets: allSets, practice }, { ...HOME_RULES, max: 40 }),
     practice: practice.filter((p) => p.assigned > 0).slice(0, 5),
     week: { papers: papersThisWeek, sets: setsThisWeek.size },
     classes: sortClasses(classes ?? []).map((c) => ({ id: c.id, name: c.name, period: c.period, students: counts.get(c.id) ?? 0 })),

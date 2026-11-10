@@ -1,5 +1,6 @@
 "use client"
 
+import { markReportSeen } from '@/lib/student/seen-reports'
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
@@ -151,6 +152,7 @@ export default function GradeReportPage() {
         setError(null)
         setResult(data.data)
         setDraft(draftFrom(data.data))
+        if (!data.data.isOwner) markReportSeen(id)
         // A paper waiting for the teacher's marks opens ready to mark, with the paper beside it.
         setFocusQuestion(null)
         if (data.data.isOwner && (unmarkedCount(data.data.gradeBreakdown) > 0 || new URLSearchParams(window.location.search).get('mark') === '1')) {

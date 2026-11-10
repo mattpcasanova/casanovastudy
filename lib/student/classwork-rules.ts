@@ -40,22 +40,51 @@ export function dueLabel(dueAt: string | null, now = new Date()): string {
   return `Due ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 }
 
-export const NEW_REPORT_DAYS = 7
+interface Dated { id: string; createdAt: string }
 
-export type StripItem<A> = { kind: 'practice'; a: A } | { kind: 'test'; t: MissingTest }
+export const STRIP_RULES = { cards: 4, todo: 2, newDays: 7, reportDays: 30 }
 
-/** The homepage strip: overdue practice, then tests not turned in, then upcoming practice (up to `max`), plus reports from the last week. */
-export function homeStrip<A extends StudentAssignment, R extends StudentReport, S extends StudentReport = StudentReport>(assignments: A[], reports: R[], now = new Date(), max = 2, tests: MissingTest[] = [], shared: S[] = []) {
-  const open = openWork(assignments)
-  const items: StripItem<A>[] = [
+export type StripCard<A, R, S, M> =
+  | { kind: 'practice'; a: A }
+  | { kind: 'test'; t: MissingTest }
+  | { kind: 'report'; r: R }
+  | { kind: 'material'; m: M }
+  | { kind: 'shared'; g: S }
+
+/**
+ * The homepage strip, up to four cards: what to do next (overdue practice,
+ * tests not turned in, upcoming practice; two of them, more when there is
+ * room), then reports the student hasn't opened yet (graded in the last 30
+ * days: a teacher may release a set well after grading it), then class
+ * materials and shared guides from the last week, newest first.
+ */
+export function stripCards<A extends StudentAssignment, R extends StudentReport, S extends Dated, M extends Dated>(input: {
+  assignments: A[]; reports: R[]; tests?: MissingTest[]; shared?: S[]; materials?: M[]; seenReports?: string[]; now?: Date
+}) {
+  const now = (input.now ?? new Date()).getTime()
+  const within = (iso: string, days: number) => now - Date.parse(iso) < days * DAY
+  const newest = <T extends Dated>(list: T[]) => [...list].sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+  const open = openWork(input.assignments)
+  const todo: StripCard<A, R, S, M>[] = [
     ...open.filter((a) => a.status === 'missing').map((a) => ({ kind: 'practice' as const, a })),
-    ...tests.map((t) => ({ kind: 'test' as const, t })),
+    ...(input.tests ?? []).map((t) => ({ kind: 'test' as const, t })),
     ...open.filter((a) => a.status !== 'missing').map((a) => ({ kind: 'practice' as const, a })),
   ]
-  const fresh = reports.filter((r) => now.getTime() - Date.parse(r.createdAt) < NEW_REPORT_DAYS * DAY)
-  // Guides the teacher shared this week (no grading) show while they're new.
-  const newShared = shared.filter((r) => now.getTime() - Date.parse(r.createdAt) < NEW_REPORT_DAYS * DAY)
-  return { next: items.slice(0, max), moreOpen: Math.max(0, items.length - max), openCount: items.length, newReports: fresh, newShared }
+  const seen = new Set(input.seenReports ?? [])
+  const reports = newest(input.reports.filter((r) => !seen.has(r.id) && within(r.createdAt, STRIP_RULES.reportDays))).map((r) => ({ kind: 'report' as const, r }))
+  const fromTeacher = [
+    ...(input.materials ?? []).filter((m) => within(m.createdAt, STRIP_RULES.newDays)).map((m) => ({ kind: 'material' as const, m, at: m.createdAt })),
+    ...(input.shared ?? []).filter((g) => within(g.createdAt, STRIP_RULES.newDays)).map((g) => ({ kind: 'shared' as const, g, at: g.createdAt })),
+  ].sort((x, y) => y.at.localeCompare(x.at)).map((c): StripCard<A, R, S, M> => (c.kind === 'material' ? { kind: c.kind, m: c.m } : { kind: c.kind, g: c.g }))
+  const rest = [...reports, ...fromTeacher]
+  const restShown = Math.min(rest.length, STRIP_RULES.cards - Math.min(todo.length, STRIP_RULES.todo))
+  const todoShown = Math.min(todo.length, STRIP_RULES.cards - restShown)
+  const reportsShown = Math.min(reports.length, restShown)
+  return {
+    cards: [...todo.slice(0, todoShown), ...rest.slice(0, restShown)],
+    openCount: todo.length,
+    more: { open: todo.length - todoShown, reports: reports.length - reportsShown, fromTeacher: fromTeacher.length - (restShown - reportsShown) },
+  }
 }
 
 export interface MissingTest { batchId: string; title: string; classId: string; firstGraded: string; status: string | null; /** Set when the set came from a Google Classroom assignment. */ classroomUrl?: string | null }
