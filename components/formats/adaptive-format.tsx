@@ -425,9 +425,9 @@ function ChoiceAnswer({ q, result, onPick, hint }: { q: AdaptiveQuestion; result
               aria-pressed={selected}
               onClick={() => { cross.uncross(i); if (pending === i) onPick(i); else setPending(i) }}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
+                "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all enabled:active:scale-[0.99]",
                 isTF && "justify-center font-semibold",
-                correct ? "border-emerald-400 bg-emerald-50" : wrong ? "border-rose-400 bg-rose-50" : selected ? "border-sky-600 bg-sky-50" : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/40",
+                correct ? "animate-pop border-emerald-400 bg-emerald-50" : wrong ? "border-rose-400 bg-rose-50" : selected ? "border-sky-600 bg-sky-50" : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/40",
                 result && !correct && !wrong && "opacity-60",
                 crossed && crossedClass
               )}

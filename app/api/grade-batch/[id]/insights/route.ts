@@ -4,9 +4,10 @@ import { requireTeacher } from '@/lib/api-auth'
 import { ClaudeService } from '@/lib/claude-api'
 import { gradingBlock, planBlockResponse } from '@/lib/plans'
 import { createAdminClient } from '@/lib/supabase-server'
-import { insightsInput, insightsSignature, parseClassInsights, questionStats, type ClassInsightsAI, type PaperForInsights } from '@/lib/grading/insights'
+import { applyTopicMap, insightsInput, insightsSignature, parseClassInsights, questionStats, type ClassInsightsAI, type PaperForInsights } from '@/lib/grading/insights'
 import { knownAreaNames } from '@/lib/classes/areas'
-import { normalizeStandards } from '@/lib/standards'
+import { normalizeStandards, standardCodes } from '@/lib/standards'
+import { sharedTopicsFor } from '@/lib/grading/topic-map-server'
 
 // Class report, AI part: topic grouping, common mistakes and what to reteach.
 // The numbers come from lib/grading/insights.ts on the page; this only writes
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const supabase = createAdminClient()
   const { data: rows, error: dbError } = await supabase
     .from('grading_results')
-    .select('id, student_name, grade_breakdown, exam_title, class_name, class_id')
+    .select('id, student_name, grade_breakdown, exam_title, class_name, class_id, total_possible_marks, created_at')
     .eq('batch_id', id)
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
@@ -58,10 +59,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!stats.length) return NextResponse.json({ error: 'These papers have no per-question marks to report on' }, { status: 400 })
 
   try {
-    const knownAreas = await classAreaNames(supabase, user.id, rows.find((r) => r.class_id)?.class_id ?? null, id)
-    const { text } = await new ClaudeService().classInsights(insightsInput(papers, stats), { examTitle: rows[0].exam_title, className: rows[0].class_name, knownAreas, standards })
+    const classId = rows.find((r) => r.class_id)?.class_id ?? null
+    const labels = stats.map((q) => q.label)
+    // With 2+ standards the topics are the standards, which already match across periods.
+    const sharedTopics = standardCodes(standards).length >= 2 ? null : await sharedTopicsFor(supabase, user.id, { batchId: id, classId, examTitle: rows[0].exam_title, possible: Number(rows[0].total_possible_marks) || null, labels, gradedAt: rows[0].created_at })
+    const knownAreas = sharedTopics ? [] : await classAreaNames(supabase, user.id, classId, id)
+    const { text } = await new ClaudeService().classInsights(insightsInput(papers, stats), { examTitle: rows[0].exam_title, className: rows[0].class_name, knownAreas, standards, sharedTopics: sharedTopics ?? undefined })
     const insights = parseClassInsights(text)
     if (!insights) throw new Error('The report came back in a form we could not read. Try again.')
+    if (sharedTopics) insights.topics = applyTopicMap(insights.topics, sharedTopics, labels)
     const createdAt = new Date().toISOString()
     await supabase.from('grading_batch_insights').upsert({ batch_id: id, user_id: user.id, signature, data: insights, created_at: createdAt })
     return NextResponse.json({ insights, current: true, createdAt })

@@ -106,6 +106,56 @@ export function topicStats(stats: QuestionStat[], topics: ClassInsightsAI['topic
     .sort((a, b) => a.avgPct - b.avgPct)
 }
 
+type Topics = ClassInsightsAI['topics']
+const nameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ')
+
+/** A saved report stands in for this set's topics only when the two share at least this much of their questions and were graded within `days` of each other. */
+export const TOPIC_MAP_RULES = { minShare: 0.8, days: 30 }
+
+/** Share of this set's question labels that a topic list places (0-1). */
+export function topicMapCoverage(labels: string[], topics: Topics): number {
+  if (!labels.length) return 0
+  const placed = new Set(topics.flatMap((t) => t.questions.map(normalizeQuestionKey)))
+  return labels.filter((l) => placed.has(normalizeQuestionKey(l))).length / labels.length
+}
+
+/**
+ * The same test given to several periods must report the same topics, or the
+ * periods can't be compared (three AP Chem periods of one quiz came back as
+ * "Gas laws and partial pressures", "Ideal gas law and partial pressures" and
+ * "Gas laws and ideal gas calculations"). `shared` is the first period's
+ * grouping: its names and which question goes where are kept. A question it
+ * doesn't place keeps the topic this report gave it: the shared topic of that
+ * name when there is one, else a topic of its own at the end.
+ */
+export function applyTopicMap(own: Topics, shared: Topics, labels: string[]): Topics {
+  const out: Topics = shared.map((t) => ({ name: t.name, questions: [] }))
+  const sharedAt = new Map<string, number>()
+  shared.forEach((t, i) => t.questions.forEach((q) => { if (!sharedAt.has(normalizeQuestionKey(q))) sharedAt.set(normalizeQuestionKey(q), i) }))
+  const byName = new Map(out.map((t, i) => [nameKey(t.name), i]))
+  const ownOf = new Map<string, string>()
+  own.forEach((t) => t.questions.forEach((q) => { if (!ownOf.has(normalizeQuestionKey(q))) ownOf.set(normalizeQuestionKey(q), t.name) }))
+
+  const seen = new Set<string>()
+  for (const label of labels) {
+    const key = normalizeQuestionKey(label)
+    if (seen.has(key)) continue
+    seen.add(key)
+    let at = sharedAt.get(key)
+    if (at === undefined) {
+      const name = ownOf.get(key)
+      if (!name) continue
+      at = byName.get(nameKey(name))
+      if (at === undefined) {
+        at = out.push({ name, questions: [] }) - 1
+        byName.set(nameKey(name), at)
+      }
+    }
+    out[at].questions.push(label)
+  }
+  return out.filter((t) => t.questions.length > 0)
+}
+
 /** Changes whenever a paper is added, removed or re-marked, so a saved report can be marked out of date. */
 export function insightsSignature(papers: PaperForInsights[], standards?: string | null): string {
   const marks = papers

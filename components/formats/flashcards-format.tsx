@@ -418,6 +418,11 @@ function StudyCard({
   const { tldr, rest, block } = structureAnswer(card.answer)
   const face = 'absolute inset-0 backface-hidden overflow-hidden rounded-2xl border border-slate-200 shadow-lg ring-inset flex flex-col'
   const qLen = card.question.length
+  // A new card slides in from the side it came from (next from the right, previous from the left).
+  const lastPosition = useRef(position)
+  const slideFrom = position >= lastPosition.current ? 18 : -18
+  useEffect(() => { lastPosition.current = position }, [position])
+  const behind = count - position - 1
 
   const header = (label: React.ReactNode) => (
     <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-3">
@@ -436,7 +441,10 @@ function StudyCard({
   )
 
   return (
-    <div className="relative h-[440px] perspective-1000 print:hidden sm:h-[460px]">
+    <div className="relative h-[440px] print:hidden sm:h-[460px]">
+      {/* The rest of the deck, peeking out underneath. */}
+      {behind > 1 && <div aria-hidden="true" className="absolute inset-x-6 -bottom-3 top-3 rounded-2xl border border-slate-200 bg-white/70" />}
+      {behind > 0 && <div aria-hidden="true" className="absolute inset-x-3 -bottom-1.5 top-1.5 rounded-2xl border border-slate-200 bg-white shadow-sm" />}
       {isLoadingProgress && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/80">
           <div className="flex flex-col items-center gap-2">
@@ -445,6 +453,7 @@ function StudyCard({
           </div>
         </div>
       )}
+      <div key={card.id} className="animate-card-in relative h-full w-full perspective-1000" style={{ '--cs-card-from': `${slideFrom}px` } as React.CSSProperties}>
       <div
         className={cn('relative h-full w-full cursor-pointer transition-transform duration-500 transform-style-3d motion-reduce:transition-none', isFlipped && 'rotate-y-180')}
         onClick={() => setIsFlipped(!isFlipped)}
@@ -496,6 +505,7 @@ function StudyCard({
           <p className="pb-5 text-center text-xs text-slate-400">Tap to flip back</p>
           {isFlipped && <ReadAloudButton text={textForSpeech(card.answer)} label="Read the answer aloud" className="absolute bottom-3 right-3" />}
         </div>
+      </div>
       </div>
     </div>
   )

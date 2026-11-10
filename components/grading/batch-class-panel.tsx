@@ -9,7 +9,6 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Loader2, PenLine, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import { authFetch } from "@/lib/auth-fetch"
 import { cn } from "@/lib/utils"
 import { dayCount } from "@/lib/practice/assignments"
@@ -61,8 +60,6 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
   const classId = rows.find((r) => r.class_id)?.class_id ?? null
   const className = rows.find((r) => r.class_id)?.class_name ?? null
   const matched = rows.filter((r) => r.roster_id).length
-  const linked = rows.filter((r) => r.student_user_id).length
-  const released = rows.length > 0 && rows.every((r) => r.released)
   const unmatched = rows.filter((r) => !r.roster_id)
 
   useEffect(() => {
@@ -156,18 +153,6 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
     }
   }
 
-  const setReleased = async (value: boolean) => {
-    setBusy(true)
-    try {
-      await patch({ released: value })
-      onChanged()
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Could not save")
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
@@ -228,17 +213,6 @@ export function BatchClassPanel({ batchId, rows, roster, examTitle, possible, on
                 </div>
               )}
               {late.length > 0 && <p className="mt-2 text-sm text-slate-700">Late: {late.map((e) => `${e.name}${e.daysLate ? ` (${dayCount(e.daysLate)})` : ""}`).join(", ")}</p>}
-              <label className="mt-3 flex items-center gap-3">
-                <Switch checked={released} onCheckedChange={(v) => void setReleased(v)} disabled={busy} />
-                <span className="text-sm text-slate-800">
-                  Release reports to students
-                  <span className="block text-xs text-slate-500">
-                    {linked === 0
-                      ? "No student on these papers has joined the class yet. Share the class code and they'll see their report once it's released."
-                      : `${linked} student${linked === 1 ? "" : "s"} with an account will see their own report.`}
-                  </span>
-                </span>
-              </label>
             </>
           ) : (
             <>

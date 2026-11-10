@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
+import { useCountUp } from '@/lib/use-count-up'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks, Timer } from 'lucide-react'
@@ -815,9 +816,9 @@ function OptionButton({ letter, label, selected, correct, wrong, locked, onClick
       onClick={onClick}
       disabled={locked && !selected && !correct}
       className={cn(
-        'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
+        'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all enabled:active:scale-[0.99]',
         center && 'justify-center',
-        correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/40',
+        correct ? 'animate-pop border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/40',
         locked && !correct && !wrong && 'opacity-60',
         crossed && !selected && crossedClass
       )}
@@ -941,6 +942,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
   }
 
   const circumference = 2 * Math.PI * 52
+  const shownPct = useCountUp(pct)
 
   return (
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
@@ -952,13 +954,14 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
               <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="10" className="text-slate-100" />
               <circle
                 cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round"
-                className={cn(tone, 'transition-[stroke-dashoffset] duration-700')}
+                className={cn(tone, 'animate-ring')}
+                style={{ '--cs-ring-from': circumference } as CSSProperties}
                 strokeDasharray={circumference}
                 strokeDashoffset={circumference * (1 - pct / 100)}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={cn(fontDisplay, 'text-3xl font-semibold', tone)}>{pct}%</span>
+              <span className={cn(fontDisplay, 'text-3xl font-semibold tabular-nums', tone)}>{shownPct}%</span>
               <span className="text-xs text-slate-500">{correct}/{graded.length}</span>
             </div>
           </div>

@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, BookOpen, ChevronRight, FileCheck, Inbox, Loader2, PencilLine, Plus, TrendingUp, Users, ClipboardCheck } from "lucide-react"
+import { ArrowRight, BookOpen, ChevronRight, ClipboardCheck, EyeOff, FileCheck, Inbox, ListChecks, PencilLine, Plus, ScanSearch, TrendingUp, Users } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { useAuth } from "@/lib/auth"
@@ -18,14 +18,28 @@ import { fontDisplay } from "@/lib/formats/design"
 import { cn } from "@/lib/utils"
 import { actionButton } from "@/components/grading/grading-ui"
 import { TeacherVerificationCard } from "@/components/teacher/verification-card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { dueLabel } from "@/lib/student/classwork-rules"
+import type { Attention, HomePractice } from "@/lib/teacher/home"
 
 interface HomeData {
   firstName: string | null
   year: string
-  recent: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; average: number; date: string; released: boolean; toMark?: number }>
-  marking?: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; papers: number; toMark: number }>
+  recent: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; average: number; date: string; released: boolean; toMark?: number; toCheck?: number }>
+  attention: { items: Attention[]; more: number }
+  practice: HomePractice[]
+  week: { papers: number; sets: number }
   classes: Array<{ id: string; name: string; period: string | null; students: number }>
   scansWaiting: number
+}
+
+// One look per kind of thing waiting: icon and tint (the row itself is the link).
+const ATTENTION_LOOK: Record<Attention["kind"], { icon: typeof Inbox; tile: string }> = {
+  scans: { icon: Inbox, tile: "bg-amber-100 text-amber-800" },
+  mark: { icon: PencilLine, tile: "bg-blue-100 text-blue-800" },
+  check: { icon: ScanSearch, tile: "bg-amber-100 text-amber-800" },
+  release: { icon: EyeOff, tile: "bg-slate-100 text-slate-700" },
+  practice: { icon: ListChecks, tile: "bg-violet-100 text-violet-800" },
 }
 
 export default function TeachPage() {
@@ -69,7 +83,11 @@ function TeacherHome() {
         </div>
         <div className="container relative mx-auto max-w-5xl px-4">
           <h1 className={cn(fontDisplay, "text-4xl font-semibold tracking-tight sm:text-5xl")}>{greeting()}{name ? `, ${name}` : ""}</h1>
-          <p className="mt-2 text-lg text-blue-50">What are we doing today?</p>
+          <p className="mt-2 text-lg text-blue-50">
+            {data && data.week.papers > 0
+              ? <>This week: <strong className="font-semibold text-white">{data.week.papers} paper{data.week.papers === 1 ? "" : "s"}</strong> graded{data.week.sets > 1 ? ` across ${data.week.sets} class sets` : ""}.</>
+              : "What are we doing today?"}
+          </p>
         </div>
       </section>
 
@@ -98,26 +116,53 @@ function TeacherHome() {
 
         <TeacherVerificationCard />
 
-        {data && data.scansWaiting > 0 && (
-          <Link href="/grade-exam/batch" className="flex items-center gap-3 rounded-2xl bg-amber-50 p-4 text-amber-950 ring-1 ring-amber-200 hover:bg-amber-100">
-            <Inbox className="h-5 w-5 shrink-0" />
-            <span className="flex-1 font-medium">{data.scansWaiting} scan{data.scansWaiting === 1 ? " is" : "s are"} waiting in your scanner inbox</span>
-            <span className="font-semibold">Grade {data.scansWaiting === 1 ? "it" : "them"} →</span>
-          </Link>
+        {data && data.attention.items.length > 0 && (
+          <section aria-labelledby="waiting-heading" className="animate-fade-up rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+            <h2 id="waiting-heading" className="flex items-center gap-2 px-3 pb-1 pt-3 font-semibold text-slate-900">
+              Waiting on you
+              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">{data.attention.items.length + data.attention.more}</span>
+            </h2>
+            <ul>
+              {data.attention.items.map((item) => {
+                const look = ATTENTION_LOOK[item.kind]
+                return (
+                  <li key={item.key}>
+                    <Link href={item.href} className="group flex items-center gap-3 rounded-2xl p-3 transition hover:bg-slate-50">
+                      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", look.tile)}><look.icon className="h-5 w-5" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-slate-900">{item.title}</span>
+                        <span className="block text-sm text-slate-600">{item.detail}</span>
+                      </span>
+                      <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-blue-700 sm:inline-flex">{item.action}<ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" /></span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 sm:hidden" />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+            {data.attention.more > 0 && <p className="px-3 pb-2 pt-1 text-sm text-slate-500">And {data.attention.more} more in your recent sets.</p>}
+          </section>
         )}
 
-        {data?.marking?.map((s) => (
-          <Link key={s.batchId} href={`/grade-exam/batch/${s.batchId}`} className="flex items-center gap-3 rounded-2xl bg-blue-50 p-4 text-blue-950 ring-1 ring-blue-200 hover:bg-blue-100">
-            <PencilLine className="h-5 w-5 shrink-0" />
-            <span className="min-w-0 flex-1"><span className="block font-semibold">{s.title || "Untitled"}{s.className ? ` · ${s.className}${s.period ? ` P${s.period}` : ""}` : ""}</span><span className="block text-sm">{s.toMark} of {s.papers} paper{s.papers === 1 ? "" : "s"} still to mark</span></span>
-            <span className="shrink-0 font-semibold">Keep marking →</span>
-          </Link>
-        ))}
-
         {!data ? (
-          <p className="flex items-center justify-center gap-2 py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]" role="status" aria-label="Loading your classes and recent sets">
+            {[4, 3].map((rows, i) => (
+              <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <Skeleton className="mb-5 h-5 w-36 rounded-full" />
+                <div className="space-y-4">
+                  {Array.from({ length: rows }, (_, r) => (
+                    <div key={r} className="flex items-center gap-3">
+                      <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
+                      <div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-2/3 rounded-full" /><Skeleton className="h-3 w-1/3 rounded-full" /></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Recently graded</h2>
@@ -138,6 +183,9 @@ function TeacherHome() {
                           <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{s.title || "Untitled"}</span>
                           <span className="block text-xs text-slate-500">{[s.className, s.period && `P${s.period}`].filter(Boolean).join(" · ")}{s.className ? " · " : ""}{s.papers} paper{s.papers === 1 ? "" : "s"}{s.toMark ? ` · ${s.toMark} to mark` : ""} · {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
                         </span>
+                        {!s.toMark && s.classId && (
+                          <span className={cn("hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline", s.released ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600")}>{s.released ? "Released" : "Not released"}</span>
+                        )}
                         <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-600" />
                       </Link>
                     </li>
@@ -146,9 +194,37 @@ function TeacherHome() {
               )}
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            {data.practice.length > 0 && (
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="mb-1 font-semibold text-slate-900">Assigned practice</h2>
+                <ul className="divide-y divide-slate-100">
+                  {data.practice.map((p) => {
+                    const pct = Math.round((p.done / Math.max(1, p.assigned)) * 100)
+                    return (
+                      <li key={p.id}>
+                        <Link href={`/teacher/practice/${p.id}`} className="group flex items-center gap-3 py-3">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><ListChecks className="h-5 w-5" /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{p.title}</span>
+                            <span className="block text-xs text-slate-500">{[p.className, p.period && `P${p.period}`, dueLabel(p.dueAt)].filter(Boolean).join(" · ")}<span className="sm:hidden"> · {p.done} of {p.assigned} done</span></span>
+                          </span>
+                          <span className="hidden w-28 shrink-0 text-right sm:block">
+                            <span className="block text-xs font-medium tabular-nums text-slate-700">{p.done} of {p.assigned} done</span>
+                            <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span className={cn("block h-full rounded-full", pct === 100 ? "bg-emerald-500" : "bg-violet-500")} style={{ width: `${pct}%` }} /></span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-600" />
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            )}
+            </div>
+
+            <section className="self-start rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-slate-900">Your classes <span className="font-normal text-slate-500">{data.year}</span></h2>
+                <h2 className="font-semibold text-slate-900">Your classes <span className="block text-xs font-normal text-slate-500">{data.year}</span></h2>
                 <Link href="/teacher/classes" className={actionButton}><Users />Manage classes</Link>
               </div>
               <Link href="/teacher/progress" className="mb-3 flex items-center gap-3 rounded-2xl bg-blue-50 p-3 text-sm text-blue-900 hover:bg-blue-100">

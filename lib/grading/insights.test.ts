@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { insightsInput, insightsSignature, markedConsistently, staleReason, parseClassInsights, questionStats, topicStats, type PaperForInsights } from './insights'
+import { applyTopicMap, topicMapCoverage, insightsInput, insightsSignature, markedConsistently, staleReason, parseClassInsights, questionStats, topicStats, type PaperForInsights } from './insights'
 
 const q = (questionNumber: string, marksAwarded: number, marksPossible: number, explanation = '') => ({ questionNumber, marksAwarded, marksPossible, explanation })
 
@@ -75,5 +75,34 @@ describe('parseClassInsights', () => {
     const parsed = parseClassInsights('Here: {"summary":"Moles were weak.","topics":[{"name":"Moles","questions":["1a","1b"]},{"name":""}],"struggles":[{"question":"1b","issue":"Skipped the mole conversion."}],"reteach":["Mole conversions"]}')
     expect(parsed).toEqual({ summary: 'Moles were weak.', topics: [{ name: 'Moles', questions: ['1a', '1b'] }], struggles: [{ question: '1b', issue: 'Skipped the mole conversion.' }], reteach: ['Mole conversions'] })
     expect(parseClassInsights('not json')).toBeNull()
+  })
+})
+
+describe('applyTopicMap', () => {
+  const shared = [{ name: 'Gas laws and partial pressures', questions: ['1', '2', '3'] }, { name: 'Intermolecular forces', questions: ['4', '5'] }]
+
+  it('keeps the first period\'s names and question placement', () => {
+    const own = [{ name: 'Ideal gas law', questions: ['1', '2'] }, { name: 'Maxwell-Boltzmann', questions: ['3'] }, { name: 'IMFs and boiling point', questions: ['4', '5'] }]
+    expect(applyTopicMap(own, shared, ['1', '2', '3', '4', '5'])).toEqual(shared)
+  })
+
+  it('reads labels the way the grader wrote them and keeps this set\'s own spelling', () => {
+    const own = [{ name: 'Anything', questions: ['Question 1', 'Q2'] }]
+    expect(applyTopicMap(own, shared, ['Question 1', 'Q2'])).toEqual([{ name: 'Gas laws and partial pressures', questions: ['Question 1', 'Q2'] }])
+  })
+
+  it('puts a question the shared map lacks under the same-named shared topic, else a topic of its own', () => {
+    const own = [{ name: 'intermolecular  forces', questions: ['4', '6'] }, { name: 'Solids', questions: ['7'] }]
+    expect(applyTopicMap(own, shared, ['4', '6', '7'])).toEqual([{ name: 'Intermolecular forces', questions: ['4', '6'] }, { name: 'Solids', questions: ['7'] }])
+  })
+
+  it('drops shared topics with no question in this set and never places a question twice', () => {
+    expect(applyTopicMap([], shared, ['4', '4', '5'])).toEqual([{ name: 'Intermolecular forces', questions: ['4', '5'] }])
+  })
+
+  it('measures how much of a set a map covers', () => {
+    expect(topicMapCoverage(['1', '2', '3', '9'], shared)).toBe(0.75)
+    expect(topicMapCoverage(['Question 4'], shared)).toBe(1)
+    expect(topicMapCoverage([], shared)).toBe(0)
   })
 })

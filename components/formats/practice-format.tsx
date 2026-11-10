@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useCountUp } from '@/lib/use-count-up'
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Flame, Lightbulb, RotateCcw, SkipForward, Terminal, Trophy, XCircle, Shuffle as ShuffleIcon, ListOrdered, Puzzle, PencilLine, Columns2, HelpCircle, Bug, Flag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -876,9 +877,9 @@ function Choice({ activity, onDone, checked, hint }: { activity: ChoiceActivity;
               aria-pressed={selected}
               onClick={() => { cross.uncross(i); if (picked === i) lock(i); else setPicked(i) }}
               className={cn(
-                'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all',
+                'flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all enabled:active:scale-[0.99]',
                 isTF && 'justify-center font-semibold',
-                correct ? 'border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40',
+                correct ? 'animate-pop border-emerald-400 bg-emerald-50' : wrong ? 'border-rose-400 bg-rose-50' : selected ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40',
                 checked && !correct && !wrong && 'opacity-60',
                 crossed && crossedClass
               )}
@@ -962,6 +963,7 @@ function Results({ activities, results, bestStreak, onRestart, next = null, onNe
   const pct = activities.length ? Math.round((earned / activities.length) * 100) : 0
   const missed = activities.filter((a) => !results[a.id]?.correct)
   const message = pct >= 90 ? t.excellent : pct >= 70 ? t.solid : pct >= 50 ? t.gettingThere : t.keepGoing
+  const shownPct = useCountUp(pct)
 
   const topics: Array<{ name: string; right: number; total: number }> = []
   for (const a of activities) {
@@ -980,7 +982,7 @@ function Results({ activities, results, bestStreak, onRestart, next = null, onNe
           <span className="truncate">{title && title.trim().toLowerCase() !== 'practice' ? title : 'Practice'}</span>
         </div>
         <div className="animate-fade-up px-6 py-7 text-center">
-          <Trophy className={cn('mx-auto h-9 w-9', pct >= 80 ? 'text-amber-500' : 'text-orange-400')} />
+          <Trophy className={cn('animate-pop-in mx-auto h-9 w-9', pct >= 80 ? 'text-amber-500' : 'text-orange-400')} />
           <p className={cn(fontDisplay, 'mt-2 text-3xl font-semibold text-slate-900')}>{correct} / {activities.length}</p>
           <p className="mt-1 text-sm text-slate-500">{message}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -1000,9 +1002,9 @@ function Results({ activities, results, bestStreak, onRestart, next = null, onNe
     <div className={cn(displaySerif.variable, 'mx-auto max-w-3xl space-y-5')}>
       {!isRetry && <TurnedInCard />}
       <div className="animate-fade-up rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
-        <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600"><Trophy className="h-7 w-7" /></span>
+        <span className="animate-pop-in mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600"><Trophy className="h-7 w-7" /></span>
         <p className={cn(eyebrow, 'text-slate-400')}>{isRetry ? 'Retry complete' : 'Practice complete'}</p>
-        <p className={cn(fontDisplay, 'mt-1 text-5xl font-semibold text-slate-900')}>{pct}%</p>
+        <p className={cn(fontDisplay, 'mt-1 text-5xl font-semibold tabular-nums text-slate-900')}>{shownPct}%</p>
         <p className="mt-1 text-slate-600">{correct} of {activities.length} right on the first try · best streak {bestStreak}</p>
         <p className={cn(fontDisplay, 'mt-3 text-xl text-slate-800')}>{message}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">

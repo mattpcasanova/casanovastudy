@@ -24,6 +24,7 @@ import { ClassReport, type SavedInsights } from "@/components/grading/class-repo
 import type { GradedQuestion } from "@/lib/grading/parse"
 import { ScaleEditor } from "@/components/grading/report/scale-editor"
 import { BatchClassPanel, type BatchRosterEntry } from "@/components/grading/batch-class-panel"
+import { ReleaseStrip } from "@/components/grading/release-strip"
 import { DEFAULT_SCALE, gradeFor, normalizeScale, type GradeScale } from "@/lib/grading/scale"
 import { displaySerif } from "@/lib/formats/fonts"
 import { fontDisplay } from "@/lib/formats/design"
@@ -321,6 +322,7 @@ function BatchResults({ id }: { id: string }) {
                 <option value="score">Sort by score</option>
               </select>
             </div>
+            {classInfo && <ReleaseStrip batchId={id} rows={rows} toCheck={rows.reduce((n, r) => n + checksFor(r), 0)} onChanged={load} />}
             {waiting.length > 0 && (
               <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200 sm:flex-row sm:items-center sm:justify-between" role="status">
                 <div className="min-w-0">
