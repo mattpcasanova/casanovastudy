@@ -3,7 +3,7 @@
 // (applyTopicMap; no model call). New reports do this themselves; this is for
 // reports written before 2026-11-09. Dry run unless --apply. Sets with a saved
 // reteach plan are skipped (the plan names its focus topics).
-//   npx tsx --env-file=.env.local scripts/align-topics.ts [--teacher email] [--apply]
+//   npx tsx --env-file=.env.local scripts/align-topics.ts [--teacher <email or profile id>] [--apply]
 import { createClient } from '@supabase/supabase-js'
 import { applyTopicMap, questionStats, type ClassInsightsAI, type PaperForInsights } from '@/lib/grading/insights'
 import { sharedTopicsFor } from '@/lib/grading/topic-map-server'
@@ -17,7 +17,8 @@ const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPAB
 async function main() {
   let teacherId: string | undefined
   if (arg('teacher')) {
-    const { data } = await sb.from('user_profiles').select('id').eq('email', arg('teacher')!).maybeSingle()
+    // An email, or the profile id itself.
+    const { data } = await sb.from('user_profiles').select('id').eq(arg('teacher')!.includes('@') ? 'email' : 'id', arg('teacher')!).maybeSingle()
     if (!data) throw new Error('No such teacher')
     teacherId = data.id
   }
