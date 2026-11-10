@@ -4,11 +4,13 @@
 // from their answer log (study_results) by lib/learner/profile.ts. Weak spots
 // turn into a targeted quiz through the homepage prefill.
 
+import { useCountUp } from "@/lib/use-count-up"
+import { actionButton } from "@/components/grading/grading-ui"
 import { MyAssignments } from "@/components/assign/my-assignments"
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Flame, Loader2, Target, TrendingUp, Trophy } from "lucide-react"
+import { ArrowRight, ChevronDown, Flame, Loader2, PencilLine, Target, TrendingUp, Trophy } from "lucide-react"
 import NavigationHeader from "@/components/navigation-header"
 import AuthGate from "@/components/auth-gate"
 import { Button } from "@/components/ui/button"
@@ -185,10 +187,10 @@ function Progress() {
 
             {/* At a glance */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat icon={<TrendingUp className="h-5 w-5" />} label="Questions answered" value={profile.answered.toLocaleString()} />
-              <Stat icon={<Target className="h-5 w-5" />} label="Accuracy" value={pct(profile.accuracy)} />
-              <Stat icon={<Flame className="h-5 w-5" />} label="Day streak" value={String(profile.streak)} hint={profile.streak ? "Keep it going" : "Answer something today"} />
-              <Stat icon={<Trophy className="h-5 w-5" />} label="This week" value={String(thisWeek)} hint="questions" />
+              <Stat icon={<TrendingUp className="h-5 w-5" />} label="Questions answered" number={profile.answered} />
+              <Stat icon={<Target className="h-5 w-5" />} label="Accuracy" number={Math.round(profile.accuracy * 100)} suffix="%" bar={profile.answered ? profile.accuracy : undefined} barClass={barColor(profile.accuracy)} />
+              <Stat icon={<Flame className="h-5 w-5" />} label="Day streak" number={profile.streak} hint={profile.streak ? "Keep it going" : "Answer something today"} tile={profile.streak ? "bg-orange-100 text-orange-700" : undefined} />
+              <Stat icon={<Trophy className="h-5 w-5" />} label="This week" number={thisWeek} hint={thisWeek === 1 ? "question" : "questions"} />
             </div>
 
             <Card>
@@ -230,7 +232,7 @@ function Progress() {
               ) : (
                 <ul className="mt-4 divide-y divide-slate-100">
                   {profile.weak.slice(0, 8).map((t) => (
-                    <TopicRow key={t.key} t={t} titles={titles} showSubject={subject === null} action={<button type="button" disabled={!!preparing} onClick={() => void quizMe([t], t.key)} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{preparing === t.key && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Practice</button>} />
+                    <TopicRow key={t.key} t={t} titles={titles} showSubject={subject === null} action={<button type="button" disabled={!!preparing} onClick={() => void quizMe([t], t.key)} className={actionButton}>{preparing === t.key ? <Loader2 className="animate-spin" /> : <PencilLine />}Practice</button>} />
                   ))}
                 </ul>
               )}
@@ -261,7 +263,7 @@ function Progress() {
                     {profile.subjects.map((s) => (
                       <li key={s.subject}>
                         <div className="flex justify-between text-sm"><span className="font-medium text-slate-800">{displaySubject(s.subject) || s.subject}</span><span className="text-slate-500">{pct(s.accuracy)} of {s.answered}</span></div>
-                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className={cn("h-full rounded-full", barColor(s.accuracy))} style={{ width: pct(s.accuracy) }} /></div>
+                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className={cn("animate-grow h-full rounded-full", barColor(s.accuracy))} style={{ width: pct(s.accuracy) }} /></div>
                       </li>
                     ))}
                   </ul>
@@ -271,9 +273,9 @@ function Progress() {
 
             {/* Every topic */}
             <Card>
-              <button type="button" onClick={() => setShowAll(!showAll)} className="flex w-full items-center justify-between text-left">
+              <button type="button" onClick={() => setShowAll(!showAll)} aria-expanded={showAll} className="-m-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-2xl p-2 text-left transition hover:bg-slate-50">
                 <h2 className={cn(fontDisplay, "text-xl font-semibold text-slate-900")}>All topics ({profile.topics.length})</h2>
-                <span className="text-sm font-semibold text-blue-700">{showAll ? "Hide" : "Show"}</span>
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-blue-700">{showAll ? "Hide" : "Show"}<ChevronDown className={cn("h-4 w-4 transition-transform", showAll && "rotate-180")} /></span>
               </button>
               {showAll && (
                 <ul className="mt-3 divide-y divide-slate-100">
@@ -296,11 +298,13 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   return <section className={cn("rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-blue-900/10 sm:p-6", className)}>{children}</section>
 }
 
-function Stat({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
+function Stat({ icon, label, number, suffix = "", hint, bar, barClass, tile }: { icon: React.ReactNode; label: string; number: number; suffix?: string; hint?: string; bar?: number; barClass?: string; tile?: string }) {
+  const shown = useCountUp(number)
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-blue-900/10">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700">{icon}</span>
-      <p className={cn(fontDisplay, "mt-3 text-3xl font-semibold text-slate-900")}>{value}</p>
+      <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", tile ?? "bg-blue-50 text-blue-700")}>{icon}</span>
+      <p className={cn(fontDisplay, "mt-3 text-3xl font-semibold tabular-nums text-slate-900")}>{Math.round(shown).toLocaleString()}{suffix}</p>
+      {bar != null && <span className="mb-1.5 mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span className={cn("animate-grow block h-full rounded-full", barClass)} style={{ width: `${Math.round(bar * 100)}%` }} /></span>}
       <p className="text-sm text-slate-500">{label}{hint ? <span className="block text-xs text-slate-400">{hint}</span> : null}</p>
     </div>
   )
@@ -308,18 +312,33 @@ function Stat({ icon, label, value, hint }: { icon: React.ReactNode; label: stri
 
 function ActivityStrip({ days }: { days: number[] }) {
   const max = Math.max(1, ...days)
+  const total = days.reduce((a, b) => a + b, 0)
+  const active = days.filter(Boolean).length
   const label = (i: number) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d.toLocaleDateString([], { weekday: "narrow" }) }
   return (
-    <div className="mt-4 flex items-end gap-1.5" role="img" aria-label={`Questions answered each day for the last 14 days: ${days.join(", ")}`}>
-      {days.map((n, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1">
-          <div className="flex h-16 w-full items-end overflow-hidden rounded-md bg-slate-100">
-            <div className={cn("w-full rounded-md", n ? "bg-gradient-to-t from-blue-600 to-cyan-400" : "")} style={{ height: `${(n / max) * 100}%` }} title={`${n} answered`} />
+    <>
+      <p className="mt-1 text-sm text-slate-500">{total ? `${total.toLocaleString()} question${total === 1 ? "" : "s"} on ${active} day${active === 1 ? "" : "s"}.` : "No questions in the last two weeks. One short quiz starts a streak."}</p>
+      <div className="mt-3 flex items-end gap-1.5" role="img" aria-label={`Questions answered each day for the last 14 days: ${days.join(", ")}`}>
+        {days.map((n, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <span className={cn("h-4 text-[0.65rem] font-semibold tabular-nums text-slate-600", !n && "invisible")}>{n}</span>
+            <div className={cn("flex h-16 w-full items-end overflow-hidden rounded-md bg-slate-100", i === 13 && "ring-2 ring-blue-300 ring-offset-1")}>
+              <div className={cn("w-full origin-bottom rounded-md", n ? "animate-rise bg-gradient-to-t from-blue-600 to-cyan-400" : "")} style={{ height: `${Math.max(n ? 8 : 0, (n / max) * 100)}%`, animationDelay: `${i * 30}ms` }} title={`${n} answered`} />
+            </div>
+            <span className={cn("text-[0.65rem]", i === 13 ? "font-bold text-blue-700" : "text-slate-400")}>{i === 13 ? "Today" : label(i)}</span>
           </div>
-          <span className={cn("text-[0.65rem]", i === 13 ? "font-bold text-slate-700" : "text-slate-400")}>{label(i)}</span>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** The last few answers on a topic as dots: filled for right, hollow for wrong (how many, not the order). */
+function AnswerDots({ right, total }: { right: number; total: number }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 align-middle" aria-hidden="true">
+      {Array.from({ length: Math.min(total, 10) }, (_, i) => <span key={i} className={cn("h-2 w-2 rounded-full", i < right ? "bg-emerald-500" : "bg-white ring-1 ring-inset ring-rose-400")} />)}
+    </span>
   )
 }
 
@@ -336,6 +355,7 @@ function TopicRow({ t, titles, action, showSubject }: { t: TopicStat; titles: Re
           )}
         </span>
         <span className="block truncate text-xs text-slate-500">
+          <AnswerDots right={Math.round(t.recentAccuracy * t.recentAnswered)} total={t.recentAnswered} />{" "}
           {showSubject && <>{displaySubject(t.subject) || "Other"} · </>}{Math.round(t.recentAccuracy * t.recentAnswered)} of your last {t.recentAnswered} right
           {guideId && titles[guideId] ? <> · <Link href={`/study-guide/${guideId}`} className="hover:text-blue-700 hover:underline">{titles[guideId]}</Link></> : null}
         </span>
