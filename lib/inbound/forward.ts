@@ -4,7 +4,7 @@
 // at /api/inbound/scan, which also serves the scanner inbox.
 
 /** Addresses on the main domain that are forwarded. Anything else is dropped (spam to made-up names). */
-export const FORWARDED_ALIASES = ['hello', 'privacy', 'support', 'schools'] as const
+export const FORWARDED_ALIASES = ['hello', 'privacy', 'support', 'schools', 'payments'] as const
 
 const addressOf = (raw: string) => (raw.match(/<([^>]+)>/)?.[1] ?? raw).trim().toLowerCase()
 
