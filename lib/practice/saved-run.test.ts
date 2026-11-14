@@ -49,8 +49,13 @@ describe('scoreSavedRun', () => {
     const [mc, tf, sa] = parseQuizContent(QUIZ)
     const run = { mode: 'practice', index: 2, answers: { [mc.id]: 'Mitochondria', [tf.id]: 'false', [sa.id]: 'makes proteins' }, checked: {}, hinted: {}, saScores: {}, marked: [], subset: null }
     expect(scoreSavedRun('quiz', QUIZ, { updatedAt: 1, run })).toMatchObject({ correct: 1, total: 3, answered: 3, unit: 'questions' })
-    const scored = { ...run, saScores: { [sa.id]: { score: 1, feedback: 'ok', isCorrect: true } } }
+    const scored = { ...run, saScores: { [sa.id]: { score: 100, feedback: 'ok', isCorrect: true } } }
     expect(scoreSavedRun('quiz', QUIZ, { updatedAt: 1, run: scored })?.correct).toBe(2)
+    // A partly-right written answer earns its share of the point.
+    const partly = { ...run, saScores: { [sa.id]: { score: 50, feedback: 'half', isCorrect: false } } }
+    const sent = scoreSavedRun('quiz', QUIZ, { updatedAt: 1, run: partly })
+    expect(sent?.correct).toBe(1.5)
+    expect(sent?.answers?.find((a) => a.id === `q:${sa.id}`)).toMatchObject({ correct: false, score: 0.5 })
   })
 
   it('nothing to send: no run, a finished/cleared run, a retry-missed run', () => {

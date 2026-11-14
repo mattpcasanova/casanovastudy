@@ -108,7 +108,8 @@ export function sanitizeAnswers(v: unknown): PracticeAnswer[] | null {
     const id = typeof a?.id === 'string' ? a.id.slice(0, 120) : ''
     if (!/^[qpa]:/.test(id) || seen.has(id) || typeof a?.correct !== 'boolean') continue
     seen.add(id)
-    const given = typeof a.given === 'string' && a.given.trim() ? a.given.trim().slice(0, 300) : undefined
+    // 1,500 characters: a written answer cut at 300 could not be checked again fairly later (2026-11-14).
+    const given = typeof a.given === 'string' && a.given.trim() ? a.given.trim().slice(0, 1500) : undefined
     const score = !a.correct && typeof a.score === 'number' && a.score > 0 && a.score < 1 ? Math.round(a.score * 100) / 100 : undefined
     out.push({ id, correct: a.correct, ...(given ? { given } : {}), ...(score ? { score } : {}) })
   }

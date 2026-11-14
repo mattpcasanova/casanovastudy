@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties, 
 import { useCountUp } from '@/lib/use-count-up'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks, Timer } from 'lucide-react'
+import { CheckCircle2, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2, Zap, ClipboardList, Lightbulb, Flag, ListChecks, Timer, CircleDot } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { openHomeWithPrefill, type GuidePrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ import { QuestionStem } from './question-stem'
 import { GraphFence } from './graph-figure'
 import { answerText, isObjectiveCorrect, parseQuizContent, parseQuizRaw, type Question, type ShortAnswerQuestion } from '@/lib/formats/quiz'
 import { authFetch } from '@/lib/auth-fetch'
+import { SA_CORRECT_AT, shortAnswerPoints, shortAnswerVerdict } from '@/lib/formats/short-answer'
 import { useGuideHistory, useRecordResult } from '@/components/study-results-context'
 import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { useAttemptVersion } from '@/components/formats/use-attempt-version'
@@ -221,7 +222,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
   const checkShortAnswer = async (q: ShortAnswerQuestion) => {
     setChecked((c) => ({ ...c, [q.id]: true }))
     const score = await scoreShortAnswer(q)
-    if (score) log(q, score.isCorrect, score.score)
+    if (score) log(q, score.score >= SA_CORRECT_AT, score.score)
   }
 
   const finish = async () => {
@@ -235,8 +236,10 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     for (const q of questions) {
       if (q.type === 'sa') {
         const r = scores[q.id]
-        if (r) { log(q, r.isCorrect, r.score); given.push({ id: `q:${q.id}`, correct: r.isCorrect, given: answers[q.id] }) }
-        if (r?.isCorrect) right++
+        // A written answer earns its share of the point: partly right is not zero.
+        const points = shortAnswerPoints(r?.score)
+        if (r) { log(q, r.score >= SA_CORRECT_AT, r.score); given.push({ id: `q:${q.id}`, correct: points === 1, given: answers[q.id], ...(points > 0 && points < 1 ? { score: points } : {}) }) }
+        right += points
       } else if (answers[q.id]) {
         const ok = isObjectiveCorrect(q, answers[q.id])
         log(q, ok)
@@ -246,7 +249,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     }
     // Assigned practice: a full run counts (retrying just the missed ones doesn't).
     // A new version's option text wouldn't match the original's question in the teacher's report, so only right/wrong goes.
-    if (!subset) reportAssignment?.({ correct: right, total: questions.length, seconds: timed || limited ? elapsed : undefined, detail: { answers: ver.version ? given.map(({ id, correct }) => ({ id, correct })) : given, ...(ver.version ? { version: ver.version } : {}) } })
+    if (!subset) reportAssignment?.({ correct: Math.round(right * 100) / 100, total: questions.length, seconds: timed || limited ? elapsed : undefined, detail: { answers: ver.version ? given.map(({ id, correct, score }) => ({ id, correct, ...(score ? { score } : {}) })) : given, ...(ver.version ? { version: ver.version } : {}) } })
     setSubmitting(false)
     setFinished(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -327,7 +330,7 @@ export default function QuizFormat({ content, subject, title, gradeLevel, studyG
     const revealed = finished || (mode === 'practice' && checked[q.id])
     if (q.type === 'sa') {
       const s = saScores[q.id]
-      if (revealed && s) return s.isCorrect ? 'correct' : 'wrong'
+      if (revealed && s) return s.score >= SA_CORRECT_AT ? 'correct' : 'wrong'
       return answers[q.id]?.trim() ? 'answered' : 'open'
     }
     if (!answers[q.id]) return 'open'
@@ -882,13 +885,15 @@ function Feedback({ correct, explanation, correctLabel, pickedLabel, extra, hint
 
 function ShortAnswerFeedback({ score, sample, extra }: { score?: ShortAnswerScore; sample: string; extra?: ReactNode }) {
   const t = usePlayerText()
+  const verdict = score ? shortAnswerVerdict(score.score) : null
   return (
-    <div className={cn('rounded-xl p-4', !score ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : score.isCorrect ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-amber-50 ring-1 ring-inset ring-amber-200')}>
+    <div className={cn('rounded-xl p-4', !score ? 'bg-slate-50 ring-1 ring-inset ring-slate-200' : verdict === 'correct' ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : verdict === 'partly' ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : 'bg-rose-50 ring-1 ring-inset ring-rose-200')}>
       {score ? (
         <>
           <p className="flex items-center gap-2 font-semibold text-slate-900">
-            {score.isCorrect ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-amber-600" />}
-            {score.score}/100
+            {verdict === 'correct' ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : verdict === 'partly' ? <CircleDot className="h-5 w-5 text-amber-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
+            {verdict === 'correct' ? t.correct : verdict === 'partly' ? t.partlyRight : t.notQuite}
+            <span className="text-sm font-medium tabular-nums text-slate-500">{score.score}/100</span>
           </p>
           <p className="mt-1 text-sm leading-relaxed text-slate-700">{score.feedback}</p>
         </>
@@ -925,7 +930,9 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
 }) {
   const t = usePlayerText()
   const graded = questions.filter((q) => q.type !== 'sa' || saScores[q.id])
-  const correct = graded.filter((q) => status(q) === 'correct').length
+  // Written answers earn their share of a point; everything else is right or wrong.
+  const points = (q: Question) => (q.type === 'sa' ? shortAnswerPoints(saScores[q.id]?.score) : status(q) === 'correct' ? 1 : 0)
+  const correct = Math.round(graded.reduce((sum, q) => sum + points(q), 0) * 10) / 10
   const pct = graded.length ? Math.round((correct / graded.length) * 100) : 0
   const missed = questions.filter((q) => status(q) !== 'correct')
   const router = useRouter()
@@ -938,7 +945,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
     let s = sections.find((x) => x.name === name)
     if (!s) sections.push((s = { name, right: 0, total: 0 }))
     s.total++
-    if (status(q) === 'correct') s.right++
+    s.right += points(q)
   }
 
   const circumference = 2 * Math.PI * 52
@@ -1022,7 +1029,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                 <div key={s.name}>
                   <div className="mb-1 flex justify-between gap-2 text-sm">
                     <span className="truncate font-medium text-slate-700">{s.name}</span>
-                    <span className="shrink-0 tabular-nums text-slate-500">{s.right}/{s.total}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">{Math.round(s.right * 10) / 10}/{s.total}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                     <div className={cn('h-full rounded-full', p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-400' : 'bg-rose-400')} style={{ width: `${p}%` }} />
@@ -1041,11 +1048,12 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
             const st = status(q)
             const ok = st === 'correct'
             const unscored = q.type === 'sa' && !saScores[q.id]
+            const partly = q.type === 'sa' && !ok && points(q) > 0
             return (
-              <li key={q.id} className={cn('rounded-xl border p-4', unscored ? 'border-slate-200 bg-slate-50' : ok ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/50')}>
+              <li key={q.id} className={cn('rounded-xl border p-4', unscored ? 'border-slate-200 bg-slate-50' : ok ? 'border-emerald-200 bg-emerald-50/50' : partly ? 'border-amber-200 bg-amber-50/50' : 'border-rose-200 bg-rose-50/50')}>
                 <div className="flex gap-3">
                   <span className="mt-0.5 shrink-0">
-                    {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
+                    {unscored ? <span className="block h-5 w-5 rounded-full border-2 border-slate-300" /> : ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : partly ? <CircleDot className="h-5 w-5 text-amber-600" /> : <XCircle className="h-5 w-5 text-rose-600" />}
                   </span>
                   <div className="min-w-0 flex-1 text-sm">
                     {(marked.has(q.id) || (timing && pace && spent?.[q.id] !== undefined)) && (
@@ -1072,7 +1080,7 @@ function QuizResults({ questions, answers, saScores, status, marked, onRestart, 
                     )}
                     {q.type === 'sa' && (
                       <>
-                        {saScores[q.id] && <p className="text-slate-700"><span className="font-medium">{saScores[q.id].score}/100</span> · {saScores[q.id].feedback}</p>}
+                        {saScores[q.id] && <p className="text-slate-700"><span className="font-medium">{partly ? `${t.partlyRight} ` : ''}{saScores[q.id].score}/100</span> · {saScores[q.id].feedback}</p>}
                         <p className="mt-1 text-slate-600">Model answer: <InlineMarkdown text={q.sampleAnswer} /></p>
                       </>
                     )}

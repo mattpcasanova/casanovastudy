@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePractice, parsePracticeRaw, isBlankCorrect, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse, parseLineList } from './practice'
+import { parsePractice, parsePracticeRaw, isBlankCorrect, isExactBlank, seededShuffle, parseFillSentence, fillToSentence, normalizePracticeActivities, isPlayable, isTrueFalse, parseLineList } from './practice'
 
 const SAMPLE = `# Cells Practice
 *Interactive review of cell structure.*
@@ -72,6 +72,52 @@ describe('isBlankCorrect', () => {
     expect(isBlankCorrect('ribosome', ['mitochondria'])).toBe(false)
     expect(isBlankCorrect('ATP', ['atp'])).toBe(true)
     expect(isBlankCorrect('ADP', ['ATP'])).toBe(false) // short answers must be exact
+  })
+
+  it('ignores spacing and hyphens', () => {
+    expect(isBlankCorrect('6y+11', ['6y + 11', '11 + 6y'])).toBe(true)
+    expect(isBlankCorrect('y intercept', ['y-intercept'])).toBe(true)
+    expect(isBlankCorrect('yintercept', ['y-intercept'])).toBe(true)
+    expect(isBlankCorrect('z score', ['z-scores', 'z scores'])).toBe(true)
+  })
+
+  it('forgives the spelling slips students really make', () => {
+    expect(isBlankCorrect('rigth', ['right'])).toBe(true) // swapped letters are one slip
+    expect(isBlankCorrect('origianl', ['original'])).toBe(true)
+    expect(isBlankCorrect('y-intersept', ['y-intercept'])).toBe(true)
+    expect(isBlankCorrect('photosinthesys', ['photosynthesis'])).toBe(true)
+    expect(isBlankCorrect('slop', ['slope'])).toBe(true)
+  })
+
+  it('never turns one term into its opposite or its neighbour', () => {
+    expect(isBlankCorrect('decrease', ['increase'])).toBe(false)
+    expect(isBlankCorrect('hypotonic', ['hypertonic'])).toBe(false)
+    expect(isBlankCorrect('exothermic', ['endothermic'])).toBe(false)
+    expect(isBlankCorrect('efferent', ['afferent'])).toBe(false)
+    expect(isBlankCorrect('meiosis', ['mitosis'])).toBe(false)
+    expect(isBlankCorrect('adsorption', ['absorption'])).toBe(false)
+    expect(isBlankCorrect('left', ['right'])).toBe(false)
+    expect(isBlankCorrect('y-axis', ['y-intercept'])).toBe(false) // a different thing: the meaning check decides
+  })
+
+  it('compares numbers as numbers and never forgives a digit', () => {
+    expect(isBlankCorrect('1921', ['1920'])).toBe(false)
+    expect(isBlankCorrect('12', ['-12', '\u221212'])).toBe(false)
+    expect(isBlankCorrect('\u221212', ['-12'])).toBe(true)
+    expect(isBlankCorrect('12.0', ['12'])).toBe(true)
+    expect(isBlankCorrect('0.015625', ['1/64'])).toBe(true)
+    expect(isBlankCorrect('.176', ['0.1762', '0.176'])).toBe(true)
+    expect(isBlankCorrect('7', ['7x'])).toBe(false)
+    expect(isBlankCorrect('6y', ['6y + 11'])).toBe(false)
+    expect(isBlankCorrect('0.25', ['25'])).toBe(false)
+    expect(isBlankCorrect('17y', ['6y + 11'])).toBe(false)
+  })
+
+  it('knows which blanks have nothing for a meaning check to judge', () => {
+    expect(isExactBlank(['12'])).toBe(true)
+    expect(isExactBlank(['6y + 11', '11 + 6y'])).toBe(true)
+    expect(isExactBlank(['outside'])).toBe(false)
+    expect(isExactBlank(['4', 'four'])).toBe(false)
   })
 })
 

@@ -46,7 +46,8 @@ type Submission =
   | { state: "sent"; correct: number; total: number; counted: boolean; attemptsLeft: number | null; best: Mine["best"]; late: boolean }
   | { state: "error"; message: string; score: Parameters<Finish>[0] }
 /** First answer per question in the run (q:/p:/a: ids, as in study_results), for the teacher's class report. */
-export type FinishAnswer = { id: string; correct: boolean; given?: string }
+/** `score`: the share of the point (0-1) a partly-right answer earned. */
+export type FinishAnswer = { id: string; correct: boolean; given?: string; score?: number }
 type Finish = (score: { correct: number; total: number; seconds?: number; detail?: { mastered?: string[]; notMastered?: string[]; answers?: FinishAnswer[]; version?: number } }) => void
 
 const Ctx = createContext<{ finish: Finish; aiHelp: Mine["aiHelp"]; counts: boolean; timeLimit: number | null; adaptive: AdaptiveSettings | null; teacherName: string | null; grading: Mine["grading"]; submission: Submission | null; translation: Mine["translation"] } | null>(null)

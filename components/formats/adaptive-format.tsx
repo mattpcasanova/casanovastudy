@@ -7,6 +7,7 @@
 // day) and for checking the occasional "explain it" answer.
 // Answers persist as study_progress kind 'adaptive' + cs:adaptive:<id>.
 
+import { SA_CORRECT_AT, SA_PARTLY_AT } from "@/lib/formats/short-answer"
 import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut } from '@/components/formats/choice-tools'
 import { ReadAloudButton, usePlayerText } from "@/components/reading/reading-provider"
 import { questionForSpeech } from "@/lib/reading/speech"
@@ -320,7 +321,7 @@ export default function AdaptiveFormat({ content: initialContent, studyGuideId, 
                   {q.type === "explain" ? (
                     <>
                       <p className="flex items-center gap-2 font-semibold text-sky-900">
-                        <PenLine className="h-5 w-5" /> {result.score === undefined ? "Compare with a model answer" : result.score >= 80 ? "Nicely explained" : result.score >= 50 ? "Partly there" : "Not quite yet"}
+                        <PenLine className="h-5 w-5" /> {result.score === undefined ? "Compare with a model answer" : result.score >= SA_CORRECT_AT ? "Nicely explained" : result.score >= SA_PARTLY_AT ? "Partly there" : "Not quite yet"}
                       </p>
                       {result.feedback && <p className="mt-2 text-sm leading-relaxed text-slate-700">{result.feedback}</p>}
                       <p className="mt-3 text-sm leading-relaxed text-slate-700"><span className="font-semibold text-slate-900">A strong answer: </span><InlineMarkdown text={q.answers[0]} /></p>
@@ -509,7 +510,7 @@ function ExplainAnswer({ q, guideId, result, onChecked, onBlocked }: {
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && typeof data.score === "number") {
-        onChecked(answer, { correct: data.score >= 80, score: data.score, feedback: data.feedback })
+        onChecked(answer, { correct: data.score >= SA_CORRECT_AT, score: data.score, feedback: data.feedback })
         return
       }
       if (isPlanBlock(data) && data.code === "premium_only") onBlocked(data)

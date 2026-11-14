@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { displaySerif } from '@/lib/formats/fonts'
 import { fontDisplay, eyebrow } from '@/lib/formats/design'
 import {
-  parsePractice, parsePracticeRaw, isBlankCorrect, normalizeAnswer, seededShuffle, isTrueFalse,
+  parsePractice, parsePracticeRaw, isBlankCorrect, isExactBlank, normalizeAnswer, seededShuffle, isTrueFalse,
   type PracticeActivity, type MatchActivity, type FillActivity, type OrderActivity, type SortActivity, type ChoiceActivity, type BugActivity,
 } from '@/lib/formats/practice'
 import { InlineMarkdown } from './study-markdown'
@@ -30,7 +30,8 @@ import { ChoiceActions, CrossOutButton, LockInButton, crossedClass, useCrossOut 
 import { TurnedInCard, useAssignmentCounts, useAssignmentFinish, useAssignmentTimeLimit } from '@/components/assign/assignment-context'
 import { TimeLimitGate, TimeChip } from './quiz-format'
 import { timeLimitText } from '@/lib/practice/assignments'
-import { Timer } from 'lucide-react'
+import { Timer, Loader2 } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 import { useRunProgress } from '@/lib/use-run-progress'
 import { cleanPracticeRun, type PracticeRun } from '@/lib/run-progress-rules'
 import { ResumeStrip } from './resume-strip'
@@ -623,10 +624,39 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const results = blanks.map((b, k) => isBlankCorrect(values[k], b.answers))
-  const check = () => {
-    if (checked || values.every((v) => !v.trim())) return
-    const right = results.filter(Boolean).length
+  // The letter check runs here; a word it turns down goes to the meaning check ("outer" for
+  // "outside"), which can only turn a wrong blank right. Signed out, offline or slow: letters decide.
+  const letter = blanks.map((b, k) => isBlankCorrect(values[k], b.answers))
+  const [verdicts, setVerdicts] = useState<boolean[] | null>(null)
+  const [checking, setChecking] = useState(false)
+  const results = verdicts ?? letter
+  const check = async () => {
+    if (checked || checking || values.every((v) => !v.trim())) return
+    let final = letter
+    if (blanks.some((b, k) => !letter[k] && values[k].trim() && !isExactBlank(b.answers))) {
+      setChecking(true)
+      const abort = new AbortController()
+      const timer = setTimeout(() => abort.abort(), 7000)
+      try {
+        let n = -1
+        const sentence = activity.parts.map((p) => (typeof p === 'string' ? p : `{{${++n}}}`)).join('')
+        const res = await authFetch('/api/check-blank', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sentence, blanks: blanks.map((b, k) => ({ answers: b.answers, given: values[k] })) }),
+          signal: abort.signal,
+        })
+        const data = res.ok ? await res.json() : null
+        if (Array.isArray(data?.correct) && data.correct.length === blanks.length) final = letter.map((ok, k) => ok || data.correct[k] === true)
+      } catch {
+        // keep the letter check's answer
+      } finally {
+        clearTimeout(timer)
+        setChecking(false)
+      }
+    }
+    setVerdicts(final)
+    const right = final.filter(Boolean).length
     const partial = blanks.length > 1 && right > 0 && right < blanks.length
     onDone(right === blanks.length, partial ? partNote(right, blanks.length, 'blanks') : undefined, values.map((v) => v.trim()).join(' / '), partial ? right / blanks.length : undefined)
   }
@@ -646,7 +676,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
               <input
                 ref={n === 0 ? firstInput : undefined}
                 value={values[n]}
-                disabled={checked}
+                disabled={checked || checking}
                 onChange={(e) => setValues((v) => v.map((x, j) => (j === n ? e.target.value : x)))}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter') return
@@ -663,7 +693,7 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
               />
               {checked && !ok && <span className="mx-1 text-center font-sans text-sm font-semibold leading-tight text-emerald-700">{part.answers[0]}</span>}
               {checked && ok && !part.answers.some((ans) => normalizeAnswer(ans) === normalizeAnswer(values[n])) && (
-                <span className="mx-1 text-center font-sans text-xs font-medium leading-tight text-emerald-700">spelled {part.answers[0]}</span>
+                <span className="mx-1 text-center font-sans text-xs font-medium leading-tight text-emerald-700">{letter[n] ? 'spelled' : 'same as'} {part.answers[0]}</span>
               )}
             </span>
           )
@@ -671,8 +701,10 @@ function FillBlank({ activity, onDone, checked, onContinue, compact = false, aut
       </p>
       {!checked && (
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={check} disabled={values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">{held ? t.submit : t.check}</Button>
-          <span className="text-xs text-slate-400">or press Enter · spelling slips are OK</span>
+          <Button onClick={check} disabled={checking || values.every((v) => !v.trim())} className="bg-orange-700 text-white hover:bg-orange-800">
+            {checking ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking</> : held ? t.submit : t.check}
+          </Button>
+          <span className="text-xs text-slate-400">or press Enter · spelling slips and other words that mean the same are OK</span>
         </div>
       )}
     </div>

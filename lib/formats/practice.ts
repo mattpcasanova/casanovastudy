@@ -19,7 +19,7 @@
 import { balanceChoices, fingerprint, relabel } from './balance'
 import { stripEmoji, toTitleCase, plainText } from './normalize'
 import { GRAPH_FENCE_LANGS } from '@/lib/graphs/spec'
-import { levenshtein } from '@/lib/text/levenshtein'
+import { parseNumber, isNumberCorrect } from './numeric'
 import { parseExercise, runnableLang, type CodeExercise } from '@/lib/code-exercise/format'
 
 export interface CodeSnippet { lang: string; text: string }
@@ -244,8 +244,9 @@ export function parsePracticeRaw(content: string): PracticeActivity[] {
 export function normalizeAnswer(s: string): string {
   return s
     .toLowerCase()
+    .replace(/[\u2212\u2013\u2014]/g, '-') // a typed or pasted minus sign is a minus
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // accents: "élan" ≈ "elan"
+    .replace(/[\u0300-\u036f]/g, '') // accents: "élan" ≈ "elan"
     .replace(/[^a-z0-9.+\-/ ]/g, ' ')
     // Leading articles, also in the other guide languages ("la mitocondria" ≈ "mitocondria").
     .replace(/^(the|a|an|el|la|los|las|un|una|unos|unas|le|les|une|des|o|os|as|um|uma)\s+/, '')
@@ -253,16 +254,80 @@ export function normalizeAnswer(s: string): string {
     .trim()
 }
 
-/** Typo-tolerant: one slip allowed for answers of 5+ characters (two for 10+). */
+/** Spacing and hyphens never decide an answer: "6y+11" = "6y + 11", "y intercept" = "y-intercept". */
+const squash = (s: string, hyphens: boolean) => s.replace(hyphens ? /[\s-]+/g : /\s+/g, '').replace(/\.+$/, '')
+
+/** Edit distance where two swapped neighbours ("rigth") count as one slip. */
+function slips(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array<number>(b.length).fill(0)])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+    }
+  }
+  return d[a.length][b.length]
+}
+
+/** How many letters two words share at the start. */
+const sharedStart = (a: string, b: string) => { let n = 0; while (n < a.length && n < b.length && a[n] === b[n]) n++; return n }
+
+/**
+ * Spelling slips allowed for a word answer: one from 4 letters, two from 8, three from 12.
+ * The first two letters must be right, because the pairs students mix up differ there
+ * (increase / decrease, endothermic / exothermic, afferent / efferent, mitosis / meiosis),
+ * and so must the rest of a pair like hypertonic / hypotonic (see `prefixSwap`).
+ */
+function spelledClose(g: string, n: string): boolean {
+  const allowed = n.length >= 12 ? 3 : n.length >= 8 ? 2 : n.length >= 4 ? 1 : 0
+  if (!allowed || sharedStart(g, n) < 2) return false
+  if (prefixSwap(g, n)) return false
+  return slips(g, n) <= allowed
+}
+
+const OPPOSITE_PREFIXES = [['hyper', 'hypo'], ['inter', 'intra'], ['macro', 'micro'], ['homo', 'hetero'], ['pre', 'post'], ['sub', 'super'], ['in', 'un'], ['in', 'ex'], ['endo', 'exo']]
+/** The same word with the opposite prefix is a different answer, however few letters differ. */
+function prefixSwap(g: string, n: string): boolean {
+  const swapped = (a: string, b: string, x: string, y: string) => a.startsWith(x) && b.startsWith(y) && a.slice(x.length) === b.slice(y.length)
+  return OPPOSITE_PREFIXES.some(([x, y]) => swapped(g, n, x, y) || swapped(g, n, y, x))
+}
+
+const PURE_NUMBER = /^[-+]?\$?(?:\d[\d,]*\.?\d*|\.\d+)(?:\s*\/\s*\d+(?:\.\d+)?)?\s*%?$/
+const asNumberText = (s: string) => s.trim().replace(/[\u2212\u2013]/g, '-')
+/** Number answers: whole numbers must be equal (1921 is not 1920); decimals and fractions within 1%. */
+function numbersMatch(given: string, answer: string): boolean {
+  const g = asNumberText(given), a = asNumberText(answer)
+  if (!PURE_NUMBER.test(g) || !PURE_NUMBER.test(a)) return false
+  const gn = parseNumber(g), an = parseNumber(a)
+  if (gn === null || an === null) return false
+  if (/^[-+]?\$?[\d,]+$/.test(a)) return gn === an
+  return isNumberCorrect(g, [a])
+}
+
+/**
+ * Checks one blank without a model: case, accents, articles, spacing and hyphens are ignored,
+ * numbers are compared as numbers (and never get typo tolerance: 1921 is not 1920), and words
+ * may carry a few spelling slips. An answer that means the same thing in other words is the
+ * meaning check's job (/api/check-blank), which the player asks when this says no.
+ */
 export function isBlankCorrect(given: string, answers: string[]): boolean {
   const g = normalizeAnswer(given)
   if (!g) return false
   return answers.some((a) => {
     const n = normalizeAnswer(a)
-    if (g === n) return true
-    const allowed = n.length >= 10 ? 2 : n.length >= 5 ? 1 : 0
-    return allowed > 0 && levenshtein(g, n) <= allowed
+    if (!n) return false
+    if (g === n || squash(g, false) === squash(n, false)) return true
+    if (/\d/.test(n)) return numbersMatch(given, a)
+    if (squash(g, true) === squash(n, true)) return true
+    return spelledClose(squash(g, true), squash(n, true))
   })
+}
+
+/** A blank whose answer is a number or an expression: nothing for a meaning check to judge. */
+export function isExactBlank(answers: string[]): boolean {
+  return answers.every((a) => /\d/.test(a) || normalizeAnswer(a).length < 2)
 }
 
 // Deterministic shuffle so server and client render the same order.

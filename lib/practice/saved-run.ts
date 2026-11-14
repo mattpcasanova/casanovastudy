@@ -2,6 +2,7 @@
 // guide: how far along they are (teacher's "In progress") and what gets sent
 // for them when the due date passes (unanswered counts as 0). Pure.
 
+import { shortAnswerPoints } from '@/lib/formats/short-answer'
 import { parsePractice } from '@/lib/formats/practice'
 import { isObjectiveCorrect, parseQuizContent } from '@/lib/formats/quiz'
 import { parseAdaptive } from '@/lib/adaptive/format'
@@ -61,13 +62,17 @@ export function scoreSavedRun(format: string, content: string, data: unknown, ad
     const answered = questions.filter((q) => run.answers[q.id]?.trim())
     if (!answered.length) return null
     // Short answers count only once they were scored (a typed but unchecked answer can't be graded here).
-    const marks = answered.map((q) => ({ q, ok: q.type === 'sa' ? !!run.saScores[q.id]?.isCorrect : isObjectiveCorrect(q, run.answers[q.id]) }))
+    // A written answer earns its share of the point, as in the player.
+    const marks = answered.map((q) => {
+      const points = q.type === 'sa' ? shortAnswerPoints(run.saScores[q.id]?.score) : isObjectiveCorrect(q, run.answers[q.id]) ? 1 : 0
+      return { q, ok: points === 1, points }
+    })
     return {
-      correct: marks.filter((m) => m.ok).length,
+      correct: Math.round(marks.reduce((sum, m) => sum + m.points, 0) * 100) / 100,
       total: questions.length,
       answered: answered.length,
       unit: 'questions',
-      answers: marks.map(({ q, ok }) => ({ id: `q:${q.id}`, correct: ok, given: run.answers[q.id].slice(0, 300) })),
+      answers: marks.map(({ q, ok, points }) => ({ id: `q:${q.id}`, correct: ok, given: run.answers[q.id].slice(0, 300), ...(points > 0 && points < 1 ? { score: points } : {}) })),
     }
   }
   if (format === 'adaptive') {
