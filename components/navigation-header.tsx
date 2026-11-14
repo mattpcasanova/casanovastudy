@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp, ShieldCheck } from 'lucide-react'
+import { GraduationCap, FileText, LogOut, Plus, ChevronDown, ClipboardList, Users, PenSquare, Menu, X, School, CalendarDays, Library, Target, Download, TrendingUp, ShieldCheck, ListChecks } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +62,7 @@ export default function NavigationHeader() {
   const isCalendarActive = pathname?.startsWith('/calendar')
   const isQuizzesActive = pathname?.startsWith('/teacher/quizzes')
   const isQuestionBankActive = pathname?.startsWith('/teacher/question-bank')
-  const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report') || pathname?.startsWith('/teacher/classes')
+  const isGradingActive = pathname?.startsWith('/grade-exam') || pathname?.startsWith('/graded-exams') || pathname?.startsWith('/grade-report') || pathname?.startsWith('/teacher/classes') || pathname?.startsWith('/teacher/practice')
   const isTeacher = user?.user_type === 'teacher'
   // Students in a class get My Classes where teachers have Grading.
   const inClass = useInClass()
@@ -155,6 +155,12 @@ export default function NavigationHeader() {
                       <Link href="/graded-exams" className="flex items-center cursor-pointer">
                         <ClipboardList className="h-4 w-4 mr-2" />
                         My Reports
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/teacher/practice" className="flex items-center cursor-pointer">
+                        <ListChecks className="h-4 w-4 mr-2" />
+                        Assigned Practice
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -461,6 +467,15 @@ export default function NavigationHeader() {
                 >
                   <ClipboardList className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm font-medium">My Reports</span>
+                </Link>
+                <Link
+                  href="/teacher/practice"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    pathname?.startsWith('/teacher/practice') ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <ListChecks className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Assigned Practice</span>
                 </Link>
                 <Link
                   href="/teacher/classes"

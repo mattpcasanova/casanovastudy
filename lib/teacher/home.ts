@@ -44,6 +44,8 @@ export const HOME_RULES = {
   practiceHours: 48,
   behind: 0.5,
   max: 6,
+  /** Rows in Recently graded and in Assigned practice, so the two cards sit level. */
+  listRows: 6,
 }
 
 const DAY = 86400_000

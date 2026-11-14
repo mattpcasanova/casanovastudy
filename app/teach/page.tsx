@@ -28,6 +28,8 @@ interface HomeData {
   recent: Array<{ batchId: string; title: string | null; className: string | null; period: string | null; classId: string | null; papers: number; average: number; date: string; released: boolean; toMark?: number; toCheck?: number }>
   attention: { items: Attention[]; more: number }
   practice: HomePractice[]
+  practiceOpen: number
+  practiceTotal: number
   week: { papers: number; sets: number }
   classes: Array<{ id: string; name: string; period: string | null; students: number }>
   scansWaiting: number
@@ -244,7 +246,7 @@ function TeacherHome() {
             ))}
           </div>
         ) : (
-          <div className={cn("grid grid-cols-1 items-start gap-6", data.practice.length > 0 && "lg:grid-cols-2")}>
+          <div className={cn("grid grid-cols-1 items-start gap-6", data.practiceTotal > 0 && "lg:grid-cols-2")}>
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-900">Recently graded</h2>
@@ -263,7 +265,7 @@ function TeacherHome() {
                         <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold", s.toMark ? "bg-amber-50 text-amber-800" : s.average >= 80 ? "bg-emerald-50 text-emerald-700" : s.average >= 65 ? "bg-blue-50 text-blue-700" : s.average >= 50 ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700")}>{s.toMark ? <PencilLine className="h-5 w-5" aria-label="Still marking" /> : `${Math.round(s.average)}%`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{s.title || "Untitled"}</span>
-                          <span className="block text-xs text-slate-500">{[s.className, s.period && `P${s.period}`].filter(Boolean).join(" · ")}{s.className ? " · " : ""}{s.papers} paper{s.papers === 1 ? "" : "s"}{s.toMark ? ` · ${s.toMark} to mark` : ""} · {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                          <span className="block text-xs text-slate-500 lg:truncate">{[s.className, s.period && `P${s.period}`].filter(Boolean).join(" · ")}{s.className ? " · " : ""}{s.papers} paper{s.papers === 1 ? "" : "s"}{s.toMark ? ` · ${s.toMark} to mark` : ""} · {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
                         </span>
                         {!s.toMark && s.classId && (
                           <span className={cn("hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline", s.released ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600")}>{s.released ? "Released" : "Not released"}</span>
@@ -276,9 +278,18 @@ function TeacherHome() {
               )}
             </section>
 
-            {data.practice.length > 0 && (
+            {data.practiceTotal > 0 && (
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-1 font-semibold text-slate-900">Assigned practice</h2>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-semibold text-slate-900">Assigned practice{data.practiceOpen > data.practice.length && <span className="ml-2 text-sm font-normal text-slate-600">{data.practice.length} of {data.practiceOpen} open</span>}</h2>
+                  <Link href="/teacher/practice" className={actionButton}><ListChecks />All practice</Link>
+                </div>
+                {data.practice.length === 0 && (
+                  <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-600">
+                    <ListChecks className="mx-auto mb-2 h-6 w-6 text-violet-700" />
+                    Nothing is open right now. Everything you assigned before is under All practice.
+                  </div>
+                )}
                 <ul className="divide-y divide-slate-100">
                   {data.practice.map((p) => {
                     const pct = Math.round((p.done / Math.max(1, p.assigned)) * 100)
@@ -288,7 +299,7 @@ function TeacherHome() {
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><ListChecks className="h-5 w-5" /></span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-medium text-slate-900 group-hover:text-blue-700">{p.title}</span>
-                            <span className="block text-xs text-slate-500">{[p.className, p.period && `P${p.period}`, dueLabel(p.dueAt)].filter(Boolean).join(" · ")}<span className="sm:hidden"> · {p.done} of {p.assigned} done</span></span>
+                            <span className="block text-xs text-slate-500 lg:truncate">{[dueLabel(p.dueAt), p.className, p.period && `P${p.period}`].filter(Boolean).join(" · ")}<span className="sm:hidden"> · {p.done} of {p.assigned} done</span></span>
                           </span>
                           <span className="hidden w-28 shrink-0 text-right sm:block">
                             <span className="block text-xs font-medium tabular-nums text-slate-700">{p.done} of {p.assigned} done</span>
